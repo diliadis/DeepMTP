@@ -1,5 +1,4 @@
-<p align="center"><img src="images/logo_transparent.png" alt="logo" /></p>
-
+<p align="center"><img src="images/logo_transparent.png" alt="logo" width="400px"/></p>
 
 <h3 align="center">
 <p> A Deep Learning Framework for Multi-target Prediction </h3>
