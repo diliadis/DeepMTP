@@ -1,0 +1,36 @@
+from setuptools import setup, find_packages
+from os import path
+from io import open
+
+this_directory = path.abspath(path.dirname(__file__))
+
+VERSION = '0.0.1' 
+DESCRIPTION = 'a Deep Learning Framework for Multi-target Prediction'
+
+def readme():
+    with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+        return f.read()
+
+with open(path.join(this_directory, 'requirements.txt'), encoding='utf-8') as f:
+    requirements = f.read().splitlines()
+
+# Setting up
+setup(
+       # the name must match the folder name 'verysimplemodule'
+        name='DeepMTP', 
+        version=VERSION,
+        author='Dimitris Iliadis',
+        author_email='<dimitrios.iliadis@ugent.be>',
+        description=DESCRIPTION,
+        license='MIT',
+        long_description=readme(),
+        packages=find_packages(),
+        long_description_content_type='text/markdown',
+        install_requires=requirements,
+        classifiers= [
+            "Intended Audience :: Education",
+            'License :: OSI Approved :: MIT License',
+            "Programming Language :: Python :: 3",
+            "Operating System :: OS Independent",
+        ]
+)
