@@ -25,7 +25,7 @@ Multi-target prediction (MTP) serves as an umbrella term for machine learning ta
 
 Despite the significant similarities, all these domains have evolved separately into distinct research areas over the last two decades. To better understand these similarities and differences it is important to get accustomed to the terminology and main concepts used in this field.
 
-<p align="center"><img src="images/basic_MTP.png" alt="logo" height="300"/></p>
+<p align="center"><img src="images/basic_MTP_white.png" alt="logo" height="300"/></p>
 
 
 
