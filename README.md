@@ -29,9 +29,7 @@ Despite the significant similarities, all these domains have evolved separately 
 
 A multi-target prediction problem is characterized by instances $x in X$ and targets $t \in T$ with the following properties:
 
-1. A training dataset $\mathcal{D}$ contains triplets $(\mathbf{x}_i,\mathbf{t}_j,y_{ij})$, where $\mathbf{x}_i \in \mathcal{X}$ represents an instance, $\mathbf{t}_j \in \mathcal{T}$ represents a target, 
-  and $y_{ij} \in \mathcal{Y}$ is the score that quantifies the relationship between an instance and a target, with $i\in\{1,\ldots,n\}$ and $j\in\{1,\ldots,m\}$. The scores can be arranged in an $n \times m$ matrix $\mathbf{Y}$
-  that is usually incomplete.
+1. A training dataset $\mathcal{D}$ contains triplets $(\mathbf{x}_i,\mathbf{t}_j,y_{ij})$, where $\mathbf{x}_i \in \mathcal{X}$ represents an instance, $\mathbf{t}_j \in \mathcal{T}$ represents a target, and $y_{ij} \in \mathcal{Y}$ is the score that quantifies the relationship between an instance and a target, with $i\in\{1,\ldots,n\}$ and $j\in\{1,\ldots,m\}$. The scores can be arranged in an $n \times m$ matrix $\mathbf{Y}$ that is usually incomplete.
 2. The score set $\mathcal{Y}$ consists of nominal, ordinal or real values.
 3. During testing, the objective is to predict the score for any unobserved instance-target couple $(\mathbf{x},\mathbf{t}) \in \mathcal{X} \times \mathcal{T}$.
 
@@ -43,6 +41,7 @@ Using the formal definition above we can simplify the basic elements that we nee
 4. Identify any side-information (features) that might be available for the targets.
 5. Identify if the test set contains novel instances, never before seen in the training set.
 6. Identify if the test set contains novel targets, never before seen in the training set.
+
 
 
 ## Cite Us
