@@ -9,8 +9,27 @@ This is the official repository of DeepMTP, a deep learning framework that can b
 - [1/6/2022] The first implementation of DeepMTP is now live!!!
 
 
-## Cite Us
+## Background
 
+## What is MTP??
+Multi-target prediction (MTP) serves as an umbrella term for machine learning tasks that concern the simultaneous prediction of multiple target variables. These include:
+* Multi-label Classification
+* Multivariate Regression
+* Multitask Learning
+* Hierarchical Multi-label Classification
+* Dyadic Prediction
+* Zero-shot Learning
+* Matrix Completion
+* (Hybrid) Matrix Completion
+* Cold-start Collaborative Filtering
+
+Despite the significant similarities, all these domains have evolved separately into distinct research areas over the last two decades. To better understand these similarities and differences it is important to get accustomed to the terminology and main concepts used in this field.
+
+<p align="center"><img src="images/basic_MTP.png" alt="logo" height="300"/></p>
+
+
+
+## Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
 ```
 @article{iliadis2022multi,
