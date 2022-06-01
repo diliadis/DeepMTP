@@ -29,8 +29,7 @@ Despite the significant similarities, all these domains have evolved separately 
 
 A multi-target prediction problem is characterized by instances $x in X$ and targets $t \in T$ with the following properties:
 
-1. A training dataset $\mathcal{D}$ contains triplets $(x_{i}, t_j,y_{ij})$, where $\mathbf{x}_i \in \mathcal{X}$ represents an instance, 
-2. $\mathbf{t}_j \in \mathcal{T}$ represents a target, 
+1. A training dataset $\mathcal{D}$ contains triplets $(x_{i}, t_j,y_{ij})$, where $\mathbf{x}_i \in \mathcal{X}$ represents an instance, $\mathbf{t}_j \in \mathcal{T}$ represents a target, 
 3. and $y_{ij} \in \mathcal{Y}$ is the score that quantifies the relationship between an instance and a target, 
 4. with $i\in\{1,\ldots,n\}$ and $j\in\{1,\ldots,m\}$. 
 5. The scores can be arranged in an $n \times m$ matrix $\mathbf{Y}$ that is usually incomplete.
