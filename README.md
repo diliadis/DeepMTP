@@ -35,14 +35,23 @@ A multi-target prediction problem is characterized by instances $x \in X$ and ta
 
 3. During testing, the objective is to predict the score for any unobserved instance-target couple $(\mathbf{x},\mathbf{t}) \in \mathcal{X} \times \mathcal{T}$.
 
-Using the formal definition above we can simplify the basic elements that we need identify in a multi-target prediction problem:
+Using the formal definition above we can simplify the basic components that we need identify in a multi-target prediction problem:
 
-1. Identify the instances, targets and the score the quantifies their relationship.
-2. Identify the type of the score value.
-3. Identify any side-information (features) that might be available for the instances.
-4. Identify any side-information (features) that might be available for the targets.
-5. Identify if the test set contains novel instances, never before seen in the training set.
-6. Identify if the test set contains novel targets, never before seen in the training set.
+1. instances, targets and the score the quantifies their relationship.
+2. the type of the score value.
+3. any side-information (features) that might be available for the instances.
+4. any side-information (features) that might be available for the targets.
+5. the test set contains novel instances, never before seen in the training set.
+6. the test set contains novel targets, never before seen in the training set.
+
+## How does DeepMTP work??
+The DeepMTP framework is based on a flexible two branch neural network architecture that can be adapted to account for specific needs of the different MTP problem settings. The two branches are designed to take as input any available side information (features) for the instances and targets and then output two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, respectively. The embedding can then be concatenated and passed through a series of fully-connected layers with a single output node (predicting the score of the instance-target pair). Alternatively, a more straightforward and less expensive approach replaces the series of fully-connected layers with a simple dot-product. In terms of the sizes allowed for the two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, the MLP version allows for different sizes and the dot-product version requires the same size.  
+
+<p align="center"><img src="images/mlp_plus_dot_product_white.png" alt="logo" height="300"/></p>
+
+
+These include the following:
+1. 
 
 
 
