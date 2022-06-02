@@ -52,10 +52,17 @@ The DeepMTP framework is based on a flexible two branch neural network architect
 <p align="center"><img src="images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
 <p align="center"><img src="images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
-These include the following:
-1. 
+To better explain how the neural networks adapts to different cases, we will show different versions of the same general task, the prediction of interactions between chemical compounds and protein targets.
 
+1. In the first example, the user provides features for the proteins but not for the chemical compounds. In this case, the first branch uses the side information for the proteins and the second branch uses one-hot encoded features for the chemical compounds. The interaction matrix is populated with real values, so this is considered a regression task.
 
+<p align="center"><img src="images/intro_mtr_example_white.png#gh-dark-mode-only" alt="logo" height="400"/></p>
+<p align="center"><img src="images/intro_mtr_example.png#gh-light-mode-only" alt="logo" height="400"/></p>
+
+2. In the second example 
+
+<p align="center"><img src="images/intro_mtr_example_setting_C_white.png#gh-dark-mode-only" alt="logo" height="400"/></p>
+<p align="center"><img src="images/intro_mtr_example_setting_C.png#gh-light-mode-only" alt="logo" height="400"/></p>
 
 ## Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
