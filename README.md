@@ -55,6 +55,8 @@ The DeepMTP framework is based on a flexible two branch neural network architect
 To better explain how the neural networks adapts to different cases, we will show different versions of the same general task, the prediction of interactions between chemical compounds and protein targets.
 
 ### Handling missing features for instances and/or targets
+<details>
+<summary>Click to expand!</summary>
 
 1. In the first example, the user provides features for the proteins but not for the chemical compounds. In this case, the first branch uses the side information for the proteins and the second branch uses one-hot encoded features for the chemical compounds. The interaction matrix is populated with real values, so this is considered a regression task.
 
@@ -73,13 +75,34 @@ To better explain how the neural networks adapts to different cases, we will sho
 
 4. In the fourth and final example of this subsection, we are missing features for both instances and targets. This is not a realistic setting in our compound-protein interaction prediction task but has many applications in the area of recommender systems. In terms of the neural network, one-hot encoded vectors are used for both branches.
 
+</details>
+
 ### Handling different types of input features
+
+<details>
+<summary>Click to expand!</summary>
 
 In the current state of machine learning, researchers try to extract useful information from different types of data. In the area of neural networks, when tabular data is available a series of fully-connected layers is common choise. The same can't be said for other types of inputs. In the area of image processing for example, convolutional neural networks are able to utilize images. The networks inside the two branches of the DeepMTP framework can use different types of sub-architectures to better handle different types of inputs. In the example below, we assume that protein features are in the form of standard vectors and the compounds are represented by their 2d images. DeepMTP adapts by using a fully connected neural network in the first branch and a convolutional neural network in the second branch.
 
 <p align="center"><img src="images/intro_different_feature_types_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
 <p align="center"><img src="images/intro_different_feature_types.png#gh-light-mode-only" alt="logo" height="450"/></p>
+</details>
 
+### Handling different validation settings
+
+<details>
+<summary>Click to expand!</summary>
+
+All the previous examples and figures show only the training set. To show what happens while testing we will introduce 4 different cases (called validation settings) that are possible across the MTP problem settings. 
+
+1. Setting A: Completing the missing values in the interaction matrix
+
+In setting A the test set contains a subset of the instances and targets that we observe in the training set. This setting is usually selected when the interaction matrix contains missing values and becomes the only validation choice when instance and target features are not available.
+
+<p align="center"><img src="images/intro_setting_A_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="images/intro_setting_A.png#gh-light-mode-only" alt="logo" height="300"/></p>
+
+</details>
 
 
 ## Cite Us
