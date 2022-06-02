@@ -102,6 +102,27 @@ In setting A the test set contains a subset of the instances and targets that we
 <p align="center"><img src="images/intro_setting_A_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
 <p align="center"><img src="images/intro_setting_A.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
+2. Setting B: predict for novel instances
+
+In setting B the test set contains instances never before observed in the training set. This setting is the default option for popular MTP problem settings like multi-label classification and multivariate regression. In order to generalize to new instances, their side information has to be provided!
+
+<p align="center"><img src="images/intro_setting_B_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="images/intro_setting_B.png#gh-light-mode-only" alt="logo" height="300"/></p>
+
+3. Setting C: predict for novel targets
+
+In setting C the test set contains targets never before observed in the training set. This setting can be seen as the reverse of Setting B, as we can easily switch the instances and targets and arrive in Setting C. In order to generalize to new targets, their side information has to be provided!
+
+<p align="center"><img src="images/intro_setting_C_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="images/intro_setting_C.png#gh-light-mode-only" alt="logo" height="300"/></p>
+
+2. Setting D: predict for pairs of novel instances and targets
+
+Finally, in setting D the test set contains pairs of novel instances and targets never before observed in the training set. This is usually considered the most difficult generalization task compared to the others. In order to generalize to pairs of new instances and targets, the side information for both has to be provided!
+
+<p align="center"><img src="images/intro_setting_D_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="images/intro_setting_D.png#gh-light-mode-only" alt="logo" height="300"/></p>
+
 </details>
 
 
