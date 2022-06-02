@@ -56,13 +56,18 @@ To better explain how the neural networks adapts to different cases, we will sho
 
 1. In the first example, the user provides features for the proteins but not for the chemical compounds. In this case, the first branch uses the side information for the proteins and the second branch uses one-hot encoded features for the chemical compounds. The interaction matrix is populated with real values, so this is considered a regression task.
 
-<p align="center"><img src="images/intro_mtr_example_white.png#gh-dark-mode-only" alt="logo" height="400"/></p>
-<p align="center"><img src="images/intro_mtr_example.png#gh-light-mode-only" alt="logo" height="400"/></p>
+<p align="center"><img src="images/intro_instance_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="images/intro_instance_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
-2. In the second example 
+2. In the second example, only the side information for the proteins is available. This can be seen as the reverse of the previous example, so following the same procedure, first branch uses one-hot encoded features and the second branch the actuall compound features.
 
-<p align="center"><img src="images/intro_mtr_example_setting_C_white.png#gh-dark-mode-only" alt="logo" height="400"/></p>
-<p align="center"><img src="images/intro_mtr_example_setting_C.png#gh-light-mode-only" alt="logo" height="400"/></p>
+<p align="center"><img src="images/intro_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="images/intro_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
+
+3. In the third example, side information is provided for both proteins and compounds, so both branches can utilize it.
+
+<p align="center"><img src="images/intro_both_instance_and_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="images/intro_both_instance_and_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
 ## Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
