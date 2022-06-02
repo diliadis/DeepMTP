@@ -25,7 +25,9 @@ Multi-target prediction (MTP) serves as an umbrella term for machine learning ta
 
 Despite the significant similarities, all these domains have evolved separately into distinct research areas over the last two decades. To better understand these similarities and differences it is important to get accustomed to the terminology and main concepts used in this field.
 
-<p align="center"><img src="images/basic_MTP_white.png" alt="logo" height="450"/></p>
+<p align="center"><img src="images/basic_MTP_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="images/basic_MTP.png#gh-light-mode-only" alt="logo" height="450"/></p>
+
 
 A multi-target prediction problem is characterized by instances $x \in X$ and targets $t \in T$ with the following properties:
 
@@ -47,8 +49,8 @@ Using the formal definition above we can simplify the basic components that we n
 ## How does DeepMTP work??
 The DeepMTP framework is based on a flexible two branch neural network architecture that can be adapted to account for specific needs of the different MTP problem settings. The two branches are designed to take as input any available side information (features) for the instances and targets and then output two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, respectively. The embedding can then be concatenated and passed through a series of fully-connected layers with a single output node (predicting the score of the instance-target pair). Alternatively, a more straightforward and less expensive approach replaces the series of fully-connected layers with a simple dot-product. In terms of the sizes allowed for the two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, the MLP version allows for different sizes and the dot-product version requires the same size.  
 
-<p align="center"><img src="images/mlp_plus_dot_product_white.png" alt="logo" height="300"/></p>
-
+<p align="center"><img src="images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
 These include the following:
 1. 
