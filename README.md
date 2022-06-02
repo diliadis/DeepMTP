@@ -54,6 +54,8 @@ The DeepMTP framework is based on a flexible two branch neural network architect
 
 To better explain how the neural networks adapts to different cases, we will show different versions of the same general task, the prediction of interactions between chemical compounds and protein targets.
 
+### Handling missing features for instances and/or targets
+
 1. In the first example, the user provides features for the proteins but not for the chemical compounds. In this case, the first branch uses the side information for the proteins and the second branch uses one-hot encoded features for the chemical compounds. The interaction matrix is populated with real values, so this is considered a regression task.
 
 <p align="center"><img src="images/intro_instance_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
@@ -68,6 +70,17 @@ To better explain how the neural networks adapts to different cases, we will sho
 
 <p align="center"><img src="images/intro_both_instance_and_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
 <p align="center"><img src="images/intro_both_instance_and_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
+
+4. In the fourth and final example of this subsection, we are missing features for both instances and targets. This is not a realistic setting in our compound-protein interaction prediction task but has many applications in the area of recommender systems. In terms of the neural network, one-hot encoded vectors are used for both branches.
+
+### Handling different types of input features
+
+In the current state of machine learning, researchers try to extract useful information from different types of data. In the area of neural networks, when tabular data is available a series of fully-connected layers is common choise. The same can't be said for other types of inputs. In the area of image processing for example, convolutional neural networks are able to utilize images. The networks inside the two branches of the DeepMTP framework can use different types of sub-architectures to better handle different types of inputs. In the example below, we assume that protein features are in the form of standard vectors and the compounds are represented by their 2d images. DeepMTP adapts by using a fully connected neural network in the first branch and a convolutional neural network in the second branch.
+
+<p align="center"><img src="images/intro_different_feature_types_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="images/intro_different_feature_types.png#gh-light-mode-only" alt="logo" height="450"/></p>
+
+
 
 ## Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
