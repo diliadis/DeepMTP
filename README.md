@@ -128,6 +128,29 @@ Finally, in setting D the test set contains pairs of novel instances and targets
 
 </details>
 
+## A few lines of code is all you need
+
+```python
+from DeepMTP.dataset import load_process_MLC
+from DeepMTP.main import DeepMTP
+from DeepMTP.utils.utils import generate_config
+
+# load dataset
+data = load_process_MLC(dataset_name='yeast', variant='undivided', features_type='numpy')
+# process and split
+train, val, test, data_info = data_process(data, validation_setting='B', verbose=True)
+
+# generate a configuration for the experiment
+config = generate_config(...)
+
+# initialize model
+model = DeepMTP(config)
+# train, validate, test
+validation_results = model.train(train, val, test)
+
+# generate predictions from the trained model
+results, preds = model.predict(train, return_predictions=True ,verbose=True)
+```
 
 ## Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
