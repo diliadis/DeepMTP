@@ -49,8 +49,8 @@ Using the formal definition above we can simplify the basic components that we n
 ## How does DeepMTP work??
 The DeepMTP framework is based on a flexible two branch neural network architecture that can be adapted to account for specific needs of the different MTP problem settings. The two branches are designed to take as input any available side information (features) for the instances and targets and then output two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, respectively. The embedding can then be concatenated and passed through a series of fully-connected layers with a single output node (predicting the score of the instance-target pair). Alternatively, a more straightforward and less expensive approach replaces the series of fully-connected layers with a simple dot-product. In terms of the sizes allowed for the two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, the MLP version allows for different sizes and the dot-product version requires the same size.  
 
-<p align="center"><img src="images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="250"/></p>
+<p align="center"><img src="images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="250"/></p>
 
 To better explain how the neural networks adapts to different cases, we will show different versions of the same general task, the prediction of interactions between chemical compounds and protein targets.
 
@@ -74,6 +74,9 @@ To better explain how the neural networks adapts to different cases, we will sho
 <p align="center"><img src="images/intro_both_instance_and_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
 4. In the fourth and final example of this subsection, we are missing features for both instances and targets. This is not a realistic setting in our compound-protein interaction prediction task but has many applications in the area of recommender systems. In terms of the neural network, one-hot encoded vectors are used for both branches.
+
+<p align="center"><img src="images/intro_no_instance_or_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="images/intro_no_instance_or_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
 </details>
 
@@ -104,21 +107,21 @@ In setting A the test set contains a subset of the instances and targets that we
 
 2. Setting B: predict for novel instances
 
-In setting B the test set contains instances never before observed in the training set. This setting is the default option for popular MTP problem settings like multi-label classification and multivariate regression. In order to generalize to new instances, their side information has to be provided!
+In setting B the test set contains instances never before observed in the training set. This setting is the default option for popular MTP problem settings like multi-label classification and multivariate regression. ***In order to generalize to new instances, their side information has to be provided!***
 
 <p align="center"><img src="images/intro_setting_B_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
 <p align="center"><img src="images/intro_setting_B.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
 3. Setting C: predict for novel targets
 
-In setting C the test set contains targets never before observed in the training set. This setting can be seen as the reverse of Setting B, as we can easily switch the instances and targets and arrive in Setting C. In order to generalize to new targets, their side information has to be provided!
+In setting C the test set contains targets never before observed in the training set. This setting can be seen as the reverse of Setting B, as we can easily switch the instances and targets and arrive in Setting C. ***In order to generalize to new targets, their side information has to be provided!***
 
 <p align="center"><img src="images/intro_setting_C_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
 <p align="center"><img src="images/intro_setting_C.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
 2. Setting D: predict for pairs of novel instances and targets
 
-Finally, in setting D the test set contains pairs of novel instances and targets never before observed in the training set. This is usually considered the most difficult generalization task compared to the others. In order to generalize to pairs of new instances and targets, the side information for both has to be provided!
+Finally, in setting D the test set contains pairs of novel instances and targets never before observed in the training set. This is usually considered the most difficult generalization task compared to the others. ***In order to generalize to pairs of new instances and targets, the side information for both has to be provided!***
 
 <p align="center"><img src="images/intro_setting_D_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
 <p align="center"><img src="images/intro_setting_D.png#gh-light-mode-only" alt="logo" height="300"/></p>
