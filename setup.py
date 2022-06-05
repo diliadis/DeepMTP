@@ -26,6 +26,7 @@ setup(
         long_description=readme(),
         packages=find_packages(),
         long_description_content_type='text/markdown',
+        url="https://github.com/diliadis/DeepMTP",
         install_requires=requirements,
         classifiers= [
             "Intended Audience :: Education",
