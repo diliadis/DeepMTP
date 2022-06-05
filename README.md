@@ -184,11 +184,35 @@ In the code snippet above the function generate_config is shown without any spec
 | save_model | Whether or not to save the model of the epoch with the best validation performance |
 | metric_to_optimize_early_stopping | The metric that will be used for tracking by the early stopping routine. The value can be the 'loss' or one of the available performance metrics. |
 | metric_to_optimize_best_epoch_selection | The validation metric that will be used to determine the best configuration. The value can be the 'loss' or one of the available performance metrics. |
-|  |  |
-|  |  |
-|  |  |
-|  |  |
-
+| instance branch ||
+| instance_branch_architecture | The type of architecture that will be used in the instance branch. Currently, there are two available options, 'MLP': a basic fully connected feed-forward neural network is used, 'CONV' a convolutional neural network is used |
+| instance_branch_input_dim | The input dimension of the instance branch |
+| instance_branch_nodes_per_layer | Defines the number of nodes in the 'MLP' version of the instance branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'instance_branch_layers' times|
+| instance_branch_layers | The number of layers in the MLP version of the instance branch. (Only used if instance_branch_nodes_per_layer is int) |
+| instance_train_transforms | The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures |
+| instance_inference_transforms | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
+| instance_branch_conv_architecture | The type of the convolutional architecture that is used in the instance branch. |
+| instance_branch_conv_architecture_version | The version of the specific type of convolutional architecture that is used in the instance branch. |
+| instance_branch_conv_architecture_dense_layers | The number of dense layers that are used at the end of the convolutional architecture of the instance branch |
+| instance_branch_conv_architecture_last_layer_trained | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+|  target branch  ||
+| target_branch_architecture | The type of architecture that will be used in the target branch. Currently, there are two available options, 'MLP': a basic fully connected feed-forward neural network is used, 'CONV' a convolutional neural network is used |
+| target_branch_input_dim | The input dimension of the target branch |
+| target_branch_nodes_per_layer | Defines the number of nodes in the 'MLP' version of the target branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'target_branch_layers' times|
+| target_branch_layers | The number of layers in the MLP version of the target branch. (Only used if target_branch_nodes_per_layer is int) |
+| target_train_transforms | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
+| target_inference_transforms | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
+| target_branch_conv_architecture | The type of the convolutional architecture that is used in the target branch. |
+| target_branch_conv_architecture_version | The version of the specific type of convolutional architecture that is used in the target branch. |
+| target_branch_conv_architecture_dense_layers | The number of dense layers that are used at the end of the convolutional architecture of the target branch |
+| target_branch_conv_architecture_last_layer_trained | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+| comb_mlp_nodes_per_layer |  Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if 'enable_dot_product_version' == False)|
+| comb_mlp_branch_layers | The number of layers in the combination branch. (Only used if 'enable_dot_product_version' == False) |
+| embedding_size | The size of the embeddings outputted by the two branches. (Only used if 'enable_dot_product_version' == False) |
+| eval_every_n_epochs | The interval that indicates when the performance metrics are computed |
+| load_pretrained_model | Whether or not a pretrained model will be loaded |
+| pretrained_model_path | The path to the .pt file with the pretrained model (Only used if 'load_pretrained_model' == True) |
+| additional_info | A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb |
 
 ## Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
