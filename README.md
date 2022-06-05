@@ -224,12 +224,12 @@ In the code snippet above the function generate_config is shown without any spec
 ## Logging results
 DeepMTP offers multiple options for saving and logging performance metrics and other configuration-related info.
 
-### Just printing to a .txt. file
-The default "logging" approach writes 3 semi-structured tables to a three file. This is saved automatically to a `summary.txt` file in the experiment sub-folder of the `results_path` directory.
+### Just printing to .txt file
+The default "logging" approach writes 3 semi-structured tables to a `summary.txt` file in the experiment sub-folder of the `results_path` directory.
 <p align="center"><img src="images/summary_screenshot.png" alt="logo" height="400"/></p>
 
 ### Tensorboard
-The second option uses the tensorboard tool. This is best suited for users who want to keep the results locally. Setting `use_tensorboard_logger=True` will save the necessary files in the `results_path`. To start up the tensorboard the user just has to run `tensorboard --logdir=runs` in a terminal where `runs` is set to the `results_path` value (by default is set to `./results/`). If not errors are displayed the user will be automatically redirected to a web browser displaying something similar to the screenshot below: 
+The second option uses the tensorboard tool. This is best suited for users who want to keep the results locally while also having plots and experiment comparisons. Setting `use_tensorboard_logger=True` will save the necessary files in the `results_path`. To start up the tensorboard the user just has to run `tensorboard --logdir=runs` in a terminal where `runs` is set to the `results_path` value (by default is set to `./results/`). If not errors are displayed the user will be automatically redirected to a web browser displaying something similar to the screenshot below: 
 <p align="center"><img src="images/tensorboard_screenshot.png" alt="logo" height="400"/></p>
 
 ### Weights & Biases
