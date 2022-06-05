@@ -152,6 +152,44 @@ validation_results = model.train(train, val, test)
 results, preds = model.predict(train, return_predictions=True ,verbose=True)
 ```
 
+### Configuration options
+In the code snippet above the function generate_config is shown without any specific parameters. In practive, the function offers many parameters that define multiple characteristics of the architecture of the two-branch neural network, aspects of training, validating, testing etc. The following section can be used as a cheatsheet for users, explaining the meaning and rationale of every parameter.
+
+| Parameter name  | Description |
+|-----------------|-------------|
+| validation_setting | The validation setting of the specific example |
+| enable_dot_product_version | Whether or not to use the dot-product version of the two branch architecture. In the dot product version, the two embeddings are used to calculate the dot product. If the value is False, the two embeddings are first concatenated and then passed to another series of fully connected layers |
+| learning_rate | The learning rate used to determine the step size at each iteration of the optimization process|
+| decay | The weight decay (L2 penalty) used by the Adam optimizer|
+| batch_norm | The option to use batch normalization between the fully connected layers in the two branches |
+| dropout_rate | The amount of dropout used in the layers of the two branches |
+| compute_mode | The device that is going to be used to actually train the neural network. The valid options are 'cpu' if the user wants to train slowly or 'cuda:id' if the user wants to train on the 'id' gpu of the system|
+| num_workers | The number of sub-processes to use for data loading. Larger values usually improve performance but after a point training speed will become worse|
+| train_batchsize | The number of samples that comprise a batch from the training set |
+| val_batchsize | The number of samples that comprise a batch from the validation and test sets |
+| num_epochs | The max number of epochs allowed for training |
+| metrics | The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE'] |
+| metrics_average | The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance'] |
+| patience | The number of epochs that the network is allowed to continue training for while observing worse overall performance |
+| evaluate_train | Whether or not to calculate performance metrics over the training set |
+| evaluate_val | Whether or not to calculate performance metrics over the validation set |
+| verbose | Whether or not to print useful in the terminal |
+| return_results_per_target | Whether or not to returne the performance for every target separately |
+| use_early_stopping | Whether or not to use early stopping while training |
+| use_tensorboard_logger | Whether or not to log results in weights and biases |
+| wandb_project_name | Defines the name of the wandb project that the results of an experiment will be logged (Will be used if use_tensorboard_logger==True) |
+| wandb_project_entity | Defines the user name of the wandb account (Will be used if use_tensorboard_logger==True) |
+| results_path | Defines the path the all relevant information will be saved to |
+| experiment_name | Defines the name of the current experiment. This name will be used to local save and the wandb save |
+| save_model | Whether or not to save the model of the epoch with the best validation performance |
+| metric_to_optimize_early_stopping | The metric that will be used for tracking by the early stopping routine. The value can be the 'loss' or one of the available performance metrics. |
+| metric_to_optimize_best_epoch_selection | The validation metric that will be used to determine the best configuration. The value can be the 'loss' or one of the available performance metrics. |
+|  |  |
+|  |  |
+|  |  |
+|  |  |
+
+
 ## Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
 ```

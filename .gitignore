@@ -6,6 +6,8 @@ data/
 results/
 wandb/
 hyperband/
+DeepMTP/utils/data_utils.py
+DeepMTP/utils/data_utils_v2.py
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
