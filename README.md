@@ -9,7 +9,7 @@ This is the official repository of DeepMTP, a deep learning framework that can b
 - [1/6/2022] The first implementation of DeepMTP is now live!!!
 
 
-## Background
+# Background
 
 ## What is MTP??
 Multi-target prediction (MTP) serves as an umbrella term for machine learning tasks that concern the simultaneous prediction of multiple target variables. These include:
@@ -45,6 +45,8 @@ Using the formal definition above we can simplify the basic components that we n
 4. any side-information (features) that might be available for the targets.
 5. the test set contains novel instances, never before seen in the training set.
 6. the test set contains novel targets, never before seen in the training set.
+
+---
 
 ## How does DeepMTP work??
 The DeepMTP framework is based on a flexible two branch neural network architecture that can be adapted to account for specific needs of the different MTP problem settings. The two branches are designed to take as input any available side information (features) for the instances and targets and then output two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, respectively. The embedding can then be concatenated and passed through a series of fully-connected layers with a single output node (predicting the score of the instance-target pair). Alternatively, a more straightforward and less expensive approach replaces the series of fully-connected layers with a simple dot-product. In terms of the sizes allowed for the two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, the MLP version allows for different sizes and the dot-product version requires the same size.  
@@ -128,7 +130,8 @@ Finally, in setting D the test set contains pairs of novel instances and targets
 
 </details>
 
-## A few lines of code is all you need
+
+# A few lines of code is all you need
 
 ```python
 from DeepMTP.dataset import load_process_MLC
@@ -152,7 +155,7 @@ validation_results = model.train(train, val, test)
 results, preds = model.predict(train, return_predictions=True ,verbose=True)
 ```
 
-### Configuration options
+## Configuration options
 In the code snippet above the function generate_config is shown without any specific parameters. In practive, the function offers many parameters that define multiple characteristics of the architecture of the two-branch neural network, aspects of training, validating, testing etc. The following section can be used as a cheatsheet for users, explaining the meaning and rationale of every parameter.
 
 | Parameter name  | Description |
@@ -221,23 +224,24 @@ In the code snippet above the function generate_config is shown without any spec
 | `additional_info` | A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb |
 | `validation_setting` | The validation setting of the specific example |
 
-## Logging results
+
+# Logging results
 DeepMTP offers multiple options for saving and logging performance metrics and other configuration-related info.
 
-### Just printing to .txt file
+## Just printing to .txt file
 The default "logging" approach writes 3 semi-structured tables to a `summary.txt` file in the experiment sub-folder of the `results_path` directory.
 <p align="center"><img src="images/summary_screenshot.png" alt="logo" height="400"/></p>
 
-### Tensorboard
+## Tensorboard
 The second option uses the tensorboard tool. This is best suited for users who want to keep the results locally while also having plots and experiment comparisons. Setting `use_tensorboard_logger=True` will save the necessary files in the `results_path`. To start up the tensorboard the user just has to run `tensorboard --logdir=runs` in a terminal where `runs` is set to the `results_path` value (by default is set to `./results/`). If not errors are displayed the user will be automatically redirected to a web browser displaying something similar to the screenshot below: 
 <p align="center"><img src="images/tensorboard_screenshot.png" alt="logo" height="400"/></p>
 
-### Weights & Biases
+## Weights & Biases
 The third and more feature-rich option utilizes the weights & biases framework. This is best suited for users who want to keep the results online but it also requires the creation of a free account. To succesfully log to wandb the user has to set a valid username to `wandb_project_entity` and give a project name to `wandb_project_name`. If no erros are displayed during the process, the user can navigate to `https://wandb.ai/wandb_project_entity/wandb_project_name` and see something similar to the screenshot below:
 <p align="center"><img src="images/wandb_screenshot.png" alt="logo" height="400"/></p>
 
 
-## Cite Us
+# Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
 ```
 @article{iliadis2022multi,
