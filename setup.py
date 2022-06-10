@@ -26,12 +26,12 @@ setup(
         long_description=readme(),
         packages=find_packages(),
         long_description_content_type='text/markdown',
-        url="https://github.com/diliadis/DeepMTP",
+        url='https://github.com/diliadis/DeepMTP',
         install_requires=requirements,
         classifiers= [
-            "Intended Audience :: Education",
+            'Intended Audience :: Education',
             'License :: OSI Approved :: MIT License',
-            "Programming Language :: Python :: 3",
-            "Operating System :: OS Independent",
+            'Programming Language :: Python :: 3',
+            'Operating System :: OS Independent',
         ]
 )
