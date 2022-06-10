@@ -1,4 +1,4 @@
-<p align="center"><img src="images/logo_transparent_cropped.png" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/logo_transparent_cropped.png" alt="logo" height="300"/></p>
 
 <h3 align="center">
 <p> A Deep Learning Framework for Multi-target Prediction </h3>
