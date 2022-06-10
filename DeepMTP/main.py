@@ -19,7 +19,7 @@ import json
 import wandb
 from tqdm import tqdm
 
-from DeepMTP.utils.data_utils_v3 import *
+from DeepMTP.utils.data_utils import *
 from DeepMTP.branch_models import *
 from DeepMTP.utils.model_utils import EarlyStopping
 from DeepMTP.utils.eval_utils import get_performance_results
