@@ -302,9 +302,42 @@ data = load_process_MLC(dataset_name='yeast', variant='undivided', features_type
 # process and split
 train, val, test, data_info = data_process(data, validation_setting='B', verbose=True)
 
+# initialize the minimal configuration
+config = {    
+    'hpo_results_path': './hyperband/',
+    'instance_branch_input_dim': data_info['instance_branch_input_dim'],
+    'target_branch_input_dim': data_info['target_branch_input_dim'],
+    'validation_setting': data_info['detected_validation_setting'],
+    'enable_dot_product_version': True,
+    'problem_mode': data_info['detected_problem_mode'],
+    'compute_mode': 'cuda:1',
+    'train_batchsize': 512,
+    'val_batchsize': 512,
+    'num_epochs': 6,
+    'num_workers': 8,
+    'metrics': ['hamming_loss', 'auroc'],
+    'metrics_average': ['macro'],
+    'patience': 10,
+    'evaluate_train': True,
+    'evaluate_val': True,
+    'verbose': True,
+    'results_verbose': False,
+    'use_early_stopping': True,
+    'use_tensorboard_logger': True,
+    'wandb_project_name': 'DeepMTP_v2',
+    'wandb_project_entity': 'diliadis',
+    'metric_to_optimize_early_stopping': 'loss',
+    'metric_to_optimize_best_epoch_selection': 'loss',
+    'instance_branch_architecture': 'MLP',
+    'target_branch_architecture': 'MLP',
+    'save_model': True,
+    'eval_every_n_epochs': 10,
+    'additional_info': {'eta': 3, 'max_budget': 9}
+    }
+
 # initialize the BaseWorker that will be used by Hyperband's optimizer
 worker = BaseWorker(train, val, test, data_info, config, 'loss')
-# initialize the optimizer
+# initialize the optimizers
 hb = HyperBand(
     base_worker=worker,
     configspace=cs,
