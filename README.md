@@ -251,7 +251,72 @@ Addressing this issue, multi-fidelity HPO methods have been devised to discard u
 
 A popular representative of such methods is Hyperband. Hyperband builds upon Successive Halving (SH), where a set of n candidates is first evaluated on a small budget. Based on these low-fidelity performance estimates, the $\frac{n}{\eta}$ ($\eta \geq 2)$ best candidates are preserved, while the remaining configurations are already discarded. Iteratively increasing the evaluation budget and reevaluating the remaining candidates with the increased budget while discarding the inferior candidates results in fewer resources wasted on inferior candidates. In return, one focuses more on the promising candidates.
 
-Despite the efficiency of the successive halving strategy, it is well known that it suffers from the exploration-exploitation trade-off. In simple terms, a static budget $\mathcal{B}$ means that the user has to manually decide whether to explore a number of configurations $n$ or give each configuration a sufficient budget to develop. An incorrect decision can lead to an inadequate exploration of the search space (small $n$) or the early rejection of promising configurations (large $n$). Hyperband overcomes the exploration-exploitation trade-off by repeating the successive halving strategy with different initializations of SH, varying the budget and the number of initial candidate configurations.
+Despite the efficiency of the successive halving strategy, it is well known that it suffers from the exploration-exploitation trade-off. In simple terms, a static budget $\mathcal{B}$ means that the user has to manually decide whether to explore a number of configurations $n$ or give each configuration a sufficient budget to develop. An incorrect decision can lead to an inadequate exploration of the search space (small $n$) or the early rejection of promising configurations (large $n$). Hyperband overcomes the exploration-exploitation trade-off by repeating the successive halving strategy with different initializations of SH, varying the budget and the number of initial candidate configurations.rf
+
+## Combining Hyperband with DeepMTP
+DeepMTP offers a basic Hyperband implementation natively, so the code needs only modification  
+
+```python
+from DeepMTP.dataset import load_process_MLC
+from DeepMTP.main import DeepMTP
+from DeepMTP.utils.utils import generate_config
+from DeepMTP.simple_hyperband import BaseWorker
+from DeepMTP.simple_hyperband import HyperBand
+import ConfigSpace.hyperparameters as CSH
+
+
+# define the configuration space
+cs= CS.ConfigurationSpace()
+
+lr= CSH.UniformFloatHyperparameter('learning_rate', lower=1e-6, upper=1e-3, default_value="1e-3", log=True)
+embedding_size= CSH.UniformIntegerHyperparameter('embedding_size', lower=8, upper=2048, default_value=64, log=False)
+instance_branch_layers= CSH.UniformIntegerHyperparameter('instance_branch_layers', lower=1, upper=2, default_value=1, log=False)
+instance_branch_nodes_per_layer= CSH.UniformIntegerHyperparameter('instance_branch_nodes_per_layer', lower=8, upper=2048, default_value=64, log=False)
+target_branch_layers = CSH.UniformIntegerHyperparameter('target_branch_layers', lower=1, upper=2, default_value=1, log=False)
+target_branch_nodes_per_layer = CSH.UniformIntegerHyperparameter('target_branch_nodes_per_layer', lower=8, upper=2048, default_value=64, log=False)
+dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.0, upper=0.9, default_value=0.4, log=False)
+batch_norm = CSH.CategoricalHyperparameter('batch_norm', [True, False])
+cs.add_hyperparameters(
+    [
+        lr,
+        embedding_size,
+        instance_branch_layers,
+        instance_branch_nodes_per_layer,
+        target_branch_layers,
+        target_branch_nodes_per_layer,
+        dropout_rate,
+        batch_norm,
+    ]
+)
+
+#adding condition on the hyperparameter values
+cond = CS.GreaterThanCondition(dropout_rate, instance_branch_layers, 1)
+cond2 = CS.GreaterThanCondition(batch_norm, instance_branch_layers, 1)
+cond3 = CS.GreaterThanCondition(dropout_rate, target_branch_layers, 1)
+cond4 = CS.GreaterThanCondition(batch_norm, target_branch_layers, 1)
+cs.add_condition(CS.OrConjunction(cond, cond3))
+cs.add_condition(CS.OrConjunction(cond2, cond4))
+
+# load dataset
+data = load_process_MLC(dataset_name='yeast', variant='undivided', features_type='numpy')
+# process and split
+train, val, test, data_info = data_process(data, validation_setting='B', verbose=True)
+
+# initialize the BaseWorker that will be used by Hyperband's optimizer
+worker = BaseWorker(train, val, test, data_info, config, 'loss')
+# initialize the optimizer
+hb = HyperBand(
+    base_worker=worker,
+    configspace=cs,
+    eta=config['additional_info']['eta'],
+    max_budget=config['additional_info']['max_budget'],
+    direction="min",
+)
+# start-up the optimizer
+hb.run_optimizer()
+```
+
+
 
 # Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
