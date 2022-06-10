@@ -55,8 +55,8 @@ Multi-target prediction (MTP) serves as an umbrella term for machine learning ta
 
 Despite the significant similarities, all these domains have evolved separately into distinct research areas over the last two decades. To better understand these similarities and differences it is important to get accustomed to the terminology and main concepts used in this field.
 
-<p align="center"><img src="images/basic_MTP_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="images/basic_MTP.png#gh-light-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/basic_MTP_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/basic_MTP.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
 
 A multi-target prediction problem is characterized by instances $x \in X$ and targets $t \in T$ with the following properties:
@@ -81,8 +81,8 @@ Using the formal definition above we can simplify the basic components that we n
 ## How does DeepMTP work??
 The DeepMTP framework is based on a flexible two branch neural network architecture that can be adapted to account for specific needs of the different MTP problem settings. The two branches are designed to take as input any available side information (features) for the instances and targets and then output two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, respectively. The embedding can then be concatenated and passed through a series of fully-connected layers with a single output node (predicting the score of the instance-target pair). Alternatively, a more straightforward and less expensive approach replaces the series of fully-connected layers with a simple dot-product. In terms of the sizes allowed for the two embedding vectors $\mathbf{p_x}$ and $\mathbf{q_t}$, the MLP version allows for different sizes and the dot-product version requires the same size.  
 
-<p align="center"><img src="images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="250"/></p>
-<p align="center"><img src="images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="250"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="250"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="250"/></p>
 
 To better explain how the neural networks adapts to different cases, we will show different versions of the same general task, the prediction of interactions between chemical compounds and protein targets.
 
@@ -92,23 +92,23 @@ To better explain how the neural networks adapts to different cases, we will sho
 
 1. In the first example, the user provides features for the proteins but not for the chemical compounds. In this case, the first branch uses the side information for the proteins and the second branch uses one-hot encoded features for the chemical compounds. The interaction matrix is populated with real values, so this is considered a regression task.
 
-<p align="center"><img src="images/intro_instance_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="images/intro_instance_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_instance_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_instance_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
 2. In the second example, only the side information for the proteins is available. This can be seen as the reverse of the previous example, so following the same procedure, first branch uses one-hot encoded features and the second branch the actuall compound features.
 
-<p align="center"><img src="images/intro_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="images/intro_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
 3. In the third example, side information is provided for both proteins and compounds, so both branches can utilize it.
 
-<p align="center"><img src="images/intro_both_instance_and_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="images/intro_both_instance_and_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_both_instance_and_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_both_instance_and_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
 4. In the fourth and final example of this subsection, we are missing features for both instances and targets. This is not a realistic setting in our compound-protein interaction prediction task but has many applications in the area of recommender systems. In terms of the neural network, one-hot encoded vectors are used for both branches.
 
-<p align="center"><img src="images/intro_no_instance_or_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="images/intro_no_instance_or_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_no_instance_or_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_no_instance_or_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
 
 </details>
 
@@ -119,8 +119,8 @@ To better explain how the neural networks adapts to different cases, we will sho
 
 In the current state of machine learning, researchers try to extract useful information from different types of data. In the area of neural networks, when tabular data is available a series of fully-connected layers is common choise. The same can't be said for other types of inputs. In the area of image processing for example, convolutional neural networks are able to utilize images. The networks inside the two branches of the DeepMTP framework can use different types of sub-architectures to better handle different types of inputs. In the example below, we assume that protein features are in the form of standard vectors and the compounds are represented by their 2d images. DeepMTP adapts by using a fully connected neural network in the first branch and a convolutional neural network in the second branch.
 
-<p align="center"><img src="images/intro_different_feature_types_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="images/intro_different_feature_types.png#gh-light-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_different_feature_types_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_different_feature_types.png#gh-light-mode-only" alt="logo" height="450"/></p>
 </details>
 
 ### Handling different validation settings
@@ -134,29 +134,29 @@ All the previous examples and figures show only the training set. To show what h
 
 In setting A the test set contains a subset of the instances and targets that we observe in the training set. This setting is usually selected when the interaction matrix contains missing values and becomes the only validation choice when instance and target features are not available.
 
-<p align="center"><img src="images/intro_setting_A_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="images/intro_setting_A.png#gh-light-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_A_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_A.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
 2. Setting B: predict for novel instances
 
 In setting B the test set contains instances never before observed in the training set. This setting is the default option for popular MTP problem settings like multi-label classification and multivariate regression. ***In order to generalize to new instances, their side information has to be provided!***
 
-<p align="center"><img src="images/intro_setting_B_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="images/intro_setting_B.png#gh-light-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_B_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_B.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
 3. Setting C: predict for novel targets
 
 In setting C the test set contains targets never before observed in the training set. This setting can be seen as the reverse of Setting B, as we can easily switch the instances and targets and arrive in Setting C. ***In order to generalize to new targets, their side information has to be provided!***
 
-<p align="center"><img src="images/intro_setting_C_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="images/intro_setting_C.png#gh-light-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_C_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_C.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
 2. Setting D: predict for pairs of novel instances and targets
 
 Finally, in setting D the test set contains pairs of novel instances and targets never before observed in the training set. This is usually considered the most difficult generalization task compared to the others. ***In order to generalize to pairs of new instances and targets, the side information for both has to be provided!***
 
-<p align="center"><img src="images/intro_setting_D_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="images/intro_setting_D.png#gh-light-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_D_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_D.png#gh-light-mode-only" alt="logo" height="300"/></p>
 
 </details>
 
@@ -260,15 +260,15 @@ DeepMTP offers multiple options for saving and logging performance metrics and o
 
 ## Just printing to .txt file
 The default "logging" approach writes 3 semi-structured tables to a `summary.txt` file in the experiment sub-folder of the `results_path` directory.
-<p align="center"><img src="images/summary_screenshot.png" alt="logo" height="400"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/summary_screenshot.png" alt="logo" height="400"/></p>
 
 ## Tensorboard
 The second option uses the tensorboard tool. This is best suited for users who want to keep the results locally while also having plots and experiment comparisons. Setting `use_tensorboard_logger=True` will save the necessary files in the `results_path`. To start up the tensorboard the user just has to run `tensorboard --logdir=runs` in a terminal where `runs` is set to the `results_path` value (by default is set to `./results/`). If not errors are displayed the user will be automatically redirected to a web browser displaying something similar to the screenshot below: 
-<p align="center"><img src="images/tensorboard_screenshot.png" alt="logo" height="400"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/tensorboard_screenshot.png" alt="logo" height="400"/></p>
 
 ## Weights & Biases
 The third and more feature-rich option utilizes the weights & biases framework. This is best suited for users who want to keep the results online but it also requires the creation of a free account. To succesfully log to wandb the user has to set a valid username to `wandb_project_entity` and give a project name to `wandb_project_name`. If no erros are displayed during the process, the user can navigate to `https://wandb.ai/wandb_project_entity/wandb_project_name` and see something similar to the screenshot below:
-<p align="center"><img src="images/wandb_screenshot.png" alt="logo" height="400"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/wandb_screenshot.png" alt="logo" height="400"/></p>
 
 
 # Hyperparameter Optimization
