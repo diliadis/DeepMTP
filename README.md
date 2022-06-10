@@ -8,6 +8,36 @@ This is the official repository of DeepMTP, a deep learning framework that can b
 ### Latest Updates
 - [1/6/2022] The first implementation of DeepMTP is now live!!!
 
+# Installing DeepMTP
+The framework uses gpu acceleration, so the use of a GPU is strongly recommended. The local installation can be done using `pip`:
+
+## Installing from Pypi
+```bash
+# create and activate a conda environment
+conda create -n DeepMTP_env python=3.8
+conda activate DeepMTP_env
+
+# if a gpu is available
+pip install torch torchvision torchaudio
+
+# if a gpu is NOT available
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
+
+# install DeepMTP
+pip install DeepMTP
+```
+
+## Installing from Source
+```bash
+# download from the github repository
+git clone https://github.com/diliadis/DeepMTP.git
+cd DeepMTP
+conda env create -f environment.yml
+conda activate DeepMTP_env
+
+# open one of the notebooks in the DEMO folder
+```
+
 
 # Background
 
