@@ -204,8 +204,8 @@ In the example above, the multi-label classification dataset is loaded my one of
 
 In the most abstract view of a multi-target prediction problem there are three at most datasets that can be needed. These include the interaction matrix, the instance features, and the target features. When accounting for a train, val, test split the total number raises to 9 possible data sources. To group this info and avoid passing 9 different parameters in the `data_process` function, the framework uses a single dictionary with 3 key-value pairs `{'train':{}, 'val':{}, 'test':{}}`. The values should also be a dictionaries with 3 key-value pairs `{'y':{}, 'X_instance':{}, 'X_target':{}}`. When combined the dictionary can have the following form: `{'train':{}, 'val':{}, 'test':{}}`
 
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/input_format_screenshot_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/input_format_screenshot.png#gh-light-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/input_format_screenshot.png#gh-dark-mode-only" alt="logo" height="400"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/input_format_screenshot_white.png#gh-light-mode-only" alt="logo" height="400"/></p>
 
 </details>
 
