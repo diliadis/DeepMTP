@@ -18,7 +18,7 @@ conda create -n DeepMTP_env python=3.8
 conda activate DeepMTP_env
 
 # if a gpu is available
-pip install torch torchvision torchaudio
+pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu113
 
 # if a gpu is NOT available
 pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
@@ -184,6 +184,30 @@ validation_results = model.train(train, val, test)
 # generate predictions from the trained model
 results, preds = model.predict(train, return_predictions=True ,verbose=True)
 ```
+
+## Input data
+<details>
+<summary> Loading one of the datasets offered natively by DeepMTP </summary>
+In the example above, the multi-label classification dataset is loaded my one of the built-in functions offered by the framework. More specifically the available functions are the following:
+
+|  Function  | Description |
+| :--- | :--- |
+| `load_process_MLC()` | the user can load the multi-label classification datasets available in the [MULAN repository](http://mulan.sourceforge.net/datasets-mlc.html). The different datasets can be accessed by specifying a valid name in the `dataset_name` parameter.|
+| `load_process_MTR()` | the user can load the multivariate regression datasets available in the [MULAN repository](http://mulan.sourceforge.net/datasets-mtr.html). The different datasets can be accessed by specifying a valid name in the `dataset_name` parameter.|
+| `load_process_MTL()` | the user can load the multi-task learning dataset `dog`, a crowdsourcing dataset first introduced in [Liu et a](https://ieeexplore.ieee.org/document/8440116). More specifically, the dataset contains 800 images of dogs who have been partially labelled by 52 annotators with one of 5 possible breeds. To modify this multi-class problem to a binary problem, we modify the task so that the prediction involves the correct or incorrect labelling by the annotator. In a future version of the software another dataset of the same type will be added.|
+| `load_process_MC()` | the user can load the matrix completion dataset `MovieLens 100K`, a movie rating prediction dataset available by the the [GroupLens lab](https://grouplens.org/datasets/movielens/) that contains 100k ratings from 1000 users on 1700 movies. In a future version of the software larger versions of the movielens dataset will be added  |
+| `load_process_DP()` | the user can load dyadic prediction datasets available [here](https://people.montefiore.uliege.be/schrynemackers/datasets). These are four different biological network datasets (`ern`, `srn`, `dpie`, `dpii`) which can be accessed by specifying one of the four keywords in the `dataset_name` parameter.|
+</details>
+
+<details>
+<summary> Creating a custom MTP dataset in a format compatible with DeepMTP </summary>
+
+In the most abstract view of a multi-target prediction problem there are three at most datasets that can be needed. These include the interaction matrix, the instance features, and the target features. When accounting for a train, val, test split the total number raises to 9 possible data sources. To group this info and avoid passing 9 different parameters in the `data_process` function, the framework uses a single dictionary with 3 key-value pairs `{'train':{}, 'val':{}, 'test':{}}`. The values should also be a dictionaries with 3 key-value pairs `{'y':{}, 'X_instance':{}, 'X_target':{}}`. When combined the dictionary can have the following form: `{'train':{}, 'val':{}, 'test':{}}`
+
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/input_format_screenshot_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/input_format_screenshot.png#gh-light-mode-only" alt="logo" height="300"/></p>
+
+</details>
 
 ## Configuration options
 In the code snippet above the function generate_config is shown without any specific parameters. In practive, the function offers many parameters that define multiple characteristics of the architecture of the two-branch neural network, aspects of training, validating, testing etc. The following section can be used as a cheatsheet for users, explaining the meaning and rationale of every parameter.
