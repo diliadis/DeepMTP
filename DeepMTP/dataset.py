@@ -12,26 +12,28 @@ from skmultilearn.dataset import load_dataset_dump, save_dataset_dump, available
 from sklearn.model_selection import train_test_split
 
 
-def load_process_MLC(dataset_name='bibtex', variant='undivided', features_type='numpy'):
+def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', features_type='numpy'):
 	# The current version just uses the datasets from the skmultilearn library. In the future I will be hosting everything from the university server
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
 
+	path += '/multi-label_classification'
+
 	print('Processing...')
 	available_datasets = set([x[0] for x in available_data_sets().keys()])
 
+	if not os.path.exists(path):
+		os.makedirs(path)
+
 	if dataset_name not in available_datasets:
 		raise AttributeError('Please use one of the valid dataset names: '+str(list(available_data_sets().keys())))
-	
 	else:
 		if variant == 'undivided':
-			X_train_instance, y_train, _, _ = load_dataset(dataset_name, variant)
-
+			X_train_instance, y_train, _, _ = load_dataset(dataset_name, variant, data_home=path)
 		else:
 			X_train_instance, y_train, _, _ = load_dataset(dataset_name, 'train')
 			X_test_instance, y_test, _, _ = load_dataset(dataset_name, 'test')
-
 
 	if scipy.sparse.issparse(X_train_instance):
 		X_train_instance = X_train_instance.toarray()
