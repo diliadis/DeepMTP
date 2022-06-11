@@ -207,6 +207,8 @@ In the most abstract view of a multi-target prediction problem there are three a
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/input_format_screenshot.png#gh-dark-mode-only" alt="logo" height="400"/></p>
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/input_format_screenshot_white.png#gh-light-mode-only" alt="logo" height="400"/></p>
 
+A detailed explanation of the input formats supported by the framework can be found [here](https://docs.google.com/presentation/d/1HHt0aupyfbHSLCRdL4g692NEswiyWXl53ryYpnlBfx0/edit?usp=sharing) 
+
 </details>
 
 ## Configuration options
