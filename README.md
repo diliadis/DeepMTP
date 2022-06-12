@@ -6,6 +6,7 @@
 This is the official repository of DeepMTP, a deep learning framework that can be used with multi-target prediction (MTP) problems. MTP can be seen as an umbrella term that cover many subareas of machine learning, which include multi-label classification (MLC), multivariate regression (MTR), multi-task learning (MTL), dyadic prediction (DP), and matrix completion (MC). The implementation is mainly written in Python and uses Pytorch for the implementation of the neural network. The goal is for any user to be able to train a model using only a few lines of code.
 
 ### Latest Updates
+- [12/6/2022] DeepMTP is not available in [PyPI](https://pypi.org/project/DeepMTP/)
 - [1/6/2022] The first implementation of DeepMTP is now live!!!
 
 # Installing DeepMTP
