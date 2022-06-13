@@ -12,7 +12,7 @@ from skmultilearn.dataset import load_dataset_dump, save_dataset_dump, available
 from sklearn.model_selection import train_test_split
 
 
-def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', features_type='numpy'):
+def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', features_type='numpy', print_mode='basic'):
 	# The current version just uses the datasets from the skmultilearn library. In the future I will be hosting everything from the university server
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
@@ -20,7 +20,7 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
 
 	path += '/multi-label_classification'
 
-	print('Processing...')
+	print(('info: ' if print_mode=='dev' else '')+'Processing...')
 	available_datasets = set([x[0] for x in available_data_sets().keys()])
 
 	if not os.path.exists(path):
@@ -56,7 +56,7 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
 	if scipy.sparse.issparse(y_test):
 		y_test = y_test.toarray()
 
-	print('Done')
+	print(('info: ' if print_mode=='dev' else '')+'Done')
 
 	# return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
@@ -75,13 +75,13 @@ def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5):
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 
-def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy'):
+def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', print_mode='basic'):
 	# The current version downloads all the datasets from a personal github repo
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
 	
-	print('Processing...')
+	print(('info: ' if print_mode=='dev' else '')+'Processing...')
 
 	'''
 	+--------+------------+--------------------+----------+
@@ -138,11 +138,11 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy'):
 		os.makedirs(path)
 	
 	if not os.path.exists(path+'/mtr-datasets'):
-		print('Downloading and extracting dataset from scratch... ', end="")
+		print(('info: ' if print_mode=='dev' else '')+'Downloading and extracting dataset from scratch... ', end="")
 		r = requests.get('https://github.com/diliadis/MTR/blob/main/mtr-datasets.zip?raw=true')
 		z = zipfile.ZipFile(io.BytesIO(r.content))
 		z.extractall(path)
-		print('Done')
+		print(('info: ' if print_mode=='dev' else '')+'Done')
 
 	dataset = arff.load(open(path+'/mtr-datasets/'+dataset_name+'.arff'))
 	data = np.array(dataset['data'])
@@ -155,7 +155,7 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy'):
 
 	y_train = np.array(data[:, [i for i in range(data.shape[1]-labels_per_dataset[dataset_name], data.shape[1])]])
 
-	print('Done')
+	print(('info: ' if print_mode=='dev' else '')+'Done')
 
 	# return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
@@ -196,13 +196,13 @@ def print_MTR_datasets():
 	print(table.get_string())
 
 
-def load_process_DP(path='./data', dataset_name='ern'):
+def load_process_DP(path='./data', dataset_name='ern', print_mode='basic'):
 	# The current version downloads all the datasets from https://people.montefiore.uliege.be
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
 	
-	print('Processing...')
+	print(('info: ' if print_mode=='dev' else '')+'Processing...')
 
 	available_data_sets = ['ern', 'srn', 'dpie', 'dpii']
 
@@ -218,11 +218,11 @@ def load_process_DP(path='./data', dataset_name='ern'):
 
 		if not os.path.exists(path+'/dyadic_prediction-datasets/'+dataset_name):
 			os.makedirs(path+'/dyadic_prediction-datasets/'+dataset_name)
-			print('Downloading dataset from scratch... ', end="")
+			print(('info: ' if print_mode=='dev' else '')+'Downloading dataset from scratch... ', end="")
 			wget.download(url+'Y.txt', path+'/dyadic_prediction-datasets/'+dataset_name+'/')
 			wget.download(url+'X1.txt', path+'/dyadic_prediction-datasets/'+dataset_name+'/')
 			wget.download(url+'X2.txt', path+'/dyadic_prediction-datasets/'+dataset_name+'/')
-			print('Done')
+			print(('info: ' if print_mode=='dev' else '')+'Done')
 
 		if (dataset_name == 'ern') or (dataset_name == 'srn'):
 			y_train = np.genfromtxt(path+'/dyadic_prediction-datasets/'+dataset_name+'/Y.txt', delimiter=',')
@@ -233,7 +233,7 @@ def load_process_DP(path='./data', dataset_name='ern'):
 			X_train_instance = np.genfromtxt(path+'/dyadic_prediction-datasets/'+dataset_name+'/'+dataset_name+'_X1.txt')
 			X_train_target = np.genfromtxt(path+'/dyadic_prediction-datasets/'+dataset_name+'/'+dataset_name+'_X2.txt')
 
-	print('Done')
+	print(('info: ' if print_mode=='dev' else '')+'Done')
 
 	# return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
@@ -256,7 +256,7 @@ def process_dummy_DP(num_instance_features=10, num_target_features=3, num_instan
 	# return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def load_process_MC(path='./data', dataset_name='ml-100k'):
+def load_process_MC(path='./data', dataset_name='ml-100k', print_mode='basic'):
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
@@ -284,11 +284,11 @@ def load_process_MC(path='./data', dataset_name='ml-100k'):
 	# print('ext: '+str(ext))
 
 	if not os.path.exists(data_dir):
-		print('Downloading dataset '+dataset_name+' from scratch... ', end="")
+		print(('info: ' if print_mode=='dev' else '')+'Downloading dataset '+dataset_name+' from scratch... ', end="")
 		r = requests.get(url, stream=True, verify=True)
 		with open(fname, 'wb') as f:
 			f.write(r.content)
-		print('Done')
+		print(('info: ' if print_mode=='dev' else '')+'Done')
 
 	fp = zipfile.ZipFile(fname, 'r')
 	fp.extractall(base_dir)
@@ -310,7 +310,7 @@ def load_process_MC(path='./data', dataset_name='ml-100k'):
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 
-def load_process_MTL(path='./data', dataset_name='dog'):
+def load_process_MTL(path='./data', dataset_name='dog', print_mode='basic'):
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
@@ -323,17 +323,15 @@ def load_process_MTL(path='./data', dataset_name='dog'):
 	os.makedirs(path, exist_ok=True)
 	data_dir = path+'/'+dataset_name 
 	base_dir = os.path.dirname(data_dir)
-
-
-	print('base_dir: '+str(base_dir))
-	print('data_dir: '+str(data_dir))
+	# print('base_dir: '+str(base_dir))
+	# print('data_dir: '+str(data_dir))
 
 	if not os.path.exists(data_dir):
-		print('Downloading dataset '+dataset_name+' from scratch... ', end="")
+		print(('info: ' if print_mode=='dev' else '')+'Downloading dataset '+dataset_name+' from scratch... ', end="")
 		r = requests.get('https://github.com/diliadis/MTL/blob/main/'+dataset_name+'.zip?raw=true') 
 		z = zipfile.ZipFile(io.BytesIO(r.content))
 		z.extractall(base_dir)
-		print('Done')
+		print(('info: ' if print_mode=='dev' else '')+'Done')
 		generate_interaction_matrix(data_dir+'/data.json', data_dir+'/y_dog.pkl')
 	
 	scores_matrix = pickle.load(open(data_dir+'/y_dog.pkl', 'rb'))
