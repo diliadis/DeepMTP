@@ -30,9 +30,6 @@ import streamlit as st
 class DeepMTP:
 
 	def __init__(self, config, checkpoint_dir=None):
-
-		print('CURRENT DIR: '+str(os.getcwd()))
-
 		self.checkpoint_dict = None
 		self.wandb_run = None
 		self.tensorboard_logger = None
@@ -197,8 +194,9 @@ class DeepMTP:
 				return results
 
 	def train(self, train_data, val_data, test_data, verbose=False):
+		train_val_loss_chart, train_header, train_progress_table, val_header, val_progress_table, test_header, test_progress_table, final_info = st.empty(), st.empty(), st.empty(), st.empty(), st.empty(), st.empty(), st.empty(), st.empty()
+		
 		self.deepMTP_model.train()
-
 		# train_dataset = BaseDataset(self.config, train_data['y'], train_data['X_instance'], train_data['X_target'])
 		# test_dataset = BaseDataset(self.config, test_data['y'], test_data['X_instance'], test_data['X_target'])
 		# val_dataset = BaseDataset(self.config, val_data['y'], val_data['X_instance'], val_data['X_target'])
@@ -222,14 +220,14 @@ class DeepMTP:
 		test_run_story_table = PrettyTable(run_story_header)
 
 		# create a dataframe that will plot
-		train_val_loss_chart = st.line_chart()
+		train_val_loss_chart.line_chart()
 		# create a dataframe that will be used to print the progress status in the streamlit up. It can have the general format of the PrettyTables
-		st.subheader('Train progress')
-		train_progress_df = pd.DataFrame(np.array(['' for h_idx in range(len(run_story_header))]).reshape(1,-1), columns=run_story_header)
-		train_progress_table = st.table()
-		st.subheader('Validation progress')
-		val_progress_df = pd.DataFrame(np.array(['' for h_idx in range(len(run_story_header)+1)]).reshape(1,-1), columns=run_story_header+['early_stopping'])
-		val_progress_table = st.table()
+		train_header.subheader('Train progress')
+		# train_progress_df = pd.DataFrame(np.array(['' for h_idx in range(len(run_story_header))]).reshape(1,-1), columns=run_story_header)
+		train_progress_table.table()
+		val_header.subheader('Validation progress')
+		# val_progress_df = pd.DataFrame(np.array(['' for h_idx in range(len(run_story_header)+1)]).reshape(1,-1), columns=run_story_header+['early_stopping'])
+		val_progress_table.table()
 
 		# update the possible data loggers. The currently supported loggers are wandb and tensorboard
 		if self.config['use_tensorboard_logger']:
@@ -368,9 +366,9 @@ class DeepMTP:
 		# update test_run_story_table
 		test_run_story_table.add_row(['test', self.early_stopping.best_epoch, '-'] + [round(test_results['test_'+m+'_'+av], 4) for m in self.config['metrics'] for av in self.config['metrics_average']])
 		# update the streamlit dataframe 
-		st.subheader('Performance on the test set')
+		test_header.subheader('Performance on the test set')
 		test_progress_df = pd.DataFrame(np.array(['test', self.early_stopping.best_epoch, '-'] + [round(test_results['test_'+m+'_'+av], 4) for m in self.config['metrics'] for av in self.config['metrics_average']]).reshape(1,-1), columns=run_story_header)
-		test_progress_table = st.table(test_progress_df)
+		test_progress_table.table(test_progress_df)
 		# update the loggers
 		results_to_log = {'test_'+m+'_'+av: test_results['test_'+m+'_'+av] for m in self.config['metrics'] for av in self.config['metrics_average']}
 		if self.wandb_run is not None:
@@ -414,7 +412,18 @@ class DeepMTP:
 		else:
 			pickle.dump(self.config, open(self.experiment_dir+'/config.pkl', 'wb'))
 
-		st.info('You can find the best model as well as other usefull files generated from this experiment in the following directory: '+str(self.experiment_dir))
+		final_info.info('You can find the best model as well as other usefull files generated from this experiment in the following directory: '+str(self.experiment_dir))
+
+		if self.config['running_hyperband']:
+			train_val_loss_chart.empty()
+			train_header.empty()
+			train_progress_table.empty()
+			val_header.empty()
+			val_progress_table.empty()
+			test_header.empty()
+			test_progress_table.empty()
+			final_info.empty()
+
 		
 		return self.early_stopping.best_performance_results
 
