@@ -6,6 +6,7 @@ data/
 results/
 wandb/
 hyperband/
+DEMO_tests/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
