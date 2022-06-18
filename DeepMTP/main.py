@@ -17,7 +17,6 @@ import os
 from datetime import datetime
 import json
 import wandb
-from tqdm import tqdm
 
 from DeepMTP.utils.data_utils import *
 from DeepMTP.branch_models import *
@@ -57,8 +56,6 @@ class TwoBranchMLPModel(nn.Sequential):
 class DeepMTP:
 
 	def __init__(self, config, checkpoint_dir=None):
-
-		print('CURRENT DIR: '+str(os.getcwd()))
 
 		self.checkpoint_dict = None
 		self.wandb_run = None
@@ -163,7 +160,7 @@ class DeepMTP:
 			metric_to_track=self.config['metric_to_optimize_early_stopping'] if self.config['use_early_stopping'] else self.config['metric_to_optimize_best_epoch_selection']
 		)
 
-	def inference(self, model, dataloader, mode, epoch, return_predictions=False, verbose=False):
+	def inference(self, model, dataloader, mode, epoch=0, return_predictions=False, verbose=False):
 		model.eval()
 		with torch.no_grad():
 			loss_arr = []
