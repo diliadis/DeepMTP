@@ -229,10 +229,8 @@ class HyperBand:
         return (val-min_val) / (max_val-min_val) * 100
 
     def run_optimizer(self):
-
         # iterate over the calculated brackets
         bracket_counter = 0
-        
         bracket_info_update = st.empty()
         bracket_progress_bar = st.progress(0)
         iteration_info_update = st.empty()
@@ -250,30 +248,27 @@ class HyperBand:
                 )
                 for c in range(d['n_i'][0])
             ]
-            # print('original configs list: '+str(self.configs_to_evaluate))
-
             # this is basically the successive halving routine
             for iteration in range(d['num_iters']):
                 self.configs_to_evaluate = self.configs_to_evaluate[
                     : d['n_i'][iteration]
                 ]
-
                 # pass every configuration to the worker and store its returned score. The scores will be used to determine which configurations graduate to the next round of the successive halving subroutine
                 for exp_idx, experiment in enumerate(self.configs_to_evaluate):
                     # time.sleep(5)
                     # if self.verbose:
                     iteration_info_update.write('---- Evaluating configuration... ')
-                    experiment.score, experiment.info = self.base_worker.compute(
+                    temp_result_dict = self.base_worker.compute(
                         d['r_i'][iteration], experiment.config
                     )
+                    experiment.score = temp_result_dict['loss']
+                    experiment.info = temp_result_dict['info']
                     # if self.verbose:
                     iteration_info_update.write(
                         '---- Finished evaluating configuration with score: '
                         + str(experiment.score)
                     )
                     experiment.budget = d['r_i'][iteration]
-
-                # print('Selecting the '+str(d['n_i'][iteration])+' best performing configs')
 
                 self.configs_to_evaluate = sorted(
                     self.configs_to_evaluate,
@@ -292,12 +287,20 @@ class HyperBand:
         bracket_progress_bar.progress(100)
         iteration_progress_bar.progress(100)
 
-        st.write('configs_to_evaluate: '+str(self.configs_to_evaluate))
+        # get the best performing model from the "complete" runs
+        if self.direction == 'min':
+            best_overall_config = min([experiment for bracket_id, bracket in self.experiment_history.items() for experiment in bracket[max(list(bracket.keys()))]])
+        else:
+            best_overall_config = max([experiment for bracket_id, bracket in self.experiment_history.items() for experiment in bracket[max(list(bracket.keys()))]])
+        best_overall_config.info['config']['experiment_name'] = 'best_model'
+
+        if self.verbose:
+            st.write('Best overall configuration: ')
+            st.write(best_overall_config)
+        return best_overall_config
 
     def calculate_hyperband_iters(self, R, eta, verbose=False):
-
         result_dict = {}
-
         smax = math.floor(math.log(R, eta))
         B = (smax + 1) * R
         if verbose:
@@ -305,12 +308,10 @@ class HyperBand:
             st.write('B: ' + str(B))
             st.write('')
         for s in reversed((range(smax + 1))):
-
             # n = int(math.ceil(int((B/R) * ((hta**s)/(s+1)))))
             n = int(math.ceil(int(B / R / (s + 1)) * eta ** s))
             r = int(R * (eta ** (-s)))
             result_dict[n] = {'n_i': [], 'r_i': [], 'num_iters': s + 1}
-
             if verbose:
                 st.write('s: ' + str(s))
                 st.write('     n: ' + str(n) + '   r: ' + str(r))
