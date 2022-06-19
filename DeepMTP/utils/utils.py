@@ -228,6 +228,11 @@ def generate_config(
 
     return base_config
 
+def get_default_dropout_rate():
+    return 0
+
+def get_default_batch_norm():
+    return False
 
 # dafault transofmations applied for resnet inputs 
 def get_default_train_transform():
