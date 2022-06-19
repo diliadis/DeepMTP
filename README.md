@@ -400,10 +400,15 @@ hb = HyperBand(
     configspace=cs,
     eta=config['additional_info']['eta'],
     max_budget=config['additional_info']['max_budget'],
-    direction="min",
+    direction='min',
+    verbose=True
 )
 # start-up the optimizer
-hb.run_optimizer()
+best_overall_config = hb.run_optimizer()
+
+# load the best model and generate predictions on the test set
+best_model = DeepMTP(best_overall_config.info['config'], best_overall_config.info['model_dir'])
+best_model_results = best_model.predict(test, verbose=True)
 ```
 
 
