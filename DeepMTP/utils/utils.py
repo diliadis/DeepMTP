@@ -124,7 +124,7 @@ def generate_config(
 
     load_pretrained_model = False,
     pretrained_model_path = '',
-    running_hyperband = False,
+    running_hpo = False,
     additional_info = {}
 
 ):
@@ -175,7 +175,7 @@ def generate_config(
         'instance_inference_transforms': instance_inference_transforms,
         'target_train_transforms': target_train_transforms,
         'target_inference_transforms': target_inference_transforms,
-        'running_hyperband': running_hyperband,
+        'running_hpo': running_hpo,
     }
 
     # various sanity checks for the metrics and averaging options that are provided by the user
