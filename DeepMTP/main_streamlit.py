@@ -17,7 +17,6 @@ import os
 from datetime import datetime
 import json
 import wandb
-from tqdm import tqdm
 
 from DeepMTP.utils.data_utils import *
 from DeepMTP.branch_models import *
