@@ -4,63 +4,10 @@ import math
 import sys
 import sys
 from typing import Optional
+from DeepMTP.utils.utils import BaseExperimentInfo, get_optimization_direction
 
 sys.path.insert(0, '../../../..')
 import random
-
-def get_optimization_direction(metric_name):
-    metrics_to_max = ['sensitivity', 'f1_score', 'recall', 'positive_predictive_value']
-    if True in [n in metric_name for n in metrics_to_max]:
-        return 'max'
-    return 'min'
-
-class BaseExperimentInfo:
-    def __init__(self, config, budget):
-        self.config = config
-        self.score = 0
-        self.budget = budget
-        self.info = {}
-
-    def update_score(self, score):
-        self.score = score
-
-    def get_config(self):
-        return self.config
-
-    def get_budget(self):
-        return self.budget
-
-    def __lt__(self, other):
-        return self.score < other.score
-
-    def __le__(self, other):
-        return self.score <= other.score
-
-    def __eq__(self, other):
-        return self.score == other.score
-
-    def __ne__(self, other):
-        return self.score != other.score
-
-    def __gt__(self, other):
-        return self.score > other.score
-
-    def __ge__(self, other):
-        return self.score >= other.score
-
-    def __repr__(self):
-        return (
-            'config: '
-            + str(self.config)
-            + '  |  budget: '
-            + str(self.budget)
-            + '  |  score: '
-            + str(self.score)
-            + '\n'
-            + str(self.info)
-            + '\n'
-            + '\n'
-        )
 
 class HyperBand:
     def __init__(
