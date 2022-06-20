@@ -98,7 +98,7 @@ class BaseWorker:
             save_model = self.base_config['save_model'],
 
             eval_every_n_epochs = self.base_config['eval_every_n_epochs'],
-            running_hyperband = self.base_config['running_hyperband'],
+            running_hpo = self.base_config['running_hpo'],
             additional_info = self.base_config['additional_info'])
 
         self.older_model_dir = None

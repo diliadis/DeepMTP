@@ -413,7 +413,7 @@ class DeepMTP:
 
 		final_info.info('You can find the best model as well as other usefull files generated from this experiment in the following directory: '+str(self.experiment_dir))
 
-		if self.config['running_hyperband']:
+		if self.config['running_hpo']:
 			train_val_loss_chart.empty()
 			train_header.empty()
 			train_progress_table.empty()
