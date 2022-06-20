@@ -2,7 +2,6 @@ from pickletools import optimize
 import random
 import math
 import sys
-import sys
 from typing import Optional
 from DeepMTP.utils.utils import BaseExperimentInfo, get_optimization_direction
 
