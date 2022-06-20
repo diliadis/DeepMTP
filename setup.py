@@ -4,7 +4,7 @@ from io import open
 
 this_directory = path.abspath(path.dirname(__file__))
 
-VERSION = '0.0.1' 
+VERSION = '0.0.7' 
 DESCRIPTION = 'a Deep Learning Framework for Multi-target Prediction'
 
 def readme():
@@ -28,6 +28,11 @@ setup(
         long_description_content_type='text/markdown',
         url='https://github.com/diliadis/DeepMTP',
         install_requires=requirements,
+        # dependency_links=['https://download.pytorch.org/whl/cpu'],
+        # extras_require={
+        #     'cpu': ['torch==1.11.0+cpu', 'torchaudio==0.11.0+cpu', 'torchvision==0.12.0+cpu'],
+        #     'gpu': ['torch==1.11.0', 'torchaudio==0.11.0', 'torchvision==0.12.0']
+        # },
         classifiers= [
             'Intended Audience :: Education',
             'License :: OSI Approved :: MIT License',
