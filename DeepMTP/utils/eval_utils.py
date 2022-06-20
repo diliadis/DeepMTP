@@ -441,5 +441,4 @@ def get_epilepsy_specific_metrics(
                 if (2 * TP_OVLP + FN_OVLP + FP)
                 else 0
             )
-
     return results
