@@ -53,6 +53,7 @@ class HyperBand:
         bracket_info_update = st.empty()
         bracket_progress_bar = st.progress(0)
         iteration_info_update = st.empty()
+        config_info_update = st.empty()
         iteration_progress_bar = st.progress(0)
         for bracket, d in self.budgets_per_bracket.items():
             iteration_counter = 0
@@ -76,7 +77,8 @@ class HyperBand:
                 for exp_idx, experiment in enumerate(self.configs_to_evaluate):
                     # time.sleep(5)
                     # if self.verbose:
-                    iteration_info_update.write('---- Evaluating configuration... ')
+                    iteration_info_update.write('---- Evaluating configuration: ')
+                    config_info_update.json(experiment.config.get_dictionary())
                     temp_result_dict = self.base_worker.compute(
                         d['r_i'][iteration], experiment.config
                     )
@@ -105,6 +107,9 @@ class HyperBand:
             bracket_progress_bar.progress(int(self.get_norm_val(bracket_counter, 0, len(self.budgets_per_bracket))))
         bracket_progress_bar.progress(100)
         iteration_progress_bar.progress(100)
+        bracket_info_update.empty()
+        iteration_info_update.empty()
+        config_info_update.empty()
 
         # get the best performing model from the "complete" runs
         if self.direction == 'min':
@@ -113,9 +118,6 @@ class HyperBand:
             best_overall_config = max([experiment for bracket_id, bracket in self.experiment_history.items() for experiment in bracket[max(list(bracket.keys()))]])
         best_overall_config.info['config']['experiment_name'] = 'best_model'
 
-        if self.verbose:
-            st.write('Best overall configuration: ')
-            st.write(best_overall_config)
         return best_overall_config
 
     def calculate_hyperband_iters(self, R, eta, verbose=False):

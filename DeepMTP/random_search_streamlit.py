@@ -30,11 +30,13 @@ class RandomSearch:
     def run_optimizer(self):
         random_search_iter_info_update = st.empty()
         random_search_iter_progress_bar = st.progress(0)
+        config_info_update = st.empty()
+
         self.configs_to_evaluate = [BaseExperimentInfo(config=self.configspace.sample_configuration(), budget=self.max_num_epochs) for c in range(self.budget)]
         for exp_counter, experiment in enumerate(self.configs_to_evaluate):
             if self.verbose:
                 random_search_iter_info_update.write('---- Evaluating configuration... ')
-
+                config_info_update.json(experiment.config.get_dictionary())
             temp_result_dict = self.base_worker.compute(
                 self.max_num_epochs, experiment.config
             )    
@@ -47,6 +49,9 @@ class RandomSearch:
                 )
             random_search_iter_progress_bar.progress(int(self.get_norm_val(exp_counter, 0, self.budget)))
         random_search_iter_progress_bar.progress(100)
+        random_search_iter_info_update.empty()
+        config_info_update.empty()
+        
         self.configs_to_evaluate = sorted(
             self.configs_to_evaluate,
             key=lambda x: x.score,
@@ -55,7 +60,4 @@ class RandomSearch:
         best_overall_config = self.configs_to_evaluate[0]
         best_overall_config.info['config']['experiment_name'] = 'best_model'
 
-        if self.verbose:
-            st.write('Best overall configuration: ')
-            st.write(best_overall_config['config'])
         return best_overall_config
