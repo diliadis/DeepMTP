@@ -57,5 +57,5 @@ class RandomSearch:
 
         if self.verbose:
             st.write('Best overall configuration: ')
-            st.write(best_overall_config)
+            st.write(best_overall_config['config'])
         return best_overall_config
