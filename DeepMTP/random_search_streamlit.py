@@ -33,7 +33,7 @@ class RandomSearch:
         self.configs_to_evaluate = [BaseExperimentInfo(config=self.configspace.sample_configuration(), budget=self.max_num_epochs) for c in range(self.budget)]
         for exp_counter, experiment in enumerate(self.configs_to_evaluate):
             if self.verbose:
-                st.random_search_iter_info_update('---- Evaluating configuration... ')
+                random_search_iter_info_update.write('---- Evaluating configuration... ')
 
             temp_result_dict = self.base_worker.compute(
                 self.max_num_epochs, experiment.config
@@ -41,7 +41,7 @@ class RandomSearch:
             experiment.score = temp_result_dict['loss']
             experiment.info = temp_result_dict['info']
             if self.verbose:
-                st.random_search_iter_info_update(
+                random_search_iter_info_update.write(
                     '---- Finished evaluating configuration with score: '
                     + str(experiment.score)
                 )
