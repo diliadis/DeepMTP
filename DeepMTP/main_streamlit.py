@@ -38,9 +38,9 @@ class DeepMTP:
 			if not os.path.isfile(checkpoint_dir):
 				raise AttributeError('The file directory: '+checkpoint_dir+' does not exist!!!')
 			else:
-				if config['verbose']: print('Loading checkpoint from '+str(checkpoint_dir)+'... ', '')
+				# if config['verbose']: print('Loading checkpoint from '+str(checkpoint_dir)+'... ', '')
 				self.checkpoint_dict = torch.load(checkpoint_dir)
-				if config['verbose']: print('Done')
+				# if config['verbose']: print('Done')
 
 			# when a checkpoint is loaded, it's config can (or sometimes has to) be modified
 			self.config = self.checkpoint_dict['config']
@@ -50,7 +50,7 @@ class DeepMTP:
 
 		# initialize the device that will be used of training-inference
 		self.device = torch.device(self.config['compute_mode'] if (torch.cuda.is_available() and 'cuda' in self.config['compute_mode']) else 'cpu')
-		if self.config['verbose']: print('Selected device: '+str(self.device))
+		# if self.config['verbose']: print('Selected device: '+str(self.device))
 
 		# setup the directory that will be used to save all relevant experiment info
 		if not os.path.exists(self.config['results_path']):
@@ -102,7 +102,7 @@ class DeepMTP:
 		
 		if self.checkpoint_dict is not None: 
 			# apply the loaded checkpoint
-			if self.config['verbose']: print('Applying saved weights... ', end='')
+			# if self.config['verbose']: print('Applying saved weights... ', end='')
 			self.deepMTP_model.load_state_dict(self.checkpoint_dict['model_state_dict'])
 			# update the device of the optimizer
 			self.optimizer.load_state_dict(self.checkpoint_dict['optimizer_state_dict'])
@@ -110,7 +110,7 @@ class DeepMTP:
 				for k, v in state.items():
 					if isinstance(v, torch.Tensor):
 						state[k] = v.to(self.device)
-			if self.config['verbose']: print('Done')
+			# if self.config['verbose']: print('Done')
 		
 		# initialize the loss function that will be used. BCE for classification tasks and MSE for regression tasks.
 		if self.config['problem_mode'] == 'classification':
@@ -167,7 +167,7 @@ class DeepMTP:
 
 			# calculate the performance
 			if ((mode=='test') or ((epoch % self.config['eval_every_n_epochs'] == 0) and (self.config['evaluate_val'])) or (self.config['metric_to_optimize_early_stopping']!='loss') or (self.config['num_epochs']-1 == epoch)):
-				if verbose: print('Calculating '+mode+' performance... ', end='')
+				# if verbose: print('Calculating '+mode+' performance... ', end='')
 				results = get_performance_results(
 					mode, 
 					epoch,
@@ -183,7 +183,7 @@ class DeepMTP:
 					train_true_value=None,
 					scaler_per_target=None,
 				)
-				if verbose: print('Done')
+				# if verbose: print('Done')
 			
 			if mode != 'test':
 				results[mode+'_loss'] = np.mean(loss_arr)
@@ -207,7 +207,7 @@ class DeepMTP:
 		if test_data is not None:
 			test_dataloader = DataLoader(BaseDataset(self.config, test_data['y'], test_data['X_instance'], test_data['X_target'], self.config['instance_inference_transforms'], self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
 
-		if self.config['verbose']: print('Starting training...')
+		# if self.config['verbose']: print('Starting training...')
 
 		# initialize the tables used to show all the results
 		run_story_header = ['mode', '#epoch', 'loss'] + [m+'_'+av for m in self.config['metrics'] for av in self.config['metrics_average']]
@@ -250,7 +250,7 @@ class DeepMTP:
 			instance_ids_arr = []
 			target_ids_arr = []
 			
-			if self.config['verbose']: print('Epoch:'+str(epoch)+'... ', end='')
+			# if self.config['verbose']: print('Epoch:'+str(epoch)+'... ', end='')
 			# iterate over batches
 			for batch_id, batch in enumerate(train_dataloader):
 				instance_features = batch['instance_features'].to(self.device)
@@ -312,12 +312,12 @@ class DeepMTP:
 						k.replace('_', '/'), v, epoch
 					)
 
-			if self.config['verbose']: print('Done') 
+			# if self.config['verbose']: print('Done') 
 
 			# generate predictions for the validation set. This needs to be done in order to early stop and to select between configurations
-			if self.config['verbose']: print('  Validating... ', end='')
+			# if self.config['verbose']: print('  Validating... ', end='')
 			val_results = self.inference(self.deepMTP_model, val_dataloader, 'val', epoch, verbose=self.config['verbose'])
-			if self.config['verbose']: print('Done')
+			# if self.config['verbose']: print('Done')
 
 			# update val_run_story_table
 			val_run_story.append(['val', str(epoch), round(val_results['val_loss'], 4)] + [round(val_results['val_'+m+'_'+av], 4) if 'val_'+m+'_'+av in val_results else '-' for m in self.config['metrics'] for av in self.config['metrics_average']])
@@ -338,10 +338,11 @@ class DeepMTP:
 				val_results,
 				copy.deepcopy(self.deepMTP_model),
 				epoch,
-				optimizer_state_dict=copy.deepcopy(self.optimizer.state_dict())
+				optimizer_state_dict=copy.deepcopy(self.optimizer.state_dict()),
+				verbose=False
 			)
 			if self.early_stopping.early_stop_flag and self.config['use_early_stopping']:
-				print('Early stopping criterion met. Training stopped!!!')
+				# print('Early stopping criterion met. Training stopped!!!')
 				break
 			else:
 				val_run_story[-1].append(str(self.early_stopping.counter)+'/'+str(self.early_stopping.patience))
@@ -358,9 +359,9 @@ class DeepMTP:
 
 		self.deepMTP_model = self.early_stopping.best_model        
 		# training is done (either completed all epochs or early stopping kicked in). Now testing starts using the best model
-		if self.config['verbose']: print('Starting testing... ', end='')
+		# if self.config['verbose']: print('Starting testing... ', end='')
 		test_results = self.inference(self.deepMTP_model, test_dataloader, 'test', epoch, verbose=self.config['verbose'])
-		if self.config['verbose']: print('Done')
+		# if self.config['verbose']: print('Done')
 
 		# update test_run_story_table
 		test_run_story_table.add_row(['test', self.early_stopping.best_epoch, '-'] + [round(test_results['test_'+m+'_'+av], 4) for m in self.config['metrics'] for av in self.config['metrics_average']])
@@ -386,12 +387,12 @@ class DeepMTP:
 			self.tensorboard_logger.close()
 
 		# print and save the train-val-test summaries to a single .txt file
-		if self.config['verbose']:
-			if self.config['evaluate_train']: print(train_run_story_table.get_string())
-			print(20*'=')
-			if self.config['evaluate_val']: print(val_run_story_table.get_string())
-			print(20*'=')
-			print(test_run_story_table.get_string())
+		# if self.config['verbose']:
+		# 	if self.config['evaluate_train']: print(train_run_story_table.get_string())
+		# 	print(20*'=')
+		# 	if self.config['evaluate_val']: print(val_run_story_table.get_string())
+		# 	print(20*'=')
+		# 	print(test_run_story_table.get_string())
 
 		with open(self.experiment_dir+'/summary.txt', 'w') as f:
 			f.write(train_run_story_table.get_string())
@@ -433,14 +434,14 @@ class DeepMTP:
 
 	def save_model(self, verbose=False):
 		self.config['use_tensorboard_logger'] = False
-		if verbose: print('Saving the best model... ', end='')
+		# if verbose: print('Saving the best model... ', end='')
 		torch.save({
 			'model_state_dict': self.early_stopping.best_model.state_dict(),
 			'optimizer_state_dict': self.early_stopping.best_optimizer_state_dict,
 			# 'optimizer_state_dict': self.optimizer.state_dict(),
 			'config': self.config
 			}, self.experiment_dir+'/model.pt')
-		if verbose: print('Done')
+		# if verbose: print('Done')
 
 def initialize_mode(config):
 	return DeepMTP(config)
