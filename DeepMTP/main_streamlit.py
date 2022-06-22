@@ -128,8 +128,8 @@ class DeepMTP:
 		self.early_stopping = EarlyStopping(
 			use_early_stopping=self.config['use_early_stopping'],
 			patience=self.config['patience'],
-			verbose=self.config['verbose'],
-			metric_to_track=self.config['metric_to_optimize_early_stopping'] if self.config['use_early_stopping'] else self.config['metric_to_optimize_best_epoch_selection']
+			verbose=False,
+			metric_to_track=self.config['metric_to_optimize_early_stopping'] if self.config['use_early_stopping'] else self.config['metric_to_optimize_best_epoch_selection'],
 		)
 
 	def inference(self, model, dataloader, mode, epoch, return_predictions=False, verbose=False, val_progress_table=None):
@@ -339,7 +339,6 @@ class DeepMTP:
 				copy.deepcopy(self.deepMTP_model),
 				epoch,
 				optimizer_state_dict=copy.deepcopy(self.optimizer.state_dict()),
-				verbose=False
 			)
 			if self.early_stopping.early_stop_flag and self.config['use_early_stopping']:
 				# print('Early stopping criterion met. Training stopped!!!')
