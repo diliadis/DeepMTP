@@ -144,5 +144,5 @@ class HyperBand:
                 result_dict[n]['r_i'].append(ri)
             if verbose:
                 st.write('')
-                `st.`write('===========================')
+                st.write('===========================')
         return result_dict
