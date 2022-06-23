@@ -126,7 +126,7 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
 		'slump': 3,
 		'andro': 6,
 		'osales': 12,
-		'scfp': 3
+		'scpf': 3
 	}
 
 	available_data_sets = list(labels_per_dataset.keys())
@@ -192,7 +192,7 @@ def print_MTR_datasets():
 	table.add_row(['slump', '103', '7', '3'])
 	table.add_row(['andro', '49', '30', '6'])
 	table.add_row(['osales', '639', '413', '12'])
-	table.add_row(['scfp', '1137', '23', '3'])
+	table.add_row(['scpf', '1137', '23', '3'])
 	print(table.get_string())
 
 
