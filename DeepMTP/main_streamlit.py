@@ -317,6 +317,7 @@ class DeepMTP:
 			# generate predictions for the validation set. This needs to be done in order to early stop and to select between configurations
 			# if self.config['verbose']: print('  Validating... ', end='')
 			val_results = self.inference(self.deepMTP_model, val_dataloader, 'val', epoch, verbose=self.config['verbose'])
+			print('val_results_internally: '+str(val_results))
 			# if self.config['verbose']: print('Done')
 
 			# update val_run_story_table
@@ -356,7 +357,18 @@ class DeepMTP:
 			
 			train_val_loss_chart.add_rows(pd.DataFrame(np.array([train_run_story[-1][2], val_run_story[-1][2]]).reshape(1,-1), columns=['train', 'val']))
 
-		self.deepMTP_model = self.early_stopping.best_model        
+		self.deepMTP_model = self.early_stopping.best_model  
+
+		# log the performance validation results of the best model
+		results_to_log = {'best_val_'+m+'_'+av: self.early_stopping.best_performance_results['val_'+m+'_'+av] for m in self.config['metrics'] for av in self.config['metrics_average']}
+		if self.wandb_run is not None:
+			self.wandb_run.log(results_to_log)
+		if self.tensorboard_logger is not None:
+			for k, v in results_to_log.items():
+				self.tensorboard_logger.add_scalar(
+					k.replace('_', '/'), v, epoch
+				)
+
 		# training is done (either completed all epochs or early stopping kicked in). Now testing starts using the best model
 		# if self.config['verbose']: print('Starting testing... ', end='')
 		test_results = self.inference(self.deepMTP_model, test_dataloader, 'test', epoch, verbose=self.config['verbose'])
