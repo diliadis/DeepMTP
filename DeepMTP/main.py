@@ -364,6 +364,16 @@ class DeepMTP:
 
 
 		self.deepMTP_model = self.early_stopping.best_model        
+
+		# log the performance validation results of the best model
+		results_to_log = {'best_val_'+m+'_'+av: self.early_stopping.best_performance_results['val_'+m+'_'+av] for m in self.config['metrics'] for av in self.config['metrics_average']}
+		if self.wandb_run is not None:
+			self.wandb_run.log(results_to_log)
+		if self.tensorboard_logger is not None:
+			for k, v in results_to_log.items():
+				self.tensorboard_logger.add_scalar(
+					k.replace('_', '/'), v, epoch
+				)
 		# training is done (either completed all epochs or early stopping kicked in). Now testing starts using the best model
 		if self.config['verbose']: print('Starting testing... ', end='')
 		test_results = self.inference(self.deepMTP_model, test_dataloader, 'test', epoch, verbose=self.config['verbose'])
