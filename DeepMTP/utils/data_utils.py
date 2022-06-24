@@ -681,23 +681,27 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
         
         if data['train']['X_instance'] is not None:
             if 'features' in data['train']['X_instance']['data'].columns:
+                if verbose: print(('info: ' if print_mode=='dev' else '')+'Scaling instance features... ', end='')
                 # fit the instance features scaler
                 scaler.fit(np.stack(data['train']['X_instance']['data']['features'].to_numpy()))
                 # transform the instance features for the train,val and test sets
                 data['train']['X_instance']['data']['features'] = data['train']['X_instance']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
                 data['val']['X_instance']['data']['features'] = data['val']['X_instance']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
                 data['test']['X_instance']['data']['features'] = data['test']['X_instance']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
+                if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
             else:
                 if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_features+' scaling for the instance features while supplying images. This step will be skipped')
 
         if data['train']['X_target'] is not None:
-            if 'features' in data['train']['X_instance']['data'].columns:
+            if 'features' in data['train']['X_target']['data'].columns:
+                if verbose: print(('info: ' if print_mode=='dev' else '')+'Scaling target features... ', end='')
                 # fit the instance features scaler
                 scaler.fit(np.stack(data['train']['X_target']['data']['features'].to_numpy()))
                 # transform the instance features for the train,val and test sets
                 data['train']['X_target']['data']['features'] = data['train']['X_target']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
                 data['val']['X_target']['data']['features'] = data['val']['X_target']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
                 data['test']['X_target']['data']['features'] = data['test']['X_target']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
+                if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
             else:
                 if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_features+' scaling for the target features while supplying images. This step will be skipped')
 
