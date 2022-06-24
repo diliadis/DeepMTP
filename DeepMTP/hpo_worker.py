@@ -140,6 +140,7 @@ class BaseWorker:
 
         # train, validate and test all at once
         val_results = model.train(self.train, self.val, self.test)
+        print('val_results: '+str(val_results))
 
         # append all the latest relevant info for the given configuration
         self.config_to_model[model_config_key]['budget'].append(original_budget) 
