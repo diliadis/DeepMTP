@@ -6,6 +6,10 @@
 
 [![PyPi Version](https://img.shields.io/pypi/v/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/)
 [![PyPi Version Alt](https://badge.fury.io/py/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) [![PyPi Python Versions](https://img.shields.io/pypi/pyversions/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) 
+[![GitHub license](https://img.shields.io/github/license/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/blob/main/LICENSE.md)
+
+[![GitHub issues](https://img.shields.io/github/issues/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/issues)
+[![GitHub stars](https://img.shields.io/github/stars/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/stargazers)
 
 
 ---
