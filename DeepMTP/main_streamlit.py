@@ -217,7 +217,7 @@ class DeepMTP:
 		val_run_story = []
 		val_run_story_table = PrettyTable(run_story_header+['early_stopping'])
 		test_run_story_table = PrettyTable(run_story_header)
-
+		print(self.deepMTP_model)
 		# create a dataframe that will plot
 		train_val_loss_chart.line_chart()
 		# create a dataframe that will be used to print the progress status in the streamlit up. It can have the general format of the PrettyTables
