@@ -57,8 +57,9 @@ class HyperBand:
         iteration_progress_bar = st.progress(0)
         for bracket, d in self.budgets_per_bracket.items():
             iteration_counter = 0
+            bracket_counter += 1
             # if self.verbose:
-            bracket_info_update.write('-- Running bracket with starting budget: ' + str(bracket))
+            bracket_info_update.write('-- Running bracket with starting budget: '+str(bracket)+'['+str(bracket_counter)+'/'+str(len(self.budgets_per_bracket))+']')
             self.experiment_history[bracket] = {}
 
             # you first start with as many randomly selected configurations as the current bracket defines
@@ -77,7 +78,7 @@ class HyperBand:
                 for exp_idx, experiment in enumerate(self.configs_to_evaluate):
                     # time.sleep(5)
                     # if self.verbose:
-                    iteration_info_update.write('---- Evaluating configuration: ')
+                    iteration_info_update.write('---- Evaluating configuration: ['+str(exp_idx)+'/'+str(len(self.configs_to_evaluate))+']')
                     config_info_update.json(experiment.config.get_dictionary())
                     temp_result_dict = self.base_worker.compute(
                         d['r_i'][iteration], experiment.config
@@ -103,7 +104,6 @@ class HyperBand:
                 iteration_counter += 1
                 iteration_progress_bar.progress(int(self.get_norm_val(iteration_counter, 0, d['num_iters'])))
 
-            bracket_counter += 1
             bracket_progress_bar.progress(int(self.get_norm_val(bracket_counter, 0, len(self.budgets_per_bracket))))
         bracket_progress_bar.progress(100)
         iteration_progress_bar.progress(100)
