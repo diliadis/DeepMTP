@@ -218,8 +218,11 @@ def generate_config(
     
     base_config['metrics_average'] = metrics_average
 
-
-
+    if batch_norm == 'True':
+        base_config['batch_norm'] = True  
+    elif batch_norm == 'False':
+        base_config['batch_norm'] = False
+      
     if enable_dot_product_version:
         base_config['embedding_size'] = embedding_size
     else:
