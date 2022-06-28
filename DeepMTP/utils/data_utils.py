@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 import copy
 
 def normalize(row, scaler):
-    return scaler.transform([row])
+    return scaler.transform([row])[0]
 
 def process_interaction_data(interaction_data, verbose=False, print_mode='basic'):
     info = None
