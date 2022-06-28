@@ -57,7 +57,7 @@ class BaseWorker:
             problem_mode = self.base_config['problem_mode'],
             learning_rate = temp_config['learning_rate'],
             decay = 0,
-            batch_norm = temp_config['batch_norm'] if 'batch_norm' in temp_config else 0,
+            batch_norm = temp_config['batch_norm'] if 'batch_norm' in temp_config else False,
             dropout_rate = temp_config['dropout_rate'] if 'dropout_rate' in temp_config else 0,
             momentum = 0.9,
             weighted_loss = False,
