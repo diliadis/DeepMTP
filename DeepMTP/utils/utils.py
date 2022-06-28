@@ -129,8 +129,8 @@ def generate_config(
 
 ):
 
-    if metric_to_optimize_early_stopping not in [m+'_'+m_a for m in metrics+['loss'] for m_a in metrics_average]:
-        raise AttributeError('The metric requested to track during early stopping is should be also defined in the metrics field of the configuration object')
+    if metric_to_optimize_early_stopping not in [m+'_'+m_a for m in metrics for m_a in metrics_average]+['loss']:
+        raise AttributeError('The metric requested to track during early stopping ('+metric_to_optimize_early_stopping+') is should be also defined in the metrics field of the configuration object '+str([m+'_'+m_a for m in metrics+['loss'] for m_a in metrics_average]))
 
     base_config = {
         'validation_setting': validation_setting,
