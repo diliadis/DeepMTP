@@ -10,9 +10,31 @@ from torch.utils.data import Dataset
 import copy
 
 def normalize(row, scaler):
+    ''' Just normalizes a row or features
+
+    Args:
+        row (numpy.array): an array of features 
+        scaler (sklearn.scaler): the scaler that will be used to scale the features
+
+    Returns:
+        numpy.array: a scaled array of feature
+    '''    
     return scaler.transform([row])[0]
 
 def process_interaction_data(interaction_data, verbose=False, print_mode='basic'):
+    '''A function that processes the interaction data. It is called separately for the train, val and test interaction data.
+    There are two main types of interaction data formats that are supported:
+    -> numpy format: This is a 2d numpy array that represents the interaction (also called score) matrix usually found in problems settings with fully observed matrices (multi-label classification, multivariate regression)
+    -> triplet format: The most flexible format as it can be used to represent every possible problem setting
+
+    Args:
+        interaction_data (_type_): a numpy array or a dataframe with the interaction data
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    Returns:
+        dict: a dictionary with the interaction data and additional information that could be detected (format, type of instance and target ids, etc.)
+    '''    
     info = None
     if isinstance(interaction_data, pd.DataFrame):
         if len(interaction_data.columns) == 3:
@@ -65,6 +87,14 @@ def process_interaction_data(interaction_data, verbose=False, print_mode='basic'
 
 
 def check_interaction_files_format(data, verbose=False, print_mode='basic'):
+    '''Checks the format of the interaction data. If any inconsistencies are detected (like different formats between train and test interaction data), an exception is raised
+
+    Args:
+        data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    '''    
     distinct_formats = set([data[mode]['y']['original_format'] for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None])
     if distinct_formats:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: checking format consistency... ', end='')
@@ -74,6 +104,14 @@ def check_interaction_files_format(data, verbose=False, print_mode='basic'):
             raise Exception(('error: ' if print_mode=='dev' else '')+'Inconsistent file formats across the different interaction files')
 
 def check_interaction_files_column_type_format(data, verbose=False, print_mode='basic'):
+    '''Checks the type of the instance and target ids in the interaction data. If any inconsistencies are detected (like different id types between train and test interaction data), an exception is raised
+
+    Args:
+        data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    '''    
     # check for instance id type concistency across the interaction data sources
     distinct_instance_id_format = set([data[mode]['y']['instance_id_type'] for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None])
     if distinct_instance_id_format:
@@ -93,12 +131,28 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode='
             raise Exception(('error: ' if print_mode=='dev' else '')+'Inconsistent target id column type across the different interaction files')
 
 def check_variable_type(samples_arr):
+    '''Checks the type of the target variable. This implementation is currently very simple. It has to be improved!!
+
+    Args:
+        samples_arr (numpy.array): A numpy array with the target variables 
+
+    Returns:
+        str: The type of the target variable. Possible values are 'real-valued' and 'binary'
+    '''    
     variable_type = 'real-valued'
     if set(samples_arr['value']).difference(set([0, 1])) == set():
         variable_type = 'binary'
     return variable_type
 
 def check_target_variable_type(data, verbose=False, print_mode='basic'):
+    '''Checks the type of the target variable in the interaction data. If any inconsistencies are detected (like different id types between train and test interaction data), an exception is raised
+
+    Args:
+        data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    '''   
     distinct_target_variable_type = set([check_variable_type(data[mode]['y']['data']) for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None])
     if distinct_target_variable_type:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: checking target variable type consistency... ', end='')
@@ -110,6 +164,15 @@ def check_target_variable_type(data, verbose=False, print_mode='basic'):
     return list(distinct_target_variable_type)[0]
 
 def check_novel_instances(train, test, verbose=False, print_mode='basic'):
+    '''Checks if the test set contains novel instance ids that are not present in the training set
+
+    Args:
+        train (dict): The actual train interaction data.
+        test (dict): The actual train interaction data.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    '''   
     novel_instances_detected = None
     if test is not None:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: Checking for novel instances... ', end='')
@@ -127,6 +190,15 @@ def check_novel_instances(train, test, verbose=False, print_mode='basic'):
     return novel_instances_detected
 
 def check_novel_targets(train, test, verbose=False, print_mode='basic'):
+    '''Checks if the test set contains novel target ids that are not present in the training set
+
+    Args:
+        train (dict): The actual train interaction data.
+        test (dict): The actual train interaction data.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    '''  
     novel_targets_detected = None
     if test is not None:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: Checking for novel targets... ', end='')
@@ -144,6 +216,17 @@ def check_novel_targets(train, test, verbose=False, print_mode='basic'):
     return novel_targets_detected
 
 def get_estimated_validation_setting(novel_instances_flag, novel_targets_flag, verbose, print_mode='basic'):
+    '''Uses the combination of infrmation about novel instances and novel targets to determine the validation setting that is possible.
+
+    Args:
+        novel_instances_flag (bool): A boolean that indicates whether or not the test set contains novel instances.
+        novel_targets_flag (bool): A boolean that indicates whether or not the test set contains novel targets.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    Returns:
+        str: The validation setting. Possible values are A, B, C, D
+    '''
     validation_setting_detected = None
     if novel_instances_flag is not None and novel_targets_flag is not None:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Estimating validation setting... ', end='')
@@ -160,6 +243,23 @@ def get_estimated_validation_setting(novel_instances_flag, novel_targets_flag, v
     return validation_setting_detected
 
 def process_instance_features(instance_features, verbose=False, print_mode='basic'):
+    '''A function that processes the instance features data. It is called separately for the train, val and test interaction data.
+    There are two main types of interaction data formats that are supported:
+    * numpy format: This is a 2d numpy array that represents the instance features. The first dimension represents the samples and the second dimension the features.
+    * triplet format: This is a dataframe with two columns. 
+        * The first column stores the instance id (that will be mapped to the instance ids in the interaction data).
+        * The second column stores the features that can have two different names:
+            * 'features': stores the actuall features array
+            * 'dir': stores the directory that the features are stored. (In the current implementation this is designed for image datasets but it can be generalized in future versions)
+
+    Args:
+        instance_features (_type_): The instance features
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    Returns:
+        dict: A dictionary with the instance features and other related information that could be detected
+    '''    
     if instance_features is not None:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Instance features file: processing features... ', end='')
         if isinstance(instance_features, np.ndarray):
@@ -181,6 +281,23 @@ def process_instance_features(instance_features, verbose=False, print_mode='basi
     return instance_features
 
 def process_target_features(target_features, verbose=False, print_mode='basic'):
+    '''A function that processes the target features data. It is called separately for the train, val and test interaction data.
+    There are two main types of interaction data formats that are supported:
+    * numpy format: This is a 2d numpy array that represents the target features. The first dimension represents the samples and the second dimension the features.
+    * triplet format: This is a dataframe with two columns. 
+        * The first column stores the target id (that will be mapped to the target ids in the interaction data).
+        * The second column stores the features that can have two different names:
+            * 'features': stores the actuall features array
+            * 'dir': stores the directory that the features are stored. (In the current implementation this is designed for image datasets but it can be generalized in future versions)
+
+    Args:
+        target_features (_type_): The target features
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    Returns:
+        dict: A dictionary with the target features and other related information that could be detected
+    '''    
     if target_features is not None:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Instance features file: processing features... ', end='')
         if isinstance(target_features, np.ndarray):
@@ -202,6 +319,15 @@ def process_target_features(target_features, verbose=False, print_mode='basic'):
     return target_features
 
 def cross_input_consistency_check_instances(data, validation_setting, verbose, print_mode='basic'):
+    '''Checks the consistency of instance ids in the interaction data and instance features. The requirements to pass this check change depending on the format of the interaction data and instance features
+
+    Args:
+        data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
+        validation_setting (str): The validation setting of the current problem.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    '''
     num_interaction_data_sources = sum([data[mode]['y'] is not None for mode in ['train', 'test', 'val']])
     num_instance_features_sources = sum([data[mode]['X_instance'] is not None for mode in ['train', 'test', 'val']])
     valid_modes = [mode for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None]
@@ -282,6 +408,15 @@ def cross_input_consistency_check_instances(data, validation_setting, verbose, p
                         raise Exception(('error: ' if print_mode=='dev' else '')+'Different instance ids in the interaction and features files')
 
 def cross_input_consistency_check_targets(data, validation_setting, verbose, print_mode='basic'):
+    '''Checks the consistency of target ids in the interaction data and target features. The requirements to pass this check change depending on the format of the interaction data and target features
+
+    Args:
+        data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
+        validation_setting (str): The validation setting of the current problem.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    '''
     num_interaction_data_sources = sum([data[mode]['y'] is not None for mode in ['train', 'test', 'val']])
     num_target_features_sources = sum([data[mode]['X_target'] is not None for mode in ['train', 'test', 'val']])
     valid_modes = [mode for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None]
@@ -360,21 +495,20 @@ def cross_input_consistency_check_targets(data, validation_setting, verbose, pri
                         raise Exception(('error: ' if print_mode=='dev' else '')+'Different target ids in the interaction and features files')
 
 def split_data(data, validation_setting, split_method, ratio, seed, verbose, print_mode='basic'):
-    '''
-    This function splits the dataset and offers two main functionalities:
-    1) split based on the 4 different validation settings (A, B, C, D)
-    2) if a test set already exists it separates a validation set, otherwise it first creates a test set and then a validation set
-    '''
-    '''
-    data['train']['y']['data']['old_instance_id'] = data['train']['y']['data']['instance_id']
-    data['train']['y']['data']['old_target_id'] = data['train']['y']['data']['target_id']
-    if data['test']['y'] is not None:
-        data['test']['y']['data']['old_instance_id'] = data['test']['y']['data']['instance_id']
-        data['test']['y']['data']['old_target_id'] = data['test']['y']['data']['target_id']
-    if data['val']['y'] is not None:
-        data['val']['y']['data']['old_instance_id'] = data['val']['y']['data']['instance_id']
-        data['val']['y']['data']['old_target_id'] = data['val']['y']['data']['target_id']
-    '''
+    '''Splits the dataset and offers two main functionalities:
+        * split based on the 4 different validation settings (A, B, C, D)
+        * if a test set already exists it separates a validation set, otherwise it first creates a test set and then a validation set.
+
+    Args:
+        data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
+        validation_setting (str): The validation setting of the current problem.
+        split_method (str): The splitting method used. The current implementation only supports the 'random split' using a specific seed but a future goal is to also offer a stratified option.
+        ratio (dict): The train, val and test ratios used to split the data. 
+        seed (int): The seed used to initiate the randomized split
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+    '''    
 
     if validation_setting == 'B':
         if data['test']['y'] is None:
@@ -514,6 +648,26 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
 
 
 def data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None):
+    '''The main function that handles all the preprocessing steps and checks needed to prepare the dataset to be used by the model.
+
+    Args:
+        data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
+        validation_setting (str, optional): The validation setting of the current problem. Defaults to None.
+        split_method (str, optional): The splitting method used. The current implementation only supports the 'random split' using a specific seed but a future goal is to also offer a stratified option. Defaults to 'random'.
+        ratio (dict, optional): The train, val and test ratios used to split the data. Defaults to {'train': 0.7, 'test': 0.2, 'val': 0.1}.
+        seed (int, optional): The seed used to initiate the randomized split. Defaults to 42.
+        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
+        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        scale_instance_features (str, optional): The scaler used for the instance features. Possible values are 'MinMax' for the MinMax scaler and 'Standard' for the standard scaler. Defaults to None.
+        scale_target_features (str, optional): The scaler used for the target features. Possible values are 'MinMax' for the MinMax scaler and 'Standard' for the standard scaler. Defaults to None.
+
+    Returns:
+        dict, dict, dict, dict: Four different dictionaries containing:
+            * Train processed data
+            * Test processed data
+            * Validation processed data
+            * general information about the datasets
+    '''
     data = copy.deepcopy(data)
     train_flag, test_flag, val_flag = False, False, False
     setting_A_flag, setting_B_flag, setting_C_flag, setting_D_flag = None, None, None, None
@@ -714,6 +868,9 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
     return data['train'], data['val'], data['test'], data['info']
 
 class BaseDataset(Dataset):
+    """A custom pytorch Dataset with a flexible implementation that can handle different cases of instance and target features. 
+       The speed of this could be improved by splitting this logic into multiple datasets designed for specific cases. 
+    """    
     def __init__(self, config, data, instance_features, target_features, instance_transform=None, target_transform=None):
         self.config = config
         self.instance_branch_input_dim = config['instance_branch_input_dim']
