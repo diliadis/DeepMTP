@@ -156,7 +156,7 @@ def generate_config(
         val_batchsize (int, optional): 	The number of samples that comprise a batch from the validation and test sets. Defaults to 512.
         num_epochs (int, optional): The max number of epochs allowed for training. Defaults to 100.
         metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
-        metrics_average (list, optional): 	The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
+        metrics_average (list, optional): The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
         patience (int, optional): The number of epochs that the network is allowed to continue training for while observing worse overall performance. Defaults to 10.
         evaluate_train (bool, optional): Whether or not to calculate performance metrics over the training set. Defaults to False.
         evaluate_val (bool, optional): 	Whether or not to calculate performance metrics over the validation set. Defaults to False.

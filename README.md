@@ -249,8 +249,8 @@ In the code snippet above the function generate_config is shown without any spec
 | **Printing - Saving - Logging** ||
 | `verbose` | Whether or not to print useful in the terminal |
 | `use_tensorboard_logger` | Whether or not to log results in weights and biases |
-| `wandb_project_name` | Defines the name of the wandb project that the results of an experiment will be logged (Will be used if `use_tensorboard_logger==True`) |
-| `wandb_project_entity` | Defines the user name of the wandb account (Will be used if `use_tensorboard_logger==True`) |
+| `wandb_project_name` | Defines the name of the wandb project that the results of an experiment will be logged |
+| `wandb_project_entity` | Defines the user name of the wandb account |
 | `results_path` | Defines the path the all relevant information will be saved to |
 | `experiment_name` | Defines the name of the current experiment. This name will be used to local save and the wandb save |
 | `save_model` | Whether or not to save the model of the epoch with the best validation performance |
@@ -283,7 +283,7 @@ In the code snippet above the function generate_config is shown without any spec
 |  **Combination branch architecture**  ||
 | `comb_mlp_nodes_per_layer` |  Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if `enable_dot_product_version == False`)|
 | `comb_mlp_branch_layers` | The number of layers in the combination branch. (Only used if `enable_dot_product_version == False`) |
-| `embedding_size` | The size of the embeddings outputted by the two branches. (Only used if `enable_dot_product_version == False`) |
+| `embedding_size` | The size of the embeddings outputted by the two branches. (Only used if `enable_dot_product_version == True`) |
 |  **Pretrained models**  ||
 | `eval_every_n_epochs` | The interval that indicates when the performance metrics are computed |
 | `load_pretrained_model` | Whether or not a pretrained model will be loaded |
