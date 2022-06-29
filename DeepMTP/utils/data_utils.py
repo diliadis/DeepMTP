@@ -513,7 +513,7 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
 
 
-def data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, seed=42, verbose=False, print_mode='basic', scale_features=None):
+def data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None):
     data = copy.deepcopy(data)
     train_flag, test_flag, val_flag = False, False, False
     setting_A_flag, setting_B_flag, setting_C_flag, setting_D_flag = None, None, None, None
@@ -673,37 +673,43 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
     print('')
     split_data(data, validation_setting=validation_setting, split_method=split_method, ratio=ratio, seed=seed, verbose=verbose, print_mode=print_mode)
 
-    if scale_features is not None:
-        if scale_features == 'MinMax':
-            scaler = MinMaxScaler()
-        elif scale_features == 'Standard':
-            scaler = StandardScaler()
+    if scale_instance_features is not None:
+        if scale_instance_features == 'MinMax':
+            instance_scaler = MinMaxScaler()
+        elif scale_instance_features == 'Standard':
+            instance_scaler = StandardScaler()
         
         if data['train']['X_instance'] is not None:
             if 'features' in data['train']['X_instance']['data'].columns:
                 if verbose: print(('info: ' if print_mode=='dev' else '')+'Scaling instance features... ', end='')
                 # fit the instance features scaler
-                scaler.fit(np.stack(data['train']['X_instance']['data']['features'].to_numpy()))
+                instance_scaler.fit(np.stack(data['train']['X_instance']['data']['features'].to_numpy()))
                 # transform the instance features for the train,val and test sets
-                data['train']['X_instance']['data']['features'] = data['train']['X_instance']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
-                data['val']['X_instance']['data']['features'] = data['val']['X_instance']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
-                data['test']['X_instance']['data']['features'] = data['test']['X_instance']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
+                data['train']['X_instance']['data']['features'] = data['train']['X_instance']['data'].apply(lambda row: normalize(row['features'], instance_scaler), axis=1)
+                data['val']['X_instance']['data']['features'] = data['val']['X_instance']['data'].apply(lambda row: normalize(row['features'], instance_scaler), axis=1)
+                data['test']['X_instance']['data']['features'] = data['test']['X_instance']['data'].apply(lambda row: normalize(row['features'], instance_scaler), axis=1)
                 if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
             else:
-                if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_features+' scaling for the instance features while supplying images. This step will be skipped')
+                if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_instance_features+' scaling for the instance features while supplying images. This step will be skipped')
+
+    if scale_target_features is not None:
+        if scale_target_features == 'MinMax':
+            target_scaler = MinMaxScaler()
+        elif scale_target_features == 'Standard':
+            target_scaler = StandardScaler()
 
         if data['train']['X_target'] is not None:
             if 'features' in data['train']['X_target']['data'].columns:
                 if verbose: print(('info: ' if print_mode=='dev' else '')+'Scaling target features... ', end='')
                 # fit the instance features scaler
-                scaler.fit(np.stack(data['train']['X_target']['data']['features'].to_numpy()))
+                target_scaler.fit(np.stack(data['train']['X_target']['data']['features'].to_numpy()))
                 # transform the instance features for the train,val and test sets
-                data['train']['X_target']['data']['features'] = data['train']['X_target']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
-                data['val']['X_target']['data']['features'] = data['val']['X_target']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
-                data['test']['X_target']['data']['features'] = data['test']['X_target']['data'].apply(lambda row: normalize(row['features'], scaler), axis=1)
+                data['train']['X_target']['data']['features'] = data['train']['X_target']['data'].apply(lambda row: normalize(row['features'], target_scaler), axis=1)
+                data['val']['X_target']['data']['features'] = data['val']['X_target']['data'].apply(lambda row: normalize(row['features'], target_scaler), axis=1)
+                data['test']['X_target']['data']['features'] = data['test']['X_target']['data'].apply(lambda row: normalize(row['features'], target_scaler), axis=1)
                 if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
             else:
-                if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_features+' scaling for the target features while supplying images. This step will be skipped')
+                if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_target_features+' scaling for the target features while supplying images. This step will be skipped')
 
     return data['train'], data['val'], data['test'], data['info']
 
