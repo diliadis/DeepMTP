@@ -13,6 +13,22 @@ from sklearn.model_selection import train_test_split
 
 
 def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', features_type='numpy', print_mode='basic'):
+	'''Load multi-label classfication datasets from the mulan repository.
+
+	Args:
+		path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
+		dataset_name (str, optional): The name of the multi-label classification dataset. Defaults to 'bibtex'.
+		variant (str, optional): The version of the dataset. If value set to 'undivided' the whole dataset is returned as a training set. Defaults to 'undivided'.
+		features_type (str, optional): The format of the instance features. There are two possible values, numpy and dataframe. This is intended to test the functionality of the data_process function. Defaults to 'numpy'.
+		print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+
+	Raises:
+		AttributeError: if the dataset_name doesn't exist in the mulan repository
+
+	Returns:
+		dict: A dictionary with all the available data for the multi-label classification dataset.
+	'''
 	# The current version just uses the datasets from the skmultilearn library. In the future I will be hosting everything from the university server
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
@@ -62,6 +78,16 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5):
+	'''Generates a dummy multi-label classification dataset
+
+	Args:
+		num_features (int, optional): The number of instance features. Defaults to 10.
+		num_instances (int, optional): The number of instances. Defaults to 50.
+		num_targets (int, optional): The number of targets. Defaults to 5.
+
+	Returns:
+		dict: A dictionary with all the available data for the multi-label classification dataset.
+	'''
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
@@ -74,8 +100,22 @@ def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5):
 	# return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-
 def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', print_mode='basic'):
+	'''Load multivariate regression datasets from the mulan repository.
+
+	Args:
+		path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
+		dataset_name (str, optional): The name of the multivariate regression dataset. Defaults to 'enb'.
+		features_type (str, optional): The format of the instance features. There are two possible values, numpy and dataframe. This is intended to test the functionality of the data_process function. Defaults to 'numpy'.
+		print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+
+	Raises:
+		AttributeError: if the dataset_name doesn't exist in the mulan repository
+
+	Returns:
+		dict: A dictionary with all the available data for the multivariate regression dataset.
+	'''
 	# The current version downloads all the datasets from a personal github repo
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
@@ -161,6 +201,16 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5):
+	'''Generates a dummy multivariate regression dataset
+
+	Args:
+		num_features (int, optional): The number of instance features. Defaults to 10.
+		num_instances (int, optional): The number of instances. Defaults to 50.
+		num_targets (int, optional): The number of targets. Defaults to 5.
+
+	Returns:
+		dict: A dictionary with all the available data for the multivariate regression dataset.
+	'''
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
@@ -174,6 +224,8 @@ def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5):
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 def print_MTR_datasets():
+	'''Prints a table with the basic info for every multivariate regression dataset available in the Mulan repository
+	'''
 	table = PrettyTable(['name', '#instances', '#instance_features', '#targets'])
 	table.add_row(['atp1d', '337', '411', '6'])
 	table.add_row(['atp7d', '296', '411', '6'])
@@ -195,8 +247,21 @@ def print_MTR_datasets():
 	table.add_row(['scpf', '1137', '23', '3'])
 	print(table.get_string())
 
-
 def load_process_DP(path='./data', dataset_name='ern', print_mode='basic'):
+	'''Load dyadic prediction datasets from the following repository: https://people.montefiore.uliege.be.
+
+	Args:
+		path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
+		dataset_name (str, optional): The name of the dyadic prediction dataset. Defaults to 'ern'.
+		print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+
+	Raises:
+		AttributeError: if the dataset_name doesn't exist in the repository
+
+	Returns:
+		dict: A dictionary with all the available data for the dyadic prediction dataset.
+	'''
 	# The current version downloads all the datasets from https://people.montefiore.uliege.be
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
@@ -239,6 +304,16 @@ def load_process_DP(path='./data', dataset_name='ern', print_mode='basic'):
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 def process_dummy_DP(num_instance_features=10, num_target_features=3, num_instances=50, num_targets=5):
+	'''Generates a dummy multivariate regression dataset
+
+	Args:
+		num_instance_features (int, optional): The number of instance features. Defaults to 10.
+		num_target_features (int, optional): The number of target features. Defaults to 3.
+		num_instances (int, optional): The number of instances. Defaults to 50.
+		num_targets (int, optional): The number of targets. Defaults to 5.
+	Returns:
+		dict: A dictionary with all the available data for the dyadic prediction dataset.
+	'''
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
@@ -257,6 +332,19 @@ def process_dummy_DP(num_instance_features=10, num_target_features=3, num_instan
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 def load_process_MC(path='./data', dataset_name='ml-100k', print_mode='basic'):
+	'''Load matrix completion datasets from the Movielens repository.
+
+	Args:
+		path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
+		dataset_name (str, optional): The name of the matrix completion dataset. Defaults to 'ml-100k'.
+		print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+	Raises:
+		AttributeError: if the dataset_name doesn't exist in the repository
+
+	Returns:
+		dict: A dictionary with all the available data for the matrix completion dataset.
+	'''
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
@@ -311,6 +399,19 @@ def load_process_MC(path='./data', dataset_name='ml-100k', print_mode='basic'):
 
 
 def load_process_MTL(path='./data', dataset_name='dog', print_mode='basic'):
+	'''Load multi-task learning datasets from my custom repository.
+
+	Args:
+		path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
+		dataset_name (str, optional): The name of the multi-task learning dataset. Defaults to 'dog'.
+		print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+
+	Raises:
+		AttributeError: if the dataset_name doesn't exist in the repository
+
+	Returns:
+		dict: A dictionary with all the available data for the multi-task learning dataset.
+	'''
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
 	y_train, y_val, y_test = None, None, None 
@@ -349,23 +450,28 @@ def load_process_MTL(path='./data', dataset_name='dog', print_mode='basic'):
 
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-# creating a interaction matrix containing the true and false annotations of every user for every image
 def generate_interaction_matrix(input_path, output_path):
-    with open(input_path) as f:
-        data = json.load(f)
-        
-    labels = data['true_labels']
-    y = np.array(data['WorkerLabels']).astype('float')
-    if "dog" in input_path:
-        y = y.reshape(800, -1)
-        
-    for i in range(y.shape[0]):
-        for j in range(y.shape[1]):
-            if y[i, j] != -1:
-                if y[i, j] == labels[i]:
-                    y[i, j] = 1.0
-                else:
-                    y[i, j] = 0.0
-                    
-    y[y == -1] = 'nan'
-    pickle.dump(y, open(output_path, 'wb'))
+	'''Helper function that transforms the multi-task learning dataset into a basic interaction matrix
+
+	Args:
+		input_path (_type_): _description_
+		output_path (_type_): _description_
+	'''
+	with open(input_path) as f:
+		data = json.load(f)
+		
+	labels = data['true_labels']
+	y = np.array(data['WorkerLabels']).astype('float')
+	if "dog" in input_path:
+		y = y.reshape(800, -1)
+		
+	for i in range(y.shape[0]):
+		for j in range(y.shape[1]):
+			if y[i, j] != -1:
+				if y[i, j] == labels[i]:
+					y[i, j] = 1.0
+				else:
+					y[i, j] = 0.0
+					
+	y[y == -1] = 'nan'
+	pickle.dump(y, open(output_path, 'wb'))
