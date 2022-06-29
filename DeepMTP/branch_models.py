@@ -4,6 +4,8 @@ import torchvision.models as models
 from collections import OrderedDict
 
 class MLP(nn.Sequential):
+	''' A standard fully connected feed-forward neural network.
+	'''	
 	def __init__(self, config, input_dim, output_dim, nodes_per_layer, num_layers, dropout_rate, batch_norm):
 		super(MLP, self).__init__()
 		if isinstance(nodes_per_layer, list):
@@ -31,6 +33,8 @@ class MLP(nn.Sequential):
 		return v  
 
 class ConvNet(nn.Sequential):
+	''' A convolutional neural network that is based on resnet.
+	'''	
 	def __init__(self, config, input_dim, output_dim, conv_architecture, conv_architecture_version, conv_architecture_last_trained_layer ,conv_architecture_dense_layers):
 		super(ConvNet, self).__init__()
 
