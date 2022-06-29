@@ -1,12 +1,22 @@
 import torchvision.transforms as transforms
 
-def get_optimization_direction(metric_name):
+def get_optimization_direction(metric_name: str) -> str:
+    '''Determines if the goal is to maximize or minimize based on the name of the metric
+
+    Args:
+        metric_name (sting): the name of the metric
+
+    Returns:
+        string: max if the goal is go maximize or min if the goal is to mimize  
+    '''
     metrics_to_max = ['sensitivity', 'f1_score', 'recall', 'positive_predictive_value']
     if True in [n in metric_name for n in metrics_to_max]:
         return 'max'
     return 'min'
 
 class BaseExperimentInfo:
+    """A class used to keep track of all relevant info of a given experiment. This is mainly used by the HPO methods.
+    """    
     def __init__(self, config, budget):
         self.config = config
         self.score = 0
@@ -128,6 +138,79 @@ def generate_config(
     additional_info = {}
 
 ):
+    ''' Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
+
+    Args:
+        validation_setting (str, optional): The validation setting of the given problem. The possible values are A, B, C, D. Defaults to None.
+        enable_dot_product_version (bool, optional): Enables the version of the neural network that just computes the dot product of the two embedding vectors. Otherwise, the MLP version is used. Defaults to True.
+        problem_mode (str, optional): The type of task for the given problem. The possible values are classification or regression. Defaults to None.
+        learning_rate (float, optional): The learning rate that will be used during training. Defaults to 0.001.
+        decay (float, optional): The weight decay (L2 penalty) used by the Adam optimizer . Defaults to 0.
+        batch_norm (bool, optional): The option to use batch normalization between the fully connected layers in the two branches. Defaults to False.
+        dropout_rate (float, optional): The amount of dropout used in the layers of the two branches. Defaults to 0.
+        momentum (float, optional): The momentum used by the optimizer. Defaults to 0.9.
+        weighted_loss (bool, optional): Enables the use of class weights in the loss. Defaults to False.
+        compute_mode (str, optional): The specific device that will be used during training. The possible values can be one the available gpus or the cpu(please dont). Defaults to 'cuda:0'.
+        num_workers (int, optional): The number of sub-processes to use for data loading. Larger values usually improve performance but after a point training speed will become worse. Defaults to 1.
+        train_batchsize (int, optional): The number of samples that comprise a batch from the training set. Defaults to 512.
+        val_batchsize (int, optional): 	The number of samples that comprise a batch from the validation and test sets. Defaults to 512.
+        num_epochs (int, optional): The max number of epochs allowed for training. Defaults to 100.
+        metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
+        metrics_average (list, optional): 	The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
+        patience (int, optional): The number of epochs that the network is allowed to continue training for while observing worse overall performance. Defaults to 10.
+        evaluate_train (bool, optional): Whether or not to calculate performance metrics over the training set. Defaults to False.
+        evaluate_val (bool, optional): 	Whether or not to calculate performance metrics over the validation set. Defaults to False.
+        verbose (bool, optional): Whether or not to print useful info about the training process in the terminal. Defaults to False.
+        results_verbose (bool, optional): Whether or not to print useful info about the calculation of the performance metrics in the terminal. Defaults to False.
+        return_results_per_target (bool, optional): Whether or not to return metrics per target. Defaults to False.
+        use_early_stopping (bool, optional): Whether or not to use early stopping while training. Defaults to True.
+        use_tensorboard_logger (bool, optional): Whether or not to log results in Tensorboard. Defaults to False.
+        wandb_project_name (str, optional): The name of the wandb project that the results of an experiment will be logged. Defaults to None.
+        wandb_project_entity (str, optional): The user name of the wandb account. Defaults to None.
+        results_path (str, optional): The path the all relevant information will be saved to. Defaults to './results/'.
+        experiment_name (str, optional): The name of the current experiment. This name will be used to local save and the wandb save. Defaults to None.
+        save_model (bool, optional): Whether or not to save the model of the epoch with the best validation performance. Defaults to True.
+        metric_to_optimize_early_stopping (str, optional): The metric that will be used for tracking by the early stopping routine. The value can be the loss or one of the available performance metrics.. Defaults to 'loss'.
+        metric_to_optimize_best_epoch_selection (str, optional): The validation metric that will be used to determine the best configuration. The value can be the loss or one of the available performance metrics.. Defaults to 'loss'.
+        instance_branch_architecture (str, optional): The type of architecture that will be used in the instance branch. Currently, there are two available options, MLP: a basic fully connected feed-forward neural network is used, CONV a convolutional neural network is used. Defaults to None.
+        use_instance_features (bool, optional): Whether or not the instance features will be used. Defaults to False.
+        instance_branch_input_dim (int, optional): The input dimension of the instance branch. Defaults to None.
+        instance_branch_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the instance branch. Not currently implemented. Defaults to 2.
+        instance_branch_nodes_per_layer (list, optional): Defines the number of nodes in the MLP version of the instance branch. if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used instance_branch_layers times. Defaults to [10, 10, 10].
+        instance_branch_layers (int, optional): The number of layers in the MLP version of the instance branch. (Only used if instance_branch_nodes_per_layer is int). Defaults to None.
+        instance_train_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures. Defaults to None.
+        instance_inference_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures. Defaults to None.
+        instance_branch_conv_architecture (str, optional): The type of the convolutional architecture that is used in the instance branch. Defaults to 'resnet'.
+        instance_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the instance branch. Defaults to 'resnet101'.
+        instance_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the instance branch. Defaults to 1.
+        instance_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
+        target_branch_architecture (str, optional): The type of architecture that will be used in the target branch. Currently, there are two available options, MLP: a basic fully connected feed-forward neural network is used, CONV a convolutional neural network is used. Defaults to None.
+        use_target_features (bool, optional): Whether or not the target features will be used. Defaults to False.. Defaults to False.
+        target_branch_input_dim (int, optional): The input dimension of the target branch. Defaults to None.
+        target_branch_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the target branch. Not currently implemented. Defaults to 2.
+        target_branch_nodes_per_layer (list, optional): Defines the number of nodes in the MLP version of the target branch. if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used target_branch_layers times. Defaults to [10, 10, 10].
+        target_branch_layers (_type_, optional): The number of layers in the MLP version of the target branch. (Only used if target_branch_nodes_per_layer is int). Defaults to None.
+        target_train_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures. Defaults to None.
+        target_inference_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures. Defaults to None.
+        target_branch_conv_architecture (str, optional): The type of the convolutional architecture that is used in the target branch. Defaults to 'resnet'.
+        target_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the target branch. Defaults to 'resnet101'.
+        target_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the target branch. Defaults to 1.
+        target_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
+
+        comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if enable_dot_product_version == False). Not currently implemented. Defaults to 2.
+        comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if enable_dot_product_version == False). Defaults to [10, 10, 10].
+        comb_mlp_branch_layers (int, optional): The number of layers in the combination branch. (Only used if enable_dot_product_version == False). Defaults to None.
+        embedding_size (int, optional): The size of the embeddings outputted by the two branches. (Only used if enable_dot_product_version == True). Defaults to 100.
+        eval_every_n_epochs (int, optional): The interval that indicates when the performance metrics are computed. Defaults to 10.
+        load_pretrained_model (bool, optional): Whether or not a pretrained model will be loaded. Defaults to False.
+        pretrained_model_path (str, optional): The path to the .pt file with the pretrained model (Only used if load_pretrained_model == True). Defaults to ''.
+        running_hpo (bool, optional): Whether or not the base model will by used by an hpo method. This is used to adjust the prints. Defaults to False.
+        additional_info (dict, optional): A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb. Defaults to {}.
+
+
+    Returns:
+        dict: A dictionary with the config that will be used by the model to adjust the architecture and all other training-related information
+    '''
 
     if metric_to_optimize_early_stopping not in [m+'_'+m_a for m in metrics for m_a in metrics_average]+['loss']:
         raise AttributeError('The metric requested to track during early stopping ('+metric_to_optimize_early_stopping+') is should be also defined in the metrics field of the configuration object '+str([m+'_'+m_a for m in metrics+['loss'] for m_a in metrics_average]))
@@ -286,13 +369,28 @@ def generate_config(
     return base_config
 
 def get_default_dropout_rate():
+    ''' To return the default dropout rate
+
+    Returns:
+        int: The value 0
+    '''    
     return 0
 
 def get_default_batch_norm():
+    ''' To return the default batch_norm value
+
+    Returns:
+        float: The value False 
+    '''   
     return False
 
 # dafault transofmations applied for resnet inputs 
 def get_default_train_transform():
+    ''' To return the default transformation pipeline for a resnet during training
+
+    Returns:
+       torchvision.transforms : A transformation pipeline 
+    '''  
     pretrained_size = 224
     pretrained_means = [0.485, 0.456, 0.406]
     pretrained_stds= [0.229, 0.224, 0.225]
@@ -306,6 +404,11 @@ def get_default_train_transform():
                                                 std = pretrained_stds)
                        ])
 def get_default_inference_transform():
+    ''' To return the default transformation pipeline for a resnet during inference
+
+    Returns:
+       torchvision.transforms : A transformation pipeline 
+    ''' 
     pretrained_size = 224
     pretrained_means = [0.485, 0.456, 0.406]
     pretrained_stds= [0.229, 0.224, 0.225]
