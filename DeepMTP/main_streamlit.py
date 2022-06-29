@@ -27,7 +27,8 @@ from DeepMTP.main import TwoBranchMLPModel
 import streamlit as st
 
 class DeepMTP:
-
+	''' Implements the training and inference logic of the DeepMTP framework. 
+	'''
 	def __init__(self, config, checkpoint_dir=None):
 		self.checkpoint_dict = None
 		self.wandb_run = None

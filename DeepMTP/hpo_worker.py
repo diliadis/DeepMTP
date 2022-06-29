@@ -1,17 +1,17 @@
 from pickletools import optimize
 import sys
 import sys
-
 sys.path.insert(0, '../../../..')
-import random
 import os
 from datetime import datetime
-
 from DeepMTP.main import DeepMTP
 from DeepMTP.main_streamlit import DeepMTP as DeepMTP_st
 from DeepMTP.utils.utils import generate_config
 
+
 class BaseWorker:
+    ''' Implements a basic worker that can be used by HPO methods. The basic idea is that an HPO methods just has to pass a config and then it gets back the performance of the best epoch on the validation set
+    '''    
     def __init__(
         self, train, val, test, data_info, base_config, metric_to_optimize, mode='standard'
     ):

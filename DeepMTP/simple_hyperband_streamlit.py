@@ -11,6 +11,8 @@ import random
 import streamlit as st
 
 class HyperBand:
+    '''Implements a basic version of the Hyperband HPO method. One cool thing about it is that I reduced the training time by continuing to train later configurations instead of starting from scratch each time.
+    '''
     def __init__(
         self,
         base_worker,

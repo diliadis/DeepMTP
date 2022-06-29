@@ -23,6 +23,8 @@ from DeepMTP.utils.model_utils import EarlyStopping
 from DeepMTP.utils.eval_utils import get_performance_results
 
 class TwoBranchDotProductModel(nn.Sequential):
+	'''Implements a two branch neural network that uses a dot product to combine the two embeddings.
+	'''	
 	def __init__(self, config, instance_branch_model, target_branch_model):
 		super(TwoBranchDotProductModel, self).__init__()
 		self.instance_branch_model = instance_branch_model
@@ -36,6 +38,8 @@ class TwoBranchDotProductModel(nn.Sequential):
 		return output
 
 class TwoBranchMLPModel(nn.Sequential):
+	'''Implements a two branch neural network that uses an MLP on top of the two branches. The two embedding vectors are just concatenated
+	'''
 	def __init__(self, config, instance_branch_model, target_branch_model):
 		super(TwoBranchMLPModel, self).__init__()
 		self.instance_branch_model = instance_branch_model
@@ -53,9 +57,9 @@ class TwoBranchMLPModel(nn.Sequential):
 
 
 class DeepMTP:
-
+	''' Implements the training and inference logic of the DeepMTP framework. 
+	'''
 	def __init__(self, config, checkpoint_dir=None):
-
 		self.checkpoint_dict = None
 		self.wandb_run = None
 		self.tensorboard_logger = None

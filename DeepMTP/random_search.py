@@ -1,9 +1,10 @@
 import sys
 sys.path.insert(0, '../../../..')
-import random
 from DeepMTP.utils.utils import BaseExperimentInfo, get_optimization_direction
 
 class RandomSearch:
+    '''Implements the basic Random search HPO method. Nothing fancy, just a for loop over randomly generated configurations.
+    '''
     def __init__(
         self,
         base_worker,
