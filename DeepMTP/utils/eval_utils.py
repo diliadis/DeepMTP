@@ -18,15 +18,6 @@ from sklearn.metrics import (
     f1_score,
 )
 import numpy as np
-from scipy.sparse import csr_matrix
-from datetime import datetime
-import matplotlib.pyplot as plt
-import pickle
-import math
-import time
-import os
-import matplotlib.pyplot as plt
-import pandas as pd
 import more_itertools as mit
 
 
@@ -50,6 +41,34 @@ def get_performance_results(
     train_true_value=None,
     scaler_per_target=None,
 ):
+    '''Calculates all the metrics using different averaging schemes
+
+    Args:
+        mode (str): The mode during which the calculation of metrics is requested. Possible values are train, val, test. 
+        epoch_id (int): The id of the current epoch.
+        instances_arr (numpy.array): An array with the instance ids. This is used when instance averaging is needed. 
+        targets_arr (numpy.array): An array with the target ids. This is used when macro-averaging is needed.
+        true_values_arr (numpy.array): An array with the true values.
+        pred_values_arr (numpy.array): An array with the predicted values.
+        validation_setting (str): The validation setting of the current problem. This is used to determine if some averaging methods make sense to be calculated given the validation setting.
+        problem_mode (str): The type of task of the given problem. Possible values are classification and regression. 
+        metrics (list): The performance metrics that will be calculated.
+        averaging (list): The averaging strategy that will be used to calculate the metric.
+        slices_arr (np.array, optional): An array with the slice ids. This can be used when the problem has dyadic features, or in the case of tensor completion. Not currently implemented. Defaults to None.
+        verbose (bool, optional): Whether or not to print useful info in the terminal. Defaults to False.
+        per_target_verbose (bool, optional): Whether or not to print useful info per target in the terminal. Defaults to False.
+        per_instance_verbose (bool, optional): Whether or not to print useful info per instance in the terminal. Defaults to False.
+        top_k (_type_, optional): The number of top performing instances or targets that are used to calculate metrics. This is used for ranking tasks. Not currently implemented. Defaults to None.
+        return_detailed_macro (bool, optional): Whether or not to return the per-target metrics. Defaults to False.
+        train_true_value (_type_, optional): The true values per target. This is used when calculating the RRMSE score. Not currently implemented. Defaults to None.
+        scaler_per_target (_type_, optional): The scaler of every target. This is used when the target values have been previously scaled. Not currently implemented. Defaults to None.
+
+    Raises:
+        AttributeError: only when the problem setting is A, but a macro or instance wise averaging is requested
+
+    Returns:
+        dict: A dictionary with key:value pairs of metric_name: metric_value
+    '''
 
     final_result = {}
     if mode != '':
@@ -279,6 +298,19 @@ def get_performance_results(
 def base_evaluator(
     true_values_arr, pred_values_arr, problem_mode, metrics, idx, train_true_value=None
 ):
+    '''The function that actually calculates the different metrics
+
+    Args:
+        true_values_arr (numpy.array): An array with the true values.
+        pred_values_arr (numpy.array): An array with the predicted values.
+        problem_mode (str): The type of task of the given problem. Possible values are classification and regression. 
+        metrics (list): The performance metrics that will be calculated.
+        idx (int): The id of the instance of target.
+        train_true_value (numpy.array, optional): The true values per target. This is used when calculating the RRMSE score. Defaults to None.
+
+    Returns:
+        dict: a dictionary with the results per metric
+    '''
     results = {}
 
     if problem_mode == "regression":
@@ -390,6 +422,16 @@ def get_epilepsy_specific_metrics(
         "f1_score_epilepsy_version",
     ],
 ):
+    """Function that calculates specific metrics used in Epilepsy prediction tasks
+
+    Args:
+        y_true (numpy.array): An array with the true values.
+        y_pred (_type_): An array with the predicted values.
+        metrics (list, optional): A list with metric names that have to be calculated. Defaults to [ "sensitivity", "false_alarm_rate_per_hour", "positive_predictive_value", "f1_score_epilepsy_version", ].
+
+    Returns:
+        dict: a dictionary with the results per metric
+    """
     results = {}
     # define consecutive epileptic moments
     true_episodes = [
