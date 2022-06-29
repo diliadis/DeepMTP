@@ -196,7 +196,6 @@ def generate_config(
         target_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the target branch. Defaults to 'resnet101'.
         target_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the target branch. Defaults to 1.
         target_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
-
         comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if enable_dot_product_version == False). Not currently implemented. Defaults to 2.
         comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if enable_dot_product_version == False). Defaults to [10, 10, 10].
         comb_mlp_branch_layers (int, optional): The number of layers in the combination branch. (Only used if enable_dot_product_version == False). Defaults to None.
