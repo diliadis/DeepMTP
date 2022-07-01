@@ -376,7 +376,7 @@ class DeepMTP:
 		self.deepMTP_model = self.early_stopping.best_model        
 
 		# log the performance validation results of the best model
-		results_to_log = {'best_val_'+m+'_'+av: self.early_stopping.best_performance_results['val_'+m+'_'+av] for m in self.config['metrics'] for av in self.config['metrics_average']}
+		results_to_log = {'best_val_'+m+'_'+av: self.early_stopping.best_performance_results['val_'+m+'_'+av] for m in self.config['metrics'] for av in self.config['metrics_average'] if 'val_'+m+'_'+av in self.early_stopping.best_performance_results}
 		if self.wandb_run is not None:
 			self.wandb_run.log(results_to_log)
 		if self.tensorboard_logger is not None:
