@@ -59,7 +59,7 @@ class TwoBranchMLPModel(nn.Sequential):
 class DeepMTP:
 	''' Implements the training and inference logic of the DeepMTP framework. 
 	'''
-	def __init__(self, config, checkpoint_dir=None):
+	def __init__(self, config, instance_branch_model=None, target_branch_model=None, checkpoint_dir=None):
 		self.checkpoint_dict = None
 		self.wandb_run = None
 		self.tensorboard_logger = None
@@ -106,15 +106,21 @@ class DeepMTP:
 			target_branch_output_dim = self.config['target_branch_nodes_per_layer'][-1] if isinstance(self.config['target_branch_nodes_per_layer'], list) else self.config['target_branch_nodes_per_layer']
 		
 		# define models that will be used in the two branches
-		if self.config['instance_branch_architecture'] == 'MLP':
-			self.instance_branch_model = MLP(self.config, self.config['instance_branch_input_dim'], instance_branch_output_dim, self.config['instance_branch_nodes_per_layer'], self.config['instance_branch_layers'], self.config['dropout_rate'], self.config['batch_norm'])
-		elif self.config['instance_branch_architecture'] == 'CONV':
-			self.instance_branch_model = ConvNet(self.config, self.config['instance_branch_input_dim'], instance_branch_output_dim, self.config['instance_branch_conv_architecture'], self.config['instance_branch_conv_architecture_version'], self.config['instance_branch_conv_architecture_last_layer_trained'], self.config['instance_branch_conv_architecture_dense_layers'])
-		
-		if self.config['target_branch_architecture'] == 'MLP':
-			self.target_branch_model = MLP(self.config, self.config['target_branch_input_dim'], target_branch_output_dim, self.config['target_branch_nodes_per_layer'], self.config['target_branch_layers'], self.config['dropout_rate'], self.config['batch_norm'])
-		elif self.config['target_branch_architecture'] == 'CONV':
-			self.target_branch_model = ConvNet(self.config, self.config['target_branch_input_dim'], target_branch_output_dim, self.config['target_branch_conv_architecture'], self.config['target_branch_conv_architecture_version'], self.config['target_branch_conv_architecture_last_layer_trained'], self.config['target_branch_conv_architecture_dense_layers'])
+		if instance_branch_model is None:
+			if self.config['instance_branch_architecture'] == 'MLP':
+				self.instance_branch_model = MLP(self.config, self.config['instance_branch_input_dim'], instance_branch_output_dim, self.config['instance_branch_nodes_per_layer'], self.config['instance_branch_layers'], self.config['dropout_rate'], self.config['batch_norm'])
+			elif self.config['instance_branch_architecture'] == 'CONV':
+				self.instance_branch_model = ConvNet(self.config, self.config['instance_branch_input_dim'], instance_branch_output_dim, self.config['instance_branch_conv_architecture'], self.config['instance_branch_conv_architecture_version'], self.config['instance_branch_conv_architecture_last_layer_trained'], self.config['instance_branch_conv_architecture_dense_layers'])
+		else:
+			self.instance_branch_model = instance_branch_model
+
+		if target_branch_model is None:
+			if self.config['target_branch_architecture'] == 'MLP':
+				self.target_branch_model = MLP(self.config, self.config['target_branch_input_dim'], target_branch_output_dim, self.config['target_branch_nodes_per_layer'], self.config['target_branch_layers'], self.config['dropout_rate'], self.config['batch_norm'])
+			elif self.config['target_branch_architecture'] == 'CONV':
+				self.target_branch_model = ConvNet(self.config, self.config['target_branch_input_dim'], target_branch_output_dim, self.config['target_branch_conv_architecture'], self.config['target_branch_conv_architecture_version'], self.config['target_branch_conv_architecture_last_layer_trained'], self.config['target_branch_conv_architecture_dense_layers'])
+		else:
+			self.target_branch_model = target_branch_model
 
 		# initalize the two-branch neural network
 		if self.config['enable_dot_product_version']:
