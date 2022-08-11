@@ -135,7 +135,10 @@ def generate_config(
     load_pretrained_model = False,
     pretrained_model_path = '',
     running_hpo = False,
-    additional_info = {}
+    additional_info = {},
+
+    instance_branch_custom_params = {},
+    target_branch_custom_params = {},
 
 ):
     ''' Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
@@ -283,10 +286,9 @@ def generate_config(
         raise Exception('Detected unknown metric averaging scheme for the current '+problem_mode+' task: '+str(unknown_metric_averaging_schemes))    
         
     if validation_setting == 'A':
-        for k in ['instance', 'macro']:
-            if k in metrics:
-                print('The macro and instance-wise averaging schemes are not recommended while on validation setting A. The experiments will calculate the micro averaged version of the selected metrics')
-                metric_averaging = ['micro']
+        if 'instance' in metrics or 'macro' in metrics:
+            print('The macro and instance-wise averaging schemes are not recommended while on validation setting A. The experiments will calculate the micro averaged version of the selected metrics')
+            metrics_average = ['micro']
     elif validation_setting in ['B', 'C']:
         if 'macro' not in metrics_average:
             print('Macro-averaging is the adviced averaging option for validation setting '+validation_setting+'. The macro option will be included in the results')
@@ -335,6 +337,8 @@ def generate_config(
                 'instance_inference_transforms': instance_inference_transforms if instance_inference_transforms is not None else get_default_inference_transform(),
             }
         )
+    elif instance_branch_architecture == 'CUSTOM': # this is still a work in progress but should do the trick, for now...
+        base_config.update(instance_branch_custom_params)
     elif instance_branch_architecture is None:
         raise AttributeError('The instance branch has to be explicitly defined')
     else:
@@ -360,6 +364,8 @@ def generate_config(
                 'target_inference_transforms': target_inference_transforms if target_inference_transforms is not None else get_default_inference_transform(),
             }
         )
+    elif target_branch_architecture == 'CUSTOM': # this is still a work in progress but should do the trick, for now...
+        base_config.update(target_branch_custom_params)
     elif target_branch_architecture is None:
         raise AttributeError('The target branch has to be explicitly defined')
     else:
