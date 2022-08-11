@@ -910,7 +910,7 @@ class BaseDataset(Dataset):
             else:
                 instance_features_vec = self.instance_features.loc[instance_id, 'features']
         else:
-            instance_features_vec = np.zeros(self.instance_branch_input_dim)
+            instance_features_vec = np.zeros(self.instance_branch_input_dim, dtype=np.float32)
             instance_features_vec[instance_id] = 1
 
         if self.target_features is not None:
@@ -920,7 +920,7 @@ class BaseDataset(Dataset):
             else:
                 target_features_vec = self.target_features.loc[target_id, 'features']
         else:
-            target_features_vec = np.zeros(self.target_branch_input_dim) 
+            target_features_vec = np.zeros(self.target_branch_input_dim, dtype=np.float32) 
             target_features_vec[target_id] = 1
 
         return{'instance_id': instance_id, 'target_id': target_id, 'instance_features': instance_features_vec, 'target_features': target_features_vec, 'score': value}
