@@ -86,12 +86,7 @@ class BaseWorker:
             metric_to_optimize_best_epoch_selection = self.base_config['metric_to_optimize_best_epoch_selection'],
 
             instance_branch_architecture = self.base_config['instance_branch_architecture'],
-            instance_branch_nodes_per_layer = temp_config['instance_branch_nodes_per_layer'],
-            instance_branch_layers = temp_config['instance_branch_layers'],
-
             target_branch_architecture = self.base_config['target_branch_architecture'],
-            target_branch_nodes_per_layer = temp_config['target_branch_nodes_per_layer'],
-            target_branch_layers = temp_config['target_branch_layers'],
 
             embedding_size = temp_config['embedding_size'],
 
@@ -99,7 +94,11 @@ class BaseWorker:
 
             eval_every_n_epochs = self.base_config['eval_every_n_epochs'],
             running_hpo = self.base_config['running_hpo'],
-            additional_info = self.base_config['additional_info'])
+            additional_info = self.base_config['additional_info'],
+
+            instance_branch_params = {p_name: p_val for p_name, p_val in self.temp_config.items() if p_name.startswith('instance_') and p_name not in ['instance_branch_input_dim', 'instance_branch_architecture']},
+            target_branch_params = {p_name: p_val for p_name, p_val in self.temp_config.items() if p_name.startswith('target_') and p_name not in ['target_branch_input_dim', 'target_branch_architecture']},
+            )
 
         self.older_model_dir = None
         self.older_model_budget = None

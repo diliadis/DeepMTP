@@ -112,7 +112,8 @@ class DeepMTP:
 			elif self.config['instance_branch_architecture'] == 'CONV':
 				self.instance_branch_model = ConvNet(self.config, self.config['instance_branch_input_dim'], instance_branch_output_dim, self.config['instance_branch_conv_architecture'], self.config['instance_branch_conv_architecture_version'], self.config['instance_branch_conv_architecture_last_layer_trained'], self.config['instance_branch_conv_architecture_dense_layers'])
 		else:
-			self.instance_branch_model = instance_branch_model
+			# support for custom instance branch models
+			self.instance_branch_model = instance_branch_model(self.config)
 
 		if target_branch_model is None:
 			if self.config['target_branch_architecture'] == 'MLP':
@@ -120,7 +121,8 @@ class DeepMTP:
 			elif self.config['target_branch_architecture'] == 'CONV':
 				self.target_branch_model = ConvNet(self.config, self.config['target_branch_input_dim'], target_branch_output_dim, self.config['target_branch_conv_architecture'], self.config['target_branch_conv_architecture_version'], self.config['target_branch_conv_architecture_last_layer_trained'], self.config['target_branch_conv_architecture_dense_layers'])
 		else:
-			self.target_branch_model = target_branch_model
+			# support for custom target branch models
+			self.target_branch_model = target_branch_model(self.config)
 
 		# initalize the two-branch neural network
 		if self.config['enable_dot_product_version']:
