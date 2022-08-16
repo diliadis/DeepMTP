@@ -261,25 +261,15 @@ In the code snippet above the function generate_config is shown without any spec
 | **Instance branch architecture** ||
 | `instance_branch_architecture` | The type of architecture that will be used in the instance branch. Currently, there are two available options, `MLP`: a basic fully connected feed-forward neural network is used, `CONV` a convolutional neural network is used |
 | `instance_branch_input_dim` | The input dimension of the instance branch |
-| `instance_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the instance branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `instance_branch_layers` times|
-| `instance_branch_layers` | The number of layers in the MLP version of the instance branch. (Only used if `instance_branch_nodes_per_layer` is int) |
 | `instance_train_transforms` | The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures |
 | `instance_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
-| `instance_branch_conv_architecture` | The type of the convolutional architecture that is used in the instance branch. |
-| `instance_branch_conv_architecture_version` | The version of the specific type of convolutional architecture that is used in the instance branch. |
-| `instance_branch_conv_architecture_dense_layers` | The number of dense layers that are used at the end of the convolutional architecture of the instance branch |
-| `instance_branch_conv_architecture_last_layer_trained` | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+| `instance_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the instance branch. The include key-value pairs like the following: |
 |  **Target branch architecture**  ||
 | `target_branch_architecture` | The type of architecture that will be used in the target branch. Currently, there are two available options, `MLP`: a basic fully connected feed-forward neural network is used, `CONV` a convolutional neural network is used |
 | `target_branch_input_dim` | The input dimension of the target branch |
-| `target_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the target branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `target_branch_layers` times|
-| `target_branch_layers` | The number of layers in the MLP version of the target branch. (Only used if `target_branch_nodes_per_layer` is int) |
 | `target_train_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `target_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
-| `target_branch_conv_architecture` | The type of the convolutional architecture that is used in the target branch. |
-| `target_branch_conv_architecture_version` | The version of the specific type of convolutional architecture that is used in the target branch. |
-| `target_branch_conv_architecture_dense_layers` | The number of dense layers that are used at the end of the convolutional architecture of the target branch |
-| `target_branch_conv_architecture_last_layer_trained` | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+| `instance_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the target branch. |
 |  **Combination branch architecture**  ||
 | `comb_mlp_nodes_per_layer` |  Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if `enable_dot_product_version == False`)|
 | `comb_mlp_branch_layers` | The number of layers in the combination branch. (Only used if `enable_dot_product_version == False`) |
@@ -291,6 +281,26 @@ In the code snippet above the function generate_config is shown without any spec
 |  **Other**  ||
 | `additional_info` | A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb |
 | `validation_setting` | The validation setting of the specific example |
+
+
+## Instance and target branch hyperparameters 
+As mentioned before, all hyperparameters needed to define the architecture of the instance or target branch are passed as key-value pairs in the `instance_branch_params` and `target_branch_params`.
+| Key  | Description |
+| :--- | :--- |
+|  **Possible key names currently supported in the `instance_branch_params` dictionary**  ||
+| `instance_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the instance branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `instance_branch_layers` times|
+| `instance_branch_layers` | The number of layers in the MLP version of the instance branch. (Only used if `instance_branch_nodes_per_layer` is int) |
+| `instance_branch_conv_architecture` | The type of the convolutional architecture that is used in the instance branch. |
+| `instance_branch_conv_architecture_version` | The version of the specific type of convolutional architecture that is used in the instance branch. |
+| `instance_branch_conv_architecture_dense_layers` | The number of dense layers that are used at the end of the convolutional architecture of the instance branch |
+| `instance_branch_conv_architecture_last_layer_trained` | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+|  **Possible key names currently supported in the `target_branch_params` dictionary**  ||
+| `target_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the target branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `target_branch_layers` times|
+| `target_branch_layers` | The number of layers in the MLP version of the target branch. (Only used if `target_branch_nodes_per_layer` is int) |
+| `target_branch_conv_architecture` | The type of the convolutional architecture that is used in the target branch. |
+| `target_branch_conv_architecture_version` | The version of the specific type of convolutional architecture that is used in the target branch. |
+| `target_branch_conv_architecture_dense_layers` | The number of dense layers that are used at the end of the convolutional architecture of the target branch |
+| `target_branch_conv_architecture_last_layer_trained` | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
 
 
 # Logging results
