@@ -1,7 +1,4 @@
 import numpy as np
-import copy
-import torch
-
 
 class EarlyStopping:
     '''Early stops the training if validation loss doesn't improve after a given patience.'''
@@ -30,8 +27,6 @@ class EarlyStopping:
         self.best_model = None
         self.best_optimizer_state_dict = None
         self.best_performance_results = None
-
-        
 
         if True in [
             m in self.metric_to_track
