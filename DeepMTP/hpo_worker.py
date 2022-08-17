@@ -96,8 +96,8 @@ class BaseWorker:
             running_hpo = self.base_config['running_hpo'],
             additional_info = self.base_config['additional_info'],
 
-            instance_branch_params = {p_name: p_val for p_name, p_val in self.temp_config.items() if p_name.startswith('instance_') and p_name not in ['instance_branch_input_dim', 'instance_branch_architecture']},
-            target_branch_params = {p_name: p_val for p_name, p_val in self.temp_config.items() if p_name.startswith('target_') and p_name not in ['target_branch_input_dim', 'target_branch_architecture']},
+            instance_branch_params = {p_name: p_val for p_name, p_val in temp_config.items() if p_name.startswith('instance_') and p_name not in ['instance_branch_input_dim', 'instance_branch_architecture']},
+            target_branch_params = {p_name: p_val for p_name, p_val in temp_config.items() if p_name.startswith('target_') and p_name not in ['target_branch_input_dim', 'target_branch_architecture']},
             )
 
         self.older_model_dir = None
@@ -128,14 +128,14 @@ class BaseWorker:
         # initialize a new model or continue training from an older version with the same configuration
         if len(self.config_to_model[model_config_key]['model_dir']) != 0:
             if self.mode == 'standard':
-                model = DeepMTP(self.master_config, self.older_model_dir)
+                model = DeepMTP(config=self.master_config, checkpoint_dir=self.older_model_dir)
             else:
-                model = DeepMTP_st(self.master_config, self.older_model_dir)
+                model = DeepMTP_st(config=self.master_config, checkpoint_dir=self.older_model_dir)
         else:
             if self.mode == 'standard':
-                model = DeepMTP(self.master_config)
+                model = DeepMTP(config=self.master_config)
             else:
-                model = DeepMTP_st(self.master_config)
+                model = DeepMTP_st(config=self.master_config)
 
         # train, validate and test all at once
         val_results = model.train(self.train, self.val, self.test)
