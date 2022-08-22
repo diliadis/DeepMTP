@@ -41,7 +41,7 @@ setup(
             'scipy>=1.7.3',
             'wandb>=0.12.18',
             'wget==3.2',
-        ]
+        ],
         # install_requires=requirements,
         # dependency_links=['https://download.pytorch.org/whl/cpu'],
         # extras_require={
