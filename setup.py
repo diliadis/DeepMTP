@@ -34,7 +34,7 @@ setup(
             'more-itertools>=8.13.0',
             'numpy>=1.21.6',
             'pandas>=1.3.5',
-            'pillow>=9.1.1',
+            'pillow>=9.2.0',
             'prettytable==3.3.0',
             'scikit-learn>=1.0.2',
             'scikit-multilearn==0.2.0',
