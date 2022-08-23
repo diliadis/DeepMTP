@@ -687,8 +687,8 @@ def generate_config(
                 'instance_branch_conv_architecture_version': 'resnet101',
                 'instance_branch_conv_architecture_dense_layers': 1,
                 'instance_branch_conv_architecture_last_layer_trained': 'last',
-                'instance_train_transforms': get_default_train_transform(),
-                'instance_inference_transforms': get_default_inference_transform(),
+                'instance_train_transforms': get_default_train_transform() if instance_train_transforms is None else instance_train_transforms,
+                'instance_inference_transforms': get_default_inference_transform() if instance_inference_transforms is None else instance_inference_transforms,
             }
         )
         for p in ['instance_branch_conv_architecture', 'instance_branch_conv_architecture_version', 'instance_branch_conv_architecture_dense_layers', 'instance_branch_conv_architecture_last_layer_trained', 'instance_train_transforms', 'instance_inference_transforms']:
@@ -726,8 +726,8 @@ def generate_config(
                 'target_branch_conv_architecture_version': 'resnet101',
                 'target_branch_conv_architecture_dense_layers': 1,
                 'target_branch_conv_architecture_last_layer_trained': 'last',
-                'target_train_transforms': get_default_train_transform(),
-                'target_inference_transforms': get_default_inference_transform(),
+                'target_train_transforms': get_default_train_transform() if target_train_transforms is None else target_train_transforms,
+                'target_inference_transforms': get_default_inference_transform() if target_inference_transforms is None else target_inference_transforms,
             }
         )
         for p in ['target_branch_conv_architecture', 'target_branch_conv_architecture_version', 'target_branch_conv_architecture_dense_layers', 'target_branch_conv_architecture_last_layer_trained', 'target_train_transforms', 'target_inference_transforms']:

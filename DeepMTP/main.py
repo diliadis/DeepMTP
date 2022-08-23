@@ -239,11 +239,11 @@ class DeepMTP:
 		# val_dataset = BaseDataset(self.config, val_data['y'], val_data['X_instance'], val_data['X_target'])
 
 		# initialize the dataloaders
-		train_dataloader = DataLoader(BaseDataset(self.config, train_data['y'], train_data['X_instance'], train_data['X_target'], self.config['instance_train_transforms'], self.config['target_train_transforms']), self.config['train_batchsize'], shuffle=True, num_workers=self.config['num_workers'])
+		train_dataloader = DataLoader(BaseDataset(self.config, train_data['y'], train_data['X_instance'], train_data['X_target'], instance_transform=self.config['instance_train_transforms'], target_transform=self.config['target_train_transforms']), self.config['train_batchsize'], shuffle=True, num_workers=self.config['num_workers'])
 		if val_data is not None:
-			val_dataloader = DataLoader(BaseDataset(self.config, val_data['y'], val_data['X_instance'], val_data['X_target'], self.config['instance_inference_transforms'], self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
+			val_dataloader = DataLoader(BaseDataset(self.config, val_data['y'], val_data['X_instance'], val_data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
 		if test_data is not None:
-			test_dataloader = DataLoader(BaseDataset(self.config, test_data['y'], test_data['X_instance'], test_data['X_target'], self.config['instance_inference_transforms'], self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
+			test_dataloader = DataLoader(BaseDataset(self.config, test_data['y'], test_data['X_instance'], test_data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
 
 		if self.config['verbose']: print('Starting training...')
 
