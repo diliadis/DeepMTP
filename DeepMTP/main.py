@@ -440,7 +440,7 @@ class DeepMTP:
 
 	def predict(self, data, return_predictions=False, verbose=False):
 		self.deepMTP_model.to(self.device)
-		dataloader = DataLoader(BaseDataset(self.config, data['y'], data['X_instance'], data['X_target']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
+		dataloader = DataLoader(BaseDataset(self.config, data['y'], data['X_instance'], data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
 		return self.inference(self.deepMTP_model, dataloader, '', 0, return_predictions=True, verbose=verbose)
 
 	def save_model(self, verbose=False):
