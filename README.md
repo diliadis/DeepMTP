@@ -240,6 +240,7 @@ In the code snippet above the function generate_config is shown without any spec
 | `return_results_per_target` | Whether or not to returne the performance for every target separately |
 | `evaluate_train` | Whether or not to calculate performance metrics over the training set |
 | `evaluate_val` | Whether or not to calculate performance metrics over the validation set |
+| `eval_every_n_epochs` | The interval that indicates when the performance metrics are computed |
 | `use_early_stopping` | Whether or not to use early stopping while training |
 | **Metrics** ||
 | `metrics` | The performance metrics that will be calculated. For classification tasks the available metrics are `['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision']` while for regression tasks the available metrics are `['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']` |
@@ -248,7 +249,7 @@ In the code snippet above the function generate_config is shown without any spec
 | `metric_to_optimize_best_epoch_selection` | The validation metric that will be used to determine the best configuration. The value can be the `loss` or one of the available performance metrics. |
 | **Printing - Saving - Logging** ||
 | `verbose` | Whether or not to print useful in the terminal |
-| `use_tensorboard_logger` | Whether or not to log results in weights and biases |
+| `use_tensorboard_logger` | Whether or not to log results in files that Tensoboard can read and visualize |
 | `wandb_project_name` | Defines the name of the wandb project that the results of an experiment will be logged |
 | `wandb_project_entity` | Defines the user name of the wandb account |
 | `results_path` | Defines the path the all relevant information will be saved to |
@@ -275,7 +276,6 @@ In the code snippet above the function generate_config is shown without any spec
 | `comb_mlp_branch_layers` | The number of layers in the combination branch. (Only used if `enable_dot_product_version == False`) |
 | `embedding_size` | The size of the embeddings outputted by the two branches. (Only used if `enable_dot_product_version == True`) |
 |  **Pretrained models**  ||
-| `eval_every_n_epochs` | The interval that indicates when the performance metrics are computed |
 | `load_pretrained_model` | Whether or not a pretrained model will be loaded |
 | `pretrained_model_path` | The path to the .pt file with the pretrained model (Only used if `load_pretrained_model == True`) |
 |  **Other**  ||
