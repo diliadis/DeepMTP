@@ -432,6 +432,15 @@ best_model = DeepMTP(best_overall_config.info['config'], best_overall_config.inf
 best_model_results = best_model.predict(test, verbose=True)
 ```
 
+# DEMOS
+|   |   |
+|---|---|
+| Loading built-in datasets  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1H23ODC7--GI-5hRDzmUp3yYvB9VE8uZm?usp=sharing)   |
+| Multi-label classification (MLC)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lVI-gqAEtyGBUDqFAxYJYkV7UWMcHzvR?usp=sharing)   |
+| Multivariate regression (MTR)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lm7M37YPfaW3hGtSO9wg4UG_Cz_Manth?usp=sharing)   |
+| Multi-task learning (MTL)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1eztLI4ad1tclj9QP5IXzX9pbK_1SEXy3?usp=sharing) |
+| Matrix Completion  | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1cs45TN0FVI4NcRmbrdvljfjbyp0_NtVt?usp=sharing) |
+| Dyadic Prediction | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1sPjYTur2xpoOPnidQEYLWMvlE4ai6WbV?usp=sharing)
 
 
 # Cite Us
