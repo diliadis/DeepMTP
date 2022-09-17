@@ -448,6 +448,8 @@ def generate_config(
 
     verbose = False,
     results_verbose = False,
+    eval_instance_verbose = False,
+    eval_target_verbose = False,
     return_results_per_target=False,
     use_early_stopping = True,
     use_tensorboard_logger = False,
@@ -554,7 +556,8 @@ def generate_config(
         pretrained_model_path (str, optional): The path to the .pt file with the pretrained model (Only used if load_pretrained_model == True). Defaults to ''.
         running_hpo (bool, optional): Whether or not the base model will by used by an hpo method. This is used to adjust the prints. Defaults to False.
         additional_info (dict, optional): A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb. Defaults to {}.
-
+        eval_instance_verbose (str, optional): Printing of instance-wise warnings when evaluating performance metrics.
+        eval_target_verbose (str, optional): Printing of target-wise warnings when evaluating performance metrics.
 
     Returns:
         dict: A dictionary with the config that will be used by the model to adjust the architecture and all other training-related information
@@ -584,6 +587,8 @@ def generate_config(
         'evaluate_val': evaluate_val,
         'verbose': verbose,
         'results_verbose': results_verbose,
+        'eval_instance_verbose': eval_instance_verbose,
+        'eval_target_verbose': eval_target_verbose,
         'return_results_per_target': return_results_per_target,
         'metric_to_optimize_early_stopping': metric_to_optimize_early_stopping,
         'metric_to_optimize_best_epoch_selection': metric_to_optimize_best_epoch_selection,

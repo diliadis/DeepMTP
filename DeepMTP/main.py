@@ -219,6 +219,8 @@ class DeepMTP:
 					self.config['metrics'],
 					self.config['metrics_average'],
 					verbose=self.config['results_verbose'],
+					per_target_verbose=self.config['eval_target_verbose'],
+    				per_instance_verbose=self.config['eval_instance_verbose'],
 					train_true_value=None,
 					scaler_per_target=None,
 				)
@@ -319,6 +321,8 @@ class DeepMTP:
 					self.config['metrics'],
 					self.config['metrics_average'],
 					verbose=self.config['results_verbose'],
+					per_target_verbose=self.config['eval_target_verbose'],
+    				per_instance_verbose=self.config['eval_instance_verbose'],
 					train_true_value=None,
 					scaler_per_target=None,
 				)
