@@ -4,7 +4,7 @@ from io import open
 
 this_directory = path.abspath(path.dirname(__file__))
 
-VERSION = '0.0.17' 
+VERSION = '0.0.18' 
 DESCRIPTION = 'a Deep Learning Framework for Multi-target Prediction'
 
 def readme():

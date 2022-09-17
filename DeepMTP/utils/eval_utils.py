@@ -123,7 +123,7 @@ def get_performance_results(
 
         if "micro" in averaging:
             results = base_evaluator(
-                true_values_arr, pred_values_arr, problem_mode, metrics, -1
+                true_values_arr, pred_values_arr, problem_mode, metrics, -1, verbose=verbose
             )
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
@@ -162,7 +162,7 @@ def get_performance_results(
 
         if "micro" in averaging:
             results = base_evaluator(
-                true_values_arr, pred_values_arr, problem_mode, metrics, -1
+                true_values_arr, pred_values_arr, problem_mode, metrics, -1, verbose=verbose
             )
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
@@ -187,6 +187,7 @@ def get_performance_results(
                         metrics,
                         target_i,
                         train_true_value=None if train_true_value is None else train_true_value[target_i],
+                        verbose=verbose
                     )
 
                     # this prints and/or logs the performance metrics per target
@@ -245,6 +246,7 @@ def get_performance_results(
                         metrics,
                         instance_i,
                         train_true_value=None,
+                        verbose=verbose
                     )
 
                     # this prints and/or logs the performance metrics per instance
@@ -296,7 +298,7 @@ def get_performance_results(
 
 # with micro-averaging you loose the notion of multiple-targets. You just simplify the problem and assume you are working with just one target. The train_true_value variable is only used for the calculation of the relative root mean squared error RRMSE.
 def base_evaluator(
-    true_values_arr, pred_values_arr, problem_mode, metrics, idx, train_true_value=None
+    true_values_arr, pred_values_arr, problem_mode, metrics, idx, train_true_value=None, verbose=False
 ):
     '''The function that actually calculates the different metrics
 
@@ -373,13 +375,14 @@ def base_evaluator(
                 )
                 results["aupr"] = auc(recall, precision)
         else:
-            print(
-                "Warning: instance"
-                + str(idx)
-                + " has "
-                + str(len(np.unique(true_values_arr)))
-                + " unique true values"
-            )
+            if verbose:
+                print(
+                    "Warning: instance"
+                    + str(idx)
+                    + " has "
+                    + str(len(np.unique(true_values_arr)))
+                    + " unique true values"
+                )
         if set(metrics).intersection(
             set(
                 [
