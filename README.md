@@ -256,7 +256,7 @@ In the code snippet above the function generate_config is shown without any spec
 | `experiment_name` | Defines the name of the current experiment. This name will be used to local save and the wandb save |
 | `save_model` | Whether or not to save the model of the epoch with the best validation performance |
 | **General architecture architecture** ||
-| `enable_dot_product_version` | Whether or not to use the dot-product version of the two branch architecture. In the dot product version, the two embeddings are used to calculate the dot product. If the value is False, the two embeddings are first concatenated and then passed to another series of fully connected layers |
+| `general_architecture_version` | Enables a specific version of the general neural network architecture. Available options are: `mlp` for the mlp version, `dot_product` for the dot product version, `kronecker`: for the kronecker product version. Default value if `dot_product` |
 | `batch_norm` | The option to use batch normalization between the fully connected layers in the two branches |
 | `dropout_rate` | The amount of dropout used in the layers of the two branches |
 | **Instance branch architecture** ||
@@ -272,9 +272,9 @@ In the code snippet above the function generate_config is shown without any spec
 | `target_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `instance_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the target branch. |
 |  **Combination branch architecture**  ||
-| `comb_mlp_nodes_per_layer` |  Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if `enable_dot_product_version == False`)|
-| `comb_mlp_branch_layers` | The number of layers in the combination branch. (Only used if `enable_dot_product_version == False`) |
-| `embedding_size` | The size of the embeddings outputted by the two branches. (Only used if `enable_dot_product_version == True`) |
+| `comb_mlp_nodes_per_layer` |  Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if `general_architecture_version == mlp`)|
+| `comb_mlp_branch_layers` | The number of layers in the combination branch. (Only used if `general_architecture_version == mlp`) |
+| `embedding_size` | The size of the embeddings outputted by the two branches. (Only used if `general_architecture_version == dot_product`) |
 |  **Pretrained models**  ||
 | `load_pretrained_model` | Whether or not a pretrained model will be loaded |
 | `pretrained_model_path` | The path to the .pt file with the pretrained model (Only used if `load_pretrained_model == True`) |
@@ -386,7 +386,7 @@ config = {
     'instance_branch_input_dim': data_info['instance_branch_input_dim'],
     'target_branch_input_dim': data_info['target_branch_input_dim'],
     'validation_setting': data_info['detected_validation_setting'],
-    'enable_dot_product_version': True,
+    'general_architecture_version': 'dot_product',
     'problem_mode': data_info['detected_problem_mode'],
     'compute_mode': 'cuda:1',
     'train_batchsize': 512,
