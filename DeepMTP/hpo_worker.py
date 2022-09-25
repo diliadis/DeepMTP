@@ -49,11 +49,11 @@ class BaseWorker:
         original_budget = int(budget)
         current_time = datetime.now().strftime('%d_%m_%Y__%H_%M_%S')
 
-        self.master_config = generate_config(    
+        self.master_config = generate_config(
             instance_branch_input_dim = self.base_config['instance_branch_input_dim'],
             target_branch_input_dim = self.base_config['target_branch_input_dim'],
             validation_setting = self.base_config['validation_setting'],
-            enable_dot_product_version = self.base_config['enable_dot_product_version'],
+            general_architecture_version = self.base_config['general_architecture_version'],
             problem_mode = self.base_config['problem_mode'],
             learning_rate = temp_config['learning_rate'],
             decay = 0,
