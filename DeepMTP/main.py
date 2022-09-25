@@ -64,8 +64,9 @@ class TwoBranchKroneckerModel(nn.Sequential):
 		self.target_branch_model = target_branch_model
 
 		comb_dim = instance_branch_model[0][-2].out_features * target_branch_model[0][-2].out_features
-		self.comb_branch = MLP(config, comb_dim, 1, config['comb_mlp_nodes_per_layer'], config['comb_mlp_branch_layers'], config['dropout_rate'], config['batch_norm'])
-
+		# self.comb_branch = MLP(config, comb_dim, 1, config['comb_mlp_nodes_per_layer'], config['comb_mlp_branch_layers'], config['dropout_rate'], config['batch_norm'])
+		self.comb_branch = nn.Linear(comb_dim, 1)
+	
 	def forward(self, instance_features, target_features):
 		instance_embedding = self.instance_branch_model(instance_features)
 		target_embedding = self.target_branch_model(target_features)
