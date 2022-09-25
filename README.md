@@ -256,7 +256,7 @@ In the code snippet above the function generate_config is shown without any spec
 | `experiment_name` | Defines the name of the current experiment. This name will be used to local save and the wandb save |
 | `save_model` | Whether or not to save the model of the epoch with the best validation performance |
 | **General architecture architecture** ||
-| `general_architecture_version` | Enables a specific version of the general neural network architecture. Available options are: `mlp` for the mlp version, `dot_product` for the dot product version, `kronecker`: for the kronecker product version. Default value if `dot_product` |
+| `general_architecture_version` | Enables a specific version of the general neural network architecture. Available options are: `mlp` for the mlp version, `dot_product` for the dot product version, `kronecker`: for the kronecker product version. Default value is `dot_product` |
 | `batch_norm` | The option to use batch normalization between the fully connected layers in the two branches |
 | `dropout_rate` | The amount of dropout used in the layers of the two branches |
 | **Instance branch architecture** ||
