@@ -66,7 +66,7 @@ class BaseExperimentInfo:
 
 def generate_config_v1(
     validation_setting = None,
-    enable_dot_product_version = True,
+    general_architecture_version = 'dot_product',
     problem_mode = None,
     learning_rate = 0.001,
     decay = 0,
@@ -145,7 +145,7 @@ def generate_config_v1(
 
     Args:
         validation_setting (str, optional): The validation setting of the given problem. The possible values are A, B, C, D. Defaults to None.
-        enable_dot_product_version (bool, optional): Enables the version of the neural network that just computes the dot product of the two embedding vectors. Otherwise, the MLP version is used. Defaults to True.
+        general_architecture_version (str, optional): Enables a specific version of the general neural network architecture. Available options are: "mlp" for the mlp version, "dot_product" for the dot product version, "kronecker": for the kronecker product version. Default value if "dot_product"
         problem_mode (str, optional): The type of task for the given problem. The possible values are classification or regression. Defaults to None.
         learning_rate (float, optional): The learning rate that will be used during training. Defaults to 0.001.
         decay (float, optional): The weight decay (L2 penalty) used by the Adam optimizer . Defaults to 0.
@@ -199,10 +199,10 @@ def generate_config_v1(
         target_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the target branch. Defaults to 'resnet101'.
         target_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the target branch. Defaults to 1.
         target_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
-        comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if enable_dot_product_version == False). Not currently implemented. Defaults to 2.
-        comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if enable_dot_product_version == False). Defaults to [10, 10, 10].
-        comb_mlp_branch_layers (int, optional): The number of layers in the combination branch. (Only used if enable_dot_product_version == False). Defaults to None.
-        embedding_size (int, optional): The size of the embeddings outputted by the two branches. (Only used if enable_dot_product_version == True). Defaults to 100.
+        comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if general_architecture_version in "mlp"). Not currently implemented. Defaults to 2.
+        comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if general_architecture_version in "mlp")). Defaults to [10, 10, 10].
+        comb_mlp_branch_layers (int, optional): The number of layers in the combination branch. (Only used if general_architecture_version in "mlp"). Defaults to None.
+        embedding_size (int, optional): The size of the embeddings outputted by the two branches. (Only used if general_architecture_version in "dot_product"). Defaults to 100.
         eval_every_n_epochs (int, optional): The interval that indicates when the performance metrics are computed. Defaults to 10.
         load_pretrained_model (bool, optional): Whether or not a pretrained model will be loaded. Defaults to False.
         pretrained_model_path (str, optional): The path to the .pt file with the pretrained model (Only used if load_pretrained_model == True). Defaults to ''.
@@ -219,7 +219,7 @@ def generate_config_v1(
 
     base_config = {
         'validation_setting': validation_setting,
-        'enable_dot_product_version': enable_dot_product_version,
+        'general_architecture_version': general_architecture_version,
         'problem_mode': problem_mode,
         'learning_rate': learning_rate,
         'decay': decay, 
@@ -307,9 +307,10 @@ def generate_config_v1(
     elif batch_norm == 'False':
         base_config['batch_norm'] = False
       
-    if enable_dot_product_version:
+    general_architecture_version = general_architecture_version.lower()
+    if general_architecture_version == 'dot_product':
         base_config['embedding_size'] = embedding_size
-    else:
+    elif general_architecture_version == 'mlp':
         base_config.update(
             {
                 'comb_mlp_nodes_per_layer': comb_mlp_nodes_per_layer,
@@ -317,6 +318,10 @@ def generate_config_v1(
                 'comb_mlp_nodes_reducing_factor': comb_mlp_nodes_reducing_factor,
             }
         )
+    elif general_architecture_version == 'kronecker':
+        pass
+    else:
+        raise AttributeError('Value: '+str(general_architecture_version)+' is not a valid option')
 
     if instance_branch_architecture == 'MLP':
         base_config.update(
@@ -426,7 +431,7 @@ def get_default_inference_transform():
 
 def generate_config(
     validation_setting = None,
-    enable_dot_product_version = True,
+    general_architecture_version = 'dot_product',
     problem_mode = None,
     learning_rate = 0.001,
     decay = 0,
@@ -493,7 +498,7 @@ def generate_config(
 
     Args:
         validation_setting (str, optional): The validation setting of the given problem. The possible values are A, B, C, D. Defaults to None.
-        enable_dot_product_version (bool, optional): Enables the version of the neural network that just computes the dot product of the two embedding vectors. Otherwise, the MLP version is used. Defaults to True.
+        general_architecture_version (str, optional): Enables a specific version of the general neural network architecture. Available options are: "mlp" for the mlp version, "dot_product" for the dot product version, "kronecker": for the kronecker product version. Default value if "dot_product"
         problem_mode (str, optional): The type of task for the given problem. The possible values are classification or regression. Defaults to None.
         learning_rate (float, optional): The learning rate that will be used during training. Defaults to 0.001.
         decay (float, optional): The weight decay (L2 penalty) used by the Adam optimizer . Defaults to 0.
@@ -547,10 +552,10 @@ def generate_config(
         target_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the target branch. Defaults to 'resnet101'.
         target_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the target branch. Defaults to 1.
         target_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
-        comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if enable_dot_product_version == False). Not currently implemented. Defaults to 2.
-        comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if enable_dot_product_version == False). Defaults to [10, 10, 10].
-        comb_mlp_branch_layers (int, optional): The number of layers in the combination branch. (Only used if enable_dot_product_version == False). Defaults to None.
-        embedding_size (int, optional): The size of the embeddings outputted by the two branches. (Only used if enable_dot_product_version == True). Defaults to 100.
+        comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if general_architecture_version in "mlp"). Not currently implemented. Defaults to 2.
+        comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if general_architecture_version in "mlp" or "kronecker")). Defaults to [10, 10, 10].
+        comb_mlp_branch_layers (int, optional): The number of layers in the combination branch. (Only used if general_architecture_version in "mlp"). Defaults to None.
+        embedding_size (int, optional): The size of the embeddings outputted by the two branches. (Only used if general_architecture_version in "dot_product"). Defaults to 100.
         eval_every_n_epochs (int, optional): The interval that indicates when the performance metrics are computed. Defaults to 10.
         load_pretrained_model (bool, optional): Whether or not a pretrained model will be loaded. Defaults to False.
         pretrained_model_path (str, optional): The path to the .pt file with the pretrained model (Only used if load_pretrained_model == True). Defaults to ''.
@@ -568,7 +573,7 @@ def generate_config(
 
     base_config = {
         'validation_setting': validation_setting,
-        'enable_dot_product_version': enable_dot_product_version,
+        'general_architecture_version': general_architecture_version,
         'problem_mode': problem_mode,
         'learning_rate': learning_rate,
         'decay': decay, 
@@ -658,9 +663,10 @@ def generate_config(
     elif batch_norm == 'False':
         base_config['batch_norm'] = False
       
-    if enable_dot_product_version:
+    general_architecture_version = general_architecture_version.lower()
+    if general_architecture_version == 'dot_product':
         base_config['embedding_size'] = embedding_size
-    else:
+    elif general_architecture_version == 'mlp':
         base_config.update(
             {
                 'comb_mlp_nodes_per_layer': comb_mlp_nodes_per_layer,
@@ -668,7 +674,10 @@ def generate_config(
                 'comb_mlp_nodes_reducing_factor': comb_mlp_nodes_reducing_factor,
             }
         )
-
+    elif general_architecture_version == 'kronecker':
+        pass
+    else:
+        raise AttributeError('Value: '+str(general_architecture_version)+' is not a valid option')
 
     if instance_branch_architecture == 'MLP':
         base_config.update(

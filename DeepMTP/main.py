@@ -55,6 +55,25 @@ class TwoBranchMLPModel(nn.Sequential):
 		output = self.comb_branch(v_comb)
 		return output
 
+class TwoBranchKroneckerModel(nn.Sequential):
+	'''Implements a two branch neural network that first computes the kronecker product of the two embeddings and then passes the resulting vector to an MLP (terminating to a single output node)
+	'''
+	def __init__(self, config, instance_branch_model, target_branch_model):
+		super(TwoBranchKroneckerModel, self).__init__()
+		self.instance_branch_model = instance_branch_model
+		self.target_branch_model = target_branch_model
+
+		comb_dim = instance_branch_model[0][-2].out_features * target_branch_model[0][-2].out_features
+		self.comb_branch = MLP(config, comb_dim, 1, config['comb_mlp_nodes_per_layer'], config['comb_mlp_branch_layers'], config['dropout_rate'], config['batch_norm'])
+
+	def forward(self, instance_features, target_features):
+		instance_embedding = self.instance_branch_model(instance_features)
+		target_embedding = self.target_branch_model(target_features)
+		# compute the Kronecker product
+		v_comb = torch.kron(instance_embedding, target_embedding)
+		output = self.comb_branch(v_comb)
+		return output
+
 
 class DeepMTP:
 	''' Implements the training and inference logic of the DeepMTP framework. 
@@ -98,7 +117,7 @@ class DeepMTP:
 			1) The dot-product version: the two embedding vectors have the same size, so their dot-product is just computed.
 			2) The MLP version: the two embedding vectors (don't have to be of the same size) are concatenated and then passed through a series or fully connected layers.
 		'''
-		if self.config['enable_dot_product_version']:
+		if self.config['general_architecture_version'] == 'dot_product':
 			instance_branch_output_dim = self.config['embedding_size']
 			target_branch_output_dim = self.config['embedding_size']
 		else:
@@ -125,10 +144,12 @@ class DeepMTP:
 			self.target_branch_model = target_branch_model(self.config)
 
 		# initalize the two-branch neural network
-		if self.config['enable_dot_product_version']:
+		if self.config['general_architecture_version'] == 'dot_product':
 			self.deepMTP_model = TwoBranchDotProductModel(self.config, self.instance_branch_model, self.target_branch_model)
-		else:
+		elif self.config['general_architecture_version'] == 'mlp':
 			self.deepMTP_model = TwoBranchMLPModel(self.config, self.instance_branch_model, self.target_branch_model)
+		elif self.config['general_architecture_version'] == 'kronecker':
+			self.deepMTP_model = TwoBranchKroneckerModel(self.config, self.instance_branch_model, self.target_branch_model)
 
 		self.deepMTP_model.to(self.device)
 
