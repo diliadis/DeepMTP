@@ -76,14 +76,14 @@ def get_performance_results(
 
     if verbose:
         print(
-            "There are "
+            'There are '
             + str(np.count_nonzero(np.array(pred_values_arr)))
-            + " non zero predictions"
+            + ' non zero predictions'
         )
         if np.NaN in true_values_arr:
-            print("NaN value in true_values_arr")
+            print('NaN value in true_values_arr')
         if np.NaN in pred_values_arr:
-            print("NaN value in pred_values_arr")
+            print('NaN value in pred_values_arr')
 
     if isinstance(true_values_arr, list):
         true_values_arr = np.array(true_values_arr)
@@ -95,20 +95,20 @@ def get_performance_results(
         targets_arr = np.array(targets_arr)
 
     if verbose:
-        print("train_true_value: " + str(train_true_value))
-        print("True_values length: " + str(len(true_values_arr)))
-        print("Predicted_values length: " + str(len(pred_values_arr)))
-        print("instances_arr: " + str(instances_arr[:10]))
-        print("targets_arr: " + str(targets_arr[:10]))
-        print("True_values: " + str(true_values_arr[:10]))
-        print("Predicted_values: " + str(pred_values_arr[:10]))
+        print('train_true_value: ' + str(train_true_value))
+        print('True_values length: ' + str(len(true_values_arr)))
+        print('Predicted_values length: ' + str(len(pred_values_arr)))
+        print('instances_arr: ' + str(instances_arr[:10]))
+        print('targets_arr: ' + str(targets_arr[:10]))
+        print('True_values: ' + str(true_values_arr[:10]))
+        print('Predicted_values: ' + str(pred_values_arr[:10]))
 
     values_per_metric = {m: [] for m in metrics}
 
-    if verbose: print("========== " + str(mode) + " ==========")
+    if verbose: print('========== ' + str(mode) + ' ==========')
 
     # for Setting A, the only averating option that makes sense is the micro version.
-    if validation_setting == "A":
+    if validation_setting == 'A':
         # check if values are scaled and if so, inverse_transform them. In setting A you have a single scaler for the entire score matrix.
         if scaler_per_target is not None:
             true_values_arr = scaler_per_target.inverse_transform(
@@ -117,19 +117,19 @@ def get_performance_results(
             pred_values_arr = scaler_per_target.inverse_transform(
                 np.reshape(pred_values_arr, (-1, 1))
             ).flatten()
-            print("These are the unscaled values: ")
-            print("Unscaled True_values: " + str(true_values_arr[:10]))
-            print("Unscaled Predicted_values: " + str(pred_values_arr[:10]))
+            print('These are the unscaled values: ')
+            print('Unscaled True_values: ' + str(true_values_arr[:10]))
+            print('Unscaled Predicted_values: ' + str(pred_values_arr[:10]))
 
-        if "micro" in averaging:
+        if 'micro' in averaging:
             results = base_evaluator(
                 true_values_arr, pred_values_arr, problem_mode, metrics, -1, verbose=verbose
             )
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
-                final_result.update({mode + metric_name + "_micro": metric_val})
+                final_result.update({mode + metric_name + '_micro': metric_val})
                 if verbose:
-                    print(metric_name + "_micro: " + str(metric_val))
+                    print(metric_name + '_micro: ' + str(metric_val))
 
         else:
             raise AttributeError('Only the micro-averaging option is compatible with setting A')
@@ -157,20 +157,20 @@ def get_performance_results(
                 )
 
             if verbose:
-                print("Unscaled True_values: " + str(true_values_arr[:10]))
-                print("Unscaled Predicted_values: " + str(pred_values_arr[:10]))
+                print('Unscaled True_values: ' + str(true_values_arr[:10]))
+                print('Unscaled Predicted_values: ' + str(pred_values_arr[:10]))
 
-        if "micro" in averaging:
+        if 'micro' in averaging:
             results = base_evaluator(
                 true_values_arr, pred_values_arr, problem_mode, metrics, -1, verbose=verbose
             )
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
-                final_result.update({mode + metric_name + "_micro": metric_val})
+                final_result.update({mode + metric_name + '_micro': metric_val})
                 if verbose:
-                    print(metric_name + "_micro: " + str(metric_val))
+                    print(metric_name + '_micro: ' + str(metric_val))
 
-        if "macro" in averaging:
+        if 'macro' in averaging:
 
             index_arr_per_target = {}
             for target_id in np.unique(targets_arr):
@@ -199,37 +199,37 @@ def get_performance_results(
                             {
                                 mode
                                 + metric_name
-                                + "_target_"
+                                + '_target_'
                                 + str(target_i): metric_val
                             }
                         )
                         if per_target_verbose:
                             print(
                                 metric_name
-                                + "_target_"
+                                + '_target_'
                                 + str(target_i)
-                                + ": "
+                                + ': '
                                 + str(metric_val)
                             )
                 else:
                     if verbose:
                         print(
-                            "Warning: Target"
+                            'Warning: Target'
                             + str(target_i)
-                            + " has "
+                            + ' has '
                             + str(len(np.unique(true_values_arr[idxs])))
-                            + " unique true values and "
+                            + ' unique true values and '
                             + str(len(np.unique(pred_values_arr[idxs])))
-                            + " unique predictions"
+                            + ' unique predictions'
                         )
 
             for metric_name in values_per_metric.keys():
                 avg_val = np.mean(values_per_metric[metric_name])
-                final_result.update({mode + metric_name + "_macro": avg_val})
+                final_result.update({mode + metric_name + '_macro': avg_val})
                 if verbose:
-                    print(metric_name + "_macro: " + str(avg_val))
+                    print(metric_name + '_macro: ' + str(avg_val))
 
-        if "instance" in averaging:
+        if 'instance' in averaging:
 
             index_arr_per_instance = {}
             for instance_i in np.unique(instances_arr):
@@ -258,40 +258,40 @@ def get_performance_results(
                             {
                                 mode
                                 + metric_name
-                                + "_instance_"
+                                + '_instance_'
                                 + str(target_i): metric_val
                             }
                         )
                         if per_instance_verbose:
                             print(
                                 metric_name
-                                + "_instance_"
+                                + '_instance_'
                                 + str(instance_i)
-                                + ": "
+                                + ': '
                                 + str(metric_val)
                             )
 
                 else:
                     if verbose:
                         print(
-                            "Warning: Instance"
+                            'Warning: Instance'
                             + str(instance_i)
-                            + " has "
+                            + ' has '
                             + str(len(np.unique(true_values_arr[idxs])))
-                            + " unique true values and "
+                            + ' unique true values and '
                             + str(len(np.unique(pred_values_arr[idxs])))
-                            + " unique predictions"
+                            + ' unique predictions'
                         )
 
             for metric_name in metrics:
                 avg_val = np.mean(values_per_metric[metric_name])
-                final_result.update({mode + metric_name + "_instance": avg_val})
+                final_result.update({mode + metric_name + '_instance': avg_val})
                 if verbose:
-                    print(metric_name + "_instance: " + str(avg_val))
+                    print(metric_name + '_instance: ' + str(avg_val))
 
     if verbose:
-        print("==================================")
-        print("")
+        print('==================================')
+        print('')
 
     return final_result
 
@@ -315,24 +315,24 @@ def base_evaluator(
     '''
     results = {}
 
-    if problem_mode == "regression":
+    if problem_mode == 'regression':
 
-        if "RMSE" in metrics:
-            results["RMSE"] = np.sqrt(np.mean(np.square(true_values_arr - pred_values_arr)))
-        if "MSE" in metrics:
-            results["MSE"] = np.mean(np.square(true_values_arr - pred_values_arr))
-        if "MAE" in metrics:
-            results["MAE"] = np.mean(np.abs(true_values_arr - pred_values_arr))
-        if "R2" in metrics:
-            results["R2"] = r2_score(true_values_arr, pred_values_arr)
-        if "RRMSE" in metrics:
+        if 'RMSE' in metrics:
+            results['RMSE'] = np.sqrt(np.mean(np.square(true_values_arr - pred_values_arr)))
+        if 'MSE' in metrics:
+            results['MSE'] = np.mean(np.square(true_values_arr - pred_values_arr))
+        if 'MAE' in metrics:
+            results['MAE'] = np.mean(np.abs(true_values_arr - pred_values_arr))
+        if 'R2' in metrics:
+            results['R2'] = r2_score(true_values_arr, pred_values_arr)
+        if 'RRMSE' in metrics:
             if train_true_value is None:
-                results["RRMSE"] = np.nan
+                results['RRMSE'] = np.nan
                 # raise Exception(
-                #     "Requested RRMSE without suplying the average target values from the training set"
+                #     'Requested RRMSE without suplying the average target values from the training set'
                 # )
             else:
-                results["RRMSE"] = np.sqrt(
+                results['RRMSE'] = np.sqrt(
                     np.mean(np.square(true_values_arr - pred_values_arr))
                 ) / np.sqrt(
                     np.mean(
@@ -343,53 +343,53 @@ def base_evaluator(
                     )
                 )
 
-    elif problem_mode == "classification":
+    elif problem_mode == 'classification':
         bin_arr = np.where(pred_values_arr > 0.5, 1, 0)
 
         if idx == -1:
             (
-                results["tn"],
-                results["fp"],
-                results["fn"],
-                results["tp"],
+                results['tn'],
+                results['fp'],
+                results['fn'],
+                results['tp'],
             ) = confusion_matrix(true_values_arr, bin_arr).ravel()
 
-        if "accuracy" in metrics:
-            results["accuracy"] = accuracy_score(true_values_arr, bin_arr)
-        if "recall" in metrics:
-            results["recall"] = recall_score(true_values_arr, bin_arr, zero_division=0)
-        if "precision" in metrics:
-            results["precision"] = precision_score(
+        if 'accuracy' in metrics:
+            results['accuracy'] = accuracy_score(true_values_arr, bin_arr)
+        if 'recall' in metrics:
+            results['recall'] = recall_score(true_values_arr, bin_arr, zero_division=0)
+        if 'precision' in metrics:
+            results['precision'] = precision_score(
                 true_values_arr, bin_arr, zero_division=0
             )
-        if "f1_score" in metrics:
-            results["f1_score"] = f1_score(true_values_arr, bin_arr, zero_division=0)
-        if "hamming_loss" in metrics:
-            results["hamming_loss"] = hamming_loss(true_values_arr, bin_arr)
+        if 'f1_score' in metrics:
+            results['f1_score'] = f1_score(true_values_arr, bin_arr, zero_division=0)
+        if 'hamming_loss' in metrics:
+            results['hamming_loss'] = hamming_loss(true_values_arr, bin_arr)
         if len(np.unique(true_values_arr)) > 1:
-            if "auroc" in metrics:
-                results["auroc"] = roc_auc_score(true_values_arr, pred_values_arr)
-            if "aupr" in metrics:
+            if 'auroc' in metrics:
+                results['auroc'] = roc_auc_score(true_values_arr, pred_values_arr)
+            if 'aupr' in metrics:
                 precision, recall, thresholds = precision_recall_curve(
                     true_values_arr, pred_values_arr
                 )
-                results["aupr"] = auc(recall, precision)
+                results['aupr'] = auc(recall, precision)
         else:
             if verbose:
                 print(
-                    "Warning: instance"
+                    'Warning: instance'
                     + str(idx)
-                    + " has "
+                    + ' has '
                     + str(len(np.unique(true_values_arr)))
-                    + " unique true values"
+                    + ' unique true values'
                 )
         if set(metrics).intersection(
             set(
                 [
-                    "sensitivity",
-                    "false_alarm_rate_per_hour",
-                    "positive_predictive_value",
-                    "f1_score_epilepsy_version",
+                    'sensitivity',
+                    'false_alarm_rate_per_hour',
+                    'positive_predictive_value',
+                    'f1_score_epilepsy_version',
                 ]
             )
         ):
@@ -401,10 +401,10 @@ def base_evaluator(
                         set(metrics).intersection(
                             set(
                                 [
-                                    "sensitivity",
-                                    "false_alarm_rate_per_hour",
-                                    "positive_predictive_value",
-                                    "f1_score_epilepsy_version",
+                                    'sensitivity',
+                                    'false_alarm_rate_per_hour',
+                                    'positive_predictive_value',
+                                    'f1_score_epilepsy_version',
                                 ]
                             )
                         )
@@ -419,22 +419,22 @@ def get_epilepsy_specific_metrics(
     y_true,
     y_pred,
     metrics=[
-        "sensitivity",
-        "false_alarm_rate_per_hour",
-        "positive_predictive_value",
-        "f1_score_epilepsy_version",
+        'sensitivity',
+        'false_alarm_rate_per_hour',
+        'positive_predictive_value',
+        'f1_score_epilepsy_version',
     ],
 ):
-    """Function that calculates specific metrics used in Epilepsy prediction tasks
+    '''Function that calculates specific metrics used in Epilepsy prediction tasks
 
     Args:
         y_true (numpy.array): An array with the true values.
         y_pred (_type_): An array with the predicted values.
-        metrics (list, optional): A list with metric names that have to be calculated. Defaults to [ "sensitivity", "false_alarm_rate_per_hour", "positive_predictive_value", "f1_score_epilepsy_version", ].
+        metrics (list, optional): A list with metric names that have to be calculated. Defaults to [ 'sensitivity', 'false_alarm_rate_per_hour', 'positive_predictive_value', 'f1_score_epilepsy_version', ].
 
     Returns:
         dict: a dictionary with the results per metric
-    """
+    '''
     results = {}
     # define consecutive epileptic moments
     true_episodes = [
@@ -455,7 +455,7 @@ def get_epilepsy_specific_metrics(
     # new implementation of calculating FPs
     for FP_window in [1, 10, 60]:
         FP = 0
-        suffix = "_" + str(FP_window)
+        suffix = '_' + str(FP_window)
 
         # calculate FPs per sample (stored as True, False values in an arry)
         FPs = np.array(
@@ -470,18 +470,18 @@ def get_epilepsy_specific_metrics(
 
         # print('FP: '+str(FP))
 
-        if "sensitivity" in metrics:
-            results["sensitivity" + suffix] = (
+        if 'sensitivity' in metrics:
+            results['sensitivity' + suffix] = (
                 TP_OVLP / (TP_OVLP + FN_OVLP) if (TP_OVLP + FN_OVLP) != 0 else 0
             )
-        if "false_alarm_rate_per_hour" in metrics:
-            results["false_alarm_rate_per_hour" + suffix] = FP / (len(y_true) / 3600)
-        if "positive_predictive_value" in metrics:
-            results["positive_predictive_value" + suffix] = (
+        if 'false_alarm_rate_per_hour' in metrics:
+            results['false_alarm_rate_per_hour' + suffix] = FP / (len(y_true) / 3600)
+        if 'positive_predictive_value' in metrics:
+            results['positive_predictive_value' + suffix] = (
                 TP_OVLP / (TP_OVLP + FP) if (TP_OVLP + FP) != 0 else 0
             )
-        if "f1_score_epilepsy_version" in metrics:
-            results["f1_score" + suffix] = (
+        if 'f1_score_epilepsy_version' in metrics:
+            results['f1_score' + suffix] = (
                 (2 * TP_OVLP / (2 * TP_OVLP + FN_OVLP + FP))
                 if (2 * TP_OVLP + FN_OVLP + FP)
                 else 0
