@@ -248,6 +248,8 @@ class DeepMTP:
 				)
 				if verbose: print('Done')
 			
+			model.train()
+			
 			if mode != 'test':
 				results[mode+'_loss'] = np.mean(loss_arr)
 			if return_predictions:
@@ -263,11 +265,11 @@ class DeepMTP:
 		# val_dataset = BaseDataset(self.config, val_data['y'], val_data['X_instance'], val_data['X_target'])
 
 		# initialize the dataloaders
-		train_dataloader = DataLoader(BaseDataset(self.config, train_data['y'], train_data['X_instance'], train_data['X_target'], instance_transform=self.config['instance_train_transforms'], target_transform=self.config['target_train_transforms']), self.config['train_batchsize'], shuffle=True, num_workers=self.config['num_workers'])
+		train_dataloader = DataLoader(BaseDataset(self.config, train_data['y'], train_data['X_instance'], train_data['X_target'], instance_transform=self.config['instance_train_transforms'], target_transform=self.config['target_train_transforms']), self.config['train_batchsize'], shuffle=True, num_workers=self.config['num_workers'], pin_memory=True)
 		if val_data is not None:
-			val_dataloader = DataLoader(BaseDataset(self.config, val_data['y'], val_data['X_instance'], val_data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
+			val_dataloader = DataLoader(BaseDataset(self.config, val_data['y'], val_data['X_instance'], val_data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'], pin_memory=True)
 		if test_data is not None:
-			test_dataloader = DataLoader(BaseDataset(self.config, test_data['y'], test_data['X_instance'], test_data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
+			test_dataloader = DataLoader(BaseDataset(self.config, test_data['y'], test_data['X_instance'], test_data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'], pin_memory=True)
 
 		if self.config['verbose']: print('Starting training...')
 
@@ -367,7 +369,8 @@ class DeepMTP:
 
 			# generate predictions for the validation set. This needs to be done in order to early stop and to select between configurations
 			if self.config['verbose']: print('  Validating... ', end='')
-			val_results = self.inference(self.deepMTP_model, val_dataloader, 'val', epoch, verbose=self.config['verbose'])
+			with torch.set_grad_enabled(False):
+				val_results = self.inference(self.deepMTP_model, val_dataloader, 'val', epoch, verbose=self.config['verbose'])
 			if self.config['verbose']: print('Done')
 
 			# update val_run_story_table
@@ -466,7 +469,7 @@ class DeepMTP:
 
 	def predict(self, data, return_predictions=False, verbose=False):
 		self.deepMTP_model.to(self.device)
-		dataloader = DataLoader(BaseDataset(self.config, data['y'], data['X_instance'], data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
+		dataloader = DataLoader(BaseDataset(self.config, data['y'], data['X_instance'], data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'], pin_memory=True)
 		return self.inference(self.deepMTP_model, dataloader, '', 0, return_predictions=True, verbose=verbose)
 
 	def save_model(self, verbose=False):
