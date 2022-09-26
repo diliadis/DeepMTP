@@ -71,7 +71,8 @@ class TwoBranchKroneckerModel(nn.Sequential):
 		instance_embedding = self.instance_branch_model(instance_features)
 		target_embedding = self.target_branch_model(target_features)
 		# compute the Kronecker product
-		v_comb = torch.kron(instance_embedding, target_embedding)
+		# v_comb = torch.kron(instance_embedding, target_embedding) # there is no dim option for a batch operation... 
+		v_comb = torch.stack([torch.kron(ai, bi) for ai, bi in zip(instance_embedding, target_embedding)], dim=0)
 		output = self.comb_branch(v_comb)
 		return output
 
@@ -228,25 +229,26 @@ class DeepMTP:
 
 			# calculate the performance
 			if ((mode=='test') or ((epoch % self.config['eval_every_n_epochs'] == 0) and (self.config['evaluate_val'])) or (self.config['metric_to_optimize_early_stopping']!='loss') or (self.config['num_epochs']-1 == epoch)):
-				if verbose: print('Calculating '+mode+' performance... ', end='')
-				results = get_performance_results(
-					mode, 
-					epoch,
-					instance_ids_arr, 
-					target_ids_arr, 
-					true_scores_arr, 
-					pred_scores_arr, 
-					self.config['validation_setting'],
-					self.config['problem_mode'],
-					self.config['metrics'],
-					self.config['metrics_average'],
-					verbose=self.config['results_verbose'],
-					per_target_verbose=self.config['eval_target_verbose'],
-    				per_instance_verbose=self.config['eval_instance_verbose'],
-					train_true_value=None,
-					scaler_per_target=None,
-				)
-				if verbose: print('Done')
+				if self.config['metrics']:
+					if verbose: print('Calculating '+mode+' performance... ', end='')
+					results = get_performance_results(
+						mode, 
+						epoch,
+						instance_ids_arr, 
+						target_ids_arr, 
+						true_scores_arr, 
+						pred_scores_arr, 
+						self.config['validation_setting'],
+						self.config['problem_mode'],
+						self.config['metrics'],
+						self.config['metrics_average'],
+						verbose=self.config['results_verbose'],
+						per_target_verbose=self.config['eval_target_verbose'],
+						per_instance_verbose=self.config['eval_instance_verbose'],
+						train_true_value=None,
+						scaler_per_target=None,
+					)
+					if verbose: print('Done')
 			
 			model.train()
 			
@@ -332,7 +334,7 @@ class DeepMTP:
 					target_ids_arr.extend(batch['target_id'].numpy())
 
 			# calculate performance metrics on the training set
-			if ((self.config['evaluate_train']) and ((epoch % self.config['eval_every_n_epochs'] == 0) or (self.config['num_epochs']-1 == epoch ))):
+			if ((self.config['evaluate_train']) and self.config['metrics'] and ((epoch % self.config['eval_every_n_epochs'] == 0) or (self.config['num_epochs']-1 == epoch ))):
 				train_results = get_performance_results(
 					'train', 
 					epoch,

@@ -131,7 +131,7 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode='
             raise Exception(('error: ' if print_mode=='dev' else '')+'Inconsistent target id column type across the different interaction files')
 
 def check_variable_type(samples_arr):
-    '''Checks the type of the target variable. This implementation is currently very simple. It has to be improved!!
+    '''Checks the type of the target variable. This implementation is currently very simple. It has to be updated!!
 
     Args:
         samples_arr (numpy.array): A numpy array with the target variables 
@@ -675,8 +675,9 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
     if validation_setting is not None :
         validation_setting = validation_setting.upper()
 
+    # the user doesn't have to explicitly add any of the train, val, test key-value pairs in the custom data object. The same rule applies at the y, X_instance and X_target level 
     if 'train' not in data:
-        data['train'] = {'y': None, 'X_instance': None, 'X_target': None}
+        raise AttributeError('The train key-value pair should always be present in the custom data object')
     else:
         if 'y' not in data['train']:
             data['train']['y'] = None
@@ -721,21 +722,25 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
     if data['test']['y'] is None:
         if validation_setting is None:
             raise AttributeError(('error: ' if print_mode=='dev' else '')+'The validation setting must be specified manually. To automatically infer it you must pass the test set as well!!')
+    '''
     else:
         if data['train']['X_instance'] is not None and data['test']['X_instance'] is None:
             raise AttributeError(('error: ' if print_mode=='dev' else '')+'Instance features are available for the train set  but not the test set')
         if data['train']['X_target'] is not None and data['test']['X_target'] is None:
             raise AttributeError(('error: ' if print_mode=='dev' else '')+'Target features are available for the train set  but not the test set')
-
+    '''
+    
     if data['val']['y'] is None:
         if data['val']['X_instance'] is not None or data['val']['X_target'] is not None:
              warnings.warn(('warning: ' if print_mode=='dev' else '')+"Warning: You provided side information for the validation set without the interaction matrix. This info won't be used")
+    '''
     else:
         if data['train']['X_instance'] is not None and data['val']['X_instance'] is None:
             raise AttributeError(('error: ' if print_mode=='dev' else '')+'Instance features are available for the train set  but not the validation set')
         if data['train']['X_target'] is not None and data['val']['X_target'] is None:
             raise AttributeError(('error: ' if print_mode=='dev' else '')+'Target features are available for the train set  but not the validation set')
-
+    '''
+    
     # check if the specified validation setting makes sense given the supplied datasets
     if validation_setting is not None:
         if validation_setting == 'B' and data['train']['X_instance'] is None:
@@ -810,6 +815,7 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
             print(('info: ' if print_mode=='dev' else '')+'Detected validation setting D as a possibility but will use the one defined by the user: setting '+validation_setting)
         # elif validation_setting_detected != validation_setting:
         #     raise Exception('Mismatch between the auto-detected validation setting and the one defined by the user --> User: '+validation_setting+' != Auto-detected: '+validation_setting_detected) 
+        
     data['info'] = {'detected_validation_setting': validation_setting}
     data['info']['detected_problem_mode'] = 'classification' if target_variable_type == 'binary' else 'regression'
     if data['train']['X_instance'] is not None:
@@ -867,6 +873,69 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
 
     return data['train'], data['val'], data['test'], data['info']
 
+'''
+# fast but can blow up
+class BaseDataset(Dataset):
+    """A custom pytorch Dataset with a flexible implementation that can handle different cases of instance and target features. 
+       The speed of this could be improved by splitting this logic into multiple datasets designed for specific cases. 
+    """    
+    def __init__(self, config, data, instance_features, target_features, instance_transform=None, target_transform=None):
+        self.config = config
+        self.instance_branch_input_dim = config['instance_branch_input_dim']
+        self.target_branch_input_dim = config['target_branch_input_dim']
+
+        self.use_instance_features = config['use_instance_features']
+        self.use_target_features = config['use_target_features']
+
+        if instance_transform is not None:
+            self.instance_transform = instance_transform
+
+        if target_transform is not None:
+            self.target_transform = target_transform
+
+        self.triplet_data = data['data']
+        self.instance_features = None
+        self.target_features = None
+        if instance_features is not None:
+            self.instance_features = instance_features['data']
+        else:
+            instance_identity = np.identity(self.instance_branch_input_dim)
+            self.instance_features = pd.DataFrame(np.arange(self.instance_branch_input_dim), columns=['id'])
+            self.instance_features['features'] = [instance_identity[i] for i in range(instance_identity.shape[0])]
+
+        if target_features is not None:
+            self.target_features = target_features['data']
+        else:
+            target_identity = np.identity(self.target_branch_input_dim)
+            self.target_features = pd.DataFrame(np.arange(self.target_branch_input_dim), columns=['id'])
+            self.target_features['features'] = [target_identity[i] for i in range(target_identity.shape[0])]
+
+    def __len__(self):
+        return len(self.triplet_data)
+
+    def __getitem__(self, idx): 
+        instance_id = int(self.triplet_data.iloc[idx]['instance_id'])
+        target_id = int(self.triplet_data.iloc[idx]['target_id'])
+        value = self.triplet_data.iloc[idx]['value']
+        instance_features_vec = None
+        target_features_vec = None
+
+        if self.config['instance_branch_architecture'] == 'CONV':
+            image = Image.open(self.instance_features.loc[instance_id, 'dir']).convert('RGB')
+            instance_features_vec = self.instance_transform(image)
+        else:
+            instance_features_vec = self.instance_features.loc[instance_id, 'features']
+
+        if self.config['target_branch_architecture'] == 'CONV':
+            image = Image.open(self.target_features.loc[target_id, 'dir']).convert('RGB')
+            target_features_vec = self.target_transform(image)
+        else:
+            target_features_vec = self.target_features.loc[target_id, 'features']
+
+        return{'instance_id': instance_id, 'target_id': target_id, 'instance_features': instance_features_vec, 'target_features': target_features_vec, 'score': value}
+'''
+
+# slow but memory efficient
 class BaseDataset(Dataset):
     """A custom pytorch Dataset with a flexible implementation that can handle different cases of instance and target features. 
        The speed of this could be improved by splitting this logic into multiple datasets designed for specific cases. 
@@ -926,45 +995,3 @@ class BaseDataset(Dataset):
         return{'instance_id': instance_id, 'target_id': target_id, 'instance_features': instance_features_vec, 'target_features': target_features_vec, 'score': value}
 
 
-'''
-class BaseDataset(Dataset):
-    def __init__(self, config, data, instance_features, target_features, dyadic_features=None, transform=None):
-        self.config = config
-        self.instance_branch_input_dim = config['instance_branch_input_dim']
-        self.target_branch_input_dim = config['target_branch_input_dim']
-
-        self.use_instance_features = config['use_instance_features']
-        self.use_target_features = config['use_target_features']
-
-        self.triplet_data = data['data']
-        self.instance_features = None
-        self.target_features = None
-        if instance_features is not None:
-            self.instance_features = instance_features['data']
-        if target_features is not None:
-            self.target_features = target_features['data']
-
-    def __len__(self):
-        return len(self.triplet_data)
-
-    def __getitem__(self, idx): 
-        instance_id = int(self.triplet_data.iloc[idx]['instance_id'])
-        target_id = int(self.triplet_data.iloc[idx]['target_id'])
-        value = self.triplet_data.iloc[idx]['value']
-        instance_features_vec = None
-        target_features_vec = None
-
-        if self.instance_features is not None:
-            instance_features_vec = self.instance_features.loc[instance_id]['features']
-        else:
-            instance_features_vec = np.zeros(self.instance_branch_input_dim)
-            instance_features_vec[instance_id] = 1
-
-        if self.target_features is not None:
-            target_features_vec = self.target_features.loc[target_id]['features']
-        else:
-            target_features_vec = np.zeros(self.target_branch_input_dim) 
-            target_features_vec[target_id] = 1
-
-        return{'instance_id': instance_id, 'target_id': target_id, 'instance_features': instance_features_vec, 'target_features': target_features_vec, 'score': value}
-'''
