@@ -357,7 +357,7 @@ def cross_input_consistency_check_instances(data, validation_setting, verbose, p
                     unique_entities_in_interactions_file = set()
                     for mode in valid_modes:
                         unique_entities_in_interactions_file = unique_entities_in_interactions_file.union(set(data[mode]['y']['data']['instance_id']))
-                        unique_entities_in_features_file = set(data[mode]['X_instance']['data']['id'].unique())
+                    unique_entities_in_features_file = set(data['train']['X_instance']['data']['id'].unique())
                     if unique_entities_in_interactions_file.symmetric_difference(unique_entities_in_features_file) == set():
                         if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same instance ids in the interaction and features file')
                     else:
@@ -424,7 +424,7 @@ def cross_input_consistency_check_targets(data, validation_setting, verbose, pri
     if num_target_features_sources != 0:
         # if the interaction files have a numpy format, the only case currently allowed is the following: There are as many interaction files as there are feature files
         if 'numpy' in set([data[mode]['y']['original_format'] for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None]):
-            if validation_setting in ['B', 'D']:
+            if validation_setting in ['C', 'D']:
                 if num_interaction_data_sources != num_target_features_sources:
                     raise Exception(('error: ' if print_mode=='dev' else '')+'Different number of (numpy) interaction files and target feature files is not currently supported')
                 else:
@@ -437,7 +437,7 @@ def cross_input_consistency_check_targets(data, validation_setting, verbose, pri
                                 if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same target ids in the interaction and features files for the '+mode+' set')
                             else:
                                 raise Exception(('error: ' if print_mode=='dev' else '')+'Different target ids in the interaction and features files for the '+mode+' set.')
-            elif validation_setting in ['C', 'A']:
+            elif validation_setting in ['B', 'A']:
                 if num_target_features_sources != 1:
                     raise Exception(('error: ' if print_mode=='dev' else '')+'Setting '+validation_setting+' needs only one target feature file')
                 else:
@@ -445,7 +445,7 @@ def cross_input_consistency_check_targets(data, validation_setting, verbose, pri
                     unique_entities_in_interactions_file = set()
                     for mode in valid_modes:
                         unique_entities_in_interactions_file = unique_entities_in_interactions_file.union(set(data[mode]['y']['data']['target_id']))
-                    unique_entities_in_features_file = set(data[mode]['X_target']['data']['id'].unique())
+                    unique_entities_in_features_file = set(data['train']['X_target']['data']['id'].unique())
                     if unique_entities_in_interactions_file.symmetric_difference(unique_entities_in_features_file) == set():
                         if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same target ids in the interaction and features file')
                     else:
@@ -518,10 +518,8 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
             test_ids.sort()
             data['test']['y'] = {'data': data['train']['y']['data'][data['train']['y']['data']['instance_id'].isin(test_ids)]}
             data['train']['y']['data'] = data['train']['y']['data'][data['train']['y']['data']['instance_id'].isin(train_ids)]
-           
             data['test']['X_instance'] = {'data': data['train']['X_instance']['data'][data['train']['X_instance']['data']['id'].isin(test_ids)]}
             data['train']['X_instance']['data'] = data['train']['X_instance']['data'][data['train']['X_instance']['data']['id'].isin(train_ids)]
-
             if verbose:print(('info: ' if print_mode=='dev' else '')+'Done')
 
         if data['val']['y'] is None:
@@ -531,15 +529,19 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
             val_ids.sort()
             data['val']['y'] = {'data': data['train']['y']['data'][data['train']['y']['data']['instance_id'].isin(val_ids)]}
             data['train']['y']['data'] = data['train']['y']['data'][data['train']['y']['data']['instance_id'].isin(train_ids)]
-
             data['val']['X_instance'] = {'data': data['train']['X_instance']['data'][data['train']['X_instance']['data']['id'].isin(val_ids)]}
             data['train']['X_instance']['data'] = data['train']['X_instance']['data'][data['train']['X_instance']['data']['id'].isin(train_ids)]
             if data['test']['X_instance'] is None:
                 data['test']['X_instance']['data'] = data['train']['X_instance']['data'][data['train']['X_instance']['data']['id'].isin(data['test']['X_instance']['id'].unique())]
                 data['train']['X_instance']['data'] = data['train']['X_instance']['data'][~data['train']['X_instance']['data']['id'].isin(data['test']['X_instance']['id'].unique())]
-
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
 
+        if data['train']['X_target'] is not None:
+            if data['test']['X_target'] is None:
+                data['test']['X_target'] = data['train']['X_target'].copy()
+            if data['val']['X_target'] is None:
+                data['val']['X_target'] = data['train']['X_target'].copy()
+    
     elif validation_setting == 'C':
         if data['test']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-test according to validation setting '+validation_setting+'... ', end='')
@@ -548,10 +550,8 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
             test_ids.sort()
             data['test']['y'] = {'data': data['train']['y']['data'][data['train']['y']['data']['target_id'].isin(test_ids)]}
             data['train']['y']['data'] = data['train']['y']['data'][data['train']['y']['data']['target_id'].isin(train_ids)]
-
             data['test']['X_target'] = {'data': data['train']['X_target']['data'][data['train']['X_target']['data']['id'].isin(test_ids)]}
-            data['train']['X_target']['data'] = data['train']['X_target']['data'][data['train']['X_target']['data']['id'].isin(train_ids)]
-
+            data['train']['X_target']['data'] = data['train']['X_target']['data'][data['train']['X_target']['data']['id'].isin(train_ids)]                
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
 
         if data['val']['y'] is None:
@@ -561,14 +561,19 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
             val_ids.sort()
             data['val']['y'] = {'data': data['train']['y']['data'][data['train']['y']['data']['target_id'].isin(val_ids)]}
             data['train']['y']['data'] = data['train']['y']['data'][data['train']['y']['data']['target_id'].isin(train_ids)]
-
             data['val']['X_target'] = {'data': data['train']['X_target']['data'][data['train']['X_target']['data']['id'].isin(val_ids)]}
             data['train']['X_target']['data'] = data['train']['X_target']['data'][data['train']['X_target']['data']['id'].isin(train_ids)]
             if data['test']['X_target'] is None:
                 data['test']['X_target']['data'] = data['train']['X_target']['data'][data['train']['X_target']['data']['id'].isin(data['test']['X_target']['id'].unique())]
                 data['train']['X_target']['data'] = data['train']['X_target']['data'][~data['train']['X_target']['data']['id'].isin(data['test']['X_target']['id'].unique())]
-
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
+
+        if data['train']['X_instance'] is not None:
+            if data['test']['X_instance'] is None:
+                data['test']['X_instance'] = data['train']['X_instance'].copy()
+            if data['val']['X_instance'] is None:
+                data['val']['X_instance'] = data['train']['X_instance'].copy()
+
 
     elif validation_setting == 'A':
         if data['test']['y'] is None:
