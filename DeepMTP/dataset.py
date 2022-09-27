@@ -1,4 +1,5 @@
 import os
+from tkinter import Y
 import wget
 import scipy
 import requests, zipfile, hashlib, tarfile, io
@@ -247,7 +248,7 @@ def print_MTR_datasets():
 	table.add_row(['scpf', '1137', '23', '3'])
 	print(table.get_string())
 
-def load_process_DP(path='./data', dataset_name='ern', print_mode='basic'):
+def load_process_DP(path='./data', dataset_name='ern', variant='undivided', random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=False, split_target_features=False, validation_setting='B', print_mode='basic'):
 	'''Load dyadic prediction datasets from the following repository: https://people.montefiore.uliege.be.
 
 	Args:
@@ -262,6 +263,10 @@ def load_process_DP(path='./data', dataset_name='ern', print_mode='basic'):
 	Returns:
 		dict: A dictionary with all the available data for the dyadic prediction dataset.
 	'''
+	if validation_setting.upper() not in ['B', 'C', 'D']:
+		raise AttributeError('Invalid validation setting symbol prodived: '+str(validation_setting.upper())+'. Choose one of the following: '+str(['B', 'C', 'D'])) 
+	validation_setting = validation_setting.upper()
+
 	# The current version downloads all the datasets from https://people.montefiore.uliege.be
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
@@ -297,6 +302,48 @@ def load_process_DP(path='./data', dataset_name='ern', print_mode='basic'):
 			y_train = np.genfromtxt(path+'/dyadic_prediction-datasets/'+dataset_name+'/'+dataset_name+'_Y.txt')
 			X_train_instance = np.genfromtxt(path+'/dyadic_prediction-datasets/'+dataset_name+'/'+dataset_name+'_X1.txt')
 			X_train_target = np.genfromtxt(path+'/dyadic_prediction-datasets/'+dataset_name+'/'+dataset_name+'_X2.txt')
+
+		if variant != 'undivided':
+			if validation_setting == 'B':
+				if split_instance_features:
+					X_train_instance, X_test_instance, y_train, y_test,  = train_test_split(X_train_instance, y_train, test_size=split_ratio['test'], random_state=random_state)
+					X_train_instance, X_val_instance, y_train, y_val,  = train_test_split(X_train_instance, y_train, test_size=split_ratio['val'], random_state=random_state)
+
+				else:
+					y_train, y_test,  = train_test_split(y_train, test_size=split_ratio['test'], random_state=random_state)
+					y_train, y_val,  = train_test_split(y_train, test_size=split_ratio['val'], random_state=random_state)
+
+			elif validation_setting == 'C':
+				y_train_target_ids, y_test_target_ids,  = train_test_split(range(y_train.shape[1]), test_size=split_ratio['test'], random_state=random_state)
+				y_train_target_ids, y_val_target_ids,  = train_test_split(y_train_target_ids, test_size=split_ratio['val'], random_state=random_state)
+				y_val = y_train[:, y_val_target_ids]
+				y_test = y_train[:, y_test_target_ids]
+				y_train = y_train[:, y_train_target_ids]
+
+				if split_target_features:
+					X_val_target = X_train_target[y_val_target_ids, :]
+					X_test_target = X_train_target[y_test_target_ids, :]
+					X_train_target = X_train_target[y_train_target_ids, :]
+
+			else: # validation_setting == 'D'
+				y_train_instance_ids, y_test_instance_ids,  = train_test_split(range(y_train.shape[0]), test_size=split_ratio['test'], random_state=random_state)
+				y_train_instance_ids, y_val_instance_ids,  = train_test_split(y_train_instance_ids, test_size=split_ratio['val'], random_state=random_state)
+				y_train_target_ids, y_test_target_ids,  = train_test_split(range(y_train.shape[1]), test_size=split_ratio['test'], random_state=random_state)
+				y_train_target_ids, y_val_target_ids,  = train_test_split(y_train_target_ids, test_size=split_ratio['val'], random_state=random_state)
+
+				y_val = y_train[y_val_instance_ids, :][:, y_val_target_ids]
+				y_test = y_train[y_test_instance_ids, :][:, y_test_target_ids]
+				y_train = y_train[y_train_instance_ids, :][:, y_train_target_ids]
+				
+				if split_instance_features:
+					X_val_instance = X_train_instance[y_val_instance_ids, :]
+					X_test_instance = X_train_instance[y_test_instance_ids, :]
+					X_train_instance = X_train_instance[y_train_instance_ids, :]
+
+				if split_target_features:
+					X_val_target = X_train_target[y_val_target_ids, :]
+					X_test_target = X_train_target[y_test_target_ids, :]
+					X_train_target = X_train_target[y_train_target_ids, :]
 
 	print(('info: ' if print_mode=='dev' else '')+'Done')
 
