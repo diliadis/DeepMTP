@@ -270,7 +270,7 @@ In the code snippet above the function generate_config is shown without any spec
 | `target_branch_input_dim` | The input dimension of the target branch |
 | `target_train_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `target_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
-| `instance_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the target branch. |
+| `target_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the target branch. |
 |  **Combination branch architecture**  ||
 | `comb_mlp_nodes_per_layer` |  Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if `general_architecture_version == mlp`)|
 | `comb_mlp_branch_layers` | The number of layers in the combination branch. (Only used if `general_architecture_version == mlp`) |
