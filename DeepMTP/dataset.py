@@ -522,3 +522,38 @@ def generate_interaction_matrix(input_path, output_path):
 					
 	y[y == -1] = 'nan'
 	pickle.dump(y, open(output_path, 'wb'))
+
+
+def generate_dummy_dataset(num_instances, num_targets, num_instance_features, num_target_features, error_mu, error_sigma, sklearn_version=False, seed=42, mode='log', split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}):
+
+	X_train_instance, X_val_instance, X_test_instance = None, None, None
+	X_train_target, X_val_target, X_test_target = None, None, None
+	y_train, y_val, y_test = None, None, None 
+
+	# generate the instance and target feature numpy arrays
+	if sklearn_version:
+		# inspired by sklearn
+		generator = np.random.RandomState(seed)
+		X_train_instance = generator.standard_normal(size=(num_instances, num_instance_features))
+		X_train_target = generator.standard_normal(size=(num_targets, num_target_features))
+	else:
+
+		X_train_instance = np.random.random((num_instances, num_instance_features))
+		X_train_target = np.random.random((num_targets, num_target_features))
+
+	# generate the score matrix using some kind of relationship between the instance and target features
+	y_train = np.zeros((num_instances, num_targets))
+	if mode == 'log':
+		for i in range(num_instances):
+			for j in range(num_targets):
+				y_train[i,j] = np.sum(X_train_instance[i] + np.log(X_train_target[j])) + np.random.normal(error_mu, error_sigma)
+	else:
+		for i in range(num_instances):
+			for j in range(num_targets):
+				y_train[i,j] = np.sum(X_train_instance[i] ** X_train_target[j]) + np.random.normal(error_mu, error_sigma)
+
+	X_train_instance, X_test_instance, y_train, y_test,  = train_test_split(X_train_instance, y_train, test_size=split_ratio['test'], random_state=seed)
+	X_train_instance, X_val_instance, y_train, y_val,  = train_test_split(X_train_instance, y_train, test_size=split_ratio['val'], random_state=seed)
+
+	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
+	
