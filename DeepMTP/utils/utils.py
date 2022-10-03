@@ -178,6 +178,7 @@ def generate_config(
 
     instance_branch_params = {},
     target_branch_params = {},
+    hpo_results_path = './',
 
 ):
     ''' Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
@@ -249,7 +250,7 @@ def generate_config(
         additional_info (dict, optional): A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb. Defaults to {}.
         eval_instance_verbose (str, optional): Printing of instance-wise warnings when evaluating performance metrics.
         eval_target_verbose (str, optional): Printing of target-wise warnings when evaluating performance metrics.
-
+        hpo_results_path (str, optional): The directory the HPO results will be stored.
     Returns:
         dict: A dictionary with the config that will be used by the model to adjust the architecture and all other training-related information
     '''
@@ -309,6 +310,7 @@ def generate_config(
         'target_train_transforms': target_train_transforms,
         'target_inference_transforms': target_inference_transforms,
         'running_hpo': running_hpo,
+        'hpo_results_path': hpo_results_path,
     }
 
     # various sanity checks for the metrics and averaging options that are provided by the user

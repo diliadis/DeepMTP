@@ -6,7 +6,7 @@ from collections import OrderedDict
 class MLP(nn.Sequential):
 	''' A standard fully connected feed-forward neural network.
 	'''	
-	def __init__(self, config, input_dim, output_dim, nodes_per_layer, num_layers, dropout_rate, batch_norm):
+	def __init__(self, config, input_dim, output_dim, nodes_per_layer, num_layers, dropout_rate, batch_norm, skip_last_act=False):
 		super(MLP, self).__init__()
 		if isinstance(nodes_per_layer, list):
 			num_layers = len(nodes_per_layer)
@@ -17,13 +17,17 @@ class MLP(nn.Sequential):
 		self.predictor = nn.ModuleList()
 		for i in range(num_layers+1):
 			self.predictor.append(nn.Linear(dims[i], dims[i+1]))
-			self.predictor.append(nn.LeakyReLU())
+			
 			if i != num_layers:
+				self.predictor.append(nn.LeakyReLU())
 				if batch_norm:
 					# pass
 					self.predictor.append(nn.BatchNorm1d(dims[i+1]))
 				if dropout_rate != 0:
 					self.predictor.append(nn.Dropout(dropout_rate))
+			else:
+				if not skip_last_act:
+					self.predictor.append(nn.LeakyReLU())
 
 	def forward(self, v):
 		# predict
