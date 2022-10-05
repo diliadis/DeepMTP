@@ -41,69 +41,28 @@ class BaseWorker:
             self.mode = mode
 
     def compute(self, budget, config):
-
+        '''The input parameter 'config' (dictionary) contains the sampled configurations passed by the bohb optimizer
         '''
-        The input parameter 'config' (dictionary) contains the sampled configurations passed by the bohb optimizer
-        '''
+        current_config = self.base_config.copy()
         temp_config = dict(config)
         original_budget = int(budget)
         current_time = datetime.now().strftime('%d_%m_%Y__%H_%M_%S')
 
-        self.master_config = generate_config(
-            instance_branch_input_dim = self.base_config['instance_branch_input_dim'],
-            target_branch_input_dim = self.base_config['target_branch_input_dim'],
-            validation_setting = self.base_config['validation_setting'],
-            general_architecture_version = self.base_config['general_architecture_version'],
-            problem_mode = self.base_config['problem_mode'],
-            learning_rate = temp_config['learning_rate'],
-            decay = 0,
-            batch_norm = temp_config['batch_norm'] if 'batch_norm' in temp_config else False,
-            dropout_rate = temp_config['dropout_rate'] if 'dropout_rate' in temp_config else 0,
-            momentum = 0.9,
-            weighted_loss = False,
-            compute_mode = self.base_config['compute_mode'],
-            train_batchsize = self.base_config['train_batchsize'],
-            val_batchsize = self.base_config['val_batchsize'],
-            num_epochs = original_budget,
-            num_workers = self.base_config['num_workers'],
+        # isolate the instance and target specific parameters that are stored in specific instance_branch_params and target_branch_params nested directories
+        instance_specific_param_keys = [p_name for p_name in temp_config.keys() if p_name.startswith('instance_') and p_name not in ['instance_branch_input_dim', 'instance_branch_architecture']]
+        target_specific_param_keys = [p_name for p_name in temp_config.keys() if p_name.startswith('target_') and p_name not in ['target_branch_input_dim', 'target_branch_architecture']]
 
-            metrics = self.base_config['metrics'],
-            metrics_average = self.base_config['metrics_average'],
-            patience = self.base_config['patience'],
-
-            evaluate_train = self.base_config['evaluate_train'],
-            evaluate_val = self.base_config['evaluate_val'],
-
-            verbose = self.base_config['verbose'],
-            results_verbose = self.base_config['results_verbose'],
-            use_early_stopping = self.base_config['use_early_stopping'],
-            use_tensorboard_logger = self.base_config['use_tensorboard_logger'],
-            wandb_project_name = self.base_config['wandb_project_name'],
-            wandb_project_entity = self.base_config['wandb_project_entity'],
-            results_path = self.project_name,
-            experiment_name = current_time,
-            metric_to_optimize_early_stopping = self.base_config['metric_to_optimize_early_stopping'],
-            metric_to_optimize_best_epoch_selection = self.base_config['metric_to_optimize_best_epoch_selection'],
-
-            instance_branch_architecture = self.base_config['instance_branch_architecture'],
-            target_branch_architecture = self.base_config['target_branch_architecture'],
-
-            embedding_size = temp_config['embedding_size'],
-
-            save_model = self.base_config['save_model'],
-
-            eval_every_n_epochs = self.base_config['eval_every_n_epochs'],
-            running_hpo = self.base_config['running_hpo'],
-            additional_info = self.base_config['additional_info'],
-
-            instance_branch_params = {p_name: p_val for p_name, p_val in temp_config.items() if p_name.startswith('instance_') and p_name not in ['instance_branch_input_dim', 'instance_branch_architecture']},
-            target_branch_params = {p_name: p_val for p_name, p_val in temp_config.items() if p_name.startswith('target_') and p_name not in ['target_branch_input_dim', 'target_branch_architecture']},
-            )
+        current_config['instance_branch_params'] = {p_name: temp_config[p_name] for p_name in instance_specific_param_keys}
+        current_config['target_branch_params'] = {p_name: temp_config[p_name] for p_name in target_specific_param_keys}
+        current_config.update({p_name: temp_config[p_name] for p_name in temp_config.keys() if p_name not in instance_specific_param_keys+target_specific_param_keys})
+        current_config['results_path'] = self.project_name
+        current_config['experiment_name'] = current_time
+        current_config = generate_config(**current_config)
 
         self.older_model_dir = None
         self.older_model_budget = None
 
-        self.master_config.update(
+        current_config.update(
             {'budget': budget, 'budget_int': int(budget)}
         )
 
@@ -119,27 +78,26 @@ class BaseWorker:
                 'budget': [],
                 'model_dir': [],
                 'run_name': [],
-                'config': self.master_config,
+                'config': current_config,
             }
 
         # update the actual budget that will be used to train the model
-        self.master_config.update({'num_epochs': int(budget), 'actuall_budget': int(budget)})
+        current_config.update({'num_epochs': int(budget), 'actuall_budget': int(budget)})
 
         # initialize a new model or continue training from an older version with the same configuration
         if len(self.config_to_model[model_config_key]['model_dir']) != 0:
             if self.mode == 'standard':
-                model = DeepMTP(config=self.master_config, checkpoint_dir=self.older_model_dir)
+                model = DeepMTP(config=current_config, checkpoint_dir=self.older_model_dir)
             else:
-                model = DeepMTP_st(config=self.master_config, checkpoint_dir=self.older_model_dir)
+                model = DeepMTP_st(config=current_config, checkpoint_dir=self.older_model_dir)
         else:
             if self.mode == 'standard':
-                model = DeepMTP(config=self.master_config)
+                model = DeepMTP(config=current_config)
             else:
-                model = DeepMTP_st(config=self.master_config)
+                model = DeepMTP_st(config=current_config)
 
         # train, validate and test all at once
         val_results = model.train(self.train, self.val, self.test)
-        print('val_results: '+str(val_results))
 
         # append all the latest relevant info for the given configuration
         self.config_to_model[model_config_key]['budget'].append(original_budget) 
@@ -156,5 +114,5 @@ class BaseWorker:
 
         return {
             'loss': val_results['val_'+self.optimize if 'val' not in self.optimize else self.optimize],  # remember: always minimizes!
-            'info': {'model_dir': self.config_to_model[model_config_key]['model_dir'][-1], 'config': self.master_config},
+            'info': {'model_dir': self.config_to_model[model_config_key]['model_dir'][-1], 'config': current_config},
         }
