@@ -191,6 +191,7 @@ class DeepMTP:
 		self.early_stopping = EarlyStopping(
 			use_early_stopping=self.config['use_early_stopping'],
 			patience=self.config['patience'],
+			delta=self.config['delta'],
 			verbose=self.config['verbose'],
 			metric_to_track=self.config['metric_to_optimize_early_stopping'] if self.config['use_early_stopping'] else self.config['metric_to_optimize_best_epoch_selection']
 		)

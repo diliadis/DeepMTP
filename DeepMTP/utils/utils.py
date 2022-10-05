@@ -133,6 +133,7 @@ def generate_config(
     metrics = ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'],
     metrics_average = ['macro', 'micro'],
     patience = 10,
+    delta = 0,
 
     evaluate_train = False,
     evaluate_val = False,
@@ -201,6 +202,7 @@ def generate_config(
         metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
         metrics_average (list, optional): The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
         patience (int, optional): The number of epochs that the network is allowed to continue training for while observing worse overall performance. Defaults to 10.
+        delta (float, optional): The delta used during early stopping
         evaluate_train (bool, optional): Whether or not to calculate performance metrics over the training set. Defaults to False.
         evaluate_val (bool, optional): 	Whether or not to calculate performance metrics over the validation set. Defaults to False.
         verbose (bool, optional): Whether or not to print useful info about the training process in the terminal. Defaults to False.
@@ -281,6 +283,7 @@ def generate_config(
         'num_epochs': num_epochs,
         'use_early_stopping': use_early_stopping,
         'patience': patience,
+        'delta': delta,
         'evaluate_train': evaluate_train,
         'evaluate_val': evaluate_val,
         'verbose': verbose,

@@ -237,6 +237,7 @@ In the code snippet above the function generate_config is shown without any spec
 | `train_batchsize` | The number of samples that comprise a batch from the training set |
 | `val_batchsize` | The number of samples that comprise a batch from the validation and test sets |
 | `patience` | The number of epochs that the network is allowed to continue training for while observing worse overall performance |
+| `delta` | Minimum change in the monitored quantity to qualify as an improvement |
 | `return_results_per_target` | Whether or not to returne the performance for every target separately |
 | `evaluate_train` | Whether or not to calculate performance metrics over the training set |
 | `evaluate_val` | Whether or not to calculate performance metrics over the validation set |
