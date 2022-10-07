@@ -543,14 +543,33 @@ def generate_dummy_dataset(num_instances, num_targets, num_instance_features, nu
 
 	# generate the score matrix using some kind of relationship between the instance and target features
 	y_train = np.zeros((num_instances, num_targets))
-	if mode == 'log':
+	if mode == 'u+logv':
 		for i in range(num_instances):
 			for j in range(num_targets):
 				y_train[i,j] = np.sum(X_train_instance[i] + np.log(X_train_target[j])) + np.random.normal(error_mu, error_sigma)
-	else:
+	elif mode == 'u*logv':
+		for i in range(num_instances):
+			for j in range(num_targets):
+				y_train[i,j] = np.sum(X_train_instance[i] * np.log(X_train_target[j])) + np.random.normal(error_mu, error_sigma)
+	elif mode == 'u^v':
 		for i in range(num_instances):
 			for j in range(num_targets):
 				y_train[i,j] = np.sum(X_train_instance[i] ** X_train_target[j]) + np.random.normal(error_mu, error_sigma)
+	elif mode == 'u^v_reversed':
+		for i in range(num_instances):
+			for j in range(num_targets):
+				y_train[i,j] = np.sum(X_train_instance[i] ** X_train_target[j][::-1]) + np.random.normal(error_mu, error_sigma)
+	elif mode == 'max(u,v)':
+		for i in range(num_instances):
+			for j in range(num_targets):
+				y_train[i,j] = np.sum([*map(max, zip(X_train_instance[i], X_train_target[j]))])
+	elif mode == 'u*v':
+		for i in range(num_instances):
+			for j in range(num_targets):
+				y_train[i,j] = np.sum(X_train_instance[i] * X_train_target[j])
+	else:
+		raise AttributeError('Please use one of the valid modes: '+str(['u+logv', 'u*logv', 'u^v', 'u^v_reversed', 'max(u,v)', 'u*v']))
+
 
 	X_train_instance, X_test_instance, y_train, y_test,  = train_test_split(X_train_instance, y_train, test_size=split_ratio['test'], random_state=seed)
 	X_train_instance, X_val_instance, y_train, y_val,  = train_test_split(X_train_instance, y_train, test_size=split_ratio['val'], random_state=seed)
