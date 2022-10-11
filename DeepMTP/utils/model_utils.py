@@ -27,6 +27,12 @@ class EarlyStopping:
         self.best_model = None
         self.best_optimizer_state_dict = None
         self.best_performance_results = None
+        
+        self.delta_best_score = None
+        self.delta_best_epoch = None
+        self.delta_best_model = None
+        self.delta_best_optimizer_state_dict = None
+        self.delta_best_performance_results = None
 
         if True in [
             m in self.metric_to_track
@@ -78,6 +84,13 @@ class EarlyStopping:
                 )
             if self.counter >= self.patience:
                 self.early_stop_flag = True
+                
+            if not (score <= self.best_score):
+                self.delta_best_score = score
+                self.delta_best_epoch = epoch
+                self.delta_best_model = model
+                self.delta_best_performance_results = performance_results
+                self.delta_best_optimizer_state_dict = optimizer_state_dict
         else:
             self.best_score = score
             self.best_epoch = epoch
@@ -85,3 +98,40 @@ class EarlyStopping:
             self.best_performance_results = performance_results
             self.best_optimizer_state_dict = optimizer_state_dict
             self.counter = 0
+            
+            self.delta_best_score = None
+            self.delta_best_epoch = None
+            self.delta_best_model = None
+            self.delta_best_performance_results = None
+            self.delta_best_optimizer_state_dict = None
+            
+            
+    def get_best_score(self):
+        if self.delta_best_score is None:
+            return self.best_score
+        else:
+            return self.delta_best_score
+        
+    def get_best_epoch(self):
+        if self.delta_best_epoch is None:
+            return self.best_epoch
+        else:
+            return self.delta_best_epoch
+        
+    def get_best_model(self):
+        if self.delta_best_model is None:
+            return self.best_model
+        else:
+            return self.delta_best_model
+        
+    def get_best_performance_results(self):
+        if self.delta_best_performance_results is None:
+            return self.best_performance_results
+        else:
+            return self.delta_best_performance_results
+        
+    def get_best_optimizer_state_dict(self):
+        if self.delta_best_optimizer_state_dict is None:
+            return self.best_optimizer_state_dict
+        else:
+            return self.delta_best_optimizer_state_dict

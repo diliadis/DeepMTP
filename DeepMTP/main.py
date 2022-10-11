@@ -408,10 +408,12 @@ class DeepMTP:
 			val_run_story_table.add_row(val_run_story[-1])
 
 
-		self.deepMTP_model = self.early_stopping.best_model        
+		self.deepMTP_model = self.early_stopping.get_best_model()        
 
 		# log the performance validation results of the best model
-		results_to_log = {'best_val_'+m+'_'+av: self.early_stopping.best_performance_results['val_'+m+'_'+av] for m in self.config['metrics'] for av in self.config['metrics_average'] if 'val_'+m+'_'+av in self.early_stopping.best_performance_results}
+  		val_best_performance_results = self.early_stopping.get_best_performance_results()
+		results_to_log = {'best_val_'+m+'_'+av: val_best_performance_results['val_'+m+'_'+av] for m in self.config['metrics'] for av in self.config['metrics_average'] if 'val_'+m+'_'+av in val_best_performance_results}
+		results_to_log['best_val_loss'] = val_best_performance_results['val_loss']
 		if self.wandb_run is not None:
 			self.wandb_run.log(results_to_log)
 		if self.tensorboard_logger is not None:
@@ -425,7 +427,7 @@ class DeepMTP:
 		if self.config['verbose']: print('Done')
 
 		# update test_run_story_table
-		test_run_story_table.add_row(['test', self.early_stopping.best_epoch, '-'] + [round(test_results['test_'+m+'_'+av], 4) for m in self.config['metrics'] for av in self.config['metrics_average']])
+		test_run_story_table.add_row(['test', self.early_stopping.get_best_epoch(), '-'] + [round(test_results['test_'+m+'_'+av], 4) for m in self.config['metrics'] for av in self.config['metrics_average']])
 		# update the loggers
 		results_to_log = {'test_'+m+'_'+av: test_results['test_'+m+'_'+av] for m in self.config['metrics'] for av in self.config['metrics_average']}
 		if self.wandb_run is not None:
@@ -469,7 +471,7 @@ class DeepMTP:
 		else:
 			pickle.dump(self.config, open(self.experiment_dir+'/config.pkl', 'wb'))
 
-		return self.early_stopping.best_performance_results
+		return val_best_performance_results
 
 	def predict(self, data, return_predictions=False, verbose=False):
 		self.deepMTP_model.to(self.device)
@@ -480,8 +482,8 @@ class DeepMTP:
 		self.config['use_tensorboard_logger'] = False
 		if verbose: print('Saving the best model... ', end='')
 		torch.save({
-			'model_state_dict': self.early_stopping.best_model.state_dict(),
-			'optimizer_state_dict': self.early_stopping.best_optimizer_state_dict,
+			'model_state_dict': self.early_stopping.get_best_model().state_dict(),
+			'optimizer_state_dict': self.early_stopping.get_best_optimizer_state_dict(),
 			# 'optimizer_state_dict': self.optimizer.state_dict(),
 			'config': self.config
 			}, self.experiment_dir+'/model.pt')
