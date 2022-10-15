@@ -20,6 +20,8 @@ This is the official repository of DeepMTP, a deep learning framework that can b
 - [12/6/2022] DeepMTP is now available in [PyPI](https://pypi.org/project/DeepMTP/)
 - [1/6/2022] The first implementation of DeepMTP is now live!!!
 
+[Documention](https://deepmtp.readthedocs.io/en/latest/#)
+
 # Installing DeepMTP
 The framework uses gpu acceleration, so the use of a GPU is strongly recommended. The local installation can be done using `pip`:
 
