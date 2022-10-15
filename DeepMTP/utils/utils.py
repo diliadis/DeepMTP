@@ -167,7 +167,7 @@ def generate_config(
 
     comb_mlp_nodes_reducing_factor = 2,
     comb_mlp_nodes_per_layer = [10, 10, 10],
-    comb_mlp_branch_layers = None,
+    comb_mlp_layers = None,
 
     embedding_size = 100,
     eval_every_n_epochs = 10,
@@ -242,8 +242,8 @@ def generate_config(
         target_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the target branch. Defaults to 1.
         target_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
         comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if general_architecture_version in "mlp"). Not currently implemented. Defaults to 2.
-        comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_branch_layers' times. (Only used if general_architecture_version in "mlp" or "kronecker")). Defaults to [10, 10, 10].
-        comb_mlp_branch_layers (int, optional): The number of layers in the combination branch. (Only used if general_architecture_version in "mlp"). Defaults to None.
+        comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_layers' times. (Only used if general_architecture_version in "mlp" or "kronecker")). Defaults to [10, 10, 10].
+        comb_mlp_layers (int, optional): The number of layers in the combination branch. (Only used if general_architecture_version in "mlp"). Defaults to None.
         embedding_size (int, optional): The size of the embeddings outputted by the two branches. (Only used if general_architecture_version in "dot_product"). Defaults to 100.
         eval_every_n_epochs (int, optional): The interval that indicates when the performance metrics are computed. Defaults to 10.
         load_pretrained_model (bool, optional): Whether or not a pretrained model will be loaded. Defaults to False.
@@ -368,7 +368,7 @@ def generate_config(
         base_config.update(
             {
                 'comb_mlp_nodes_per_layer': comb_mlp_nodes_per_layer,
-                'comb_mlp_branch_layers': comb_mlp_branch_layers,
+                'comb_mlp_layers': comb_mlp_layers,
                 'comb_mlp_nodes_reducing_factor': comb_mlp_nodes_reducing_factor,
             }
         )
