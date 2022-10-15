@@ -44,6 +44,7 @@ def check_mtr_results(train, val, test):
 def check_dp_results(train, val, test):
     '''Checks if the number of instance ids between the interaction data and instance features are the same.
        Also checks if the number of target ids between the interaction data and target features are the same.
+       
     Args:
         train (dict): The training dataset
         val (dict): The validation dataset
