@@ -156,5 +156,5 @@ def test_generate_config():
 
         additional_info = {}
     )
-    
+    assert len(config) == len(original_config)
     assert config == original_config
