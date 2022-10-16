@@ -157,4 +157,8 @@ def test_generate_config():
         additional_info = {}
     )
     assert len(config) == len(original_config)
-    assert config == original_config
+    for k,v in config.items():
+        assert k in original_config
+        assert v == original_config[k]
+        
+    # assert config == original_config
