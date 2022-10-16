@@ -273,7 +273,7 @@ def load_process_DP(path='./data', dataset_name='ern', variant='undivided', rand
 	Returns:
 		dict: A dictionary with all the available data for the dyadic prediction dataset.
 	'''
- 	if variant not in ['undivided', 'divided']:
+	if variant not in ['undivided', 'divided']:
 		raise AttributeError('Please use one of the valid variant values: '+str(['undivided', 'divided']))
  
 	if validation_setting.upper() not in ['B', 'C', 'D']:
