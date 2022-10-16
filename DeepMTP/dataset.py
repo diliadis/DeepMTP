@@ -30,6 +30,13 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
 	Returns:
 		dict: A dictionary with all the available data for the multi-label classification dataset.
 	'''
+ 
+	if features_type not in ['numpy', 'dataframe']:
+		raise AttributeError('Please use one of the valid features_type values: '+str(['numpy', 'dataframe']))
+
+	if variant not in ['undivided', 'divided']:
+		raise AttributeError('Please use one of the valid variant values: '+str(['undivided', 'divided']))
+ 
 	# The current version just uses the datasets from the skmultilearn library. In the future I will be hosting everything from the university server
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
@@ -117,6 +124,9 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
 	Returns:
 		dict: A dictionary with all the available data for the multivariate regression dataset.
 	'''
+	if features_type not in ['numpy', 'dataframe']:
+		raise AttributeError('Please use one of the valid features_type values: '+str(['numpy', 'dataframe']))
+ 
 	# The current version downloads all the datasets from a personal github repo
 	X_train_instance, X_val_instance, X_test_instance = None, None, None
 	X_train_target, X_val_target, X_test_target = None, None, None
@@ -263,6 +273,9 @@ def load_process_DP(path='./data', dataset_name='ern', variant='undivided', rand
 	Returns:
 		dict: A dictionary with all the available data for the dyadic prediction dataset.
 	'''
+ 	if variant not in ['undivided', 'divided']:
+		raise AttributeError('Please use one of the valid variant values: '+str(['undivided', 'divided']))
+ 
 	if validation_setting.upper() not in ['B', 'C', 'D']:
 		raise AttributeError('Invalid validation setting symbol prodived: '+str(validation_setting.upper())+'. Choose one of the following: '+str(['B', 'C', 'D'])) 
 	validation_setting = validation_setting.upper()
