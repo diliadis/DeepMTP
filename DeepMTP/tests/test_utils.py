@@ -88,7 +88,7 @@ def test_generate_config():
     config = generate_config(    
         instance_branch_input_dim = original_config['instance_branch_input_dim'],
         target_branch_input_dim = original_config['target_branch_input_dim'],
-        validation_setting = original_config['detected_validation_setting'],
+        validation_setting = original_config['validation_setting'],
         general_architecture_version = 'dot_product',
         problem_mode = original_config['problem_mode'],
         learning_rate = 0.001,
