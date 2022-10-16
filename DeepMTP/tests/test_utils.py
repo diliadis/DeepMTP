@@ -37,28 +37,18 @@ def test_generate_config():
 
         'instance_branch_architecture': 'MLP',
         'use_instance_features': False,
-        'instance_branch_params': {
-            'instance_branch_nodes_reducing_factor': 2,
-            'instance_branch_nodes_per_layer': [123, 100],
-            'instance_branch_layers': None,
-            # 'instance_branch_conv_architecture': 'resnet',
-            # 'instance_branch_conv_architecture_version': 'resnet101',
-            # 'instance_branch_conv_architecture_dense_layers': 1,
-            # 'instance_branch_conv_architecture_last_layer_trained': 'last',
-        },
 
+        'instance_branch_nodes_reducing_factor': 2,
+        'instance_branch_nodes_per_layer': [123, 100],
+        'instance_branch_layers': None,
 
         'target_branch_architecture': 'MLP',
         'use_target_features': False,
-        'target_branch_params': {
-            'target_branch_nodes_reducing_factor': 2,
-            'target_branch_nodes_per_layer': [132, 100],
-            'target_branch_layers': None,
-            # 'target_branch_conv_architecture': 'resnet',
-            # 'target_branch_conv_architecture_version': 'resnet101',
-            # 'target_branch_conv_architecture_dense_layers': 1,
-            # 'target_branch_conv_architecture_last_layer_trained': 'last',
-        },
+
+        'target_branch_nodes_reducing_factor': 2,
+        'target_branch_nodes_per_layer': [132, 100],
+        'target_branch_layers': None,
+
         
         'embedding_size': 30,
         'comb_mlp_nodes_reducing_factor': 2,
