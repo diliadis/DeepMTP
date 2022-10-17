@@ -7,7 +7,7 @@ import numpy as np
 data_format = ['numpy', 'dataframe']
 
 @pytest.mark.parametrize('data_format', data_format)
-def test_process_interaction_data(data_format)
+def test_process_interaction_data(data_format):
     num_instances = 1000
     num_targets = 100
     num_instance_features = 2 
