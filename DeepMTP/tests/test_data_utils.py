@@ -16,7 +16,7 @@ def test_process_interaction_data(data_format):
 	data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format=data_format)
 	info = process_interaction_data(data['train']['y'], verbose=False)
 	
-	assert info['original_format'] == data_format
+	assert info['original_format'] == 'numpy' if data_format == 'numpy' else 'triplets'
 	assert info['instance_id_type'] == 'int'
 	assert info['target_id_type'] == 'int'
 	
