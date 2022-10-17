@@ -1,4 +1,4 @@
-from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type, check_target_variable_type, check_novel_instances, check_novel_targets
+from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type, check_target_variable_type, check_novel_instances, check_novel_targets, get_estimated_validation_setting
 from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR
 import pandas as pd
 import numpy as np
@@ -134,3 +134,16 @@ def test_check_novel_targets(check_novel_target_data):
 			assert True == check_novel_targets(data['train'], data['test'])
 		elif true_false == 'false':
 			assert False == check_novel_targets(data['train'], data['test'])
+   
+
+get_estimated_validation_setting_data = [{
+	(True, True): 'D',
+	(True, False): 'B',
+	(False, True): 'C',
+	(False, False): 'A',
+	}]
+
+@pytest.mark.parametrize('get_estimated_validation_setting_data', get_estimated_validation_setting_data)
+def test_get_estimated_validation_setting(get_estimated_validation_setting_data):
+	 for novel_instance_targets_tuple, true_validation_setting in get_estimated_validation_setting_data.items():
+		 assert get_estimated_validation_setting(novel_instance_targets_tuple[0], novel_instance_targets_tuple[1], verbose=False) == true_validation_setting
