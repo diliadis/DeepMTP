@@ -2,6 +2,7 @@ from DeepMTP.utils.eval_utils import get_performance_results
 import numpy as np
 from sklearn.metrics import hamming_loss, f1_score, recall_score, precision_score, mean_squared_error, mean_absolute_error, r2_score
 import pytest
+import math
 
 modes = ['classification', 'regression']
 
@@ -71,16 +72,16 @@ def test_get_performance_results(mode):
             scaler_per_target=None,
         )
         
-        assert results['train_accuracy_macro'] == results['train_accuracy_micro']
-        assert results['train_accuracy_macro'] == macro_accuracy
-        assert results['train_hamming_loss_macro'] == results['train_hamming_loss_micro']
-        assert results['train_hamming_loss_macro'] == macro_hamming_loss
-        assert results['train_f1_score_macro'] == macro_f1_score
-        assert results['train_f1_score_micro'] == micro_f1_score
-        assert results['train_recall_macro'] == macro_recall
-        assert results['train_recall_micro'] == micro_recall
-        assert results['train_precision_macro'] == macro_precision
-        assert results['train_precision_micro'] == micro_precision
+        assert math.isclose(results['train_accuracy_macro'], results['train_accuracy_micro'])
+        assert math.isclose(results['train_accuracy_macro'], macro_accuracy)
+        assert math.isclose(results['train_hamming_loss_macro'], results['train_hamming_loss_micro'])
+        assert math.isclose(results['train_hamming_loss_macro'], macro_hamming_loss)
+        assert math.isclose(results['train_f1_score_macro'], macro_f1_score)
+        assert math.isclose(results['train_f1_score_micro'], micro_f1_score)
+        assert math.isclose(results['train_recall_macro'], macro_recall)
+        assert math.isclose(results['train_recall_micro'], micro_recall)
+        assert math.isclose(results['train_precision_macro'], macro_precision)
+        assert math.isclose(results['train_precision_micro'], micro_precision)
         
     else:
         y_true = np.random.rand(1000,10)
@@ -135,11 +136,11 @@ def test_get_performance_results(mode):
             scaler_per_target=None,
         )
         
-        assert results['train_MSE_macro'] == results['train_MSE_micro']
-        assert results['train_MSE_macro'] == macro_MSE
-        assert results['train_MAE_macro'] == results['train_MAE_micro']
-        assert results['train_MAE_macro'] == macro_MAE
-        assert results['train_RMSE_macro'] == macro_RMSE
-        assert results['train_RMSE_micro'] == micro_RMSE
-        assert results['train_R2_macro'] == macro_R2
-        assert results['train_R2_micro'] == micro_R2
+        assert math.isclose(results['train_MSE_macro'], results['train_MSE_micro'])
+        assert math.isclose(results['train_MSE_macro'], macro_MSE)
+        assert math.isclose(results['train_MAE_macro'], results['train_MAE_micro'])
+        assert math.isclose(results['train_MAE_macro'], macro_MAE)
+        assert math.isclose(results['train_RMSE_macro'], macro_RMSE)
+        assert math.isclose(results['train_RMSE_micro'], micro_RMSE)
+        assert math.isclose(results['train_R2_macro'], macro_R2)
+        assert math.isclose(results['train_R2_micro'], micro_R2)
