@@ -90,11 +90,11 @@ def test_check_variable_type(data_type):
 
 classification_df = pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]})
 regression_df = pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0.1, 0.2, 0.3, 0.4]})
-check_target_variable_type_data = [
+check_target_variable_type_data = [{
 	'pass': {'train': {'y': {'data': classification_df}}, 'val': {'y': {'data': classification_df}}, 'test': {'y': {'data': classification_df}}, 'mode': 'binary'},
 	'pass': {'train': {'y': {'data': regression_df}}, 'val': {'y': {'data': regression_df}}, 'test': {'y': {'data': regression_df}}, 'mode': 'real-valued'},
 	'fail': {'train': {'y': {'data': classification_df}}, 'val': {'y': {'data': regression_df}}, 'test': {'y': {'data': classification_df}}},
-]
+}]
 
 @pytest.mark.parametrize('check_target_variable_type_data', check_target_variable_type_data)
 def test_check_target_variable_type(check_target_variable_type_data):
