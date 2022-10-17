@@ -59,7 +59,7 @@ check_interaction_files_column_type_format_data = [{
 def test_check_interaction_files_column_type_format(check_interaction_files_column_type_format_data):
 	for pass_fail, data in check_interaction_files_column_type_format_data.items():
 		if pass_fail == 'pass':
-			try
+			try:
 				check_interaction_files_column_type_format(data)
 			except Exception as exc:
 				assert False
