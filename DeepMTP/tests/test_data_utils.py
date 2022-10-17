@@ -1,4 +1,4 @@
-from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type, check_target_variable_type
+from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type, check_target_variable_type, check_novel_instances, check_novel_targets
 from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR
 import pandas as pd
 import numpy as np
@@ -104,3 +104,19 @@ def test_check_target_variable_type(check_target_variable_type_data):
 		else:
 			with pytest.raises(Exception):
 				check_target_variable_type(data)
+
+
+check_novel_instances_data = [{
+	'true': {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]})}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [0, 1, 2, 3], 'value': [0, 0, 0, 1]})}},
+	'false': {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]})}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]})}},
+
+}]
+
+@pytest.mark.parametrize('check_novel_instances_data', check_novel_instances_data)
+def test_check_novel_instances(check_novel_instances_data):
+	for true_false, data in check_novel_instances_data.items():
+		
+		if true_false == 'true':
+			assert True == check_novel_instances(data['train'], data['test'])
+		elif true_false == 'false':
+			assert True == check_novel_instances(data['train'], data['test'])
