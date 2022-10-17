@@ -23,6 +23,6 @@ def test_process_interaction_data(data_format):
     if data_format == 'dataframe':
         assert data['train']['y'].equals(info['data'])
     else:
-    	triplets = [i, j, data['train']['y'][i, j] for i in range(data['train']['y'].shape[0]) for j in range(data['train']['y'].shape[1])]
+    	triplets = [(i, j, data['train']['y'][i, j]) for i in range(data['train']['y'].shape[0]) for j in range(data['train']['y'].shape[1])]
 		temp_df = pd.DataFrame(triplets, columns=['instance_id', 'target_id', 'value'])
         assert temp_df.equals(info['data'])

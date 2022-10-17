@@ -106,7 +106,7 @@ def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5, interact
   
 	y_train = np.random.random((num_instances, num_targets)).astype(int)
 	if interaction_matrix_format == 'dataframe':
-    	triplets = [i, j, y_train[i, j] for i in range(y_train.shape[0]) for j in range(y_train.shape[1])]
+    	triplets = [(i, j, y_train[i, j]) for i in range(y_train.shape[0]) for j in range(y_train.shape[1])]
 		y_train = pd.DataFrame(triplets, columns=['instance_id', 'target_id', 'value'])
 
 	# return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
