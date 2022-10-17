@@ -34,7 +34,7 @@ def test_check_interaction_files_format(interaction_files_format_check_should_th
 	data = {}
 	if interaction_files_format_check_should_throw_error:
 		data['train'] = {'y': {'original_format': 'triplets'}}
-		data['val'] = {'y': {'original_format': 'triplets'}}
+		data['val'] = {'y': {'original_format': 'numpy'}}
 		data['test'] = {'y': {'original_format': 'triplets'}}
 		with pytest.raises(Exception):
 			check_interaction_files_format(data)
