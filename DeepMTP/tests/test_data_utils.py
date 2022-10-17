@@ -30,7 +30,7 @@ def test_process_interaction_data(data_format):
 interaction_files_format_check_should_throw_error = [True, False]
 
 @pytest.mark.parametrize('interaction_files_format_check_should_throw_error', interaction_files_format_check_should_throw_error)
-def test_check_interaction_files_format():
+def test_check_interaction_files_format(interaction_files_format_check_should_throw_error):
 	data = {}
 	if interaction_files_format_check_should_throw_error:
 		data['train'] = {'y': {'original_format': 'triplets'}}
