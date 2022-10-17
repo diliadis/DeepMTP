@@ -1,4 +1,5 @@
 from DeepMTP.utils.eval_utils import get_performance_results
+import numpy as np
 
 def test_get_performance_results():
     
