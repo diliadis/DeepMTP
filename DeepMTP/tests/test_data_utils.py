@@ -1,5 +1,5 @@
 from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type
-from DeepMTP.dataset import process_dummy_MLC
+from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR
 import pandas as pd
 import numpy as np
 import pytest
