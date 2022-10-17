@@ -119,4 +119,4 @@ def test_check_novel_instances(check_novel_instances_data):
 		if true_false == 'true':
 			assert True == check_novel_instances(data['train'], data['test'])
 		elif true_false == 'false':
-			assert True == check_novel_instances(data['train'], data['test'])
+			assert False == check_novel_instances(data['train'], data['test'])
