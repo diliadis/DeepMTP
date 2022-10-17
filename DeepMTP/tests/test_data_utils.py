@@ -1,4 +1,4 @@
-from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format
+from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type
 from DeepMTP.dataset import process_dummy_MLC
 import pandas as pd
 import numpy as np
@@ -66,3 +66,23 @@ def test_check_interaction_files_column_type_format(check_interaction_files_colu
 		else:
 			with pytest.raises(Exception):
 				check_interaction_files_format(data)
+
+data_type = ['classification', 'regression']
+
+@pytest.mark.parametrize('data_type', data_type)
+def test_check_variable_type(data_type):
+	num_instances = 1000
+	num_targets = 100
+	num_instance_features = 2 
+ 
+	if data_type == 'classification':
+		data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='dataframe')
+	elif data_type == 'regression':
+		data = process_dummy_MTR(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='dataframe')
+	else:
+		raise Exception('Something went wrong. test_check_variable_type accepts only two values: '+str(['classification', 'regression']))
+	
+	if data_type == 'classification':
+		assert check_variable_type(data['train']['y']) == 'binary'
+	elif data_type == 'regression':
+		assert check_variable_type(data['train']['y']) == 'real-valued'
