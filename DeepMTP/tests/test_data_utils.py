@@ -115,8 +115,22 @@ check_novel_instances_data = [{
 @pytest.mark.parametrize('check_novel_instances_data', check_novel_instances_data)
 def test_check_novel_instances(check_novel_instances_data):
 	for true_false, data in check_novel_instances_data.items():
-		
 		if true_false == 'true':
 			assert True == check_novel_instances(data['train'], data['test'])
 		elif true_false == 'false':
 			assert False == check_novel_instances(data['train'], data['test'])
+   
+   
+check_novel_target_data = [{
+	'true': {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [4, 5, 6, 7], 'value': [0, 0, 0, 1]}), 'original_format': 'triplets'}},
+	'false': {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}},
+
+}]
+
+@pytest.mark.parametrize('check_novel_target_data', check_novel_target_data)
+def test_check_novel_targets(check_novel_target_data):
+	for true_false, data in check_novel_target_data.items():
+		if true_false == 'true':
+			assert True == check_novel_targets(data['train'], data['test'])
+		elif true_false == 'false':
+			assert False == check_novel_targets(data['train'], data['test'])
