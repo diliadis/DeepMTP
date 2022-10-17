@@ -178,7 +178,7 @@ def test_process_target_features(data_format):
 	num_instance_features = 20
 	num_target_features = 10
 
-	data = process_dummy_DP(num_instance_features=num_instances, num_target_features=num_targets, num_instances=num_instance_features, num_targets=num_target_features, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format=data_format)
+	data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format=data_format)
 	if data_format == 'numpy':
 		original_target_features = pd.DataFrame(np.arange(len(data['train']['X_target'])), columns=['id'])
 		original_target_features['features'] = [r for r in data['train']['X_target']]
