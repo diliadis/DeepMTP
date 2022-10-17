@@ -414,7 +414,7 @@ def process_dummy_DP(num_instance_features=10, num_target_features=3, num_instan
 		X_train_target = temp_target_features_df
   
 	y_train = np.random.randint(10, size=(num_instances, num_targets))
- 	if interaction_matrix_format == 'dataframe':
+	if interaction_matrix_format == 'dataframe':
 		triplets = [(i, j, y_train[i, j]) for i in range(y_train.shape[0]) for j in range(y_train.shape[1])]
 		y_train = pd.DataFrame(triplets, columns=['instance_id', 'target_id', 'value'])
 
