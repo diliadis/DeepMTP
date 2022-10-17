@@ -40,7 +40,7 @@ def test_check_interaction_files_format(interaction_files_format_check_should_th
 			check_interaction_files_format(data)
 	else:
 		data['train'] = {'y': {'original_format': 'triplets'}}
-		data['val'] = {'y': {'original_format': 'triplets'}}
+		data['val'] = {'y': {'original_format': 'numpy'}}
 		data['test'] = {'y': {'original_format': 'triplets'}}
 		try:
 			check_interaction_files_format(data)
