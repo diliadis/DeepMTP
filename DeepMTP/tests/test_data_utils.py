@@ -2,6 +2,7 @@ from DeepMTP.utils.data_utils import process_interaction_data
 from DeepMTP.dataset import process_dummy_MLC
 import pandas as pd
 import numpy as np
+import pytest
 
 
 data_format = ['numpy', 'dataframe']
