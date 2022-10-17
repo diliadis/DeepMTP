@@ -1,4 +1,4 @@
-from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type, check_target_variable_type, check_novel_instances, check_novel_targets, get_estimated_validation_setting
+from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type, check_target_variable_type, check_novel_instances, check_novel_targets, get_estimated_validation_setting, process_instance_features, process_target_features
 from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR
 import pandas as pd
 import numpy as np
@@ -147,3 +147,26 @@ get_estimated_validation_setting_data = [{
 def test_get_estimated_validation_setting(get_estimated_validation_setting_data):
 	 for novel_instance_targets_tuple, true_validation_setting in get_estimated_validation_setting_data.items():
 		 assert get_estimated_validation_setting(novel_instance_targets_tuple[0], novel_instance_targets_tuple[1], verbose=False) == true_validation_setting
+
+
+@pytest.mark.parametrize('data_format', data_format)
+def test_process_instance_features(data_format):
+
+	num_instances = 1000
+	num_targets = 100
+	num_instance_features = 10
+
+	data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format=data_format)
+	if data_format == 'numpy':
+		original_instance_features = pd.DataFrame(np.arange(len(data['train']['X_instance'])), columns=['id'])
+		original_instance_features['features'] = [r for r in data['train']['X_instance']]
+  
+ 	instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
+ 
+	assert instance_features['num_features'] == num_instance_features
+	assert instance_features['info'] == data_format
+ 
+	if data_format == 'numpy':
+		assert original_instance_features.equals(instance_features['data'])
+	else:
+		assert data['train']['X_instance'].equals(instance_features['data'])
