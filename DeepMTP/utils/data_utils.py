@@ -183,7 +183,7 @@ def check_novel_instances(train, test, verbose=False, print_mode='basic'):
 			if train_unique_instances.intersection(test_unique_instances) == set():
 				novel_instances_detected = True
 		else:
-      		warnings.warn("Assuming that novelty of instances in test set based on the number of rows between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!")
+	  		warnings.warn("Assuming that novelty of instances in test set based on the number of rows between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!")
 			# this is a not so clever way to infer novel instances when your interaction data had a 2d numpy format...
 			if len(train_unique_instances) != len(test_unique_instances):
 				novel_instances_detected = True
@@ -210,7 +210,7 @@ def check_novel_targets(train, test, verbose=False, print_mode='basic'):
 			if train_unique_targets.intersection(test_unique_targets) == set():
 				novel_targets_detected = True
 		else:
-      		warnings.warn("Assuming that novelty of targets in test set based on the number of columns between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!")
+	  		warnings.warn("Assuming that novelty of targets in test set based on the number of columns between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!")
 			# this is a not so clever way to infer novel instances when your interaction data had a 2d numpy format...
 			if len(train_unique_targets) != len(test_unique_targets):
 				novel_targets_detected = True
