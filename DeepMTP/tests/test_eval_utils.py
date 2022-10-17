@@ -1,6 +1,7 @@
 from DeepMTP.utils.eval_utils import get_performance_results
 import numpy as np
 from sklearn.metrics import hamming_loss, f1_score, recall_score, precision_score, mean_squared_error, mean_absolute_error, r2_score
+import pytest
 
 modes = ['classification', 'regression']
 
