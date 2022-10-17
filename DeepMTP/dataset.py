@@ -241,7 +241,7 @@ def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interact
 	for i in range(num_instances):
 		X_train_instance[i, 0] = i
 	if features_format == 'dataframe':
-		 temp_instance_features_df = pd.DataFrame(np.arange(len(X_train_instance)), columns=['id'])
+		temp_instance_features_df = pd.DataFrame(np.arange(len(X_train_instance)), columns=['id'])
 		temp_instance_features_df['features'] = [r for r in X_train_instance]
 		X_train_instance = temp_instance_features_df
   
