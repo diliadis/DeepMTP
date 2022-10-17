@@ -1,4 +1,4 @@
-from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format
+from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format
 from DeepMTP.dataset import process_dummy_MLC
 import pandas as pd
 import numpy as np
@@ -27,6 +27,7 @@ def test_process_interaction_data(data_format):
 		temp_df = pd.DataFrame(triplets, columns=['instance_id', 'target_id', 'value'])
 		assert temp_df.equals(info['data'])
 
+
 interaction_files_format_check_should_throw_error = [True, False]
 
 @pytest.mark.parametrize('interaction_files_format_check_should_throw_error', interaction_files_format_check_should_throw_error)
@@ -46,3 +47,22 @@ def test_check_interaction_files_format(interaction_files_format_check_should_th
 			check_interaction_files_format(data)
 		except Exception as exc:
 			assert False
+   
+check_interaction_files_column_type_format_data = [{
+	'pass': {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}},
+	'pass': {'train': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}},
+	'fail': {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}}
+	'fail': {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'str'}}, 'val': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}}
+	}]
+
+@pytest.mark.parametrize('check_interaction_files_column_type_format_data', check_interaction_files_column_type_format_data)
+def test_check_interaction_files_column_type_format(check_interaction_files_column_type_format_data):
+	for pass_fail, data in check_interaction_files_column_type_format_data.items():
+		if pass_fail == 'pass':
+			try
+				check_interaction_files_column_type_format(data)
+			except Exception as exc:
+				assert False
+		else:
+			with pytest.raises(Exception):
+				check_interaction_files_format(data)
