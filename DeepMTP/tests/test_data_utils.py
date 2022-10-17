@@ -1,5 +1,5 @@
 from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type, check_target_variable_type, check_novel_instances, check_novel_targets, get_estimated_validation_setting, process_instance_features, process_target_features
-from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR
+from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR, process_dummy_DP
 import pandas as pd
 import numpy as np
 import pytest
@@ -151,7 +151,6 @@ def test_get_estimated_validation_setting(get_estimated_validation_setting_data)
 
 @pytest.mark.parametrize('data_format', data_format)
 def test_process_instance_features(data_format):
-
 	num_instances = 1000
 	num_targets = 100
 	num_instance_features = 10
@@ -170,3 +169,26 @@ def test_process_instance_features(data_format):
 		assert original_instance_features.equals(instance_features['data'])
 	else:
 		assert data['train']['X_instance'].equals(instance_features['data'])
+  
+
+@pytest.mark.parametrize('data_format', data_format)
+def test_process_target_features(data_format):
+	num_instances = 1000
+	num_targets = 100
+	num_instance_features = 20
+	num_target_features = 10
+
+	data = process_dummy_DP(num_instance_features=num_instances, num_target_features=num_targets, num_instances=num_instance_features, num_targets=num_target_features, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format=data_format)
+	if data_format == 'numpy':
+		original_target_features = pd.DataFrame(np.arange(len(data['train']['X_target'])), columns=['id'])
+		original_target_features['features'] = [r for r in data['train']['X_target']]
+  
+	target_features = process_target_features(data['train']['X_target'], verbose=False)
+ 
+	assert target_features['num_features'] == num_target_features
+	assert target_features['info'] == data_format
+ 
+	if data_format == 'numpy':
+		assert original_target_features.equals(target_features['data'])
+	else:
+		assert data['train']['X_target'].equals(target_features['data'])
