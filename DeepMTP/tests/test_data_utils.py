@@ -161,7 +161,7 @@ def test_process_instance_features(data_format):
 		original_instance_features = pd.DataFrame(np.arange(len(data['train']['X_instance'])), columns=['id'])
 		original_instance_features['features'] = [r for r in data['train']['X_instance']]
   
- 	instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
+	instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
  
 	assert instance_features['num_features'] == num_instance_features
 	assert instance_features['info'] == data_format
