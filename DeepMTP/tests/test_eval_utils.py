@@ -17,6 +17,7 @@ def test_get_performance_results():
     hamming_loss_per_column = []
     f1_score_per_column = []
     recall_per_column = []
+    precision_per_column = []
     for j in range(y_true.shape[1]):
         result = y_true[:,j] == y_pred[:,j]
         accuracy_per_column.append(list(result.astype(int)).count(1)/y_true.shape[0])
