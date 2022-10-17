@@ -156,7 +156,7 @@ def test_process_instance_features(data_format):
 	num_targets = 100
 	num_instance_features = 10
 
-	data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format=data_format)
+	data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format=data_format)
 	if data_format == 'numpy':
 		original_instance_features = pd.DataFrame(np.arange(len(data['train']['X_instance'])), columns=['id'])
 		original_instance_features['features'] = [r for r in data['train']['X_instance']]
