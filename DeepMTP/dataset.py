@@ -83,7 +83,7 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
 	# return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy'):
+def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy'):
 	'''Generates a dummy multi-label classification dataset
 
 	Args:
@@ -103,6 +103,10 @@ def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5, interact
 	X_train_instance = np.random.random((num_instances, num_features))
 	for i in range(num_instances):
 		X_train_instance[i, 0] = i
+	if features_format == 'dataframe':
+		 temp_instance_features_df = pd.DataFrame(np.arange(len(X_train_instance)), columns=['id'])
+		temp_instance_features_df['features'] = [r for r in X_train_instance]
+		X_train_instance = temp_instance_features_df
   
 	y_train = np.random.random((num_instances, num_targets)).astype(int)
 	if interaction_matrix_format == 'dataframe':
@@ -215,7 +219,7 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
 	# return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
 	return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy'):
+def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy'):
 	'''Generates a dummy multivariate regression dataset
 
 	Args:
@@ -236,8 +240,12 @@ def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interact
 	X_train_instance = np.random.random((num_instances, num_features))
 	for i in range(num_instances):
 		X_train_instance[i, 0] = i
+	if features_format == 'dataframe':
+		 temp_instance_features_df = pd.DataFrame(np.arange(len(X_train_instance)), columns=['id'])
+		temp_instance_features_df['features'] = [r for r in X_train_instance]
+		X_train_instance = temp_instance_features_df
+  
 	y_train = np.random.randint(10, size=(num_instances, num_targets))
- 
 	if interaction_matrix_format == 'dataframe':
 		triplets = [(i, j, y_train[i, j]) for i in range(y_train.shape[0]) for j in range(y_train.shape[1])]
 		y_train = pd.DataFrame(triplets, columns=['instance_id', 'target_id', 'value'])
