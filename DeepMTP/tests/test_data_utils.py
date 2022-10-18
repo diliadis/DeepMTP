@@ -61,24 +61,24 @@ def test_check_interaction_files_format(interaction_files_format_check_should_th
 		except Exception as exc:
 			assert False
    
-check_interaction_files_column_type_format_data = [{
-	'pass': {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}},
-	'pass': {'train': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}},
-	'fail': {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}},
-	'fail': {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'str'}}, 'val': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}},
-	}]
+check_interaction_files_column_type_format_data = [
+	('pass', {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}}),
+	('pass', {'train': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}}),
+	('fail', {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}}),
+	('fail', {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'str'}}, 'val': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}}),
+	]
 
 @pytest.mark.parametrize('check_interaction_files_column_type_format_data', check_interaction_files_column_type_format_data)
 def test_check_interaction_files_column_type_format(check_interaction_files_column_type_format_data):
-	for pass_fail, data in check_interaction_files_column_type_format_data.items():
-		if pass_fail == 'pass':
-			try:
-				check_interaction_files_column_type_format(data)
-			except Exception as exc:
-				assert False
-		else:
-			with pytest.raises(Exception):
-				check_interaction_files_column_type_format(data)
+	pass_fail, data = check_interaction_files_column_type_format_data
+	if pass_fail == 'pass':
+		try:
+			check_interaction_files_column_type_format(data)
+		except Exception as exc:
+			assert False
+	else:
+		with pytest.raises(Exception):
+			check_interaction_files_column_type_format(data)
 
 data_type = ['classification', 'regression']
 
@@ -103,63 +103,56 @@ def test_check_variable_type(data_type):
 
 classification_df = pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]})
 regression_df = pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0.1, 0.2, 0.3, 0.4]})
-check_target_variable_type_data = [{
-	'pass': {'train': {'y': {'data': classification_df}}, 'val': {'y': {'data': classification_df}}, 'test': {'y': {'data': classification_df}}, 'mode': 'binary'},
-	'pass': {'train': {'y': {'data': regression_df}}, 'val': {'y': {'data': regression_df}}, 'test': {'y': {'data': regression_df}}, 'mode': 'real-valued'},
-	'fail': {'train': {'y': {'data': classification_df}}, 'val': {'y': {'data': regression_df}}, 'test': {'y': {'data': classification_df}}},
-}]
+check_target_variable_type_data = [
+	('pass', {'train': {'y': {'data': classification_df}}, 'val': {'y': {'data': classification_df}}, 'test': {'y': {'data': classification_df}}, 'mode': 'binary'}),
+	('pass', {'train': {'y': {'data': regression_df}}, 'val': {'y': {'data': regression_df}}, 'test': {'y': {'data': regression_df}}, 'mode': 'real-valued'}),
+	('fail', {'train': {'y': {'data': classification_df}}, 'val': {'y': {'data': regression_df}}, 'test': {'y': {'data': classification_df}}}),
+]
 
 @pytest.mark.parametrize('check_target_variable_type_data', check_target_variable_type_data)
 def test_check_target_variable_type(check_target_variable_type_data):
-	for pass_fail, data in check_target_variable_type_data.items():
-		if pass_fail == 'pass':
-			assert check_target_variable_type(data) == data['mode']
-		else:
-			with pytest.raises(Exception):
-				check_target_variable_type(data)
+	pass_fail, data = check_target_variable_type_data
+	if pass_fail == 'pass':
+		assert check_target_variable_type(data) == data['mode']
+	else:
+		with pytest.raises(Exception):
+			check_target_variable_type(data)
 
 
-check_novel_instances_data = [{
-	'true': {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [0, 1, 2, 3], 'value': [0, 0, 0, 1]}), 'original_format': 'triplets'}},
-	'false': {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}},
-
-}]
+check_novel_instances_data = [
+	(True, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [0, 1, 2, 3], 'value': [0, 0, 0, 1]}), 'original_format': 'triplets'}}),
+	(False, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}}),
+]
 
 @pytest.mark.parametrize('check_novel_instances_data', check_novel_instances_data)
 def test_check_novel_instances(check_novel_instances_data):
-	for true_false, data in check_novel_instances_data.items():
-		if true_false == 'true':
-			assert True == check_novel_instances(data['train'], data['test'])
-		elif true_false == 'false':
-			assert False == check_novel_instances(data['train'], data['test'])
-   
-   
-check_novel_target_data = [{
-	'true': {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [4, 5, 6, 7], 'value': [0, 0, 0, 1]}), 'original_format': 'triplets'}},
-	'false': {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}},
+	true_false, data = check_novel_instances_data
+	assert true_false == check_novel_instances(data['train'], data['test'])
 
-}]
+   
+   
+check_novel_target_data = [
+	(True, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [4, 5, 6, 7], 'value': [0, 0, 0, 1]}), 'original_format': 'triplets'}}),
+	(False, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}}),
+]
 
 @pytest.mark.parametrize('check_novel_target_data', check_novel_target_data)
 def test_check_novel_targets(check_novel_target_data):
-	for true_false, data in check_novel_target_data.items():
-		if true_false == 'true':
-			assert True == check_novel_targets(data['train'], data['test'])
-		elif true_false == 'false':
-			assert False == check_novel_targets(data['train'], data['test'])
+	true_false, data = check_novel_target_data
+	assert true_false == check_novel_targets(data['train'], data['test'])
    
 
-get_estimated_validation_setting_data = [{
-	(True, True): 'D',
-	(True, False): 'B',
-	(False, True): 'C',
-	(False, False): 'A',
-	}]
+get_estimated_validation_setting_data = [
+	((True, True): 'D'),
+	((True, False): 'B'),
+	((False, True): 'C'),
+	((False, False): 'A'),
+	]
 
 @pytest.mark.parametrize('get_estimated_validation_setting_data', get_estimated_validation_setting_data)
 def test_get_estimated_validation_setting(get_estimated_validation_setting_data):
-	 for novel_instance_targets_tuple, true_validation_setting in get_estimated_validation_setting_data.items():
-		 assert get_estimated_validation_setting(novel_instance_targets_tuple[0], novel_instance_targets_tuple[1], verbose=False) == true_validation_setting
+	novel_instance_targets_tuple, true_validation_setting = get_estimated_validation_setting_data
+	assert get_estimated_validation_setting(novel_instance_targets_tuple[0], novel_instance_targets_tuple[1], verbose=False) == true_validation_setting
 
 
 @pytest.mark.parametrize('data_format', data_format)
