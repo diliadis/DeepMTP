@@ -1,4 +1,17 @@
-from DeepMTP.utils.data_utils import process_interaction_data, check_interaction_files_format, check_interaction_files_column_type_format, check_variable_type, check_target_variable_type, check_novel_instances, check_novel_targets, get_estimated_validation_setting, process_instance_features, process_target_features
+from DeepMTP.utils.data_utils import (
+	process_interaction_data, 
+	check_interaction_files_format, 
+	check_interaction_files_column_type_format, 
+	check_variable_type, 
+ 	check_target_variable_type, 
+	check_novel_instances, 
+	check_novel_targets, 
+	get_estimated_validation_setting, 
+	process_instance_features, 
+	process_target_features, 
+	cross_input_consistency_check_instances, 
+	cross_input_consistency_check_targets
+)
 from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR, process_dummy_DP
 import pandas as pd
 import numpy as np
@@ -192,3 +205,39 @@ def test_process_target_features(data_format):
 		assert original_target_features.equals(target_features['data'])
 	else:
 		assert data['train']['X_target'].equals(target_features['data'])
+
+
+test_cross_input_consistency_check_instances_data = [{
+	'pass': {
+	 	'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1], 'value': [0, 1, 0, 1, 0, 1, 0, 1], 'original_format': 'numpy'})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': np.random.rand(4, 10)})},
+		 	'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': np.random.rand(2, 10)})},
+		 },
+	 	'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 5], 'target_id': [0, 1], 'value': [0, 1, 0, 1], 'original_format': 'numpy'})},
+			'X_instance': {'data': pd.DataFrame({'id': [4, 5], 'features': np.random.rand(4, 10)})},
+		 	'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': np.random.rand(2, 10)})},
+		 },
+	 	'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [6, 7, 8], 'target_id': [0, 1], 'value': [0, 1, 0, 1, 0, 0], 'original_format': 'numpy'})},
+			'X_instance': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': np.random.rand(3, 10)})},
+		 	'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': np.random.rand(2, 10)})},
+		 },
+		'validation_setting': 'B'},
+	
+
+  
+}]
+
+@pytest.mark.parametrize('test_cross_input_consistency_check_instances_data', test_cross_input_consistency_check_instances_data)
+def test_cross_input_consistency_check_instances(test_cross_input_consistency_check_instances_data):
+	
+	for pass_fail, data in test_cross_input_consistency_check_instances_data.items():
+		if pass_fail  == 'pass':
+		cross_input_consistency_check_instances(data, data['validation_setting'])
+	
+			try:
+				cross_input_consistency_check_instances(data, data['validation_setting'])
+			except Exception as exc:
+				assert False
