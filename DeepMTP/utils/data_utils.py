@@ -346,14 +346,14 @@ def cross_input_consistency_check_instances(data, validation_setting, verbose, p
 					raise Exception(('error: ' if print_mode=='dev' else '')+'Different number of (numpy) interaction files and instance feature files is not currently supported')
 				else:
 					if verbose: print(('info: ' if print_mode=='dev' else '')+'Cross input consistency for (numpy) interaction data and instance features checks out')
-					if validation_setting == 'B':
-						for mode in valid_modes:
-							unique_entities_in_interactions_file = set(data[mode]['y']['data']['instance_id'])
-							unique_entities_in_features_file = set(data[mode]['X_instance']['data']['id'].unique())
-							if unique_entities_in_interactions_file.symmetric_difference(unique_entities_in_features_file) == set():
-								if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same instance ids in the interaction and features files for the '+mode+' set')
-							else:
-								raise Exception(('error: ' if print_mode=='dev' else '')+'Different instance ids in the interaction and features files for the '+mode+' set.')
+					# if validation_setting == 'B':
+					for mode in valid_modes:
+						unique_entities_in_interactions_file = set(data[mode]['y']['data']['instance_id'])
+						unique_entities_in_features_file = set(data[mode]['X_instance']['data']['id'].unique())
+						if unique_entities_in_interactions_file.symmetric_difference(unique_entities_in_features_file) == set():
+							if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same instance ids in the interaction and features files for the '+mode+' set')
+						else:
+							raise Exception(('error: ' if print_mode=='dev' else '')+'Different instance ids in the interaction and features files for the '+mode+' set.')
 
 			elif validation_setting in ['C', 'A']:
 				if num_instance_features_sources != 1:
@@ -369,7 +369,7 @@ def cross_input_consistency_check_instances(data, validation_setting, verbose, p
 					else:
 						raise Exception(('error: ' if print_mode=='dev' else '')+'Different instance ids in the interaction and features files')
 
-		else:
+		else: # dataframe version
 			'''
 			if the interaction files have a triplet format, only two cases are currently allowed
 				1.There are as many interaction files as there are feature files
