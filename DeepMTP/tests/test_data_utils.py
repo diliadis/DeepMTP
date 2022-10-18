@@ -380,7 +380,7 @@ def test_cross_input_consistency_check_instances(test_cross_input_consistency_ch
    
    
 test_cross_input_consistency_check_targets_data = [
-	('fail', { # only one target features data source is needed
+	('pass', { # only one target features data source is needed
 		'train': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 3, 3], 'target_id': [0, 1, 0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
 			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
