@@ -347,7 +347,7 @@ test_cross_input_consistency_check_instances_data = [
 		},
 		'validation_setting': 'B'}),
  
- 	('fail', { # one instance features data sources and three interaction data matrices
+ 	('pass', { # one instance features data sources and three interaction data matrices
 		'train': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 3, 3], 'target_id': [0, 1, 0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
 			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6, 7, 8], 'features': list(np.random.rand(9, 10))})},
