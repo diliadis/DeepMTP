@@ -143,10 +143,10 @@ def test_check_novel_targets(check_novel_target_data):
    
 
 get_estimated_validation_setting_data = [
-	((True, True): 'D'),
-	((True, False): 'B'),
-	((False, True): 'C'),
-	((False, False): 'A'),
+	((True, True), 'D'),
+	((True, False), 'B'),
+	((False, True), 'C'),
+	((False, False), 'A'),
 	]
 
 @pytest.mark.parametrize('get_estimated_validation_setting_data', get_estimated_validation_setting_data)
