@@ -567,8 +567,8 @@ test_cross_input_consistency_check_targets_data = [
 def test_cross_input_consistency_check_targets(test_cross_input_consistency_check_targets_data):
 	pass_fail, data = test_cross_input_consistency_check_targets_data
 	if pass_fail == 'pass':	
-	try:
-		cross_input_consistency_check_targets(data, data['validation_setting'], verbose=False)
+		try:
+			cross_input_consistency_check_targets(data, data['validation_setting'], verbose=False)
 		except Exception as exc:
 			assert False
 	else:
