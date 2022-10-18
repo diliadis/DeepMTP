@@ -243,6 +243,24 @@ test_cross_input_consistency_check_instances_data = [{
 		 	'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
 		 },
 		'validation_setting': 'B'},
+ 
+	'fail': { # 3 interaction files but 2 instance feature files (test instance features are missing)
+	 	'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 3, 3], 'target_id': [0, 1, 0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
+		 	'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		 },
+	 	'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_instance': None,
+		 	'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		 },
+	 	'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [6, 6, 7, 7, 8, 8], 'target_id': [0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'numpy'},
+			'X_instance': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+		 	'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		 },
+		'validation_setting': 'B'},
 }]
 
 @pytest.mark.parametrize('test_cross_input_consistency_check_instances_data', test_cross_input_consistency_check_instances_data)
@@ -256,4 +274,4 @@ def test_cross_input_consistency_check_instances(test_cross_input_consistency_ch
 				assert False
 		else:
 			with pytest.raises(Exception):
-				cross_input_consistency_check_instances(data)
+				cross_input_consistency_check_instances(data, data['validation_setting'], verbose=False)
