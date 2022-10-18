@@ -472,19 +472,19 @@ test_cross_input_consistency_check_targets_data = [
   
 	 ('pass', { # more than one instance features files while on setting A)
 		'train': {
-			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 4, 5, 5, 5, 6, 6], 'target_id': [0, 2, 1, 3, 2, 4, 1, 0, 2, 4, 0, 2], 'value': [1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1]}), 'original_format': 'numpy'},
-			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6], 'features': list(np.random.rand(7, 10))})},
-			 'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+			'y': {'data': pd.DataFrame({'target_id': [0, 0, 1, 1, 2, 2, 4, 5, 5, 5, 6, 6], 'instance_id': [0, 2, 1, 3, 2, 4, 1, 0, 2, 4, 0, 2], 'value': [1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6], 'features': list(np.random.rand(7, 10))})},
+			 'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
 		},
 		'val': {
-			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6], 'target_id': [1, 3, 0, 2, 0, 1, 1, 2, 3, 1, 3, 1, 4], 'value': [1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1]}), 'original_format': 'numpy'},
-			'X_instance': None,
+			'y': {'data': pd.DataFrame({'target_id': [0, 0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6], 'instance_id': [1, 3, 0, 2, 0, 1, 1, 2, 3, 1, 3, 1, 4], 'value': [1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1]}), 'original_format': 'numpy'},
 			'X_target': None,
+			'X_instance': None,
 		},
 		'test': {
-			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3, 3, 3, 3, 4, 4, 6], 'target_id': [4, 4, 3, 0, 2, 3, 4, 0, 4, 3], 'value': [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]}), 'original_format': 'numpy'},
-			'X_instance': None,
+			'y': {'data': pd.DataFrame({'target_id': [0, 1, 2, 3, 3, 3, 3, 4, 4, 6], 'instance_id': [4, 4, 3, 0, 2, 3, 4, 0, 4, 3], 'value': [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]}), 'original_format': 'numpy'},
 			'X_target': None,
+			'X_instance': None,
 		},
 		'validation_setting': 'A'}),
   
