@@ -283,7 +283,7 @@ test_cross_input_consistency_check_instances_data = [
 	 ('pass', { # more than one instance features files while on setting A)
 		 'train': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 4, 5, 5, 5, 6, 6], 'target_id': [0, 2, 1, 3, 2, 4, 1, 0, 2, 4, 0, 2], 'value': [1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1]}), 'original_format': 'numpy'},
-			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6], 'features': list(np.random.rand(6, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6], 'features': list(np.random.rand(7, 10))})},
 			 'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
 		 },
 		 'val': {
