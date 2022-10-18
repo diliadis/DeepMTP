@@ -377,3 +377,200 @@ def test_cross_input_consistency_check_instances(test_cross_input_consistency_ch
 	else:
 		with pytest.raises(Exception):
 			cross_input_consistency_check_instances(data, data['validation_setting'], verbose=False)
+   
+   
+test_cross_input_consistency_check_targets_data = [
+	('fail', { # only one target features data source is needed
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 3, 3], 'target_id': [0, 1, 0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_instance': {'data': pd.DataFrame({'id': [4, 5], 'features': list(np.random.rand(2, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [6, 6, 7, 7, 8, 8], 'target_id': [0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'numpy'},
+			'X_instance': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'C'}),
+ 
+	('pass', { # the instance features in the validation set are less than what is required in the interaction matrix
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [4, 5], 'features': list(np.random.rand(2, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1], 'target_id': [6, 6, 7, 7, 8, 8], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'C'}),
+ 
+	('fail', { # 3 interaction files but 2 instance feature files (test instance features are missing)
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': None,
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1], 'target_id': [6, 6, 7, 7, 8, 8], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'C'}),
+ 
+ 	('fail', { # 3 interaction files but 2 instance feature files (test instance features are missing)
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': None,
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1], 'target_id': [6, 6, 7, 7, 8, 8], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'numpy'},
+			'X_target': None,
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'C'}),
+ 
+	 ('fail', { # more than one instance features files while on setting A)
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_target': None,
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1], 'target_id': [6, 6, 7, 7, 8, 8], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'numpy'},
+			'X_target': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'A'}),
+  
+	 ('pass', { # more than one instance features files while on setting A)
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 4, 5, 5, 5, 6, 6], 'target_id': [0, 2, 1, 3, 2, 4, 1, 0, 2, 4, 0, 2], 'value': [1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1]}), 'original_format': 'numpy'},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6], 'features': list(np.random.rand(7, 10))})},
+			 'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6], 'target_id': [1, 3, 0, 2, 0, 1, 1, 2, 3, 1, 3, 1, 4], 'value': [1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1]}), 'original_format': 'numpy'},
+			'X_instance': None,
+			'X_target': None,
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3, 3, 3, 3, 4, 4, 6], 'target_id': [4, 4, 3, 0, 2, 3, 4, 0, 4, 3], 'value': [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]}), 'original_format': 'numpy'},
+			'X_instance': None,
+			'X_target': None,
+		},
+		'validation_setting': 'A'}),
+  
+	# triplets version
+  
+	 ('fail', {# the target features in the validation set are less than what is required in the interaction matrix
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': None,
+			'X_target': {'data': pd.DataFrame({'id': [4, 5], 'features': list(np.random.rand(2, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [6, 6, 7, 7, 8, 8], 'target_id': [0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'B'}),
+  
+	('pass', { # three instance features data sources and three interaction data matrices
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': [4, 5], 'features': list(np.random.rand(2, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [6, 6, 7, 7, 8, 8], 'target_id': [0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'B'}),
+ 
+	('fail', { # two target features data sources and three interaction data matrices
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5], 'features': list(np.random.rand(6, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': None,
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [6, 6, 7, 7, 8, 8], 'target_id': [0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'B'}),
+ 
+ 	('pass', { # one target features data sources and three interaction data matrices
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6, 7, 8], 'features': list(np.random.rand(9, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': None,
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': [6, 6, 7, 7, 8, 8], 'target_id': [0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+			'X_target': None,
+			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+		},
+		'validation_setting': 'B'}),
+]
+
+@pytest.mark.parametrize('test_cross_input_consistency_check_targets_data', test_cross_input_consistency_check_targets_data)
+def test_cross_input_consistency_check_targets(test_cross_input_consistency_check_targets_data):
+	pass_fail, data = test_cross_input_consistency_check_targets_data
+	if pass_fail == 'pass':	
+	try:
+			cross_input_consistency_check_targets(data, data['validation_setting'], verbose=False)
+		except Exception as exc:
+			assert False
+	else:
+		with pytest.raises(Exception):
+			cross_input_consistency_check_targets(data, data['validation_setting'], verbose=False)
