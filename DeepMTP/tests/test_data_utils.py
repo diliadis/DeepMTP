@@ -234,9 +234,7 @@ test_cross_input_consistency_check_instances_data = [{
 def test_cross_input_consistency_check_instances(test_cross_input_consistency_check_instances_data):
 	
 	for pass_fail, data in test_cross_input_consistency_check_instances_data.items():
-		if pass_fail  == 'pass':
-		cross_input_consistency_check_instances(data, data['validation_setting'])
-	
+		if pass_fail  == 'pass':	
 			try:
 				cross_input_consistency_check_instances(data, data['validation_setting'])
 			except Exception as exc:
