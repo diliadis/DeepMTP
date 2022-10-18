@@ -301,9 +301,8 @@ test_cross_input_consistency_check_instances_data = [
 
 @pytest.mark.parametrize('test_cross_input_consistency_check_instances_data', test_cross_input_consistency_check_instances_data)
 def test_cross_input_consistency_check_instances(test_cross_input_consistency_check_instances_data):
-	
 	pass_fail, data = test_cross_input_consistency_check_instances_data
- 	if pass_fail  == 'pass':	
+ 	if pass_fail == 'pass':	
 		try:
 			cross_input_consistency_check_instances(data, data['validation_setting'], verbose=False)
 		except Exception as exc:
