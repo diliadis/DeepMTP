@@ -598,9 +598,12 @@ def test_cross_input_consistency_check_targets(test_cross_input_consistency_chec
 def test_split_data():
     
     original_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances={'train':0.7, 'val':0.1, 'test':0.3})
-    data_to_split = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances=None)
+    processed_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances=None)
     
-    assert original_data == data_to_split
-    
-    
-    
+    assert len(original_data) == len(processed_data)
+    for mode in original_data.keys():
+        assert original_data[mode]['y']['data'] = processed_data[mode]['y']['data']
+        if original_data[mode]['X_instance']:
+            assert original_data[mode]['X_instance']['data'] == processed_data[mode]['X_instance']['data']
+        if original_data[mode]['X_target']:
+            assert original_data[mode]['X_target']['data'] == processed_data[mode]['X_target']['data']
