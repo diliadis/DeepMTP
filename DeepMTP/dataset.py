@@ -669,10 +669,16 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
     if val_instance_ids is not None:
         X_val_instance = X_train_instance[X_train_instance['id'].isin(val_instance_ids)]
         y_val = y_train[y_train['instance_id'].isin(val_instance_ids)]
+    else:
+        if X_train_instance is not None:
+            X_val_instance =  X_train_instance
 
     if test_instance_ids is not None:
         X_test_instance = X_train_instance[X_train_instance['id'].isin(test_instance_ids)]
         y_test = y_train[y_train['instance_id'].isin(test_instance_ids)]
+    else:
+        if X_train_instance is not None:
+            X_test_instance =  X_train_instance
 
     if train_instance_ids is not None:
         X_train_instance = X_train_instance[X_train_instance['id'].isin(train_instance_ids)]
@@ -684,6 +690,9 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
             y_val = y_val[y_val['target_id'].isin(val_target_ids)]
         else:
             y_val = y_train[y_train['target_id'].isin(val_target_ids)]
+    else:
+        if X_train_target is not None:
+            X_val_target =  X_train_target
 
     if test_target_ids is not None:
         X_test_target = X_train_target[X_train_target['id'].isin(test_target_ids)]
@@ -691,12 +700,15 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
             y_test = y_test[y_test['target_id'].isin(test_target_ids)]
         else:
             y_test = y_train[y_train['target_id'].isin(test_target_ids)]
+    else:
+        if X_train_target is not None:
+            X_test_target =  X_train_target
 
     if train_target_ids is not None:
         X_train_target = X_train_target[X_train_target['id'].isin(train_target_ids)]
         y_train = y_train[y_train['target_id'].isin(train_target_ids)]
 
-    return {'train': {'y': {'data': y_train if y_train is not None else None}, 'X_instance': {'data': X_train_instance if X_train_instance is not None else None}, 'X_target': {'data': X_train_target} if X_train_target is not None else None},
-            'val': {'y': {'data': y_val if y_val is not None else None}, 'X_instance': {'data': X_val_instance if X_val_instance is not None else None}, 'X_target': {'data': X_val_target if X_val_target is not None else None}},
-            'test': {'y': {'data': y_test if y_test is not None else None}, 'X_instance': {'data': X_test_instance if X_test_instance is not None else None}, 'X_target': {'data': X_test_target if X_test_target is not None else None}},
+    return {'train': {'y': {'data': y_train} if y_train is not None else None, 'X_instance': {'data': X_train_instance } if X_train_instance is not None else None, 'X_target': {'data': X_train_target} if X_train_target is not None else None},
+            'val': {'y': {'data': y_val} if y_val is not None else None, 'X_instance': {'data': X_val_instance} if X_val_instance is not None else None, 'X_target': {'data': X_val_target} if X_val_target is not None else None},
+            'test': {'y': {'data': y_test} if y_test is not None else None, 'X_instance': {'data': X_test_instance} if X_test_instance is not None else None, 'X_target': {'data': X_test_target} if X_test_target is not None else None},
             }
