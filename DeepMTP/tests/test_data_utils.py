@@ -10,9 +10,10 @@ from DeepMTP.utils.data_utils import (
 	process_instance_features, 
 	process_target_features, 
 	cross_input_consistency_check_instances, 
-	cross_input_consistency_check_targets
+	cross_input_consistency_check_targets,
+	split_data
 )
-from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR, process_dummy_DP
+from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR, process_dummy_DP, generate_MTP_dataset
 import pandas as pd
 import numpy as np
 import pytest
@@ -516,12 +517,12 @@ test_cross_input_consistency_check_targets_data = [
 		},
 		'val': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1], 'target_id': [4, 4, 5, 5], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
-			'X_target': {'data': pd.DataFrame({'id': [4, 5], 'features': list(np.random.rand(2, 10))})},
+			'X_target': None,
 			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
 		},
 		'test': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1], 'target_id': [6, 6, 7, 7, 8, 8], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
-			'X_target': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
+			'X_target': None,
 			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
 		},
 		'validation_setting': 'B'}),
@@ -574,3 +575,14 @@ def test_cross_input_consistency_check_targets(test_cross_input_consistency_chec
 	else:
 		with pytest.raises(Exception):
 			cross_input_consistency_check_targets(data, data['validation_setting'], verbose=False)
+   
+   
+def test_split_data():
+    
+    original_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances={'train':0.7, 'val':0.1, 'test':0.3})
+    data_to_split = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances=None)
+    
+    assert original_data == data_to_split
+    
+    
+    
