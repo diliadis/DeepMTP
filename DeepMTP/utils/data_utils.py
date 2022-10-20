@@ -500,7 +500,7 @@ def cross_input_consistency_check_targets(data, validation_setting, verbose, pri
                     else:
                         raise Exception(('error: ' if print_mode=='dev' else '')+'Different target ids in the interaction and features files')
 
-def split_data(data, validation_setting, split_method, ratio, seed, verbose, print_mode='basic'):
+def split_data(data, validation_setting, split_method, ratio, shuffle, seed, verbose, print_mode='basic'):
     '''Splits the dataset and offers two main functionalities:
         * split based on the 4 different validation settings (A, B, C, D)
         * if a test set already exists it separates a validation set, otherwise it first creates a test set and then a validation set.
@@ -519,7 +519,7 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
     if validation_setting == 'B':
         if data['test']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-test according to validation setting '+validation_setting+'... ', end='')
-            train_ids, test_ids = train_test_split(data['train']['y']['data']['instance_id'].unique(), test_size=ratio['test'], random_state=seed)
+            train_ids, test_ids = train_test_split(data['train']['y']['data']['instance_id'].unique(), test_size=ratio['test'], random_state=seed, shuffle=shuffle)
             train_ids.sort()
             test_ids.sort()
             data['test']['y'] = {'data': data['train']['y']['data'].loc[data['train']['y']['data']['instance_id'].isin(test_ids)]}
@@ -530,7 +530,7 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
 
         if data['val']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-val according to validation setting '+validation_setting+'... ', end='')
-            train_ids, val_ids = train_test_split(data['train']['y']['data']['instance_id'].unique(), test_size=ratio['val'], random_state=seed)
+            train_ids, val_ids = train_test_split(data['train']['y']['data']['instance_id'].unique(), test_size=ratio['val'], random_state=seed, shuffle=shuffle)
             train_ids.sort()
             val_ids.sort()
             data['val']['y'] = {'data': data['train']['y']['data'].loc[data['train']['y']['data']['instance_id'].isin(val_ids)]}
@@ -561,7 +561,7 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
     elif validation_setting == 'C':
         if data['test']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-test according to validation setting '+validation_setting+'... ', end='')
-            train_ids, test_ids = train_test_split(data['train']['y']['data']['target_id'].unique(), test_size=ratio['test'], random_state=seed)
+            train_ids, test_ids = train_test_split(data['train']['y']['data']['target_id'].unique(), test_size=ratio['test'], random_state=seed, shuffle=shuffle)
             train_ids.sort()
             test_ids.sort()
             data['test']['y'] = {'data': data['train']['y']['data'].loc[data['train']['y']['data']['target_id'].isin(test_ids)]}
@@ -572,7 +572,7 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
 
         if data['val']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-val according to validation setting '+validation_setting+'... ', end='')
-            train_ids, val_ids = train_test_split(data['train']['y']['data']['target_id'].unique(), test_size=ratio['val'], random_state=seed)
+            train_ids, val_ids = train_test_split(data['train']['y']['data']['target_id'].unique(), test_size=ratio['val'], random_state=seed, shuffle=shuffle)
             train_ids.sort()
             val_ids.sort()
             data['val']['y'] = {'data': data['train']['y']['data'].loc[data['train']['y']['data']['target_id'].isin(val_ids)]}
@@ -632,10 +632,10 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
     elif validation_setting == 'D':
         if data['test']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-test according to validation setting '+validation_setting+'... ', end='')
-            train_instance_ids, test_instance_ids = train_test_split(data['train']['y']['data']['instance_id'].unique(), test_size=ratio['test'], random_state=seed)
+            train_instance_ids, test_instance_ids = train_test_split(data['train']['y']['data']['instance_id'].unique(), test_size=ratio['test'], random_state=seed, shuffle=shuffle)
             train_instance_ids.sort()
             test_instance_ids.sort()
-            train_target_ids, test_target_ids = train_test_split(data['train']['y']['data']['target_id'].unique(), test_size=ratio['test'], random_state=seed)
+            train_target_ids, test_target_ids = train_test_split(data['train']['y']['data']['target_id'].unique(), test_size=ratio['test'], random_state=seed, shuffle=shuffle)
             train_target_ids.sort()
             test_target_ids.sort()
             data['test']['y'] = {'data': data['train']['y']['data'].loc[(data['train']['y']['data']['instance_id'].isin(test_instance_ids)) & (data['train']['y']['data']['target_id'].isin(test_target_ids))]}
@@ -649,10 +649,10 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
 
         if data['val']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-val according to validation setting '+validation_setting+'... ', end='')
-            train_instance_ids, val_instance_ids = train_test_split(data['train']['y']['data']['instance_id'].unique(), test_size=ratio['val'], random_state=seed)
+            train_instance_ids, val_instance_ids = train_test_split(data['train']['y']['data']['instance_id'].unique(), test_size=ratio['val'], random_state=seed, shuffle=shuffle)
             train_instance_ids.sort()
             val_instance_ids.sort()
-            train_target_ids, val_target_ids = train_test_split(data['train']['y']['data']['target_id'].unique(), test_size=ratio['val'], random_state=seed)
+            train_target_ids, val_target_ids = train_test_split(data['train']['y']['data']['target_id'].unique(), test_size=ratio['val'], random_state=seed, shuffle=shuffle)
             train_target_ids.sort()
             val_target_ids.sort()
             data['val']['y'] = {'data': data['train']['y']['data'].loc[(data['train']['y']['data']['instance_id'].isin(val_instance_ids)) & (data['train']['y']['data']['target_id'].isin(val_target_ids))]}
@@ -694,7 +694,7 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
 
 
-def data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None):
+def data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, shuffle=True, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None):
     '''The main function that handles all the preprocessing steps and checks needed to prepare the dataset to be used by the model.
 
     Args:
@@ -702,6 +702,7 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
         validation_setting (str, optional): The validation setting of the current problem. Defaults to None.
         split_method (str, optional): The splitting method used. The current implementation only supports the 'random split' using a specific seed but a future goal is to also offer a stratified option. Defaults to 'random'.
         ratio (dict, optional): The train, val and test ratios used to split the data. Defaults to {'train': 0.7, 'test': 0.2, 'val': 0.1}.
+        shuffle(bool, optional): Whether or not the dataset will be shuffled before the split. If is set to False, the seed value is not used.
         seed (int, optional): The seed used to initiate the randomized split. Defaults to 42.
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
@@ -878,7 +879,7 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
     cross_input_consistency_check_targets(data, validation_setting, verbose, print_mode=print_mode)
 
     print('')
-    split_data(data, validation_setting=validation_setting, split_method=split_method, ratio=ratio, seed=seed, verbose=verbose, print_mode=print_mode)
+    split_data(data, validation_setting=validation_setting, split_method=split_method, ratio=ratio, shuffle=shuffle, seed=seed, verbose=verbose, print_mode=print_mode)
 
     if scale_instance_features is not None:
         if scale_instance_features == 'MinMax':
