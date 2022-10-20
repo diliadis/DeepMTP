@@ -602,7 +602,7 @@ def test_split_data():
     
     assert len(original_data) == len(processed_data)
     for mode in original_data.keys():
-        assert original_data[mode]['y']['data'] = processed_data[mode]['y']['data']
+        assert original_data[mode]['y']['data'] == processed_data[mode]['y']['data']
         if original_data[mode]['X_instance']:
             assert original_data[mode]['X_instance']['data'] == processed_data[mode]['X_instance']['data']
         if original_data[mode]['X_target']:
