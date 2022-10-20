@@ -656,18 +656,18 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
             train_instance_ids, test_instance_ids = train_test_split(y_train['instance_id'].unique(), test_size=split_instances['test'], shuffle=False)
         if 'val' in split_instances:
             train_instance_ids, val_instance_ids = train_test_split(train_instance_ids, test_size=split_instances['val'], shuffle=False)
-
+            
     if split_targets is not None:
         if 'test' in split_targets:
             train_target_ids, test_target_ids = train_test_split(y_train['target_id'].unique(), test_size=split_targets['test'], shuffle=False)
+
         if 'val' in split_targets:
             train_target_ids, val_target_ids = train_test_split(train_target_ids, test_size=split_targets['val'], shuffle=False)
 
-    
     if val_instance_ids is not None:
         X_val_instance = X_train_instance[X_train_instance['id'].isin(val_instance_ids)]
         y_val = y_train[y_train['instance_id'].isin(val_instance_ids)]
-    
+
     if test_instance_ids is not None:
         X_test_instance = X_train_instance[X_train_instance['id'].isin(test_instance_ids)]
         y_test = y_train[y_train['instance_id'].isin(test_instance_ids)]
@@ -693,7 +693,6 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
     if train_target_ids is not None:
         X_train_target = X_train_target[X_train_target['id'].isin(train_target_ids)]
         y_train = y_train[y_train['target_id'].isin(train_target_ids)]
-
 
     return {'train': {'y': {'data': y_train}, 'X_instance': {'data': X_train_instance}, 'X_target': {'data': X_train_target}},
             'val': {'y': {'data': y_val}, 'X_instance': {'data': X_val_instance}, 'X_target': {'data': X_val_target}},
