@@ -599,11 +599,13 @@ def test_split_data():
     
     original_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances={'train':0.7, 'val':0.1, 'test':0.3})
     processed_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances=None)
+    split_data(processed_data, 'B', split_method=random, ratio={'train':0.7, 'val':0.1, 'test':0.3}, seed=42, verbose=False, print_mode='basic')
     
-    assert len(original_data) == len(processed_data)
-    for mode in original_data.keys():
-        assert original_data[mode]['y']['data'] == processed_data[mode]['y']['data']
-        if original_data[mode]['X_instance']:
-            assert original_data[mode]['X_instance']['data'] == processed_data[mode]['X_instance']['data']
-        if original_data[mode]['X_target']:
-            assert original_data[mode]['X_target']['data'] == processed_data[mode]['X_target']['data']
+	assert len(original_data) == len(processed_data)
+	for mode in original_data.keys():
+		print('mode: '+str(mode))
+		assert original_data[mode]['y']['data'].equals(processed_data[mode]['y']['data'])
+		if original_data[mode]['X_instance']:
+			assert original_data[mode]['X_instance']['data'].equals(processed_data[mode]['X_instance']['data'])
+		if original_data[mode]['X_target']:
+			assert original_data[mode]['X_target']['data'].equals(processed_data[mode]['X_target']['data'])
