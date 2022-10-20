@@ -696,7 +696,7 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
         X_train_target = X_train_target[X_train_target['id'].isin(train_target_ids)]
         y_train = y_train[y_train['target_id'].isin(train_target_ids)]
 
-    return {'train': {'y': {'data': y_train}, 'X_instance': {'data': X_train_instance}, 'X_target': {'data': X_train_target}},
-            'val': {'y': {'data': y_val}, 'X_instance': {'data': X_val_instance}, 'X_target': {'data': X_val_target}},
-            'test': {'y': {'data': y_test}, 'X_instance': {'data': X_test_instance}, 'X_target': {'data': X_test_target}},
+    return {'train': {'y': {'data': y_train if y_train else None}, 'X_instance': {'data': X_train_instance if X_train_instance else None}, 'X_target': {'data': X_train_target} if X_train_target else None},
+            'val': {'y': {'data': y_val if y_val else None}, 'X_instance': {'data': X_val_instance if X_val_instance else None}, 'X_target': {'data': X_val_target if X_val_target else None}},
+            'test': {'y': {'data': y_test if y_test else None}, 'X_instance': {'data': X_test_instance if X_test_instance else None}, 'X_target': {'data': X_test_target if X_test_target else None}},
             }
