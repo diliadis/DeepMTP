@@ -348,7 +348,7 @@ test_cross_input_consistency_check_instances_data = [
 		},
 		'validation_setting': 'B'}),
  
- 	('pass', { # one instance features data sources and three interaction data matrices
+	 ('pass', { # one instance features data sources and three interaction data matrices
 		'train': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 3, 3], 'target_id': [0, 1, 0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
 			'X_instance': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6, 7, 8], 'features': list(np.random.rand(9, 10))})},
@@ -435,7 +435,7 @@ test_cross_input_consistency_check_targets_data = [
 		},
 		'validation_setting': 'C'}),
  
- 	('fail', { # 3 interaction files but 2 instance feature files (test instance features are missing)
+	 ('fail', { # 3 interaction files but 2 instance feature files (test instance features are missing)
 		'train': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
 			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
@@ -545,7 +545,7 @@ test_cross_input_consistency_check_targets_data = [
 		},
 		'validation_setting': 'C'}),
  
- 	('fail', { # two target features data sources and three interaction data matrices
+	 ('fail', { # two target features data sources and three interaction data matrices
 		'train': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
 			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5], 'features': list(np.random.rand(6, 10))})},
@@ -563,7 +563,7 @@ test_cross_input_consistency_check_targets_data = [
 		},
 		'validation_setting': 'C'}),
  
- 	('pass', { # one target features data sources and three interaction data matrices
+	 ('pass', { # one target features data sources and three interaction data matrices
 		'train': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
 			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6, 7, 8], 'features': list(np.random.rand(9, 10))})},
@@ -596,11 +596,11 @@ def test_cross_input_consistency_check_targets(test_cross_input_consistency_chec
    
    
 def test_split_data():
-    
-    original_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances={'train':0.7, 'val':0.1, 'test':0.3})
-    processed_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances=None)
-    split_data(processed_data, 'B', split_method=random, ratio={'train':0.7, 'val':0.1, 'test':0.3}, seed=42, verbose=False, print_mode='basic')
-    
+	
+	original_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances={'train':0.7, 'val':0.1, 'test':0.3})
+	processed_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances=None)
+	split_data(processed_data, 'B', split_method=random, ratio={'train':0.7, 'val':0.1, 'test':0.3}, seed=42, verbose=False, print_mode='basic')
+	
 	assert len(original_data) == len(processed_data)
 	for mode in original_data.keys():
 		print('mode: '+str(mode))
