@@ -599,7 +599,7 @@ def test_split_data():
 	
 	original_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances={'train':0.7, 'val':0.1, 'test':0.3})
 	processed_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances=None)
-	split_data(processed_data, 'B', split_method=random, ratio={'train':0.7, 'val':0.1, 'test':0.3}, seed=42, verbose=False, print_mode='basic')
+	split_data(processed_data, 'B', split_method='random', ratio={'train':0.7, 'val':0.1, 'test':0.3}, seed=42, verbose=False, print_mode='basic')
 	
 	assert len(original_data) == len(processed_data)
 	for mode in original_data.keys():
