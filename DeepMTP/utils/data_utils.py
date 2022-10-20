@@ -515,7 +515,7 @@ def split_data(data, validation_setting, split_method, ratio, seed, verbose, pri
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     '''    
-
+    ratio['val'] = ratio['val']/(1-ratio['test'])
     if validation_setting == 'B':
         if data['test']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-test according to validation setting '+validation_setting+'... ', end='')
