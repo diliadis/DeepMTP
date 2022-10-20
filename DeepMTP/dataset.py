@@ -652,12 +652,14 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
     y_train = pd.DataFrame(triplets, columns=['instance_id', 'target_id', 'value'])
     
     if split_instances is not None:
+        split_instances['val'] = split_instances['val']/(1-split_instances['test'])
         if 'test' in split_instances:
             train_instance_ids, test_instance_ids = train_test_split(y_train['instance_id'].unique(), test_size=split_instances['test'], shuffle=False)
         if 'val' in split_instances:
             train_instance_ids, val_instance_ids = train_test_split(train_instance_ids, test_size=split_instances['val'], shuffle=False)
             
     if split_targets is not None:
+        split_targets['val'] = split_targets['val']/(1-split_targets['test'])
         if 'test' in split_targets:
             train_target_ids, test_target_ids = train_test_split(y_train['target_id'].unique(), test_size=split_targets['test'], shuffle=False)
 
