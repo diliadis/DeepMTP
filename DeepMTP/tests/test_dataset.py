@@ -56,6 +56,7 @@ test_load_process_MTR_data = [
 	{'pass_fail': 'pass', 'dataset_name': 'enb','features_type': 'numpy'},
 	{'pass_fail': 'pass', 'dataset_name': 'enb', 'features_type': 'dataframe'},
 	{'pass_fail': 'fail', 'dataset_name': 'lalalala','features_type': 'numpy'},
+	{'pass_fail': 'fail', 'dataset_name': 'lalalala','features_type': 'lalala'},
 ]
 
 @pytest.mark.parametrize('test_load_process_MTR_data', test_load_process_MTR_data)    
@@ -137,11 +138,28 @@ def test_load_process_MC():
 	assert isinstance(data['test']['X_target'] , type(None))
 	assert isinstance(data['test']['y'] , type(None))
 
-def test_load_process_MTL():
-	data = load_process_MTL(path='./data', dataset_name='dog', print_mode='basic') 
-	   
-	assert isinstance(data['train']['X_target'] , type(None))
-	assert isinstance(data['val']['y'] , type(None))
-	assert isinstance(data['val']['X_instance'] , type(None))
-	assert isinstance(data['val']['X_target'] , type(None))
-	assert isinstance(data['test']['X_target'] , type(None))
+
+test_load_process_MTL_data = [
+	{'pass_fail': 'pass', 'dataset_name': 'dog'},
+	{'pass_fail': 'fail', 'dataset_name': 'lalalala'},
+]
+
+@pytest.mark.parametrize('test_load_process_MTL_data', test_load_process_MTL_data)   
+def test_load_process_MTL(test_load_process_MTL_data):
+	pass_fail = test_load_process_MTL_data['pass_fail']
+	dataset_name = test_load_process_MTL_data['dataset_name']
+	
+	if pass_fail == 'fail':
+		with pytest.raises(Exception):
+			data = load_process_MTL(path='./data', dataset_name=dataset_name, print_mode='basic') 
+	else:
+		try:
+			data = load_process_MTL(path='./data', dataset_name=dataset_name, print_mode='basic') 
+			assert isinstance(data['train']['X_target'] , type(None))
+			assert isinstance(data['val']['y'] , type(None))
+			assert isinstance(data['val']['X_instance'] , type(None))
+			assert isinstance(data['val']['X_target'] , type(None))
+			assert isinstance(data['test']['X_target'] , type(None))
+		except Exception as exc:
+			assert False
+	

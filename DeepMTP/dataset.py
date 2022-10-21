@@ -56,9 +56,9 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
             X_train_instance, y_train, _, _ = load_dataset(dataset_name, 'train')
             X_test_instance, y_test, _, _ = load_dataset(dataset_name, 'test')
 
-    if scipy.sparse.issparse(X_train_instance):
+    if scipy.sparse.issparse(X_train_instance):   # pragma: no cover
         X_train_instance = X_train_instance.toarray()
-    if scipy.sparse.issparse(X_test_instance):
+    if scipy.sparse.issparse(X_test_instance):   # pragma: no cover
         X_test_instance = X_test_instance.toarray()
     
     if features_type == 'dataframe':
@@ -71,10 +71,10 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
             temp_df_test['features'] = [r for r in X_test_instance]
             X_test_instance = temp_df_test
 
-    if scipy.sparse.issparse(y_train):
+    if scipy.sparse.issparse(y_train):   # pragma: no cover
         y_train = y_train.toarray()
 
-    if scipy.sparse.issparse(y_test):
+    if scipy.sparse.issparse(y_test):   # pragma: no cover
         y_test = y_test.toarray()
 
     print(('info: ' if print_mode=='dev' else '')+'Done')
@@ -191,10 +191,10 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
     if dataset_name not in available_data_sets:
         raise AttributeError('Please use one of the valid dataset names: '+str(available_data_sets))
 
-    if not os.path.exists(path):
+    if not os.path.exists(path):    # pragma: no cover
         os.makedirs(path)
     
-    if not os.path.exists(path+'/mtr-datasets'):
+    if not os.path.exists(path+'/mtr-datasets'):    # pragma: no cover
         print(('info: ' if print_mode=='dev' else '')+'Downloading and extracting dataset from scratch... ', end="")
         r = requests.get('https://github.com/diliadis/MTR/blob/main/mtr-datasets.zip?raw=true')
         z = zipfile.ZipFile(io.BytesIO(r.content))
@@ -305,7 +305,7 @@ def load_process_DP(path='./data', dataset_name='ern', variant='undivided', rand
 
     available_data_sets = ['ern', 'srn', 'dpie', 'dpii']
 
-    if dataset_name.startswith('dp'):
+    if dataset_name.startswith('dp'):    # pragma: no cover
         url = 'https://people.montefiore.uliege.be/schrynemackers/dpix/'+dataset_name+'_'
     else:
         url = 'https://people.montefiore.uliege.be/schrynemackers/'+dataset_name+'/'
@@ -444,7 +444,7 @@ def load_process_MC(path='./data', dataset_name='ml-100k', print_mode='basic'):
         # 'ml-10m': 'https://files.grouplens.org/datasets/movielens/ml-10m.zip',
     }
     
-    if dataset_name not in urls_checksums_per_dataset:
+    if dataset_name not in urls_checksums_per_dataset:     # pragma: no cover
         raise AttributeError('Please use one of the valid dataset names: '+str(list(urls_checksums_per_dataset.keys())))
 
     url = urls_checksums_per_dataset[dataset_name]
@@ -459,7 +459,7 @@ def load_process_MC(path='./data', dataset_name='ml-100k', print_mode='basic'):
     # print('data_dir: '+str(data_dir))
     # print('ext: '+str(ext))
 
-    if not os.path.exists(data_dir):
+    if not os.path.exists(data_dir):    # pragma: no cover
         print(('info: ' if print_mode=='dev' else '')+'Downloading dataset '+dataset_name+' from scratch... ', end="")
         r = requests.get(url, stream=True, verify=True)
         with open(fname, 'wb') as f:
@@ -538,7 +538,7 @@ def load_process_MTL(path='./data', dataset_name='dog', print_mode='basic'):
 
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def generate_interaction_matrix(input_path, output_path):
+def generate_interaction_matrix(input_path, output_path):    # pragma: no cover
     '''Helper function that transforms the multi-task learning dataset into a basic interaction matrix
 
     Args:
