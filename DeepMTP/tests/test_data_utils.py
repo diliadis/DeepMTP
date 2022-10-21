@@ -223,7 +223,7 @@ def test_process_instance_features(data_format_type_combo_data):
 		assert data['train']['X_instance'].equals(instance_features['data'])
   
 
-@pytest.mark.parametrize('data_format', data_format_type_combo_data)
+@pytest.mark.parametrize('data_format_type_combo_data', data_format_type_combo_data)
 def test_process_target_features(data_format_type_combo_data):
 	num_instances = 1000
 	num_targets = 100
