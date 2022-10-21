@@ -19,17 +19,42 @@ import numpy as np
 import pytest
 
 
-data_format = ['numpy', 'dataframe']
+test_process_interaction_data_data = [
+	{'format': 'numpy', 'ids_type': 'int'}, 
+	{'format': 'numpy', 'ids_type': 'int'}, 
+	{'format': 'dataframe', 'ids_type': 'str'}, 
+	{'format': 'dataframe', 'ids_type': 'str'}
+	]
 
-@pytest.mark.parametrize('data_format', data_format)
-def test_process_interaction_data(data_format):
+@pytest.mark.parametrize('test_process_interaction_data_data', test_process_interaction_data_data)
+def test_process_interaction_data(test_process_interaction_data_data):
+	data_format = test_process_interaction_data_data['format']
+	ids_type = test_process_interaction_data_data['ids_type']
+	
 	num_instances = 1000
 	num_targets = 100
 	num_instance_features = 2 
-
-	data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format=data_format)
-	info = process_interaction_data(data['train']['y'], verbose=False)
-	
+	if ids_type == 'int':
+		data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format=data_format)
+		info = process_interaction_data(data['train']['y'], verbose=False)
+	else:
+		data = { # three instance features data sources and three interaction data matrices
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_instance': {'data': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'features': list(np.random.rand(4, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': ['e', 'e', 'f', 'f'], 'target_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_instance': {'data': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+			'X_instance': {'data': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		}}
+ 
 	assert info['original_format'] == 'numpy' if data_format == 'numpy' else 'triplets'
 	assert info['instance_id_type'] == 'int'
 	assert info['target_id_type'] == 'int'
