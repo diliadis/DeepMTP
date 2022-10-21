@@ -1,6 +1,6 @@
 import numpy as np
 
-def check_mlc_results(train, val, test):
+def check_mlc_results(train, val, test):    # pragma: no cover
     '''Checks if the number of instance ids between the interaction data and instance features are the same.
 
     Args:
@@ -21,7 +21,7 @@ def check_mlc_results(train, val, test):
 
     print('Done')
 
-def check_mtr_results(train, val, test):
+def check_mtr_results(train, val, test):    # pragma: no cover
     '''Checks if the number of instance ids between the interaction data and instance features are the same.
 
     Args:
@@ -41,7 +41,7 @@ def check_mtr_results(train, val, test):
     assert set(train['X_instance']['data']['id'].unique()).union(set(test['X_instance']['data']['id'].unique()))
     print('Done')
 
-def check_dp_results(train, val, test):
+def check_dp_results(train, val, test):    # pragma: no cover
     '''Checks if the number of instance ids between the interaction data and instance features are the same.
        Also checks if the number of target ids between the interaction data and target features are the same.
        
@@ -61,7 +61,7 @@ def check_dp_results(train, val, test):
     assert set(test['X_target']['data']['id'].unique()).symmetric_difference(set(test['y']['data']['target_id'].unique())) == set()
     print('Done')
 
-def check_mc_results(train, val, test):
+def check_mc_results(train, val, test):    # pragma: no cover
     '''Checks if the pairs of instance, target ids in the train, validation and test sets are unique
 
     Args:
@@ -75,7 +75,7 @@ def check_mc_results(train, val, test):
     assert set(list(map(tuple, np.array(train['y']['data'][['instance_id', 'target_id']])))).intersection(set(list(map(tuple, np.array(test['y']['data'][['instance_id', 'target_id']]))))) == set()
     assert set(list(map(tuple, np.array(val['y']['data'][['instance_id', 'target_id']])))).intersection(set(list(map(tuple, np.array(test['y']['data'][['instance_id', 'target_id']]))))) == set()
 
-def check_mtl_results(train, val, test):
+def check_mtl_results(train, val, test):    # pragma: no cover
     '''Checks if the number of instance ids between the interaction data and instance features are the same.
 
     Args:
