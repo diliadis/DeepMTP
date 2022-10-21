@@ -593,13 +593,31 @@ def test_cross_input_consistency_check_targets(test_cross_input_consistency_chec
 	else:
 		with pytest.raises(Exception):
 			cross_input_consistency_check_targets(data, data['validation_setting'], verbose=False)
-   
-   
+
+test_split_data_data = [
+	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': None, 'split_targets': None, 'validation_setting': 'B'},	
+ 	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': None, 'split_instances': None, 'split_targets': None, 'validation_setting': 'B'},
+	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': {'train':0.7, 'val':0.1, 'test':0.3}, 'split_targets': None, 'validation_setting': 'B'},	
+ 	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': None, 'split_instances': {'train':0.7, 'test':0.3}, 'split_targets': None, 'validation_setting': 'B'},
+]
+
+@pytest.mark.parametrize('test_split_data_data', test_split_data_data)
 def test_split_data():
-	
-	original_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances={'train':0.7, 'val':0.1, 'test':0.3})
-	processed_data = generate_MTP_dataset(10, 5, num_instance_features=3, num_target_features=2, split_instances=None)
-	split_data(processed_data, 'B', split_method='random', ratio={'train':0.7, 'val':0.1, 'test':0.3}, shuffle=False, seed=42, verbose=False, print_mode='basic')
+	original_data = generate_MTP_dataset(test_split_data_data['num_instances'],
+                                    test_split_data_data['num_targets'], 
+                                    num_instance_features=test_split_data_data['num_instance_features'],
+                                    num_target_features=test_split_data_data['num_target_features'],
+                                    split_instances={'train':0.7, 'val':0.1, 'test':0.3})
+ 
+	processed_data = generate_MTP_dataset(test_split_data_data['num_instances'], 
+                                       test_split_data_data['num_targets'], 
+                                       num_instance_features=test_split_data_data['num_instance_features'], 
+                                       num_target_features=test_split_data_data['num_target_features'],
+                                       split_instances=test_split_data_data['split_instances'],
+                                       split_targets=test_split_data_data['split_targets'],
+                                       )
+ 
+	split_data(processed_data, test_split_data_data['validation_setting'], split_method='random', ratio={'train':0.7, 'val':0.1, 'test':0.3}, shuffle=False, seed=42, verbose=False, print_mode='basic')
 	
 	assert len(original_data) == len(processed_data)
 	for mode in original_data.keys():
