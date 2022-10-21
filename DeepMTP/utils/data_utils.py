@@ -270,11 +270,11 @@ def process_instance_features(instance_features, verbose=False, print_mode='basi
             temp_instance_features_df = pd.DataFrame(np.arange(len(instance_features)), columns=['id'])
             temp_instance_features_df['features'] = [r for r in instance_features]
             instance_features = temp_instance_features_df
-            instance_features = {'data': instance_features, 'num_features': len(instance_features.loc[0, 'features']), 'info': 'numpy'}
+            instance_features = {'data': instance_features, 'num_features': len(instance_features.iloc[0]['features']), 'info': 'numpy'}
         elif isinstance(instance_features, pd.DataFrame):
             instance_features.set_index('id', inplace=True, drop=False)
             if set(instance_features.columns) == set({'id', 'features'}):
-                instance_features = {'data': instance_features, 'num_features': len(instance_features.loc[0, 'features']), 'info': 'dataframe'}
+                instance_features = {'data': instance_features, 'num_features': len(instance_features.iloc[0]['features']), 'info': 'dataframe'}
             elif set(instance_features.columns) == set({'id', 'dir'}):
                 instance_features = {'data': instance_features, 'num_features': None, 'info': 'images'}
             else:
@@ -310,11 +310,11 @@ def process_target_features(target_features, verbose=False, print_mode='basic'):
             temp_target_features_df = pd.DataFrame(np.arange(len(target_features)), columns=['id'])
             temp_target_features_df['features'] = [r for r in target_features]
             target_features = temp_target_features_df
-            target_features = {'data': target_features, 'num_features': len(target_features.loc[0, 'features']), 'info': 'numpy'}
+            target_features = {'data': target_features, 'num_features': len(target_features.iloc[0]['features']), 'info': 'numpy'}
         elif isinstance(target_features, pd.DataFrame):
             target_features.set_index('id', inplace=True, drop=False)
             if set(target_features.columns) == set({'id', 'features'}):
-                target_features = {'data': target_features, 'num_features': len(target_features.loc[0, 'features']), 'info': 'dataframe'}
+                target_features = {'data': target_features, 'num_features': len(target_features.iloc[0]['features']), 'info': 'dataframe'}
             elif set(target_features.columns) == set({'id', 'dir'}):
                 target_features = {'data': target_features, 'num_features': None, 'info': 'images'}
             else:
