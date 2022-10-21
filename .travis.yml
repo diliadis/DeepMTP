@@ -1,0 +1,12 @@
+language: python
+python:
+  - "3.8"
+
+install:
+  - pip install -r requirements.txt
+  - pip install pytest
+  - pip3 install torch torchvision torchaudio
+  - python setup.py install
+
+script:
+  - travis_wait 90 pytest test
