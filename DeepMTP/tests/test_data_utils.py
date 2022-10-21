@@ -55,8 +55,8 @@ def test_process_interaction_data(data_format_type_combo_data):
     
     info = process_interaction_data(data['train']['y'], verbose=False)
     assert info['original_format'] == 'numpy' if data_format == 'numpy' else 'triplets'
-    assert info['instance_id_type'] == 'int'
-    assert info['target_id_type'] == 'int'
+    assert info['instance_id_type'] == ids_type
+    assert info['target_id_type'] == ids_type
     
     if data_format == 'dataframe':
         assert data['train']['y'].equals(info['data'])
