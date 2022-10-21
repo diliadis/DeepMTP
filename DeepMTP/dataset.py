@@ -23,7 +23,6 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
         features_type (str, optional): The format of the instance features. There are two possible values, numpy and dataframe. This is intended to test the functionality of the data_process function. Defaults to 'numpy'.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
-
     Raises:
         AttributeError: if the dataset_name doesn't exist in the mulan repository
 
@@ -83,7 +82,7 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
     # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy'):
+def process_dummy_MLC(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy'):    # pragma: no cover
     '''Generates a dummy multi-label classification dataset
 
     Args:
@@ -124,7 +123,6 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
         dataset_name (str, optional): The name of the multivariate regression dataset. Defaults to 'enb'.
         features_type (str, optional): The format of the instance features. There are two possible values, numpy and dataframe. This is intended to test the functionality of the data_process function. Defaults to 'numpy'.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
-
 
     Raises:
         AttributeError: if the dataset_name doesn't exist in the mulan repository
@@ -219,7 +217,7 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
     # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy'):
+def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy'):    # pragma: no cover
     '''Generates a dummy multivariate regression dataset
 
     Args:
@@ -253,7 +251,7 @@ def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interact
     # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def print_MTR_datasets():
+def print_MTR_datasets():   # pragma: no cover
     '''Prints a table with the basic info for every multivariate regression dataset available in the Mulan repository
     '''
     table = PrettyTable(['name', '#instances', '#instance_features', '#targets'])
@@ -284,7 +282,6 @@ def load_process_DP(path='./data', dataset_name='ern', variant='undivided', rand
         path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
         dataset_name (str, optional): The name of the dyadic prediction dataset. Defaults to 'ern'.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
-
 
     Raises:
         AttributeError: if the dataset_name doesn't exist in the repository
@@ -382,7 +379,7 @@ def load_process_DP(path='./data', dataset_name='ern', variant='undivided', rand
     # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def process_dummy_DP(num_instance_features=10, num_target_features=3, num_instances=50, num_targets=5, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format='numpy'):
+def process_dummy_DP(num_instance_features=10, num_target_features=3, num_instances=50, num_targets=5, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format='numpy'):    # pragma: no cover
     '''Generates a dummy multivariate regression dataset
 
     Args:
@@ -390,6 +387,7 @@ def process_dummy_DP(num_instance_features=10, num_target_features=3, num_instan
         num_target_features (int, optional): The number of target features. Defaults to 3.
         num_instances (int, optional): The number of instances. Defaults to 50.
         num_targets (int, optional): The number of targets. Defaults to 5.
+        
     Returns:
         dict: A dictionary with all the available data for the dyadic prediction dataset.
     '''
@@ -567,7 +565,7 @@ def generate_interaction_matrix(input_path, output_path):
     pickle.dump(y, open(output_path, 'wb'))
 
 
-def generate_dummy_dataset(num_instances, num_targets, num_instance_features, num_target_features, error_mu, error_sigma, sklearn_version=False, seed=42, mode='log', split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}):
+def generate_dummy_dataset(num_instances, num_targets, num_instance_features, num_target_features, error_mu, error_sigma, sklearn_version=False, seed=42, mode='log', split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}):     # pragma: no cover
 
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
@@ -620,7 +618,7 @@ def generate_dummy_dataset(num_instances, num_targets, num_instance_features, nu
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 
-def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None, num_target_features=None, split_instances=None, split_targets=None, return_static_features_data=False):
+def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None, num_target_features=None, split_instances=None, split_targets=None, return_static_features_data=False):    # pragma: no cover
      
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None

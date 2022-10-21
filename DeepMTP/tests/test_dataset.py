@@ -1,66 +1,105 @@
 from DeepMTP.dataset import load_process_MLC, load_process_MTR, load_process_DP, load_process_MC, load_process_MTL
+import pytest
 
-def test_load_process_MLC():
-    variant = 'undivided'
-    features_type = 'numpy'
-    data = load_process_MLC(path='./data', dataset_name='bibtex', variant=variant, features_type=features_type, print_mode='basic')
-    
-    if variant == 'undivided':
-        assert isinstance(data['val']['y'] , type(None))
-        assert isinstance(data['val']['X_instance'] , type(None))
-        assert isinstance(data['val']['X_target'] , type(None))
-        assert isinstance(data['test']['y'] , type(None))
-        assert isinstance(data['test']['X_instance'] , type(None))
-        assert isinstance(data['test']['X_target'] , type(None))
-        assert isinstance(data['train']['X_target'] , type(None))
-    
-    else:
-        assert isinstance(data['train']['X_target'] , type(None))
-        assert isinstance(data['val']['y'] , type(None))
-        assert isinstance(data['val']['X_instance'] , type(None))
-        assert isinstance(data['val']['X_target'] , type(None))
-        assert isinstance(data['test']['X_target'] , type(None))
+test_load_process_MLC_data = [
+    {'pass_fail': 'pass', 'dataset_name': 'bibtex', 'variant': 'undivided','features_type': 'numpy'},
+    {'pass_fail': 'pass', 'dataset_name': 'bibtex', 'variant': 'divided','features_type': 'dataframe'},
+    {'pass_fail': 'pass', 'dataset_name': 'bibtex', 'variant': 'undivided','features_type': 'dataframe'},
+    {'pass_fail': 'fail', 'dataset_name': 'bibtex', 'variant': 'divided','features_type': 'numpy'},
+    {'pass_fail': 'fail', 'dataset_name': 'lalalala', 'variant': 'undivided','features_type': 'numpy'},
+]
 
-    if features_type == 'numpy':
-        assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
-        if variant != 'undivided':
-            assert data['test']['y'].shape[0] == data['train']['X_instance'].shape[0]
-            
-    else:
-        assert data['train']['y'].shape[0] == len(data['train']['X_instance'])
-        if variant != 'undivided':
-            assert data['test']['y'].shape[0] == len(data['train']['X_instance'])
-            
-def test_load_process_MTR():
-    variant = 'undivided'
-    features_type = 'numpy'
-    data = load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', print_mode='basic')
+@pytest.mark.parametrize('test_load_process_MLC_data', test_load_process_MLC_data)
+def test_load_process_MLC(test_load_process_MLC_data):
+    pass_fail = test_load_process_MLC_data['pass_fail']
+    variant = test_load_process_MLC_data['variant']
+    features_type = test_load_process_MLC_data['features_type']
+    dataset_name = test_load_process_MLC_data['dataset_name']
     
-    if variant == 'undivided':
-        assert isinstance(data['val']['y'] , type(None))
-        assert isinstance(data['val']['X_instance'] , type(None))
-        assert isinstance(data['val']['X_target'] , type(None))
-        assert isinstance(data['test']['y'] , type(None))
-        assert isinstance(data['test']['X_instance'] , type(None))
-        assert isinstance(data['test']['X_target'] , type(None))
-        assert isinstance(data['train']['X_target'] , type(None))
-    
+    if pass_fail == 'fail':
+        with pytest.raises(Exception):
+            data = load_process_MLC(path='./data', dataset_name=dataset_name, variant=variant, features_type=features_type, print_mode='basic')
     else:
-        assert isinstance(data['train']['X_target'] , type(None))
-        assert isinstance(data['val']['y'] , type(None))
-        assert isinstance(data['val']['X_instance'] , type(None))
-        assert isinstance(data['val']['X_target'] , type(None))
-        assert isinstance(data['test']['X_target'] , type(None))
+        try:
+            data = load_process_MLC(path='./data', dataset_name=dataset_name, variant=variant, features_type=features_type, print_mode='basic')
+            if variant == 'undivided':
+                assert isinstance(data['val']['y'] , type(None))
+                assert isinstance(data['val']['X_instance'] , type(None))
+                assert isinstance(data['val']['X_target'] , type(None))
+                assert isinstance(data['test']['y'] , type(None))
+                assert isinstance(data['test']['X_instance'] , type(None))
+                assert isinstance(data['test']['X_target'] , type(None))
+                assert isinstance(data['train']['X_target'] , type(None))
+            
+            else:
+                assert isinstance(data['train']['X_target'] , type(None))
+                assert isinstance(data['val']['y'] , type(None))
+                assert isinstance(data['val']['X_instance'] , type(None))
+                assert isinstance(data['val']['X_target'] , type(None))
+                assert isinstance(data['test']['X_target'] , type(None))
 
-    if features_type == 'numpy':
-        assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
-        if variant != 'undivided':
-            assert data['test']['y'].shape[0] == data['train']['X_instance'].shape[0]
-            
+            if features_type == 'numpy':
+                assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
+                if variant != 'undivided':
+                    assert data['test']['y'].shape[0] == data['train']['X_instance'].shape[0]
+                    
+            else:
+                assert data['train']['y'].shape[0] == len(data['train']['X_instance'])
+                if variant != 'undivided':
+                    assert data['test']['y'].shape[0] == len(data['train']['X_instance'])
+        except Exception as exc:
+            assert False
+
+
+test_load_process_MTR_data = [
+    {'pass_fail': 'pass', 'dataset_name': 'enb', 'variant': 'undivided','features_type': 'numpy'},
+    {'pass_fail': 'pass', 'dataset_name': 'enb', 'variant': 'divided','features_type': 'dataframe'},
+    {'pass_fail': 'pass', 'dataset_name': 'enb', 'variant': 'undivided','features_type': 'dataframe'},
+    {'pass_fail': 'fail', 'dataset_name': 'enb', 'variant': 'divided','features_type': 'numpy'},
+    {'pass_fail': 'fail', 'dataset_name': 'lalalala', 'variant': 'undivided','features_type': 'numpy'},
+]
+
+@pytest.mark.parametrize('test_load_process_MTR_data', test_load_process_MTR_data)    
+def test_load_process_MTR(test_load_process_MTR_data):
+    pass_fail = test_load_process_MTR['pass_fail']
+    variant = test_load_process_MTR['variant']
+    features_type = test_load_process_MTR['features_type']
+    dataset_name = test_load_process_MTR['dataset_name']
+    
+    if pass_fail == 'fail':
+        with pytest.raises(Exception):
+            data = load_process_MTR(path='./data', dataset_name=dataset_name, features_type=features_type, print_mode='basic')
     else:
-        assert data['train']['y'].shape[0] == len(data['train']['X_instance'])
-        if variant != 'undivided':
-            assert data['test']['y'].shape[0] == len(data['train']['X_instance'])
+        try:
+            data = load_process_MTR(path='./data', dataset_name=dataset_name, features_type=features_type, print_mode='basic')
+            if variant == 'undivided':
+                assert isinstance(data['val']['y'] , type(None))
+                assert isinstance(data['val']['X_instance'] , type(None))
+                assert isinstance(data['val']['X_target'] , type(None))
+                assert isinstance(data['test']['y'] , type(None))
+                assert isinstance(data['test']['X_instance'] , type(None))
+                assert isinstance(data['test']['X_target'] , type(None))
+                assert isinstance(data['train']['X_target'] , type(None))
+            
+            else:
+                assert isinstance(data['train']['X_target'] , type(None))
+                assert isinstance(data['val']['y'] , type(None))
+                assert isinstance(data['val']['X_instance'] , type(None))
+                assert isinstance(data['val']['X_target'] , type(None))
+                assert isinstance(data['test']['X_target'] , type(None))
+
+            if features_type == 'numpy':
+                assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
+                if variant != 'undivided':
+                    assert data['test']['y'].shape[0] == data['train']['X_instance'].shape[0]
+                    
+            else:
+                assert data['train']['y'].shape[0] == len(data['train']['X_instance'])
+                if variant != 'undivided':
+                    assert data['test']['y'].shape[0] == len(data['train']['X_instance'])
+        except Exception as exc:
+            assert False
+            
             
 def test_load_process_DP():
     variant = 'undivided'

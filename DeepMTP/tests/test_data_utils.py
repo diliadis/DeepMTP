@@ -188,14 +188,21 @@ def test_get_estimated_validation_setting(get_estimated_validation_setting_data)
     assert get_estimated_validation_setting(novel_instance_targets_tuple[0], novel_instance_targets_tuple[1], verbose=False) == true_validation_setting
 
 
-@pytest.mark.parametrize('data_format_type_combo_data', data_format_type_combo_data)
-def test_process_instance_features(data_format_type_combo_data):
+test_process_instance_features_data = [
+    {'format': 'numpy', 'ids_type': 'int'}, 
+    {'format': 'dataframe', 'ids_type': 'int'}, 
+    {'format': 'dataframe', 'ids_type': 'string'},
+    {'format': 'None', 'ids_type': 'None'},
+    ]
+
+@pytest.mark.parametrize('test_process_instance_features_data', test_process_instance_features_data)
+def test_process_instance_features(test_process_instance_features_data):
     num_instances = 1000
     num_targets = 100
     num_instance_features = 10
  
-    data_format = data_format_type_combo_data['format']
-    ids_type = data_format_type_combo_data['ids_type']
+    data_format = test_process_instance_features_data['format']
+    ids_type = test_process_instance_features_data['ids_type']
  
     if ids_type == 'int':
         data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format=data_format)
@@ -220,26 +227,37 @@ def test_process_instance_features(data_format_type_combo_data):
             'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
         }}
       
-    instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
- 
-    assert instance_features['num_features'] == num_instance_features
-    assert instance_features['info'] == data_format
- 
-    if data_format == 'numpy':
-        assert original_instance_features.equals(instance_features['data'])
+    if ids_type in ['int', 'string']:
+        instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
+    
+        assert instance_features['num_features'] == num_instance_features
+        assert instance_features['info'] == data_format
+    
+        if data_format == 'numpy':
+            assert original_instance_features.equals(instance_features['data'])
+        else:
+            assert data['train']['X_instance'].equals(instance_features['data'])
     else:
-        assert data['train']['X_instance'].equals(instance_features['data'])
-  
+        assert None == process_instance_features(None, verbose=False)
+        
 
-@pytest.mark.parametrize('data_format_type_combo_data', data_format_type_combo_data)
-def test_process_target_features(data_format_type_combo_data):
+
+test_process_target_features_data = [
+    {'format': 'numpy', 'ids_type': 'int'}, 
+    {'format': 'dataframe', 'ids_type': 'int'}, 
+    {'format': 'dataframe', 'ids_type': 'string'},
+    {'format': 'None', 'ids_type': 'None'},
+    ]
+
+@pytest.mark.parametrize('test_process_target_features_data', test_process_target_features_data)
+def test_process_target_features(test_process_target_features_data):
     num_instances = 1000
     num_targets = 100
     num_instance_features = 20
     num_target_features = 10
 
-    data_format = data_format_type_combo_data['format']
-    ids_type = data_format_type_combo_data['ids_type']
+    data_format = test_process_target_features_data['format']
+    ids_type = test_process_target_features_data['ids_type']
 
     if ids_type == 'int':
         data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format=data_format)
@@ -263,16 +281,18 @@ def test_process_target_features(data_format_type_combo_data):
             'X_target': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
             'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
         }}
-  
-    target_features = process_target_features(data['train']['X_target'], verbose=False)
- 
-    assert target_features['num_features'] == num_target_features
-    assert target_features['info'] == data_format
- 
-    if data_format == 'numpy':
-        assert original_target_features.equals(target_features['data'])
+    if ids_type in ['int', 'string']:
+        target_features = process_target_features(data['train']['X_target'], verbose=False)
+    
+        assert target_features['num_features'] == num_target_features
+        assert target_features['info'] == data_format
+    
+        if data_format == 'numpy':
+            assert original_target_features.equals(target_features['data'])
+        else:
+            assert data['train']['X_target'].equals(target_features['data'])
     else:
-        assert data['train']['X_target'].equals(target_features['data'])
+        assert None == process_target_features(None, verbose=False)
 
 
 test_cross_input_consistency_check_instances_data = [
