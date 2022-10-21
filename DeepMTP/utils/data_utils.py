@@ -9,7 +9,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 import copy
 
-def normalize(row, scaler):
+def normalize(row, scaler): # pragma: no cover
     ''' Just normalizes a row or features
 
     Args:
@@ -188,6 +188,8 @@ def check_novel_instances(train, test, verbose=False, print_mode='basic'):
             if len(train_unique_instances) != len(test_unique_instances):
                 novel_instances_detected = True
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
+    else:
+        pass
     return novel_instances_detected
 
 def check_novel_targets(train, test, verbose=False, print_mode='basic'):
