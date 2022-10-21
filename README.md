@@ -3,7 +3,7 @@
 <h3 align="center">
 <p> A Deep Learning Framework for Multi-target Prediction </h3>
 
-
+[![Build Status](https://app.travis-ci.com/diliadis/DeepMTP.svg?branch=main)](https://app.travis-ci.com/diliadis/DeepMTP)
 [![PyPi Version](https://img.shields.io/pypi/v/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/)
 [![PyPi Version Alt](https://badge.fury.io/py/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) [![PyPi Python Versions](https://img.shields.io/pypi/pyversions/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) 
 [![GitHub license](https://img.shields.io/github/license/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/blob/main/LICENSE.md)
