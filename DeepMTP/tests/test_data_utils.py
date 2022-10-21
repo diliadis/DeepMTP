@@ -610,7 +610,7 @@ test_split_data_data = [
  	{'num_instances': 100, 'num_targets': 15, 'num_instance_features': None, 'num_target_features': 5, 'split_instances': None, 'split_targets': {'train':0.7, 'test':0.3}, 'validation_setting': 'C'},
   
 	{'num_instances': 100, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': None, 'split_targets': None, 'validation_setting': 'D'},	
-	{'num_instances': 100, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': {'train':0.7, 'val':0.1, 'test':0.3}, 'split_targets': None, 'validation_setting': 'D'},	
+	# {'num_instances': 100, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': {'train':0.7, 'val':0.1, 'test':0.3}, 'split_targets': None, 'validation_setting': 'D'},	
 	# {'num_instances': 100, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': {'train':0.7, 'test':0.3}, 'split_targets': None, 'validation_setting': 'D'},	
 	# {'num_instances': 100, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': None, 'split_targets': {'train':0.7, 'val':0.1, 'test':0.3}, 'validation_setting': 'D'},	
  	# {'num_instances': 100, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': None, 'split_targets': {'train':0.7, 'test':0.3}, 'validation_setting': 'D'},
@@ -624,20 +624,22 @@ test_split_data_data = [
 @pytest.mark.parametrize('test_split_data_data', test_split_data_data)
 def test_split_data(test_split_data_data):
 	original_data = generate_MTP_dataset(test_split_data_data['num_instances'],
-                                    test_split_data_data['num_targets'], 
-                                    num_instance_features=test_split_data_data['num_instance_features'],
-                                    num_target_features=test_split_data_data['num_target_features'],
-                                    split_instances={'train':0.7, 'val':0.1, 'test':0.3} if test_split_data_data['validation_setting'] in ['B', 'D'] else None,
-                                    split_targets={'train':0.7, 'val':0.1, 'test':0.3} if test_split_data_data['validation_setting'] in ['C', 'D'] else None,
-                                    )
+									test_split_data_data['num_targets'], 
+									num_instance_features=test_split_data_data['num_instance_features'],
+									num_target_features=test_split_data_data['num_target_features'],
+									split_instances={'train':0.7, 'val':0.1, 'test':0.3} if test_split_data_data['validation_setting'] in ['B', 'D'] else None,
+									split_targets={'train':0.7, 'val':0.1, 'test':0.3} if test_split_data_data['validation_setting'] in ['C', 'D'] else None,
+									return_static_features_data=True
+									)
  
 	processed_data = generate_MTP_dataset(test_split_data_data['num_instances'], 
-                                       test_split_data_data['num_targets'], 
-                                       num_instance_features=test_split_data_data['num_instance_features'], 
-                                       num_target_features=test_split_data_data['num_target_features'],
-                                       split_instances=test_split_data_data['split_instances'],
-                                       split_targets=test_split_data_data['split_targets'],
-                                       )
+									   test_split_data_data['num_targets'], 
+									   num_instance_features=test_split_data_data['num_instance_features'], 
+									   num_target_features=test_split_data_data['num_target_features'],
+									   split_instances=test_split_data_data['split_instances'],
+									   split_targets=test_split_data_data['split_targets'],
+									   return_static_features_data=True
+									   )
  
 	split_data(processed_data, test_split_data_data['validation_setting'], split_method='random', ratio={'train':0.7, 'val':0.1, 'test':0.3}, shuffle=False, seed=42, verbose=False, print_mode='basic')
 	

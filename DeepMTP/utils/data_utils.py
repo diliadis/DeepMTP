@@ -516,6 +516,7 @@ def split_data(data, validation_setting, split_method, ratio, shuffle, seed, ver
 
     '''    
     ratio['val'] = ratio['val']/(1-ratio['test'])
+    
     if validation_setting == 'B':
         if data['test']['y'] is None:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Splitting train to train-test according to validation setting '+validation_setting+'... ', end='')

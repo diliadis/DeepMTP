@@ -620,7 +620,7 @@ def generate_dummy_dataset(num_instances, num_targets, num_instance_features, nu
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
 
-def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None, num_target_features=None, split_instances=None, split_targets=None):
+def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None, num_target_features=None, split_instances=None, split_targets=None, return_static_features_data=False):
      
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
@@ -670,14 +670,14 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
         X_val_instance = X_train_instance[X_train_instance['id'].isin(val_instance_ids)]
         y_val = y_train[y_train['instance_id'].isin(val_instance_ids)]
     else:
-        if X_train_instance is not None:
+        if X_train_instance is not None and return_static_features_data:
             X_val_instance =  X_train_instance
 
     if test_instance_ids is not None:
         X_test_instance = X_train_instance[X_train_instance['id'].isin(test_instance_ids)]
         y_test = y_train[y_train['instance_id'].isin(test_instance_ids)]
     else:
-        if X_train_instance is not None:
+        if X_train_instance is not None and return_static_features_data:
             X_test_instance =  X_train_instance
 
     if train_instance_ids is not None:
@@ -691,7 +691,7 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
         else:
             y_val = y_train[y_train['target_id'].isin(val_target_ids)]
     else:
-        if X_train_target is not None:
+        if X_train_target is not None and return_static_features_data:
             X_val_target =  X_train_target
 
     if test_target_ids is not None:
@@ -701,7 +701,7 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
         else:
             y_test = y_train[y_train['target_id'].isin(test_target_ids)]
     else:
-        if X_train_target is not None:
+        if X_train_target is not None and return_static_features_data:
             X_test_target =  X_train_target
 
     if train_target_ids is not None:
