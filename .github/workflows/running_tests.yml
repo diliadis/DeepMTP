@@ -40,4 +40,4 @@ jobs:
           pip install -e .
       - name: Run unit tests
         run: |
-          run: python -m pytest --import-mode=append tests/
+          pytest
