@@ -61,7 +61,6 @@ test_load_process_MTR_data = [
 @pytest.mark.parametrize('test_load_process_MTR_data', test_load_process_MTR_data)    
 def test_load_process_MTR(test_load_process_MTR_data):
     pass_fail = test_load_process_MTR_data['pass_fail']
-    variant = test_load_process_MTR_data['variant']
     features_type = test_load_process_MTR_data['features_type']
     dataset_name = test_load_process_MTR_data['dataset_name']
     
@@ -89,12 +88,8 @@ def test_load_process_MTR(test_load_process_MTR_data):
 
             if features_type == 'numpy':
                 assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
-                if variant != 'undivided':
-                    assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
             else:
                 assert data['train']['y'].shape[0] == len(data['train']['X_instance'])
-                if variant != 'undivided':
-                    assert data['test']['y'].shape[0] == len(data['test']['X_instance'])
         except Exception as exc:
             assert False
             
