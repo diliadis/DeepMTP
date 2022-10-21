@@ -5,7 +5,8 @@ test_load_process_MLC_data = [
     {'pass_fail': 'pass', 'dataset_name': 'bibtex', 'variant': 'undivided','features_type': 'numpy'},
     {'pass_fail': 'pass', 'dataset_name': 'bibtex', 'variant': 'divided','features_type': 'dataframe'},
     {'pass_fail': 'pass', 'dataset_name': 'bibtex', 'variant': 'undivided','features_type': 'dataframe'},
-    {'pass_fail': 'fail', 'dataset_name': 'bibtex', 'variant': 'divided','features_type': 'numpy'},
+    {'pass_fail': 'fail', 'dataset_name': 'bibtex', 'variant': 'divided','features_type': 'lalala'},
+    {'pass_fail': 'fail', 'dataset_name': 'bibtex', 'variant': 'lalala','features_type': 'dataframe'},
     {'pass_fail': 'fail', 'dataset_name': 'lalalala', 'variant': 'undivided','features_type': 'numpy'},
 ]
 
@@ -61,10 +62,10 @@ test_load_process_MTR_data = [
 
 @pytest.mark.parametrize('test_load_process_MTR_data', test_load_process_MTR_data)    
 def test_load_process_MTR(test_load_process_MTR_data):
-    pass_fail = test_load_process_MTR['pass_fail']
-    variant = test_load_process_MTR['variant']
-    features_type = test_load_process_MTR['features_type']
-    dataset_name = test_load_process_MTR['dataset_name']
+    pass_fail = test_load_process_MTR_data['pass_fail']
+    variant = test_load_process_MTR_data['variant']
+    features_type = test_load_process_MTR_data['features_type']
+    dataset_name = test_load_process_MTR_data['dataset_name']
     
     if pass_fail == 'fail':
         with pytest.raises(Exception):
