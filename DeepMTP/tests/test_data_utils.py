@@ -602,7 +602,7 @@ test_split_data_data = [
 ]
 
 @pytest.mark.parametrize('test_split_data_data', test_split_data_data)
-def test_split_data():
+def test_split_data(test_split_data_data):
 	original_data = generate_MTP_dataset(test_split_data_data['num_instances'],
                                     test_split_data_data['num_targets'], 
                                     num_instance_features=test_split_data_data['num_instance_features'],
