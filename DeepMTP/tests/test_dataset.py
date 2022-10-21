@@ -53,11 +53,9 @@ def test_load_process_MLC(test_load_process_MLC_data):
 
 
 test_load_process_MTR_data = [
-    {'pass_fail': 'pass', 'dataset_name': 'enb', 'variant': 'undivided','features_type': 'numpy'},
-    {'pass_fail': 'pass', 'dataset_name': 'enb', 'variant': 'divided','features_type': 'dataframe'},
-    {'pass_fail': 'pass', 'dataset_name': 'enb', 'variant': 'undivided','features_type': 'dataframe'},
-    {'pass_fail': 'fail', 'dataset_name': 'enb', 'variant': 'divided','features_type': 'numpy'},
-    {'pass_fail': 'fail', 'dataset_name': 'lalalala', 'variant': 'undivided','features_type': 'numpy'},
+    {'pass_fail': 'pass', 'dataset_name': 'enb','features_type': 'numpy'},
+    {'pass_fail': 'pass', 'dataset_name': 'enb', 'features_type': 'dataframe'},
+    {'pass_fail': 'fail', 'dataset_name': 'lalalala','features_type': 'numpy'},
 ]
 
 @pytest.mark.parametrize('test_load_process_MTR_data', test_load_process_MTR_data)    
@@ -93,7 +91,6 @@ def test_load_process_MTR(test_load_process_MTR_data):
                 assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
                 if variant != 'undivided':
                     assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
-                    
             else:
                 assert data['train']['y'].shape[0] == len(data['train']['X_instance'])
                 if variant != 'undivided':
