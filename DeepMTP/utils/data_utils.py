@@ -96,7 +96,7 @@ def check_interaction_files_format(data, verbose=False, print_mode='basic'):
 
     '''    
     distinct_formats = set([data[mode]['y']['original_format'] for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None])
-    if distinct_formats:
+    if len(distinct_formats) != 0:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: checking format consistency... ', end='')
         if len(distinct_formats) == 1:
             print(('info: ' if print_mode=='dev' else '')+'Passed')
@@ -114,7 +114,7 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode='
     '''    
     # check for instance id type concistency across the interaction data sources
     distinct_instance_id_format = set([data[mode]['y']['instance_id_type'] for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None])
-    if distinct_instance_id_format:
+    if len(distinct_instance_id_format) != 0:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: checking instance id format consistency... ', end='')
         if len(distinct_instance_id_format) == 1:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Passed')
@@ -123,7 +123,7 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode='
 
     # check for target id type concistency across the interaction data sources
     distinct_target_id_format = set([data[mode]['y']['target_id_type'] for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None])
-    if distinct_target_id_format:
+    if len(distinct_target_id_format) != 0:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: checking target id type consistency... ', end='')
         if len(distinct_target_id_format) == 1:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Passed')
@@ -154,7 +154,7 @@ def check_target_variable_type(data, verbose=False, print_mode='basic'):
 
     '''   
     distinct_target_variable_type = set([check_variable_type(data[mode]['y']['data']) for mode in ['train', 'test', 'val'] if data[mode]['y'] is not None])
-    if distinct_target_variable_type:
+    if len(distinct_target_variable_type) != 0:
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: checking target variable type consistency... ', end='')
         if len(distinct_target_variable_type) == 1:
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Passed')
