@@ -160,6 +160,8 @@ def check_target_variable_type(data, verbose=False, print_mode='basic'):
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Passed')
         else:
             raise Exception(('error: ' if print_mode=='dev' else '')+'Inconsistent target variable type across the different interaction files')
+    else:
+        raise Exception(('error: ' if print_mode=='dev' else '')+'Could not detect the type of target variables')
     # return the detected type of target variable
     return list(distinct_target_variable_type)[0]
 

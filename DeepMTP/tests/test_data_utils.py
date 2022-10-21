@@ -66,20 +66,20 @@ def test_process_interaction_data(data_format_type_combo_data):
 
 
 interaction_files_format_check_should_throw_error = [True, False]
+test_check_interaction_files_format_data = [
+    ('fail', {'train': {'y': {'original_format': 'triplets'}}, 'val': {'y': {'original_format': 'numpy'}}, 'test': {'y': {'original_format': 'triplets'}}}),
+    ('pass', {'train': {'y': {'original_format': 'triplets'}}, 'val': {'y': {'original_format': 'triplets'}}, 'test': {'y': {'original_format': 'triplets'}}}),
+    ('pass', {'train': {'y': None}, 'val': {'y': None}, 'test': {'y': None}})
+]
 
-@pytest.mark.parametrize('interaction_files_format_check_should_throw_error', interaction_files_format_check_should_throw_error)
-def test_check_interaction_files_format(interaction_files_format_check_should_throw_error):
-    data = {}
-    if interaction_files_format_check_should_throw_error:
-        data['train'] = {'y': {'original_format': 'triplets'}}
-        data['val'] = {'y': {'original_format': 'numpy'}}
-        data['test'] = {'y': {'original_format': 'triplets'}}
+@pytest.mark.parametrize('test_check_interaction_files_format_data', test_check_interaction_files_format_data)
+def test_check_interaction_files_format(test_check_interaction_files_format_data):
+    pass_fail, data = test_check_interaction_files_format_data
+    
+    if pass_fail == 'fail':
         with pytest.raises(Exception):
             check_interaction_files_format(data)
     else:
-        data['train'] = {'y': {'original_format': 'triplets'}}
-        data['val'] = {'y': {'original_format': 'triplets'}}
-        data['test'] = {'y': {'original_format': 'triplets'}}
         try:
             check_interaction_files_format(data)
         except Exception as exc:
@@ -90,7 +90,8 @@ check_interaction_files_column_type_format_data = [
     ('pass', {'train': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}}),
     ('fail', {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'val': {'y': {'instance_id_type': 'str', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}}),
     ('fail', {'train': {'y': {'instance_id_type': 'int', 'target_id_type': 'str'}}, 'val': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}, 'test': {'y': {'instance_id_type': 'int', 'target_id_type': 'int'}}}),
-    ]
+    ('pass', {'train': {'y': None}, 'val': {'y': None}, 'test': {'y': None}}),
+]
 
 @pytest.mark.parametrize('check_interaction_files_column_type_format_data', check_interaction_files_column_type_format_data)
 def test_check_interaction_files_column_type_format(check_interaction_files_column_type_format_data):
@@ -131,6 +132,7 @@ check_target_variable_type_data = [
     ('pass', {'train': {'y': {'data': classification_df}}, 'val': {'y': {'data': classification_df}}, 'test': {'y': {'data': classification_df}}, 'mode': 'binary'}),
     ('pass', {'train': {'y': {'data': regression_df}}, 'val': {'y': {'data': regression_df}}, 'test': {'y': {'data': regression_df}}, 'mode': 'real-valued'}),
     ('fail', {'train': {'y': {'data': classification_df}}, 'val': {'y': {'data': regression_df}}, 'test': {'y': {'data': classification_df}}}),
+    ('fail', {'train': {'y': None}, 'val': {'y': None}, 'test': {'y': None}}),
 ]
 
 @pytest.mark.parametrize('check_target_variable_type_data', check_target_variable_type_data)
@@ -158,6 +160,7 @@ def test_check_novel_instances(check_novel_instances_data):
 
    
 check_novel_target_data = [
+    (None, {'train': None, 'test': None}),
     (True, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [4, 5, 6, 7], 'value': [0, 0, 0, 1]}), 'original_format': 'triplets'}}),
     (False, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}}),
     (True, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7, 8], 'target_id': [4, 5, 6, 7, 8], 'value': [0, 0, 0, 1, 1]}), 'original_format': 'numpy'}}),
@@ -176,6 +179,7 @@ get_estimated_validation_setting_data = [
     ((True, False), 'B'),
     ((False, True), 'C'),
     ((False, False), 'A'),
+    ((None, None), None),
     ]
 
 @pytest.mark.parametrize('get_estimated_validation_setting_data', get_estimated_validation_setting_data)
@@ -435,6 +439,23 @@ test_cross_input_consistency_check_instances_data = [
             'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
         },
         'validation_setting': 'B'}),
+     ('pass', { # one instance features data sources and three interaction data matrices
+        'train': {
+            'y': {'data': pd.DataFrame({'instance_id': [0, 0, 1, 1, 2, 2, 3, 3], 'target_id': [0, 1, 0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+            'X_instance': None,
+            'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+        },
+        'val': {
+            'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
+            'X_instance': None,
+            'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+        },
+        'test': {
+            'y': {'data': pd.DataFrame({'instance_id': [6, 6, 7, 7, 8, 8], 'target_id': [0, 1, 0, 1, 0, 1], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+            'X_instance': None,
+            'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+        },
+        'validation_setting': 'B'}),
 ]
 
 @pytest.mark.parametrize('test_cross_input_consistency_check_instances_data', test_cross_input_consistency_check_instances_data)
@@ -637,6 +658,23 @@ test_cross_input_consistency_check_targets_data = [
         'train': {
             'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
             'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3, 4, 5, 6, 7, 8], 'features': list(np.random.rand(9, 10))})},
+            'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
+        },
+        'val': {
+            'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1], 'target_id': [4, 4, 5, 5], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
+            'X_target': None,
+            'X_instance': None,
+        },
+        'test': {
+            'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1], 'target_id': [6, 6, 7, 7, 8, 8], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+            'X_target': None,
+            'X_instance': None,
+        },
+        'validation_setting': 'C'}),
+     ('pass', { # one target features data sources and three interaction data matrices
+        'train': {
+            'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+            'X_target': None,
             'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
         },
         'val': {
