@@ -41,12 +41,12 @@ def test_load_process_MLC(test_load_process_MLC_data):
             if features_type == 'numpy':
                 assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
                 if variant != 'undivided':
-                    assert data['test']['y'].shape[0] == data['train']['X_instance'].shape[0]
+                    assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
                     
             else:
                 assert data['train']['y'].shape[0] == len(data['train']['X_instance'])
                 if variant != 'undivided':
-                    assert data['test']['y'].shape[0] == len(data['train']['X_instance'])
+                    assert data['test']['y'].shape[0] == len(data['test']['X_instance'])
         except Exception as exc:
             assert False
 
@@ -91,12 +91,12 @@ def test_load_process_MTR(test_load_process_MTR_data):
             if features_type == 'numpy':
                 assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
                 if variant != 'undivided':
-                    assert data['test']['y'].shape[0] == data['train']['X_instance'].shape[0]
+                    assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
                     
             else:
                 assert data['train']['y'].shape[0] == len(data['train']['X_instance'])
                 if variant != 'undivided':
-                    assert data['test']['y'].shape[0] == len(data['train']['X_instance'])
+                    assert data['test']['y'].shape[0] == len(data['test']['X_instance'])
         except Exception as exc:
             assert False
             
