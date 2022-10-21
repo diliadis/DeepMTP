@@ -19,17 +19,16 @@ import numpy as np
 import pytest
 
 
-test_process_interaction_data_data = [
+data_format_type_combo_data = [
 	{'format': 'numpy', 'ids_type': 'int'}, 
-	{'format': 'numpy', 'ids_type': 'int'}, 
-	{'format': 'dataframe', 'ids_type': 'str'}, 
+	{'format': 'dataframe', 'ids_type': 'int'}, 
 	{'format': 'dataframe', 'ids_type': 'str'}
 	]
 
-@pytest.mark.parametrize('test_process_interaction_data_data', test_process_interaction_data_data)
-def test_process_interaction_data(test_process_interaction_data_data):
-	data_format = test_process_interaction_data_data['format']
-	ids_type = test_process_interaction_data_data['ids_type']
+@pytest.mark.parametrize('data_format_type_combo_data', data_format_type_combo_data)
+def test_process_interaction_data(data_format_type_combo_data):
+	data_format = data_format_type_combo_data['format']
+	ids_type = data_format_type_combo_data['ids_type']
 	
 	num_instances = 1000
 	num_targets = 100
@@ -181,17 +180,38 @@ def test_get_estimated_validation_setting(get_estimated_validation_setting_data)
 	assert get_estimated_validation_setting(novel_instance_targets_tuple[0], novel_instance_targets_tuple[1], verbose=False) == true_validation_setting
 
 
-@pytest.mark.parametrize('data_format', data_format)
-def test_process_instance_features(data_format):
+@pytest.mark.parametrize('data_format_type_combo_data', data_format_type_combo_data)
+def test_process_instance_features(data_format_type_combo_data):
 	num_instances = 1000
 	num_targets = 100
 	num_instance_features = 10
-
-	data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format=data_format)
-	if data_format == 'numpy':
-		original_instance_features = pd.DataFrame(np.arange(len(data['train']['X_instance'])), columns=['id'])
-		original_instance_features['features'] = [r for r in data['train']['X_instance']]
-  
+ 
+	data_format = data_format_type_combo_data['format']
+	ids_type = data_format_type_combo_data['ids_type']
+ 
+	if ids_type == 'int':
+		data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format=data_format)
+		if data_format == 'numpy':
+			original_instance_features = pd.DataFrame(np.arange(len(data['train']['X_instance'])), columns=['id'])
+			original_instance_features['features'] = [r for r in data['train']['X_instance']]
+ 	else:
+		data = { # three instance features data sources and three interaction data matrices
+		'train': {
+			'y': {'data': pd.DataFrame({'instance_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_instance': {'data': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'features': list(np.random.rand(4, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'instance_id': ['e', 'e', 'f', 'f'], 'target_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_instance': {'data': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'instance_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+			'X_instance': {'data': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))})},
+			'X_target': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		}}
+	  
 	instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
  
 	assert instance_features['num_features'] == num_instance_features
@@ -203,17 +223,38 @@ def test_process_instance_features(data_format):
 		assert data['train']['X_instance'].equals(instance_features['data'])
   
 
-@pytest.mark.parametrize('data_format', data_format)
-def test_process_target_features(data_format):
+@pytest.mark.parametrize('data_format', data_format_type_combo_data)
+def test_process_target_features(data_format_type_combo_data):
 	num_instances = 1000
 	num_targets = 100
 	num_instance_features = 20
 	num_target_features = 10
 
-	data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format=data_format)
-	if data_format == 'numpy':
-		original_target_features = pd.DataFrame(np.arange(len(data['train']['X_target'])), columns=['id'])
-		original_target_features['features'] = [r for r in data['train']['X_target']]
+	data_format = data_format_type_combo_data['format']
+	ids_type = data_format_type_combo_data['ids_type']
+
+	if ids_type == 'int':
+		data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format=data_format)
+		if data_format == 'numpy':
+			original_target_features = pd.DataFrame(np.arange(len(data['train']['X_target'])), columns=['id'])
+			original_target_features['features'] = [r for r in data['train']['X_target']]
+	else:
+		data = { # three instance features data sources and three interaction data matrices
+		'train': {
+			'y': {'data': pd.DataFrame({'target_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'instance_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'features': list(np.random.rand(4, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		},
+		'val': {
+			'y': {'data': pd.DataFrame({'target_id': ['e', 'e', 'f', 'f'], 'instance_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		},
+		'test': {
+			'y': {'data': pd.DataFrame({'target_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'instance_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'triplets'},
+			'X_target': {'data': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))})},
+			'X_instance': {'data': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))})},
+		}}
   
 	target_features = process_target_features(data['train']['X_target'], verbose=False)
  
