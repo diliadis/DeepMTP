@@ -22,7 +22,7 @@ import pytest
 data_format_type_combo_data = [
     {'format': 'numpy', 'ids_type': 'int'}, 
     {'format': 'dataframe', 'ids_type': 'int'}, 
-    {'format': 'dataframe', 'ids_type': 'str'}
+    {'format': 'dataframe', 'ids_type': 'string'}
     ]
 
 @pytest.mark.parametrize('data_format_type_combo_data', data_format_type_combo_data)
