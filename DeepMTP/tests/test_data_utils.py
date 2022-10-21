@@ -18,7 +18,6 @@ import pandas as pd
 import numpy as np
 import pytest
 
-
 data_format_type_combo_data = [
     {'format': 'numpy', 'ids_type': 'int'}, 
     {'format': 'dataframe', 'ids_type': 'int'}, 
@@ -147,6 +146,8 @@ def test_check_target_variable_type(check_target_variable_type_data):
 check_novel_instances_data = [
     (True, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [0, 1, 2, 3], 'value': [0, 0, 0, 1]}), 'original_format': 'triplets'}}),
     (False, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'triplets'}}),
+    (True, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'}, 'test': {'data': pd.DataFrame({'instance_id': [4, 5, 6, 7], 'target_id': [0, 1, 2, 3], 'value': [0, 0, 0, 1]}), 'original_format': 'numpy'}}),
+    (True, {'train': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'}, 'test': {'data': pd.DataFrame({'instance_id': [0, 1, 2, 3], 'target_id': [0, 1, 2, 3], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'}}),
 ]
 
 @pytest.mark.parametrize('check_novel_instances_data', check_novel_instances_data)
