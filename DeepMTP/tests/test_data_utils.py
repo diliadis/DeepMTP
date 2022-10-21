@@ -598,6 +598,8 @@ test_split_data_data = [
 	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': None, 'split_targets': None, 'validation_setting': 'B'},	
  	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': None, 'split_instances': None, 'split_targets': None, 'validation_setting': 'B'},
 	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': {'train':0.7, 'val':0.1, 'test':0.3}, 'split_targets': None, 'validation_setting': 'B'},	
+ 	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': None, 'split_instances': {'train':0.7, 'val':0.1, 'test':0.3}, 'split_targets': None, 'validation_setting': 'B'},
+	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': 5, 'split_instances': {'train':0.7, 'test':0.3}, 'split_targets': None, 'validation_setting': 'B'},	
  	{'num_instances': 10, 'num_targets': 15, 'num_instance_features': 10, 'num_target_features': None, 'split_instances': {'train':0.7, 'test':0.3}, 'split_targets': None, 'validation_setting': 'B'},
 ]
 
