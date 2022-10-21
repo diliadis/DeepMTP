@@ -5,8 +5,13 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install pytest
+  - pip install pytest-cov codecov
   - pip3 install torch torchvision torchaudio
   - python setup.py install
 
 script:
   - travis_wait 90 pytest DeepMTP/tests
+  - pytest -s --cov=DeepMTP
+
+after_success:
+    - codecov
