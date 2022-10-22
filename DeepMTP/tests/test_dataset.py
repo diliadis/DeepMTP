@@ -103,51 +103,58 @@ test_load_process_DP_data = [
 
 @pytest.mark.parametrize('test_load_process_DP_data', test_load_process_DP_data)    
 def test_load_process_DP(test_load_process_DP_data):
+	pass_fail = test_load_process_DP_data['pass_fail']
 	variant = test_load_process_DP_data['variant']
 	validation_setting = test_load_process_DP_data['validation_setting']
 	split_instance_features = test_load_process_DP_data['split_instance_features']
 	split_target_features = test_load_process_DP_data['split_target_features']
-	data = load_process_DP(path='./data', dataset_name=test_load_process_DP_data['dataset_name'], variant=variant, random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=split_instance_features, split_target_features=split_target_features, validation_setting=validation_setting, print_mode='basic')
-	
-	if variant == 'undivided':
-		assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
-		assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
+ 
+	if pass_fail == 'fail':
+		with pytest.raises(Exception): 
+			data = load_process_DP(path='./data', dataset_name=test_load_process_DP_data['dataset_name'], variant=variant, random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=split_instance_features, split_target_features=split_target_features, validation_setting=validation_setting, print_mode='basic')
 	else:
-		if validation_setting == 'B':
-			assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
-			if split_instance_features:
-				assert data['val']['y'].shape[0] == data['val']['X_instance'].shape[0]
-				assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
-			if variant == 'divided':
-				assert data['train']['y'].shape[1] == data['val']['y'].shape[1]
-				assert data['train']['y'].shape[1] == data['test']['y'].shape[1]
-			assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
-			
-		elif validation_setting == 'C':
-			assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
-			if split_target_features:
-				assert data['val']['y'].shape[1] == data['val']['X_target'].shape[0]
-				assert data['test']['y'].shape[1] == data['test']['X_target'].shape[0]
-			if variant == 'divided':
-				assert data['train']['y'].shape[0] == data['val']['y'].shape[0]
-				assert data['train']['y'].shape[0] == data['test']['y'].shape[0]
-			assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
-
-		elif validation_setting == 'D':
-			if split_instance_features:
+		try:
+			data = load_process_DP(path='./data', dataset_name=test_load_process_DP_data['dataset_name'], variant=variant, random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=split_instance_features, split_target_features=split_target_features, validation_setting=validation_setting, print_mode='basic')
+			if variant == 'undivided':
 				assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
-				assert data['val']['y'].shape[0] == data['val']['X_instance'].shape[0]
-				assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
-			else:
-				assert (data['train']['y'].shape[0] + data['val']['y'].shape[0] + data['test']['y'].shape[0]) == data['train']['X_instance'].shape[0]
-			
-			if split_target_features:
 				assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
-				assert data['val']['y'].shape[1] == data['val']['X_target'].shape[0]
-				assert data['test']['y'].shape[1] == data['test']['X_target'].shape[0]
 			else:
-				assert (data['train']['y'].shape[1] + data['val']['y'].shape[1] + data['test']['y'].shape[1]) == data['train']['X_target'].shape[0]
+				if validation_setting == 'B':
+					assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
+					if split_instance_features:
+						assert data['val']['y'].shape[0] == data['val']['X_instance'].shape[0]
+						assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
+					if variant == 'divided':
+						assert data['train']['y'].shape[1] == data['val']['y'].shape[1]
+						assert data['train']['y'].shape[1] == data['test']['y'].shape[1]
+					assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
+					
+				elif validation_setting == 'C':
+					assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
+					if split_target_features:
+						assert data['val']['y'].shape[1] == data['val']['X_target'].shape[0]
+						assert data['test']['y'].shape[1] == data['test']['X_target'].shape[0]
+					if variant == 'divided':
+						assert data['train']['y'].shape[0] == data['val']['y'].shape[0]
+						assert data['train']['y'].shape[0] == data['test']['y'].shape[0]
+					assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
 
+				elif validation_setting == 'D':
+					if split_instance_features:
+						assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
+						assert data['val']['y'].shape[0] == data['val']['X_instance'].shape[0]
+						assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
+					else:
+						assert (data['train']['y'].shape[0] + data['val']['y'].shape[0] + data['test']['y'].shape[0]) == data['train']['X_instance'].shape[0]
+					
+					if split_target_features:
+						assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
+						assert data['val']['y'].shape[1] == data['val']['X_target'].shape[0]
+						assert data['test']['y'].shape[1] == data['test']['X_target'].shape[0]
+					else:
+						assert (data['train']['y'].shape[1] + data['val']['y'].shape[1] + data['test']['y'].shape[1]) == data['train']['X_target'].shape[0]
+		except Exception as exc:
+			assert False
 
 def test_load_process_MC():
 	data = load_process_MC(path='./data', dataset_name='ml-100k', print_mode='basic')
