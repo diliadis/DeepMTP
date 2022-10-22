@@ -105,8 +105,8 @@ test_load_process_DP_data = [
 def test_load_process_DP(test_load_process_DP_data):
 	variant = test_load_process_DP_data['variant']
 	validation_setting = test_load_process_DP_data['validation_setting']
-	split_instance_features = False
-	split_target_features = False
+	split_instance_features = test_load_process_DP_data['split_instance_features']
+	split_target_features = test_load_process_DP_data['split_target_features']
 	data = load_process_DP(path='./data', dataset_name=test_load_process_DP_data['dataset_name'], variant=variant, random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=split_instance_features, split_target_features=split_target_features, validation_setting=validation_setting, print_mode='basic')
 	
 	if validation_setting == 'B':
