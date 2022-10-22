@@ -206,7 +206,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
 				instance_branch_input_dim = original_config['instance_branch_input_dim'],
 				target_branch_input_dim = original_config['target_branch_input_dim'],
 				validation_setting = original_config['validation_setting'],
-				general_architecture_version = 'dot_product',
+				general_architecture_version = original_config['general_architecture_version'],
 				problem_mode = original_config['problem_mode'],
 				learning_rate = 0.001,
 				decay = 0,
