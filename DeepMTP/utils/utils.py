@@ -9,12 +9,12 @@ def get_optimization_direction(metric_name: str) -> str:
     Returns:
         string: max if the goal is go maximize or min if the goal is to mimize  
     '''
-    metrics_to_max = ['sensitivity', 'f1_score', 'recall', 'positive_predictive_value']
+    metrics_to_max = ['sensitivity', 'f1_score', 'recall', 'positive_predictive_value', 'R2', 'accuracy', 'precision', 'auroc', 'aupr']
     if True in [n in metric_name for n in metrics_to_max]:
         return 'max'
     return 'min'
 
-class BaseExperimentInfo:
+class BaseExperimentInfo:    # pragma: no cover
     """A class used to keep track of all relevant info of a given experiment. This is mainly used by the HPO methods.
     """    
     def __init__(self, config, budget):
@@ -64,7 +64,7 @@ class BaseExperimentInfo:
             + '\n'
         )
 
-def get_default_dropout_rate():
+def get_default_dropout_rate():    # pragma: no cover
     ''' To return the default dropout rate
 
     Returns:
@@ -72,7 +72,7 @@ def get_default_dropout_rate():
     '''    
     return 0
 
-def get_default_batch_norm():
+def get_default_batch_norm():    # pragma: no cover
     ''' To return the default batch_norm value
 
     Returns:
@@ -81,7 +81,7 @@ def get_default_batch_norm():
     return False
 
 # dafault transofmations applied for resnet inputs 
-def get_default_train_transform():
+def get_default_train_transform():    # pragma: no cover
     ''' To return the default transformation pipeline for a resnet during training
 
     Returns:
@@ -99,7 +99,7 @@ def get_default_train_transform():
                            transforms.Normalize(mean = pretrained_means, 
                                                 std = pretrained_stds)
                        ])
-def get_default_inference_transform():
+def get_default_inference_transform():    # pragma: no cover
     ''' To return the default transformation pipeline for a resnet during inference
 
     Returns:

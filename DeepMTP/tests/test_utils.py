@@ -1,4 +1,14 @@
-from DeepMTP.utils.utils import generate_config
+from DeepMTP.utils.utils import generate_config, get_optimization_direction
+import pytest
+
+get_optimization_direction_data = [('max', 'recall'), ('min', 'MSE')]
+
+@pytest.mark.parametrize('get_optimization_direction_data', get_optimization_direction_data)    
+def get_optimization_direction(get_optimization_direction_data):
+    min_max = get_optimization_direction_data[0]
+    metric_name = get_optimization_direction_data[1]
+    assert get_optimization_direction(metric_name) == min_max
+
 
 def test_generate_config():
     
