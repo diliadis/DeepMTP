@@ -180,18 +180,18 @@ test_generate_config_fails_data = [
 	{'pass_fail': 'pass', 'temp_config_data': {'validation_setting': 'D', 'metrics_average': ['macro']}, 'data_to_be_added':{'metrics_average': ['macro', 'micro']}},
  	{'pass_fail': 'pass', 'temp_config_data': {'general_architecture_version': 'mlp'}, 'data_to_be_added':{}},
  	{'pass_fail': 'pass', 'temp_config_data': {'general_architecture_version': 'kronecker'}, 'data_to_be_added':{}},
- 	{'pass_fail': 'pass', 'temp_config_data': {'instance_branch_architecture': 'CONV'}, 'data_to_be_added':{'instance_branch_params': {
+ 	{'pass_fail': 'pass', 'temp_config_data': {'instance_branch_architecture': 'CONV'}, 'data_to_be_added':{
 																											'instance_branch_conv_architecture': 'resnet',
 																											'instance_branch_conv_architecture_version': 'resnet101',
 																											'instance_branch_conv_architecture_dense_layers': 1,
 																											'instance_branch_conv_architecture_last_layer_trained': 'last',
-																										},}},
- 	{'pass_fail': 'pass', 'temp_config_data': {'target_branch_architecture': 'CONV'}, 'data_to_be_added':{'target_branch_params': {
+																										},},
+ 	{'pass_fail': 'pass', 'temp_config_data': {'target_branch_architecture': 'CONV'}, 'data_to_be_added':{
 																										  'target_branch_conv_architecture': 'resnet',
 																										  'target_branch_conv_architecture_version': 'resnet101',
 																										  'target_branch_conv_architecture_dense_layers': 1,
 																										  'target_branch_conv_architecture_last_layer_trained': 'last',
-																										},}},
+																										},},
 ]
 
 @pytest.mark.parametrize('test_generate_config_fails_data', test_generate_config_fails_data)    
