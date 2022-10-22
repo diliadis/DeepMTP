@@ -440,14 +440,14 @@ def cross_input_consistency_check_targets(data, validation_setting, verbose, pri
                     raise Exception(('error: ' if print_mode=='dev' else '')+'Different number of (numpy) interaction files and target feature files is not currently supported')
                 else:
                     if verbose: print(('info: ' if print_mode=='dev' else '')+'Cross input consistency for (numpy) interaction data and target features checks out')
-                    if validation_setting == 'B':
-                        for mode in valid_modes:
-                            unique_entities_in_interactions_file = set(data[mode]['y']['data']['target_id'])
-                            unique_entities_in_features_file = set(data[mode]['X_target']['data']['id'].unique())
-                            if unique_entities_in_interactions_file.symmetric_difference(unique_entities_in_features_file) == set():
-                                if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same target ids in the interaction and features files for the '+mode+' set')
-                            else:
-                                raise Exception(('error: ' if print_mode=='dev' else '')+'Different target ids in the interaction and features files for the '+mode+' set.')
+                    # if validation_setting == 'C':
+                    for mode in valid_modes:
+                        unique_entities_in_interactions_file = set(data[mode]['y']['data']['target_id'])
+                        unique_entities_in_features_file = set(data[mode]['X_target']['data']['id'].unique())
+                        if unique_entities_in_interactions_file.symmetric_difference(unique_entities_in_features_file) == set():
+                            if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same target ids in the interaction and features files for the '+mode+' set')
+                        else:
+                            raise Exception(('error: ' if print_mode=='dev' else '')+'Different target ids in the interaction and features files for the '+mode+' set.')
             elif validation_setting in ['B', 'A']:
                 if num_target_features_sources != 1:
                     raise Exception(('error: ' if print_mode=='dev' else '')+'Setting '+validation_setting+' needs only one target feature file')
