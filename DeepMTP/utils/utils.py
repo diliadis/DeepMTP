@@ -332,9 +332,9 @@ def generate_config(
         raise Exception('Detected unknown metric averaging scheme for the current '+problem_mode+' task: '+str(unknown_metric_averaging_schemes))    
         
     if validation_setting == 'A':
-        if 'instance' in metrics or 'macro' in metrics:
+        if 'micro' not in metrics_average:
             print('The macro and instance-wise averaging schemes are not recommended while on validation setting A. The experiments will calculate the micro averaged version of the selected metrics')
-            metrics_average = ['micro']
+            metrics_average.append('micro')
     elif validation_setting in ['B', 'C']:
         if 'macro' not in metrics_average:
             print('Macro-averaging is the adviced averaging option for validation setting '+validation_setting+'. The macro option will be included in the results')
