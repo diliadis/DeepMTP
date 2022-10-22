@@ -221,7 +221,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
 				use_tensorboard_logger = True,
 				wandb_project_name = 'Dummy_Project',
 				wandb_project_entity = 'username',
-				metric_to_optimize_early_stopping = 'loss',
+				metric_to_optimize_early_stopping = original_config['metric_to_optimize_early_stopping'],
 				metric_to_optimize_best_epoch_selection = 'loss',
 
 				instance_branch_architecture = 'MLP',
