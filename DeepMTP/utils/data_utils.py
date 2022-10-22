@@ -553,16 +553,16 @@ def split_data(data, validation_setting, split_method, ratio, shuffle, seed, ver
                 data['train']['X_instance']['data'] = data['train']['X_instance']['data'].loc[~data['train']['X_instance']['data']['id'].isin(data['test']['X_instance']['id'].unique())]
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
    
-        if data['train']['X_instance'] is not None:
-            if data['test']['X_instance'] is None:
-                test_ids = data['test']['y']['data']['instance_id'].unique()
-                data['test']['X_instance'] = {'data': data['train']['X_instance']['data'].loc[data['train']['X_instance']['data']['id'].isin(test_ids)]}
-            if data['val']['X_instance'] is None:
-                val_ids = data['val']['y']['data']['instance_id'].unique()
-                data['val']['X_instance'] = {'data': data['train']['X_instance']['data'].loc[data['train']['X_instance']['data']['id'].isin(val_ids)]}
-            train_ids = data['train']['y']['data']['instance_id'].unique()
-            data['train']['X_instance'] = {'data': data['train']['X_instance']['data'].loc[data['train']['X_instance']['data']['id'].isin(train_ids)]}
-   
+        # if data['train']['X_instance'] is not None:
+        if data['test']['X_instance'] is None:
+            test_ids = data['test']['y']['data']['instance_id'].unique()
+            data['test']['X_instance'] = {'data': data['train']['X_instance']['data'].loc[data['train']['X_instance']['data']['id'].isin(test_ids)]}
+        if data['val']['X_instance'] is None:
+            val_ids = data['val']['y']['data']['instance_id'].unique()
+            data['val']['X_instance'] = {'data': data['train']['X_instance']['data'].loc[data['train']['X_instance']['data']['id'].isin(val_ids)]}
+        train_ids = data['train']['y']['data']['instance_id'].unique()
+        data['train']['X_instance'] = {'data': data['train']['X_instance']['data'].loc[data['train']['X_instance']['data']['id'].isin(train_ids)]}
+
         if data['train']['X_target'] is not None:
             if data['test']['X_target'] is None:
                 data['test']['X_target'] = data['train']['X_target']
@@ -595,15 +595,15 @@ def split_data(data, validation_setting, split_method, ratio, shuffle, seed, ver
                 data['train']['X_target']['data'] = data['train']['X_target']['data'].loc[~data['train']['X_target']['data']['id'].isin(data['test']['X_target']['id'].unique())]
             if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
             
-        if data['train']['X_target'] is not None:
-            if data['test']['X_target'] is None:
-                test_ids = data['test']['y']['data']['target_id'].unique()
-                data['test']['X_target'] = {'data': data['train']['X_target']['data'].loc[data['train']['X_target']['data']['id'].isin(test_ids)]}
-            if data['val']['X_target'] is None:
-                val_ids = data['val']['y']['data']['target_id'].unique()
-                data['val']['X_target'] = {'data': data['train']['X_target']['data'].loc[data['train']['X_target']['data']['id'].isin(val_ids)]}
-            train_ids = data['train']['y']['data']['target_id'].unique()
-            data['train']['X_target'] = {'data': data['train']['X_target']['data'].loc[data['train']['X_target']['data']['id'].isin(train_ids)]}
+        # if data['train']['X_target'] is not None:
+        if data['test']['X_target'] is None:
+            test_ids = data['test']['y']['data']['target_id'].unique()
+            data['test']['X_target'] = {'data': data['train']['X_target']['data'].loc[data['train']['X_target']['data']['id'].isin(test_ids)]}
+        if data['val']['X_target'] is None:
+            val_ids = data['val']['y']['data']['target_id'].unique()
+            data['val']['X_target'] = {'data': data['train']['X_target']['data'].loc[data['train']['X_target']['data']['id'].isin(val_ids)]}
+        train_ids = data['train']['y']['data']['target_id'].unique()
+        data['train']['X_target'] = {'data': data['train']['X_target']['data'].loc[data['train']['X_target']['data']['id'].isin(train_ids)]}
 
         if data['train']['X_instance'] is not None:
             if data['test']['X_instance'] is None:
