@@ -237,7 +237,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
 				metric_to_optimize_early_stopping = original_config['metric_to_optimize_early_stopping'],
 				metric_to_optimize_best_epoch_selection = 'loss',
 
-				instance_branch_architecture = 'MLP',
+				instance_branch_architecture = original_config['instance_branch_architecture'],
 				use_instance_features = False,
 				instance_branch_params = {
 					'instance_branch_nodes_reducing_factor': 2,
@@ -250,7 +250,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
 				},
 
 
-				target_branch_architecture = 'MLP',
+				target_branch_architecture = original_config['target_branch_architecture'],
 				use_target_features = False,
 				target_branch_params = {
 					'target_branch_nodes_reducing_factor': 2,
@@ -313,7 +313,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
 				metric_to_optimize_early_stopping = 'loss',
 				metric_to_optimize_best_epoch_selection = 'loss',
 
-				instance_branch_architecture = 'MLP',
+				instance_branch_architecture = original_config['instance_branch_architecture'],
 				use_instance_features = False,
 				instance_branch_params = {
 					'instance_branch_nodes_reducing_factor': 2,
@@ -326,7 +326,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
 				},
 
 
-				target_branch_architecture = 'MLP',
+				target_branch_architecture = original_config['target_branch_architecture'],
 				use_target_features = False,
 				target_branch_params = {
 					'target_branch_nodes_reducing_factor': 2,
