@@ -995,7 +995,7 @@ class BaseDataset(Dataset):
 '''
 
 # slow but memory efficient
-class BaseDataset(Dataset):
+class BaseDataset(Dataset):    # pragma: no cover
     """A custom pytorch Dataset with a flexible implementation that can handle different cases of instance and target features. 
        The speed of this could be improved by splitting this logic into multiple datasets designed for specific cases. 
     """    
