@@ -315,7 +315,7 @@ def load_process_DP(path='./data', dataset_name='ern', variant='undivided', rand
 
     else:
 
-        if not os.path.exists(path+'/dyadic_prediction-datasets/'+dataset_name):
+        if not os.path.exists(path+'/dyadic_prediction-datasets/'+dataset_name):    # pragma: no cover
             os.makedirs(path+'/dyadic_prediction-datasets/'+dataset_name)
             print(('info: ' if print_mode=='dev' else '')+'Downloading dataset from scratch... ', end="")
             wget.download(url+'Y.txt', path+'/dyadic_prediction-datasets/'+dataset_name+'/')
