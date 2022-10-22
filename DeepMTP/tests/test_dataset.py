@@ -92,6 +92,7 @@ test_load_process_DP_data = [
  	{'pass_fail': 'pass', 'dataset_name': 'ern', 'variant': 'divided', 'validation_setting': 'B', 'split_instance_features': False, 'split_target_features': False},
 	{'pass_fail': 'pass', 'dataset_name': 'ern', 'variant': 'undivided', 'validation_setting': 'B', 'split_instance_features': False, 'split_target_features': False},
 	{'pass_fail': 'pass', 'dataset_name': 'ern', 'variant': 'divided','validation_setting': 'C', 'split_instance_features': False, 'split_target_features': True},
+ 	{'pass_fail': 'pass', 'dataset_name': 'ern', 'variant': 'divided','validation_setting': 'C', 'split_instance_features': False, 'split_target_features': False},
 	{'pass_fail': 'pass', 'dataset_name': 'ern', 'variant': 'undivided', 'validation_setting': 'C', 'split_instance_features': False, 'split_target_features': False},
 	{'pass_fail': 'pass', 'dataset_name': 'ern', 'variant': 'undivided', 'validation_setting': 'C', 'split_instance_features': False, 'split_target_features': True},
 	{'pass_fail': 'pass', 'dataset_name': 'ern', 'variant': 'divided','validation_setting': 'D', 'split_instance_features': True, 'split_target_features': False},
