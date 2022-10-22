@@ -256,15 +256,9 @@ def generate_config(
     Returns:
         dict: A dictionary with the config that will be used by the model to adjust the architecture and all other training-related information
     '''
-    if metrics is not None and len(metrics) != 0:
-        if metric_to_optimize_early_stopping not in [m+'_'+m_a for m in metrics for m_a in metrics_average]+['loss']:
-            raise AttributeError('The metric requested to track during early stopping ('+metric_to_optimize_early_stopping+') is should be also defined in the metrics field of the configuration object '+str([m+'_'+m_a for m in metrics+['loss'] for m_a in metrics_average]))
-    else:
-        metrics = []
-        metrics_average = []
-        if metric_to_optimize_early_stopping != 'loss':
-            raise AttributeError('Only loss can be used for early stopping. To use '+metric_to_optimize_early_stopping+' it should be added in the metrics config parameter')
 
+    if metric_to_optimize_early_stopping not in [m+'_'+m_a for m in metrics for m_a in metrics_average]+['loss']:
+        raise AttributeError('The metric requested to track during early stopping ('+metric_to_optimize_early_stopping+') is should be also defined in the metrics field of the configuration object '+str([m+'_'+m_a for m in metrics+['loss'] for m_a in metrics_average]))
 
     base_config = {
         'validation_setting': validation_setting,
@@ -319,39 +313,38 @@ def generate_config(
     # various sanity checks for the metrics and averaging options that are provided by the user
     classification_metrics = ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision']
     regression_metrics = ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']
-    if metrics:
-        if problem_mode == 'classification':
-            metrics = [m.lower() for m in metrics]
-            unknown_metrics = set(metrics).difference(set(classification_metrics))
-            if unknown_metrics != set():
-                raise Exception('Detected unknown metrics for the current classification task: '+str(unknown_metrics))
-        else:
-            metrics = [m.upper() for m in metrics]
-            unknown_metrics = set(metrics).difference(set(regression_metrics))
-            if unknown_metrics != set():
-                raise Exception('Detected unknown metrics for the current regression task: '+str(unknown_metrics))
-        
+    if problem_mode == 'classification':
+        metrics = [m.lower() for m in metrics]
+        unknown_metrics = set(metrics).difference(set(classification_metrics))
+        if unknown_metrics != set():
+            raise Exception('Detected unknown metrics for the current classification task: '+str(unknown_metrics))
+    else:
+        metrics = [m.upper() for m in metrics]
+        unknown_metrics = set(metrics).difference(set(regression_metrics))
+        if unknown_metrics != set():
+            raise Exception('Detected unknown metrics for the current regression task: '+str(unknown_metrics))
+    
 
-        metric_averaging_schemes = ['macro', 'micro', 'instance']
-        metrics_average = [m.lower() for m in metrics_average]
-        unknown_metric_averaging_schemes = set(metrics_average).difference(set(metric_averaging_schemes))
-        if unknown_metric_averaging_schemes != set():
-            raise Exception('Detected unknown metric averaging scheme for the current '+problem_mode+' task: '+str(unknown_metric_averaging_schemes))    
-            
-        if validation_setting == 'A':
-            if 'instance' in metrics or 'macro' in metrics:
-                print('The macro and instance-wise averaging schemes are not recommended while on validation setting A. The experiments will calculate the micro averaged version of the selected metrics')
-                metrics_average = ['micro']
-        elif validation_setting in ['B', 'C']:
-            if 'macro' not in metrics_average:
-                print('Macro-averaging is the adviced averaging option for validation setting '+validation_setting+'. The macro option will be included in the results')
-                metrics_average.append('macro')
-        elif validation_setting == 'D':
-            if 'micro' not in metrics_average:
-                print('Micro-averaging is the adviced averaging option for validation setting '+validation_setting+'. The micro option will be included in the results')
-                metrics_average.append('micro')
-        else:
-            raise Exception('Validation setting '+validation_setting+' is not recognized.')
+    metric_averaging_schemes = ['macro', 'micro', 'instance']
+    metrics_average = [m.lower() for m in metrics_average]
+    unknown_metric_averaging_schemes = set(metrics_average).difference(set(metric_averaging_schemes))
+    if unknown_metric_averaging_schemes != set():
+        raise Exception('Detected unknown metric averaging scheme for the current '+problem_mode+' task: '+str(unknown_metric_averaging_schemes))    
+        
+    if validation_setting == 'A':
+        if 'instance' in metrics or 'macro' in metrics:
+            print('The macro and instance-wise averaging schemes are not recommended while on validation setting A. The experiments will calculate the micro averaged version of the selected metrics')
+            metrics_average = ['micro']
+    elif validation_setting in ['B', 'C']:
+        if 'macro' not in metrics_average:
+            print('Macro-averaging is the adviced averaging option for validation setting '+validation_setting+'. The macro option will be included in the results')
+            metrics_average.append('macro')
+    elif validation_setting == 'D':
+        if 'micro' not in metrics_average:
+            print('Micro-averaging is the adviced averaging option for validation setting '+validation_setting+'. The micro option will be included in the results')
+            metrics_average.append('micro')
+    else:
+        raise Exception('Validation setting '+validation_setting+' is not recognized.')
         
     base_config['metrics'] = metrics
     base_config['metrics_average'] = metrics_average
