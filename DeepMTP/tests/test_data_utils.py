@@ -295,7 +295,7 @@ def test_process_target_features(test_process_target_features_data):
 
     data_format = test_process_target_features_data['format']
     ids_type = test_process_target_features_data['ids_type']
-    features_type = test_process_instance_features_data['features_type']
+    features_type = test_process_target_features_data['features_type']
 
     if ids_type == 'int':
         data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format=data_format)
