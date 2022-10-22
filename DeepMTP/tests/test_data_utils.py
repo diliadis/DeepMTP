@@ -601,25 +601,6 @@ test_cross_input_consistency_check_targets_data = [
 			'X_target': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
 		},
 		'validation_setting': 'C'}),
-	'''
-	('pass', { 
-		'train': {
-			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
-			'X_target': {'data': pd.DataFrame({'id': [0, 1, 2, 3], 'features': list(np.random.rand(4, 10))})},
-			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
-		},
-		'val': {
-			'y': {'data': pd.DataFrame({'instance_id': [4, 4, 5, 5], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 0, 1]}), 'original_format': 'numpy'},
-			'X_target': {'data': pd.DataFrame({'id': [4, 5], 'features': list(np.random.rand(2, 10))})},
-			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
-		},
-		'test': {
-			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1], 'target_id': [6, 6, 7, 7, 8, 8], 'value': [0, 1, 0, 1, 0, 0]}), 'original_format': 'numpy'},
-			'X_target': {'data': pd.DataFrame({'id': [6, 7, 8], 'features': list(np.random.rand(3, 10))})},
-			'X_instance': {'data': pd.DataFrame({'id': [0, 1], 'features': list(np.random.rand(2, 10))})},
-		},
-		'validation_setting': 'C'}),
-	'''
 	('fail', { # 3 interaction files but 2 instance feature files (test instance features are missing)
 		'train': {
 			'y': {'data': pd.DataFrame({'instance_id': [0, 1, 0, 1, 0, 1, 0, 1], 'target_id': [0, 0, 1, 1, 2, 2, 3, 3], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}), 'original_format': 'numpy'},
