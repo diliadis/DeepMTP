@@ -80,7 +80,7 @@ def get_default_config_dict():
 get_optimization_direction_data = [('max', 'recall'), ('min', 'MSE')]
 
 @pytest.mark.parametrize('get_optimization_direction_data', get_optimization_direction_data)    
-def get_optimization_direction(get_optimization_direction_data):
+def test_get_optimization_direction(get_optimization_direction_data):
 	min_max = get_optimization_direction_data[0]
 	metric_name = get_optimization_direction_data[1]
 	assert get_optimization_direction(metric_name) == min_max
@@ -191,6 +191,11 @@ test_generate_config_fails_data = [
 																										  'target_branch_conv_architecture_dense_layers': 1,
 																										  'target_branch_conv_architecture_last_layer_trained': 'last',
 																										},},
+	{'pass_fail': 'fail', 'temp_config_data': {'instance_branch_architecture': None}, 'data_to_be_added':{}},
+ 	{'pass_fail': 'fail', 'temp_config_data': {'target_branch_architecture': None}, 'data_to_be_added':{}},
+	{'pass_fail': 'fail', 'temp_config_data': {'instance_branch_architecture': 'lalala'}, 'data_to_be_added':{}},
+ 	{'pass_fail': 'fail', 'temp_config_data': {'target_branch_architecture': 'lalala'}, 'data_to_be_added':{}},
+
 ]
 
 @pytest.mark.parametrize('test_generate_config_fails_data', test_generate_config_fails_data)    
