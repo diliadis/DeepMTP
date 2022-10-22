@@ -353,7 +353,8 @@ def test_generate_config_fails(test_generate_config_fails_data):
 			original_config.update(test_generate_config_fails_data['data_to_be_added'])
 			
 			for k,v in config.items():
-				assert k in original_config
-				assert v == original_config[k]
+				if True not in [kt in k for kt in ['train_transforms', 'inference_transforms']]:
+					assert k in original_config
+					assert v == original_config[k]
 		except Exception as exc:
 			assert False
