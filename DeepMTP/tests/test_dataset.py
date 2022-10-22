@@ -123,23 +123,25 @@ def test_load_process_DP(test_load_process_DP_data):
 				assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
 			else:
 				if validation_setting == 'B':
-					assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
 					if split_instance_features:
+						assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
 						assert data['val']['y'].shape[0] == data['val']['X_instance'].shape[0]
 						assert data['test']['y'].shape[0] == data['test']['X_instance'].shape[0]
-					if variant == 'divided':
 						assert data['train']['y'].shape[1] == data['val']['y'].shape[1]
 						assert data['train']['y'].shape[1] == data['test']['y'].shape[1]
+					else:
+						assert (data['train']['y'].shape[0] + data['val']['y'].shape[0] + data['test']['y'].shape[0]) == data['train']['X_instance'].shape[0]
 					assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
 					
 				elif validation_setting == 'C':
-					assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
 					if split_target_features:
+						assert data['train']['y'].shape[1] == data['train']['X_target'].shape[0]
 						assert data['val']['y'].shape[1] == data['val']['X_target'].shape[0]
 						assert data['test']['y'].shape[1] == data['test']['X_target'].shape[0]
-					if variant == 'divided':
 						assert data['train']['y'].shape[0] == data['val']['y'].shape[0]
 						assert data['train']['y'].shape[0] == data['test']['y'].shape[0]
+					else:
+						assert (data['train']['y'].shape[1] + data['val']['y'].shape[1] + data['test']['y'].shape[1]) == data['train']['X_target'].shape[0]
 					assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
 
 				elif validation_setting == 'D':
