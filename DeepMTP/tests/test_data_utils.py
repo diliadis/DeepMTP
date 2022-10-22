@@ -340,9 +340,9 @@ def test_process_target_features(test_process_target_features_data):
             
     if ids_type in ['int', 'string']:
         target_features = process_target_features(data['train']['X_target'], verbose=False)
-    
-        assert target_features['num_features'] == num_target_features
-        assert target_features['info'] == data_format
+        if 'dir' not in target_features['data'].columns:
+            assert target_features['num_features'] == num_target_features
+            assert target_features['info'] == data_format
     
         if data_format == 'numpy':
             assert original_target_features.equals(target_features['data'])
