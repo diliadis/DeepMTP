@@ -515,7 +515,7 @@ def load_process_MTL(path='./data', dataset_name='dog', print_mode='basic'):
     # print('base_dir: '+str(base_dir))
     # print('data_dir: '+str(data_dir))
 
-    if not os.path.exists(data_dir):
+    if not os.path.exists(data_dir):    # pragma: no cover
         print(('info: ' if print_mode=='dev' else '')+'Downloading dataset '+dataset_name+' from scratch... ', end="")
         r = requests.get('https://github.com/diliadis/MTL/blob/main/'+dataset_name+'.zip?raw=true') 
         z = zipfile.ZipFile(io.BytesIO(r.content))
