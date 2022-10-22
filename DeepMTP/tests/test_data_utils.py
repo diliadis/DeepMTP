@@ -25,8 +25,8 @@ data_format_type_combo_data = [
     {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0, 0, 1, 1], 'target_id': [0, 1, 0, 1]})}, # less than three columns
     {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0, 0, 1, 1], 'ta_id': [0, 1, 0, 1], 'value': [0, 1, 1, 0]})}, # wrong column name
     {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0, 0, 1, 1], 'target_id': [0, 1, 0, 1], 'value': ['a', 'b', 'c', 'd']})}, # characters in the value column
-    {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0.1, 0.2, 0.3, 0.4], 'ta_id': [0, 1, 0, 1], 'value': [0, 1, 1, 0]})}, # wrong column name
-    {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0, 0, 1, 1], 'ta_id': [0.1, 0.2, 0.3, 0.4], 'value': [0, 1, 1, 0]})}, # wrong column name
+    {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0.1, 0.2, 0.3, 0.4], 'target_id': [0, 1, 0, 1], 'value': [0, 1, 1, 0]})}, # wrong column name
+    {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0, 0, 1, 1], 'target_id': [0.1, 0.2, 0.3, 0.4], 'value': [0, 1, 1, 0]})}, # wrong column name
     {'pass_fail': 'fail', 'data': 'lalala'}, # 
 ]
 
@@ -205,10 +205,11 @@ def test_get_estimated_validation_setting(get_estimated_validation_setting_data)
 
 
 test_process_instance_features_data = [
-    {'format': 'numpy', 'ids_type': 'int'}, 
-    {'format': 'dataframe', 'ids_type': 'int'}, 
-    {'format': 'dataframe', 'ids_type': 'string'},
-    {'format': 'None', 'ids_type': 'None'},
+    {'format': 'numpy', 'ids_type': 'int', 'features_type': 'features'}, 
+    {'format': 'dataframe', 'ids_type': 'int', 'features_type': 'features'}, 
+    {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'features'},
+    {'format': 'None', 'ids_type': 'None', 'features_type': 'features'},
+    {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'dir'},
     ]
 
 @pytest.mark.parametrize('test_process_instance_features_data', test_process_instance_features_data)
@@ -219,6 +220,7 @@ def test_process_instance_features(test_process_instance_features_data):
  
     data_format = test_process_instance_features_data['format']
     ids_type = test_process_instance_features_data['ids_type']
+    features_type = test_process_instance_features_data['features_type']
  
     if ids_type == 'int':
         data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format=data_format)
@@ -226,22 +228,40 @@ def test_process_instance_features(test_process_instance_features_data):
             original_instance_features = pd.DataFrame(np.arange(len(data['train']['X_instance'])), columns=['id'])
             original_instance_features['features'] = [r for r in data['train']['X_instance']]
     else:
-        data = { # three instance features data sources and three interaction data matrices
-        'train': {
-            'y': pd.DataFrame({'instance_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}),
-            'X_instance': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'features': list(np.random.rand(4, 10))}),
-            'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
-        },
-        'val': {
-            'y': pd.DataFrame({'instance_id': ['e', 'e', 'f', 'f'], 'target_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}),
-            'X_instance': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))}),
-            'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
-        },
-        'test': {
-            'y': pd.DataFrame({'instance_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}),
-            'X_instance': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
-            'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
-        }}
+        if features_type == 'features':
+            data = { # three instance features data sources and three interaction data matrices
+            'train': {
+                'y': pd.DataFrame({'instance_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}),
+                'X_instance': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'features': list(np.random.rand(4, 10))}),
+                'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            },
+            'val': {
+                'y': pd.DataFrame({'instance_id': ['e', 'e', 'f', 'f'], 'target_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}),
+                'X_instance': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))}),
+                'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            },
+            'test': {
+                'y': pd.DataFrame({'instance_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}),
+                'X_instance': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
+                'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            }}
+        else:
+            data = { # three instance features data sources and three interaction data matrices
+            'train': {
+                'y': pd.DataFrame({'instance_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}),
+                'X_instance': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'dir': ['testing', 'is', 'really', 'hard']}),
+                'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            },
+            'val': {
+                'y': pd.DataFrame({'instance_id': ['e', 'e', 'f', 'f'], 'target_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}),
+                'X_instance': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))}),
+                'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            },
+            'test': {
+                'y': pd.DataFrame({'instance_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'target_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}),
+                'X_instance': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
+                'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            }}
       
     if ids_type in ['int', 'string']:
         instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
@@ -259,10 +279,11 @@ def test_process_instance_features(test_process_instance_features_data):
 
 
 test_process_target_features_data = [
-    {'format': 'numpy', 'ids_type': 'int'}, 
-    {'format': 'dataframe', 'ids_type': 'int'}, 
-    {'format': 'dataframe', 'ids_type': 'string'},
-    {'format': 'None', 'ids_type': 'None'},
+    {'format': 'numpy', 'ids_type': 'int', 'features_type': 'features'}, 
+    {'format': 'dataframe', 'ids_type': 'int', 'features_type': 'features'}, 
+    {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'features'},
+    {'format': 'None', 'ids_type': 'None', 'features_type': 'features'},
+    {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'dir'},
     ]
 
 @pytest.mark.parametrize('test_process_target_features_data', test_process_target_features_data)
@@ -274,6 +295,7 @@ def test_process_target_features(test_process_target_features_data):
 
     data_format = test_process_target_features_data['format']
     ids_type = test_process_target_features_data['ids_type']
+    features_type = test_process_instance_features_data['features_type']
 
     if ids_type == 'int':
         data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format=data_format)
@@ -281,22 +303,41 @@ def test_process_target_features(test_process_target_features_data):
             original_target_features = pd.DataFrame(np.arange(len(data['train']['X_target'])), columns=['id'])
             original_target_features['features'] = [r for r in data['train']['X_target']]
     else:
-        data = { # three instance features data sources and three interaction data matrices
-        'train': {
-            'y': pd.DataFrame({'target_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'instance_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}),
-            'X_target': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'features': list(np.random.rand(4, 10))}),
-            'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
-        },
-        'val': {
-            'y': pd.DataFrame({'target_id': ['e', 'e', 'f', 'f'], 'instance_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}),
-            'X_target': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))}),
-            'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
-        },
-        'test': {
-            'y': pd.DataFrame({'target_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'instance_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}),
-            'X_target': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
-            'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
-        }}
+        if features_type == 'features':
+            data = { # three instance features data sources and three interaction data matrices
+            'train': {
+                'y': pd.DataFrame({'target_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'instance_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}),
+                'X_target': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'features': list(np.random.rand(4, 10))}),
+                'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            },
+            'val': {
+                'y': pd.DataFrame({'target_id': ['e', 'e', 'f', 'f'], 'instance_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}),
+                'X_target': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))}),
+                'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            },
+            'test': {
+                'y': pd.DataFrame({'target_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'instance_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}),
+                'X_target': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
+                'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            }}
+        else:
+            data = { # three instance features data sources and three interaction data matrices
+            'train': {
+                'y': pd.DataFrame({'target_id': ['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'], 'instance_id': ['a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 1, 0, 1]}),
+                'X_target': pd.DataFrame({'id': ['a', 'b', 'c', 'd'], 'dir': ['testing', 'is', 'really', 'hard']}),
+                'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            },
+            'val': {
+                'y': pd.DataFrame({'target_id': ['e', 'e', 'f', 'f'], 'instance_id': ['a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1]}),
+                'X_target': pd.DataFrame({'id': ['e', 'f'], 'features': list(np.random.rand(2, 10))}),
+                'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            },
+            'test': {
+                'y': pd.DataFrame({'target_id': ['g', 'g', 'h', 'h', 'i', 'i'], 'instance_id': ['a', 'b', 'a', 'b', 'a', 'b'], 'value': [0, 1, 0, 1, 0, 0]}),
+                'X_target': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
+                'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
+            }}
+            
     if ids_type in ['int', 'string']:
         target_features = process_target_features(data['train']['X_target'], verbose=False)
     

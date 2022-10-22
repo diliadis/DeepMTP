@@ -241,7 +241,7 @@ def get_estimated_validation_setting(novel_instances_flag, novel_targets_flag, v
             validation_setting_detected = 'C'
         elif novel_instances_flag and novel_targets_flag:
             validation_setting_detected = 'D'
-        elif not novel_instances_flag and not novel_targets_flag:
+        else: # novel_instances_flag and not novel_targets_flag:
             validation_setting_detected = 'A'
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Done', end='')
     if verbose and validation_setting_detected is not None: print(('info: ' if print_mode=='dev' else '')+'-- Detected as setting :'+validation_setting_detected)
