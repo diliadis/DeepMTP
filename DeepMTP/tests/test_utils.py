@@ -281,7 +281,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
 				instance_branch_input_dim = original_config['instance_branch_input_dim'],
 				target_branch_input_dim = original_config['target_branch_input_dim'],
 				validation_setting = original_config['validation_setting'],
-				general_architecture_version = 'dot_product',
+				general_architecture_version = original_config['general_architecture_version'],
 				problem_mode = original_config['problem_mode'],
 				learning_rate = 0.001,
 				decay = 0,
@@ -309,7 +309,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
 				use_tensorboard_logger = True,
 				wandb_project_name = 'Dummy_Project',
 				wandb_project_entity = 'username',
-				metric_to_optimize_early_stopping = 'loss',
+				metric_to_optimize_early_stopping = original_config['metric_to_optimize_early_stopping'],
 				metric_to_optimize_best_epoch_selection = 'loss',
 
 				instance_branch_architecture = original_config['instance_branch_architecture'],
