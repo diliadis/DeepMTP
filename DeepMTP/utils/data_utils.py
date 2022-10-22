@@ -461,6 +461,8 @@ def cross_input_consistency_check_targets(data, validation_setting, verbose, pri
                         if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same target ids in the interaction and features file')
                     else:
                         raise Exception(('error: ' if print_mode=='dev' else '')+'Different target ids in the interaction and features files')
+            else:   # pragma: no cover
+                pass
         else:
             '''
             if the interaction files have a triplet format, only two cases are currently allowed
@@ -504,7 +506,10 @@ def cross_input_consistency_check_targets(data, validation_setting, verbose, pri
                         if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same target ids in the interaction and features file')
                     else:
                         raise Exception(('error: ' if print_mode=='dev' else '')+'Different target ids in the interaction and features files')
-
+            else:   # pragma: no cover
+                pass
+            
+            
 def split_data(data, validation_setting, split_method, ratio, shuffle, seed, verbose, print_mode='basic'):
     '''Splits the dataset and offers two main functionalities:
         * split based on the 4 different validation settings (A, B, C, D)
