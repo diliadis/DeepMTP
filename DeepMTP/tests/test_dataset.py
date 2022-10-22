@@ -127,7 +127,7 @@ def test_load_process_DP(test_load_process_DP_data):
 		if variant == 'divided':
 			assert data['train']['y'].shape[0] == data['val']['y'].shape[0]
 			assert data['train']['y'].shape[0] == data['test']['y'].shape[0]
-		assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[1]
+		assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
 
 	elif validation_setting == 'D':
 		assert data['train']['y'].shape[0] == data['train']['X_instance'].shape[0]
