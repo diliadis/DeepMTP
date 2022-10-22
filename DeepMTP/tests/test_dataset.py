@@ -102,7 +102,7 @@ test_load_process_DP_data = [
 ]
 
 @pytest.mark.parametrize('test_load_process_DP_data', test_load_process_DP_data)    
-def test_load_process_DP():
+def test_load_process_DP(test_load_process_DP_data):
 	variant = test_load_process_DP_data['variant']
 	validation_setting = test_load_process_DP_data['validation_setting']
 	split_instance_features = False
