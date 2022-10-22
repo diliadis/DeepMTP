@@ -371,7 +371,8 @@ def cross_input_consistency_check_instances(data, validation_setting, verbose, p
                         if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same instance ids in the interaction and features file')
                     else:
                         raise Exception(('error: ' if print_mode=='dev' else '')+'Different instance ids in the interaction and features files')
-
+            else:   # pragma: no cover
+                pass
         else: # dataframe version
             '''
             if the interaction files have a triplet format, only two cases are currently allowed
@@ -415,7 +416,8 @@ def cross_input_consistency_check_instances(data, validation_setting, verbose, p
                         if verbose: print(('info: ' if print_mode=='dev' else '')+'-- Same instance ids in the interaction and features file')
                     else:
                         raise Exception(('error: ' if print_mode=='dev' else '')+'Different instance ids in the interaction and features files')
-
+            else:   # pragma: no cover
+                pass
 def cross_input_consistency_check_targets(data, validation_setting, verbose, print_mode='basic'):
     '''Checks the consistency of target ids in the interaction data and target features. The requirements to pass this check change depending on the format of the interaction data and target features
 
