@@ -94,7 +94,7 @@ def test_generate_config():
 		instance_branch_input_dim = original_config['instance_branch_input_dim'],
 		target_branch_input_dim = original_config['target_branch_input_dim'],
 		validation_setting = original_config['validation_setting'],
-		general_architecture_version = 'dot_product',
+		general_architecture_version = original_config['general_architecture_version'],
 		problem_mode = original_config['problem_mode'],
 		learning_rate = 0.001,
 		decay = 0,
@@ -109,8 +109,8 @@ def test_generate_config():
 		num_workers = 4,
 		# metrics = ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'],
 		# metrics_average = ['macro', 'micro'],
-		metrics = ['hamming_loss', 'auroc'],
-		metrics_average = ['macro'],
+		metrics = original_config['metrics'],
+		metrics_average = original_config['metrics_average'],
 		patience = 10,
 
 		evaluate_train = True,
@@ -122,10 +122,10 @@ def test_generate_config():
 		use_tensorboard_logger = True,
 		wandb_project_name = 'Dummy_Project',
 		wandb_project_entity = 'username',
-		metric_to_optimize_early_stopping = 'loss',
+		metric_to_optimize_early_stopping = original_config['metric_to_optimize_early_stopping'],
 		metric_to_optimize_best_epoch_selection = 'loss',
 
-		instance_branch_architecture = 'MLP',
+		instance_branch_architecture = original_config['instance_branch_architecture'],
 		use_instance_features = False,
 		instance_branch_params = {
 			'instance_branch_nodes_reducing_factor': 2,
@@ -137,8 +137,7 @@ def test_generate_config():
 			# 'instance_branch_conv_architecture_last_layer_trained': 'last',
 		},
 
-
-		target_branch_architecture = 'MLP',
+		target_branch_architecture = original_config['target_branch_architecture'],
 		use_target_features = False,
 		target_branch_params = {
 			'target_branch_nodes_reducing_factor': 2,
