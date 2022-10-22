@@ -265,9 +265,9 @@ def test_process_instance_features(test_process_instance_features_data):
       
     if ids_type in ['int', 'string']:
         instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
-    
-        assert instance_features['num_features'] == num_instance_features
-        assert instance_features['info'] == data_format
+        if 'dir' not in instance_features['data'].columns:
+            assert instance_features['num_features'] == num_instance_features
+            assert instance_features['info'] == data_format
     
         if data_format == 'numpy':
             assert original_instance_features.equals(instance_features['data'])
