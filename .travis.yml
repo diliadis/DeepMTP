@@ -14,7 +14,7 @@ install:
 
 script:
   - travis_wait 90 pytest DeepMTP/tests
-  - pytest -s --cov=DeepMTP --ignore=DeepMTP/tests
+  - pytest -s --cov=DeepMTP 
 
 after_success:
     - codecov
