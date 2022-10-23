@@ -178,7 +178,7 @@ def get_performance_results(
 
             # iterate over the targets
             for target_i, idxs in index_arr_per_target.items():
-                if (len(np.unique(true_values_arr[idxs])) > 1) or (len(np.unique(pred_values_arr[idxs])) > 1):
+                if problem_mode=='regression' or (len(np.unique(true_values_arr[idxs])) > 1) or (len(np.unique(pred_values_arr[idxs])) > 1):
 
                     results = base_evaluator(
                         true_values_arr[idxs],
@@ -237,7 +237,7 @@ def get_performance_results(
 
             # iterate over the instances
             for instance_i, idxs in index_arr_per_instance.items():
-                if (len(np.unique(true_values_arr[idxs])) > 1) and (len(np.unique(pred_values_arr[idxs])) > 1):
+                if problem_mode=='regression' or (len(np.unique(true_values_arr[idxs])) > 1) and (len(np.unique(pred_values_arr[idxs])) > 1):
 
                     results = base_evaluator(
                         true_values_arr[idxs],
