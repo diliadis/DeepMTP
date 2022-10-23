@@ -22,10 +22,10 @@ class RandomSearch:
         self.max_num_epochs = max_num_epochs
         self.experiment_history = {}
 
-    def get_run_summary(self):
+    def get_run_summary(self):    # pragma: no cover
         return self.experiment_history
 
-    def run_optimizer(self):
+    def run_optimizer(self):    # pragma: no cover
 
         self.configs_to_evaluate = [BaseExperimentInfo(config=self.configspace.sample_configuration(), budget=self.max_num_epochs) for c in range(self.budget)]
 
