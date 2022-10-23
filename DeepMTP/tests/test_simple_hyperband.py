@@ -68,4 +68,4 @@ def test_HyperBand():
         6: {'n_i': [6, 2], 'r_i': [27, 81], 'num_iters': 2},
         5: {'n_i': [5], 'r_i': [81], 'num_iters': 1}}
     
-    assert budgets_per_bracket == precalc_hb
+    assert hb.budgets_per_bracket == precalc_hb
