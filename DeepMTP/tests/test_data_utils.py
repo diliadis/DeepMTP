@@ -938,52 +938,52 @@ def test_data_process(test_data_process_data):
             train, val, test, info = data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, shuffle=True, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None)
             
             if info['detected_validation_setting'] == 'B':
-                assert len(train) == (len(set(train['y']['instance_id'])) * len(set(train['y']['target_id'])))
-                assert len(val) == (len(set(val['y']['instance_id'])) * len(set(val['y']['target_id'])))
-                assert len(test) == (len(set(test['y']['instance_id'])) * len(set(test['y']['target_id'])))
+                assert len(train) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
+                assert len(val) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
+                assert len(test) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
 
                 # no overlaping instance ids between the train, val and test sets
-                assert set(train['y']['instance_id']).symmetric_difference(set(val['y']['instance_id'])) == set()
-                assert set(train['y']['instance_id']).symmetric_difference(set(test['y']['instance_id'])) == set()
-                assert set(val['y']['instance_id']).symmetric_difference(set(test['y']['instance_id'])) == set()
+                assert set(train['y']['data']['instance_id']).symmetric_difference(set(val['y']['data']['instance_id'])) == set()
+                assert set(train['y']['data']['instance_id']).symmetric_difference(set(test['y']['data']['instance_id'])) == set()
+                assert set(val['y']['data']['instance_id']).symmetric_difference(set(test['y']['data']['instance_id'])) == set()
 
                 # in setting B you don't split on targets, so train, val and test should have the same target ids
-                assert set(train['y']['target_id']) == set(val['y']['target_id'])
-                assert set(train['y']['target_id']) == set(test['y']['target_id'])
+                assert set(train['y']['data']['target_id']) == set(val['y']['data']['target_id'])
+                assert set(train['y']['data']['target_id']) == set(test['y']['data']['target_id'])
                 
                 # train,val and test have the same instance ids between their interaction matrices and instance features
-                assert set(train['X_instance']['id']) == set(train['y']['instance_id'])
-                assert set(val['X_instance']['id']) == set(val['y']['instance_id'])
-                assert set(test['X_instance']['id']) == set(test['y']['instance_id'])
+                assert set(train['X_instance']['data']['id']) == set(train['y']['data']['instance_id'])
+                assert set(val['X_instance']['data']['id']) == set(val['y']['data']['instance_id'])
+                assert set(test['X_instance']['data']['id']) == set(test['y']['data']['instance_id'])
                     
                 if train['X_target'] is not None:
-                    assert set(train['X_target']['id']) == set(train['y']['target_id'])
-                    assert set(val['X_target']['id']) == set(val['y']['target_id'])
-                    assert set(test['X_target']['id']) == set(test['y']['target_id'])
+                    assert set(train['X_target']['data']['id']) == set(train['y']['data']['target_id'])
+                    assert set(val['X_target']['data']['id']) == set(val['y']['data']['target_id'])
+                    assert set(test['X_target']['data']['id']) == set(test['y']['data']['target_id'])
                     
             if info['detected_validation_setting'] == 'C':
-                assert len(train) == (len(set(train['y']['instance_id'])) * len(set(train['y']['target_id'])))
-                assert len(val) == (len(set(val['y']['instance_id'])) * len(set(val['y']['target_id'])))
-                assert len(test) == (len(set(test['y']['instance_id'])) * len(set(test['y']['target_id'])))
+                assert len(train) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
+                assert len(val) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
+                assert len(test) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
                 
                 # no overlaping instance ids between the train, val and test sets
-                assert set(train['y']['target_id']).symmetric_difference(set(val['y']['target_id'])) == set()
-                assert set(train['y']['target_id']).symmetric_difference(set(test['y']['target_id'])) == set()
-                assert set(val['y']['target_id']).symmetric_difference(set(test['y']['target_id'])) == set()
+                assert set(train['y']['data']['target_id']).symmetric_difference(set(val['y']['data']['target_id'])) == set()
+                assert set(train['y']['data']['target_id']).symmetric_difference(set(test['y']['data']['target_id'])) == set()
+                assert set(val['y']['data']['target_id']).symmetric_difference(set(test['y']['data']['target_id'])) == set()
 
                 # in setting B you don't split on targets, so train, val and test should have the same target ids
-                assert set(train['y']['instance_id']) == set(val['y']['instance_id'])
-                assert set(train['y']['instance_id']) == set(test['y']['instance_id'])
+                assert set(train['y']['data']['instance_id']) == set(val['y']['data']['instance_id'])
+                assert set(train['y']['data']['instance_id']) == set(test['y']['data']['instance_id'])
                 
                 # train,val and test have the same instance ids between their interaction matrices and instance features
-                assert set(train['X_target']['id']) == set(train['y']['target_id'])
-                assert set(val['X_target']['id']) == set(val['y']['target_id'])
-                assert set(test['X_target']['id']) == set(test['y']['target_id'])
+                assert set(train['X_target']['data']['id']) == set(train['y']['data']['target_id'])
+                assert set(val['X_target']['data']['id']) == set(val['y']['data']['target_id'])
+                assert set(test['X_target']['data']['id']) == set(test['y']['data']['target_id'])
                     
                 if train['X_target'] is not None:
-                    assert set(train['X_instance']['id']) == set(train['y']['instance_id'])
-                    assert set(val['X_instance']['id']) == set(val['y']['instance_id'])
-                    assert set(test['X_instance']['id']) == set(test['y']['instance_id'])
+                    assert set(train['X_instance']['data']['id']) == set(train['y']['data']['instance_id'])
+                    assert set(val['X_instance']['data']['id']) == set(val['y']['data']['instance_id'])
+                    assert set(test['X_instance']['data']['id']) == set(test['y']['data']['instance_id'])
                     
             
         except Exception as exc:
