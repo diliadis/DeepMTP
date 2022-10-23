@@ -947,7 +947,7 @@ def test_data_process(test_data_process_data):
                 # data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format='numpy')
                 data = load_process_DP(dataset_name='ern', variant='divided', random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=True, split_target_features=True, validation_setting='D', print_mode='basic')
             
-            train, val, test, info = data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, shuffle=True, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None)
+            train, val, test, info = data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, shuffle=True, seed=42, verbose=False, print_mode='basic', scale_instance_features=scale_instance_features, scale_target_features=scale_target_features)
             
             if info['detected_validation_setting'] == 'B':
                 assert len(train['y']['data']) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
