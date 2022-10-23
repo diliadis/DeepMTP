@@ -909,7 +909,7 @@ def test_split_data(test_split_data_data):
 test_data_process_data = [
     {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy'},
     {'pass_fail': 'pass', 'MTP_setting': 'MTR', 'interaction_matrix_format': 'dataframe'},
-    # {'pass_fail': 'pass', 'MTP_setting': 'MC'},
+    {'pass_fail': 'pass', 'MTP_setting': 'DP', 'interaction_matrix_format': 'numpy'},
     # {'pass_fail': 'pass', 'MTP_setting': 'DP'},
 
 ]
@@ -934,7 +934,7 @@ def test_data_process(test_data_process_data):
                 data = process_dummy_MTR(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format=interaction_matrix_format, features_format='dataframe', variant='divided', split_ratio={'train': 0.7, 'val':0.1, 'test': 0.2}, random_state=42)
             elif MTP_setting == 'DP':
                 # data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format='numpy')
-                data = load_process_DP(dataset_name='ern', variant='divided', random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=False, split_target_features=False, validation_setting='D', print_mode='basic')
+                data = load_process_DP(dataset_name='ern', variant='divided', random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=True, split_target_features=True, validation_setting='D', print_mode='basic')
             
             train, val, test, info = data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, shuffle=True, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None)
             
@@ -963,7 +963,7 @@ def test_data_process(test_data_process_data):
                     assert set(val['X_target']['data']['id']) == set(val['y']['data']['target_id'])
                     assert set(test['X_target']['data']['id']) == set(test['y']['data']['target_id'])
                     
-            if info['detected_validation_setting'] == 'C':
+            elif info['detected_validation_setting'] == 'C':
                 assert len(train['y']['data']) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
                 assert len(val['y']['data']) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
                 assert len(test['y']['data']) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
@@ -988,6 +988,25 @@ def test_data_process(test_data_process_data):
                     assert set(val['X_instance']['data']['id']) == set(val['y']['data']['instance_id'])
                     assert set(test['X_instance']['data']['id']) == set(test['y']['data']['instance_id'])
                     
+            elif info['detected_validation_setting'] == 'D':
+                assert len(train['y']['data']) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
+                assert len(val['y']['data']) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
+                assert len(test['y']['data']) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
+                if interaction_matrix_format == 'dataframe':
+                    # no overlaping instance ids between the train, val and test sets
+                    assert set(train['y']['data']['instance_id']).intersection(set(val['y']['data']['instance_id'])) == set()
+                    assert set(train['y']['data']['instance_id']).intersection(set(test['y']['data']['instance_id'])) == set()
+                    assert set(val['y']['data']['instance_id']).intersection(set(test['y']['data']['instance_id'])) == set()
+                
+                # train,val and test have the same instance ids between their interaction matrices and instance features
+                assert set(train['X_instance']['data']['id']) == set(train['y']['data']['instance_id'])
+                assert set(val['X_instance']['data']['id']) == set(val['y']['data']['instance_id'])
+                assert set(test['X_instance']['data']['id']) == set(test['y']['data']['instance_id'])
+                # train,val and test have the same instance ids between their interaction matrices and instance features
+                assert set(train['X_target']['data']['id']) == set(train['y']['data']['target_id'])
+                assert set(val['X_target']['data']['id']) == set(val['y']['data']['target_id'])
+                assert set(test['X_target']['data']['id']) == set(test['y']['data']['target_id'])
+                
             
         except Exception as exc:
             assert False
