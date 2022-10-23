@@ -38,6 +38,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
           pip3 install torch torchvision torchaudio
+          pip install tensorboard
+          pip install prettytable
           pip install -r requirements.txt
           pip install -e .
       - name: Run unit tests
