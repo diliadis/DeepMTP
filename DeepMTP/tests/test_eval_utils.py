@@ -161,13 +161,12 @@ def test_get_performance_results(mode):
         assert math.isclose(results['train_MAE_macro'], results['train_MAE_micro'])
         assert math.isclose(results['train_MAE_macro'], macro_MAE)
         assert math.isclose(results['train_MAE_instance'], instance_MAE)
-        
-        assert math.isclose(results['train_RMSE_macro'], macro_RMSE)
-        assert math.isclose(results['train_RMSE_micro'], micro_RMSE)
-        assert math.isclose(results['train_RMSE_instance'], instance_RMSE)
 
         assert math.isclose(results['train_R2_macro'], macro_R2)
         assert math.isclose(results['train_R2_micro'], micro_R2)
         assert math.isclose(results['train_R2_instance'], instance_R2)
-
+        
+        assert math.isclose(results['train_RMSE_macro'], macro_RMSE)
+        assert math.isclose(results['train_RMSE_micro'], micro_RMSE)
+        assert math.isclose(results['train_RMSE_instance'], instance_RMSE)
         
