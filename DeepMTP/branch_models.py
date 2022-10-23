@@ -29,7 +29,7 @@ class MLP(nn.Sequential):
 				if not skip_last_act:
 					self.predictor.append(nn.LeakyReLU())
 
-	def forward(self, v):
+	def forward(self, v):    # pragma: no cover
 		# predict
 		v = v.float()
 		for i, layer in enumerate(self.predictor):

@@ -909,6 +909,7 @@ def test_split_data(test_split_data_data):
 test_data_process_data = [
     {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy', 'scale_instance_features': None, 'scale_target_features': None},
     {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy', 'scale_instance_features': 'MinMax', 'scale_target_features': None},
+    {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy', 'scale_instance_features': 'MinMax', 'scale_target_features': 'MinMax'},
     {'pass_fail': 'pass', 'MTP_setting': 'MTR', 'interaction_matrix_format': 'dataframe', 'scale_instance_features': None, 'scale_target_features': None},
     {'pass_fail': 'pass', 'MTP_setting': 'DP', 'interaction_matrix_format': 'numpy', 'scale_instance_features': None, 'scale_target_features': None},
     {'pass_fail': 'pass', 'MTP_setting': 'DP', 'interaction_matrix_format': 'numpy', 'scale_instance_features': 'Standard', 'scale_target_features': 'MinMax'},
