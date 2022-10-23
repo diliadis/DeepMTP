@@ -59,8 +59,8 @@ def test_HyperBand():
         verbose=True
     )
     
-    assert hb.eta == 10
-    assert hb.max_budget == 200
+    assert hb.eta == 3
+    assert hb.max_budget == 81
     
     precalc_hb = {81: {'n_i': [81, 27, 9, 3, 1], 'r_i': [1, 3, 9, 27, 81], 'num_iters': 5},
         27: {'n_i': [27, 9, 3, 1], 'r_i': [3, 9, 27, 81], 'num_iters': 4},
