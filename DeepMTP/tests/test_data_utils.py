@@ -943,9 +943,9 @@ def test_data_process(test_data_process_data):
                 assert len(test['y']['data']) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
 
                 # no overlaping instance ids between the train, val and test sets
-                assert set(train['y']['data']['instance_id']).symmetric_difference(set(val['y']['data']['instance_id'])) == set()
-                assert set(train['y']['data']['instance_id']).symmetric_difference(set(test['y']['data']['instance_id'])) == set()
-                assert set(val['y']['data']['instance_id']).symmetric_difference(set(test['y']['data']['instance_id'])) == set()
+                assert set(train['y']['data']['instance_id']).intersection(set(val['y']['data']['instance_id'])) == set()
+                assert set(train['y']['data']['instance_id']).intersection(set(test['y']['data']['instance_id'])) == set()
+                assert set(val['y']['data']['instance_id']).intersection(set(test['y']['data']['instance_id'])) == set()
 
                 # in setting B you don't split on targets, so train, val and test should have the same target ids
                 assert set(train['y']['data']['target_id']) == set(val['y']['data']['target_id'])
@@ -967,9 +967,9 @@ def test_data_process(test_data_process_data):
                 assert len(test['y']['data']) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
                 
                 # no overlaping instance ids between the train, val and test sets
-                assert set(train['y']['data']['target_id']).symmetric_difference(set(val['y']['data']['target_id'])) == set()
-                assert set(train['y']['data']['target_id']).symmetric_difference(set(test['y']['data']['target_id'])) == set()
-                assert set(val['y']['data']['target_id']).symmetric_difference(set(test['y']['data']['target_id'])) == set()
+                assert set(train['y']['data']['target_id']).intersection(set(val['y']['data']['target_id'])) == set()
+                assert set(train['y']['data']['target_id']).intersection(set(test['y']['data']['target_id'])) == set()
+                assert set(val['y']['data']['target_id']).intersection(set(test['y']['data']['target_id'])) == set()
 
                 # in setting B you don't split on targets, so train, val and test should have the same target ids
                 assert set(train['y']['data']['instance_id']) == set(val['y']['data']['instance_id'])
