@@ -74,7 +74,7 @@ def get_performance_results(
     if mode != '':
         mode += '_'
 
-    if verbose:
+    if verbose:   # pragma: no cover
         print(
             'There are '
             + str(np.count_nonzero(np.array(pred_values_arr)))
@@ -94,7 +94,7 @@ def get_performance_results(
     if isinstance(targets_arr, list):
         targets_arr = np.array(targets_arr)
 
-    if verbose:
+    if verbose:   # pragma: no cover
         print('train_true_value: ' + str(train_true_value))
         print('True_values length: ' + str(len(true_values_arr)))
         print('Predicted_values length: ' + str(len(pred_values_arr)))
@@ -156,7 +156,7 @@ def get_performance_results(
                     .flatten()
                 )
 
-            if verbose:
+            if verbose:   # pragma: no cover
                 print('Unscaled True_values: ' + str(true_values_arr[:10]))
                 print('Unscaled Predicted_values: ' + str(pred_values_arr[:10]))
 
@@ -212,7 +212,7 @@ def get_performance_results(
                                 + str(metric_val)
                             )
                 else:
-                    if verbose:
+                    if verbose:   # pragma: no cover
                         print(
                             'Warning: Target'
                             + str(target_i)
@@ -289,7 +289,7 @@ def get_performance_results(
                 if verbose:
                     print(metric_name + '_instance: ' + str(avg_val))
 
-    if verbose:
+    if verbose:   # pragma: no cover
         print('==================================')
         print('')
 
@@ -297,7 +297,7 @@ def get_performance_results(
 
 
 # with micro-averaging you loose the notion of multiple-targets. You just simplify the problem and assume you are working with just one target. The train_true_value variable is only used for the calculation of the relative root mean squared error RRMSE.
-def base_evaluator(
+def base_evaluator(   # pragma: no cover
     true_values_arr, pred_values_arr, problem_mode, metrics, idx, train_true_value=None, verbose=False
 ):
     '''The function that actually calculates the different metrics
@@ -424,7 +424,7 @@ def get_epilepsy_specific_metrics(
         'positive_predictive_value',
         'f1_score_epilepsy_version',
     ],
-):
+):   # pragma: no cover
     '''Function that calculates specific metrics used in Epilepsy prediction tasks
 
     Args:
