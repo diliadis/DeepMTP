@@ -832,7 +832,7 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
 
     # check for novel instances
     novel_instances = check_novel_instances(data['train']['y'], data['test']['y'], verbose=verbose, print_mode=print_mode)
-    if verbose: 
+    if verbose:    # pragma: no cover
         if novel_instances is None:
             print(('info: ' if print_mode=='dev' else '')+'-- Test set was not provided, could not detect if novel instances exist or not ')
         elif novel_instances:
@@ -842,7 +842,7 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
 
     # check for novel targets
     novel_targets = check_novel_targets(data['train']['y'], data['test']['y'], verbose=verbose, print_mode=print_mode)
-    if verbose:
+    if verbose:   # pragma: no cover
         if novel_targets is None:
             print(('info: ' if print_mode=='dev' else '')+'-- Test set was not provided, could not detect if novel targets exist or not ')
         elif novel_targets:
