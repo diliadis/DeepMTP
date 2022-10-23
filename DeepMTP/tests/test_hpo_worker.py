@@ -4,11 +4,12 @@ import torch
 from DeepMTP.hpo_worker import BaseWorker
 from DeepMTP.dataset import load_process_MLC
 from DeepMTP.utils.data_utils import data_process
-
+'''
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
     reason="Full training tests require a GPU."
 )
+'''
 def test_Baseworker():
     
     data = load_process_MLC(dataset_name='emotions', variant='divided', features_type='numpy', print_mode='basic')
