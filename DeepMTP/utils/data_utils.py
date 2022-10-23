@@ -910,7 +910,9 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
                 if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
             else:
                 if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_instance_features+' scaling for the instance features while supplying images. This step will be skipped')
-
+        else:
+            if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_instance_features+' scaling for the instance features without supplying any instance features. This step will be skipped')
+        
     if scale_target_features is not None:
         if scale_target_features == 'MinMax':
             target_scaler = MinMaxScaler()
@@ -929,7 +931,9 @@ def data_process(data, validation_setting=None, split_method='random', ratio={'t
                 if verbose: print(('info: ' if print_mode=='dev' else '')+'Done')
             else:
                 if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_target_features+' scaling for the target features while supplying images. This step will be skipped')
-
+        else:
+            if verbose: print(('warning: ' if print_mode=='dev' else '')+'-- Requested '+scale_target_features+' scaling for the target features without supplying any target features. This step will be skipped')
+    
     return data['train'], data['val'], data['test'], data['info']
 
 '''
