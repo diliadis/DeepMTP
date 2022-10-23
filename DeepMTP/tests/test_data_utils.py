@@ -938,9 +938,9 @@ def test_data_process(test_data_process_data):
             train, val, test, info = data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, shuffle=True, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None)
             
             if info['detected_validation_setting'] == 'B':
-                assert len(train) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
-                assert len(val) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
-                assert len(test) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
+                assert len(train['y']['data']) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
+                assert len(val['y']['data']) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
+                assert len(test['y']['data']) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
 
                 # no overlaping instance ids between the train, val and test sets
                 assert set(train['y']['data']['instance_id']).symmetric_difference(set(val['y']['data']['instance_id'])) == set()
@@ -962,9 +962,9 @@ def test_data_process(test_data_process_data):
                     assert set(test['X_target']['data']['id']) == set(test['y']['data']['target_id'])
                     
             if info['detected_validation_setting'] == 'C':
-                assert len(train) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
-                assert len(val) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
-                assert len(test) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
+                assert len(train['y']['data']) == (len(set(train['y']['data']['instance_id'])) * len(set(train['y']['data']['target_id'])))
+                assert len(val['y']['data']) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
+                assert len(test['y']['data']) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
                 
                 # no overlaping instance ids between the train, val and test sets
                 assert set(train['y']['data']['target_id']).symmetric_difference(set(val['y']['data']['target_id'])) == set()
