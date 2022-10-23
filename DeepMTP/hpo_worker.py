@@ -40,7 +40,7 @@ class BaseWorker:
         else:
             self.mode = mode
 
-    def compute(self, budget, config):
+    def compute(self, budget, config):    # pragma: no cover
         '''The input parameter 'config' (dictionary) contains the sampled configurations passed by the bohb optimizer
         '''
         current_config = self.base_config.copy()
