@@ -19,6 +19,8 @@ def test_MLP(test_MLP_data):
     calculated_nodes_per_layer.append(test_MLP_data['input_dim'])
     if not isinstance(test_MLP_data['nodes_per_layer'], list):
         calculated_nodes_per_layer.extend([test_MLP_data['nodes_per_layer']] * test_MLP_data['num_layers'])
+    else:
+        calculated_nodes_per_layer.extend(test_MLP_data['nodes_per_layer'])
     calculated_nodes_per_layer.append(test_MLP_data['output_dim'])
     
     for idx, layer in enumerate(linear_layers):
