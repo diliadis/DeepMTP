@@ -22,7 +22,7 @@ from DeepMTP.branch_models import *
 from DeepMTP.utils.model_utils import EarlyStopping
 from DeepMTP.utils.eval_utils import get_performance_results
 
-class TwoBranchDotProductModel(nn.Sequential):
+class TwoBranchDotProductModel(nn.Sequential):   # pragma: no cover
     '''Implements a two branch neural network that uses a dot product to combine the two embeddings.
     '''	
     def __init__(self, config, instance_branch_model, target_branch_model):
@@ -37,7 +37,7 @@ class TwoBranchDotProductModel(nn.Sequential):
         output = torch.unsqueeze((instance_embedding*target_embedding).sum(1), 1)
         return output
 
-class TwoBranchMLPModel(nn.Sequential):
+class TwoBranchMLPModel(nn.Sequential):   # pragma: no cover
     '''Implements a two branch neural network that uses an MLP on top of the two branches. The two embedding vectors are just concatenated
     '''
     def __init__(self, config, instance_branch_model, target_branch_model):
@@ -55,7 +55,7 @@ class TwoBranchMLPModel(nn.Sequential):
         output = self.comb_branch(v_comb)
         return output
 
-class TwoBranchKroneckerModel(nn.Sequential):
+class TwoBranchKroneckerModel(nn.Sequential):   # pragma: no cover
     '''Implements a two branch neural network that first computes the kronecker product of the two embeddings and then passes the resulting vector to an MLP (terminating to a single output node)
     '''
     def __init__(self, config, instance_branch_model, target_branch_model):
@@ -77,10 +77,10 @@ class TwoBranchKroneckerModel(nn.Sequential):
         return output
 
 
-class DeepMTP:
+class DeepMTP:   # pragma: no cover
     ''' Implements the training and inference logic of the DeepMTP framework. 
     '''
-    def __init__(self, config, instance_branch_model=None, target_branch_model=None, checkpoint_dir=None):
+    def __init__(self, config, instance_branch_model=None, target_branch_model=None, checkpoint_dir=None):   # pragma: no cover
         self.checkpoint_dict = None
         self.wandb_run = None
         self.tensorboard_logger = None
@@ -196,7 +196,7 @@ class DeepMTP:
             metric_to_track=self.config['metric_to_optimize_early_stopping'] if self.config['use_early_stopping'] else self.config['metric_to_optimize_best_epoch_selection']
         )
 
-    def inference(self, model, dataloader, mode, epoch=0, return_predictions=False, verbose=False):
+    def inference(self, model, dataloader, mode, epoch=0, return_predictions=False, verbose=False):   # pragma: no cover
         model.eval()
         with torch.no_grad():
             loss_arr = []
@@ -261,7 +261,7 @@ class DeepMTP:
             else:
                 return results
 
-    def train(self, train_data, val_data, test_data, verbose=False):
+    def train(self, train_data, val_data, test_data, verbose=False):   # pragma: no cover
         self.deepMTP_model.train()
 
         # train_dataset = BaseDataset(self.config, train_data['y'], train_data['X_instance'], train_data['X_target'])
@@ -473,12 +473,12 @@ class DeepMTP:
 
         return val_best_performance_results
 
-    def predict(self, data, return_predictions=False, verbose=False):
+    def predict(self, data, return_predictions=False, verbose=False):   # pragma: no cover
         self.deepMTP_model.to(self.device)
         dataloader = DataLoader(BaseDataset(self.config, data['y'], data['X_instance'], data['X_target'], instance_transform=self.config['instance_inference_transforms'], target_transform=self.config['target_inference_transforms']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'], pin_memory=True)
         return self.inference(self.deepMTP_model, dataloader, '', 0, return_predictions=True, verbose=verbose)
 
-    def save_model(self, verbose=False):
+    def save_model(self, verbose=False):   # pragma: no cover
         self.config['use_tensorboard_logger'] = False
         if verbose: print('Saving the best model... ', end='')
         torch.save({
@@ -489,5 +489,5 @@ class DeepMTP:
             }, self.experiment_dir+'/model.pt')
         if verbose: print('Done')
 
-def initialize_mode(config):
+def initialize_mode(config):   # pragma: no cover
     return DeepMTP(config)
