@@ -910,15 +910,18 @@ test_data_process_data = [
     {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy'},
     {'pass_fail': 'pass', 'MTP_setting': 'MTR', 'interaction_matrix_format': 'dataframe'},
     {'pass_fail': 'pass', 'MTP_setting': 'DP', 'interaction_matrix_format': 'numpy'},
+    {'pass_fail': 'fail', 'data': {'test': {}, 'val': {}}},
+    {'pass_fail': 'fail', 'data': {'train': {},'test': {}, 'val': {}}}
+    {'pass_fail': 'fail', 'data': {'train': {}}}
+    {'pass_fail': 'fail', 'data': {'train': {'y': {}}, 'val': {'y': {}}}}
     # {'pass_fail': 'pass', 'MTP_setting': 'DP'},
-
+    {'pass_fail': 'fail', 'data': {'train': {'y': {}} }}
 ]
    
 @pytest.mark.parametrize('test_data_process_data', test_data_process_data)
 def test_data_process(test_data_process_data):
     pass_fail = test_data_process_data['pass_fail']
-    MTP_setting = test_data_process_data['MTP_setting']
-    interaction_matrix_format = test_data_process_data['interaction_matrix_format']
+
     
     num_instances = 100
     num_targets = 20
@@ -927,6 +930,9 @@ def test_data_process(test_data_process_data):
     
     if pass_fail == 'pass':
         try:
+            MTP_setting = test_data_process_data['MTP_setting']
+            interaction_matrix_format = test_data_process_data['interaction_matrix_format']
+            
             if MTP_setting == 'MLC':
                 # data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy')
                 data = load_process_MLC(dataset_name='emotions', variant='divided', features_type='numpy', print_mode='basic')
@@ -1012,4 +1018,4 @@ def test_data_process(test_data_process_data):
             assert False
     else:
         with pytest.raises(Exception):
-            cross_input_consistency_check_targets(data, data['validation_setting'], verbose=False)
+            train, val, test, info = data_process(test_data_process_data['data'], validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, shuffle=True, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None)
