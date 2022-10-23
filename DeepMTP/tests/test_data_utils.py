@@ -911,11 +911,11 @@ test_data_process_data = [
     {'pass_fail': 'pass', 'MTP_setting': 'MTR', 'interaction_matrix_format': 'dataframe'},
     {'pass_fail': 'pass', 'MTP_setting': 'DP', 'interaction_matrix_format': 'numpy'},
     {'pass_fail': 'fail', 'data': {'test': {}, 'val': {}}},
-    {'pass_fail': 'fail', 'data': {'train': {},'test': {}, 'val': {}}}
-    {'pass_fail': 'fail', 'data': {'train': {}}}
-    {'pass_fail': 'fail', 'data': {'train': {'y': {}}, 'val': {'y': {}}}}
+    {'pass_fail': 'fail', 'data': {'train': {},'test': {}, 'val': {}}},
+    {'pass_fail': 'fail', 'data': {'train': {}}},
+    {'pass_fail': 'fail', 'data': {'train': {'y': {}}, 'val': {'y': {}}}},
     # {'pass_fail': 'pass', 'MTP_setting': 'DP'},
-    {'pass_fail': 'fail', 'data': {'train': {'y': {}} }}
+    {'pass_fail': 'fail', 'data': {'train': {'y': {}} }},
 ]
    
 @pytest.mark.parametrize('test_data_process_data', test_data_process_data)
