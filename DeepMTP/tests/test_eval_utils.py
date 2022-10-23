@@ -87,7 +87,7 @@ def test_get_performance_results(mode):
         y_true = np.random.rand(1000,10)
         y_pred = np.random.rand(1000,10)
 
-        # calculating macro accuracy
+        # calculating macro metrics
         RMSE_per_column = []
         MSE_per_column = []
         MAE_score_per_column = []
@@ -103,6 +103,24 @@ def test_get_performance_results(mode):
         macro_MAE = np.mean(MAE_score_per_column)
         macro_R2 = np.mean(R2_per_column)
         
+        
+        # calculating instance metrics
+        RMSE_per_row = []
+        MSE_per_row = []
+        MAE_score_per_row = []
+        R2_per_row = []
+        for j in range(y_true.shape[0]):
+            RMSE_per_row.append(mean_squared_error(y_true[j, :], y_pred[j, :], squared=False))
+            MSE_per_row.append(mean_squared_error(y_true[j, :], y_pred[j, :], squared=True))
+            MAE_score_per_row.append(mean_absolute_error(y_true[j, :], y_pred[j, :]))
+            R2_per_row.append(r2_score(y_true[j, :], y_pred[j, :]))
+            
+        instance_RMSE = np.mean(RMSE_per_row)
+        instance_MSE = np.mean(MSE_per_row)
+        instance_MAE = np.mean(MAE_score_per_row)
+        instance_R2 = np.mean(R2_per_row)
+        
+        # calculating metrics
         micro_RMSE = mean_squared_error(y_true.flatten(), y_pred.flatten(), squared=False)
         micro_R2 = r2_score(y_true.flatten(), y_pred.flatten())
 
@@ -125,7 +143,7 @@ def test_get_performance_results(mode):
             'B',
             mode,
             ['RMSE', 'MSE', 'MAE', 'R2'],
-            ['macro', 'micro'],
+            ['macro', 'micro', 'instance'],
             slices_arr=None,
             verbose=False,
             per_target_verbose=False,
@@ -138,9 +156,18 @@ def test_get_performance_results(mode):
         
         assert math.isclose(results['train_MSE_macro'], results['train_MSE_micro'])
         assert math.isclose(results['train_MSE_macro'], macro_MSE)
+        assert math.isclose(results['train_MSE_instance'], instance_MSE)
+        
         assert math.isclose(results['train_MAE_macro'], results['train_MAE_micro'])
         assert math.isclose(results['train_MAE_macro'], macro_MAE)
+        assert math.isclose(results['train_MAE_instance'], instance_MAE)
+        
         assert math.isclose(results['train_RMSE_macro'], macro_RMSE)
         assert math.isclose(results['train_RMSE_micro'], micro_RMSE)
+        assert math.isclose(results['train_RMSE_instance'], instance_RMSE)
+
         assert math.isclose(results['train_R2_macro'], macro_R2)
         assert math.isclose(results['train_R2_micro'], micro_R2)
+        assert math.isclose(results['train_R2_instance'], instance_R2)
+
+        

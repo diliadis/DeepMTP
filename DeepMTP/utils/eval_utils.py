@@ -105,7 +105,7 @@ def get_performance_results(
 
     values_per_metric = {m: [] for m in metrics}
 
-    if verbose: print('========== ' + str(mode) + ' ==========')
+    if verbose: print('========== ' + str(mode) + ' ==========')   # pragma: no cover
 
     # for Setting A, the only averating option that makes sense is the micro version.
     if validation_setting == 'A':
@@ -128,7 +128,7 @@ def get_performance_results(
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
                 final_result.update({mode + metric_name + '_micro': metric_val})
-                if verbose:
+                if verbose:   # pragma: no cover
                     print(metric_name + '_micro: ' + str(metric_val))
 
         else:
@@ -167,7 +167,7 @@ def get_performance_results(
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
                 final_result.update({mode + metric_name + '_micro': metric_val})
-                if verbose:
+                if verbose:   # pragma: no cover
                     print(metric_name + '_micro: ' + str(metric_val))
 
         if 'macro' in averaging:
@@ -203,7 +203,7 @@ def get_performance_results(
                                 + str(target_i): metric_val
                             }
                         )
-                        if per_target_verbose:
+                        if per_target_verbose:   # pragma: no cover
                             print(
                                 metric_name
                                 + '_target_'
@@ -226,7 +226,7 @@ def get_performance_results(
             for metric_name in values_per_metric.keys():
                 avg_val = np.mean(values_per_metric[metric_name])
                 final_result.update({mode + metric_name + '_macro': avg_val})
-                if verbose:
+                if verbose:   # pragma: no cover
                     print(metric_name + '_macro: ' + str(avg_val))
 
         if 'instance' in averaging:
@@ -262,7 +262,7 @@ def get_performance_results(
                                 + str(target_i): metric_val
                             }
                         )
-                        if per_instance_verbose:
+                        if per_instance_verbose:   # pragma: no cover
                             print(
                                 metric_name
                                 + '_instance_'
@@ -272,7 +272,7 @@ def get_performance_results(
                             )
 
                 else:
-                    if verbose:
+                    if verbose:   # pragma: no cover
                         print(
                             'Warning: Instance'
                             + str(instance_i)
@@ -286,7 +286,7 @@ def get_performance_results(
             for metric_name in metrics:
                 avg_val = np.mean(values_per_metric[metric_name])
                 final_result.update({mode + metric_name + '_instance': avg_val})
-                if verbose:
+                if verbose:   # pragma: no cover
                     print(metric_name + '_instance: ' + str(avg_val))
 
     if verbose:   # pragma: no cover
