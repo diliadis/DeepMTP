@@ -26,7 +26,7 @@ from DeepMTP.main import TwoBranchDotProductModel
 from DeepMTP.main import TwoBranchMLPModel
 import streamlit as st
 
-class DeepMTP:
+class DeepMTP:   # pragma: no cover
 	''' Implements the training and inference logic of the DeepMTP framework. 
 	'''
 	def __init__(self, config, checkpoint_dir=None):
@@ -133,7 +133,7 @@ class DeepMTP:
 			metric_to_track=self.config['metric_to_optimize_early_stopping'] if self.config['use_early_stopping'] else self.config['metric_to_optimize_best_epoch_selection'],
 		)
 
-	def inference(self, model, dataloader, mode, epoch, return_predictions=False, verbose=False, val_progress_table=None):
+	def inference(self, model, dataloader, mode, epoch, return_predictions=False, verbose=False, val_progress_table=None):   # pragma: no cover
 		model.eval()
 		with torch.no_grad():
 			loss_arr = []
@@ -193,7 +193,7 @@ class DeepMTP:
 			else:
 				return results
 
-	def train(self, train_data, val_data, test_data, verbose=False):
+	def train(self, train_data, val_data, test_data, verbose=False):   # pragma: no cover
 		train_val_loss_chart, train_header, train_progress_table, val_header, val_progress_table, test_header, test_progress_table, final_info = st.empty(), st.empty(), st.empty(), st.empty(), st.empty(), st.empty(), st.empty(), st.empty()
 		
 		self.deepMTP_model.train()
@@ -440,12 +440,12 @@ class DeepMTP:
 		
 		return val_best_performance_results
 
-	def predict(self, data, return_predictions=False, verbose=False):
+	def predict(self, data, return_predictions=False, verbose=False):   # pragma: no cover
 		self.deepMTP_model.to(self.device)
 		dataloader = DataLoader(BaseDataset(self.config, data['y'], data['X_instance'], data['X_target']), self.config['val_batchsize'], shuffle=False, num_workers=self.config['num_workers'])
 		return self.inference(self.deepMTP_model, dataloader, '', 0, return_predictions=True, verbose=verbose)
 
-	def save_model(self, verbose=False):
+	def save_model(self, verbose=False):   # pragma: no cover
 		self.config['use_tensorboard_logger'] = False
 		# if verbose: print('Saving the best model... ', end='')
 		torch.save({
@@ -456,5 +456,5 @@ class DeepMTP:
 			}, self.experiment_dir+'/model.pt')
 		# if verbose: print('Done')
 
-def initialize_mode(config):
+def initialize_mode(config):   # pragma: no cover
 	return DeepMTP(config)

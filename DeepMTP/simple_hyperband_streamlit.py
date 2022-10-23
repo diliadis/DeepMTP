@@ -10,7 +10,7 @@ sys.path.insert(0, '../../../..')
 import random
 import streamlit as st
 
-class HyperBand:
+class HyperBand:   # pragma: no cover
     '''Implements a basic version of the Hyperband HPO method. One cool thing about it is that I reduced the training time by continuing to train later configurations instead of starting from scratch each time.
     '''
     def __init__(
@@ -21,7 +21,7 @@ class HyperBand:
         max_budget=1,
         direction='min',
         verbose=False,
-    ):
+    ):   # pragma: no cover
         self.base_worker = base_worker
         self.configspace = configspace
         self.verbose = verbose
@@ -43,13 +43,13 @@ class HyperBand:
         self.experiment_history = {}
         # self.starting_configs_per_bracket = {num_configs:[BaseExperimentInfo(config=configspace.sample_configuration(), budget=d['r_i'][0]) for c in range(num_configs)] for num_configs, d in self.budgets_per_bracket.items()}
 
-    def get_run_summary(self):
+    def get_run_summary(self):   # pragma: no cover
         return self.experiment_history
 
-    def get_norm_val(self, val, min_val, max_val):
+    def get_norm_val(self, val, min_val, max_val):   # pragma: no cover
         return (val-min_val) / (max_val-min_val) * 100
 
-    def run_optimizer(self):
+    def run_optimizer(self):   # pragma: no cover
         # iterate over the calculated brackets
         bracket_counter = 0
         bracket_info_update = st.empty()
@@ -122,7 +122,7 @@ class HyperBand:
 
         return best_overall_config
 
-    def calculate_hyperband_iters(self, R, eta, verbose=False):
+    def calculate_hyperband_iters(self, R, eta, verbose=False):   # pragma: no cover
         result_dict = {}
         smax = math.floor(math.log(R, eta))
         B = (smax + 1) * R

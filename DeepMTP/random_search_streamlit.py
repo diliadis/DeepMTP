@@ -3,7 +3,7 @@ sys.path.insert(0, '../../../..')
 from DeepMTP.utils.utils import BaseExperimentInfo, get_optimization_direction
 import streamlit as st
 
-class RandomSearch:
+class RandomSearch:   # pragma: no cover
     '''Implements the basic Random search HPO method. Nothing fancy, just a for loop over randomly generated configurations.
     '''
     def __init__(
@@ -14,7 +14,7 @@ class RandomSearch:
         max_num_epochs=100,
         direction='min',
         verbose=False,
-    ):
+    ):   # pragma: no cover
         self.base_worker = base_worker
         self.configspace = configspace
         self.verbose = verbose
@@ -23,13 +23,13 @@ class RandomSearch:
         self.max_num_epochs = max_num_epochs
         self.experiment_history = {}
 
-    def get_run_summary(self):
+    def get_run_summary(self):   # pragma: no cover
         return self.experiment_history
 
-    def get_norm_val(self, val, min_val, max_val):
+    def get_norm_val(self, val, min_val, max_val):   # pragma: no cover
         return (val-min_val) / (max_val-min_val) * 100
 
-    def run_optimizer(self):
+    def run_optimizer(self):   # pragma: no cover
         random_search_iter_info_update = st.empty()
         random_search_iter_progress_bar = st.progress(0)
         config_info_update = st.empty()
