@@ -907,9 +907,12 @@ def test_split_data(test_split_data_data):
    
 
 test_data_process_data = [
-    {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy'},
-    {'pass_fail': 'pass', 'MTP_setting': 'MTR', 'interaction_matrix_format': 'dataframe'},
-    {'pass_fail': 'pass', 'MTP_setting': 'DP', 'interaction_matrix_format': 'numpy'},
+    {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy', 'scale_instance_features': None, 'scale_target_features': None},
+    {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy', 'scale_instance_features': 'MinMax', 'scale_target_features': None},
+    {'pass_fail': 'pass', 'MTP_setting': 'MTR', 'interaction_matrix_format': 'dataframe', 'scale_instance_features': None, 'scale_target_features': None},
+    {'pass_fail': 'pass', 'MTP_setting': 'DP', 'interaction_matrix_format': 'numpy', 'scale_instance_features': None, 'scale_target_features': None},
+    {'pass_fail': 'pass', 'MTP_setting': 'DP', 'interaction_matrix_format': 'numpy', 'scale_instance_features': 'Standard', 'scale_target_features': 'MinMax'},
+
     {'pass_fail': 'fail', 'data': {'test': {}, 'val': {}}},
     {'pass_fail': 'fail', 'data': {'train': {},'test': {}, 'val': {}}},
     {'pass_fail': 'fail', 'data': {'train': {}}},
@@ -932,6 +935,8 @@ def test_data_process(test_data_process_data):
         try:
             MTP_setting = test_data_process_data['MTP_setting']
             interaction_matrix_format = test_data_process_data['interaction_matrix_format']
+            scale_instance_features = 
+            scale_target_features = 
             
             if MTP_setting == 'MLC':
                 # data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy')
