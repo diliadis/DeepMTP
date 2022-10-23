@@ -41,10 +41,10 @@ class HyperBand:
         self.experiment_history = {}
         # self.starting_configs_per_bracket = {num_configs:[BaseExperimentInfo(config=configspace.sample_configuration(), budget=d['r_i'][0]) for c in range(num_configs)] for num_configs, d in self.budgets_per_bracket.items()}
 
-    def get_run_summary(self):
+    def get_run_summary(self):    # pragma: no cover
         return self.experiment_history
 
-    def run_optimizer(self):
+    def run_optimizer(self):    # pragma: no cover
         # iterate over the calculated brackets
         for bracket, d in self.budgets_per_bracket.items():
             if self.verbose:
@@ -105,7 +105,7 @@ class HyperBand:
         result_dict = {}
         smax = math.floor(math.log(R, eta))
         B = (smax + 1) * R
-        if verbose:
+        if verbose:    # pragma: no cover
             print('smax: ' + str(smax))
             print('B: ' + str(B))
             print('')
@@ -114,18 +114,18 @@ class HyperBand:
             n = int(math.ceil(int(B / R / (s + 1)) * eta ** s))
             r = int(R * (eta ** (-s)))
             result_dict[n] = {'n_i': [], 'r_i': [], 'num_iters': s + 1}
-            if verbose:
+            if verbose:    # pragma: no cover
                 print('s: ' + str(s))
                 print('     n: ' + str(n) + '   r: ' + str(r))
                 print('---------------------------')
             for i in range(s + 1):
                 ni = math.floor(n * (eta ** (-i)))
                 ri = r * (eta ** i)
-                if verbose:
+                if verbose:    # pragma: no cover
                     print('     ni: ' + str(ni) + '   ri (epochs): ' + str(ri))
                 result_dict[n]['n_i'].append(ni)
                 result_dict[n]['r_i'].append(ri)
-            if verbose:
+            if verbose:    # pragma: no cover
                 print('')
                 print('===========================')
         return result_dict
