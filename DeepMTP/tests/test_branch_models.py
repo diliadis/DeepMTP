@@ -46,7 +46,7 @@ def test_ConvNet(test_ConvNet_data):
         try:
             model = ConvNet(config={}, input_dim=test_ConvNet_data['input_dim'], output_dim=test_ConvNet_data['output_dim'], conv_architecture=test_ConvNet_data['conv_architecture'], conv_architecture_version=test_ConvNet_data['conv_architecture_version'], conv_architecture_last_trained_layer= test_ConvNet_data['conv_architecture_last_trained_layer'], conv_architecture_dense_layers=test_ConvNet_data['conv_architecture_dense_layers'])
             if test_ConvNet_data['conv_architecture'] == 'resnet':
-                assert model[0][0].fc.out_features == test_ConvNet_data['output_dim']
+                assert model[0][0].fc[-1].out_features == test_ConvNet_data['output_dim']
             else:
                 assert [layer for layer in model[0][0].classifier if isinstance(layer, nn.Linear)][-1].out_features == test_ConvNet_data['output_dim']
         except Exception as exc:
