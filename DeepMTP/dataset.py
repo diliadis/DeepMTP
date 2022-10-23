@@ -217,7 +217,7 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
     # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy'):    # pragma: no cover
+def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy', variant='undivided', split_ratio={'train': 0.7, 'val':0.1, 'test': 0.2}, random_state=42):    # pragma: no cover
     '''Generates a dummy multivariate regression dataset
 
     Args:
@@ -238,15 +238,39 @@ def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interact
     X_train_instance = np.random.random((num_instances, num_features))
     for i in range(num_instances):
         X_train_instance[i, 0] = i
+
+    y_train = np.random.randint(10, size=(num_instances, num_targets))
+
     if features_format == 'dataframe':
         temp_instance_features_df = pd.DataFrame(np.arange(len(X_train_instance)), columns=['id'])
         temp_instance_features_df['features'] = [r for r in X_train_instance]
         X_train_instance = temp_instance_features_df
-  
-    y_train = np.random.randint(10, size=(num_instances, num_targets))
     if interaction_matrix_format == 'dataframe':
         triplets = [(i, j, y_train[i, j]) for i in range(y_train.shape[0]) for j in range(y_train.shape[1])]
         y_train = pd.DataFrame(triplets, columns=['instance_id', 'target_id', 'value'])
+
+    if variant == 'divided': 
+        train_ids, test_ids  = train_test_split(range(num_instances), test_size=split_ratio['test'], random_state=random_state)
+        train_ids, val_ids  = train_test_split(train_ids, test_size=split_ratio['val'], random_state=random_state)
+        
+        if interaction_matrix_format == 'dataframe':
+            y_test = y_train.loc[y_train['instance_id'].isin(test_ids)]
+            y_val = y_train.loc[y_train['instance_id'].isin(val_ids)]
+            y_train = y_train.loc[y_train['instance_id'].isin(train_ids)]
+        else:
+            y_test = y_train[test_ids, :]
+            y_val = y_train[val_ids, :]
+            y_train = y_train[train_ids, :]
+        
+        if features_format == 'dataframe':
+            X_test_instance = X_train_instance.loc[X_train_instance['id'].isin(test_ids)]
+            X_val_instance = X_train_instance.loc[X_train_instance['id'].isin(val_ids)]
+            X_train_instance = X_train_instance.loc[X_train_instance['id'].isin(train_ids)]
+        else:
+            X_test_instance = X_train_instance[test_ids, :]
+            X_val_instance = X_train_instance[val_ids, :]
+            X_train_instance = X_train_instance[train_ids, :]
+
 
     # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}

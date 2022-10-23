@@ -14,7 +14,7 @@ from DeepMTP.utils.data_utils import (
     split_data,
      data_process
 )
-from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR, process_dummy_DP, generate_MTP_dataset
+from DeepMTP.dataset import process_dummy_MLC, process_dummy_MTR, process_dummy_DP, generate_MTP_dataset, load_process_MLC, load_process_DP
 import pandas as pd
 import numpy as np
 import pytest
@@ -927,11 +927,13 @@ def test_data_process(test_data_process_data):
     if pass_fail == 'pass':
         try:
             if MTP_setting == 'MLC':
-                data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy')
+                # data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy')
+                data = load_process_MLC(dataset_name='emotions', variant='divided', features_type='numpy', print_mode='basic')
             elif MTP_setting == 'MTR':
-                data = process_dummy_MTR(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy')                
+                data = process_dummy_MTR(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy', variant='divided', split_ratio={'train': 0.7, 'val':0.1, 'test': 0.2}, random_state=42)
             elif MTP_setting == 'DP':
-                data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format='numpy')
+                # data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format='numpy')
+                data = load_process_DP(dataset_name='ern', variant='divided', random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=False, split_target_features=False, validation_setting='D', print_mode='basic')
             
             train, val, test, info = data_process(data, validation_setting=None, split_method='random', ratio={'train': 0.7, 'test': 0.2, 'val': 0.1}, shuffle=True, seed=42, verbose=False, print_mode='basic', scale_instance_features=None, scale_target_features=None)
             
