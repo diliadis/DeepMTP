@@ -907,8 +907,8 @@ def test_split_data(test_split_data_data):
    
 
 test_data_process_data = [
-    {'pass_fail': 'pass', 'MTP_setting': 'MLC'},
-    {'pass_fail': 'pass', 'MTP_setting': 'MTR'},
+    {'pass_fail': 'pass', 'MTP_setting': 'MLC', 'interaction_matrix_format': 'numpy'},
+    {'pass_fail': 'pass', 'MTP_setting': 'MTR', 'interaction_matrix_format': 'dataframe'},
     # {'pass_fail': 'pass', 'MTP_setting': 'MC'},
     # {'pass_fail': 'pass', 'MTP_setting': 'DP'},
 
@@ -918,6 +918,7 @@ test_data_process_data = [
 def test_data_process(test_data_process_data):
     pass_fail = test_data_process_data['pass_fail']
     MTP_setting = test_data_process_data['MTP_setting']
+    interaction_matrix_format = test_data_process_data['interaction_matrix_format']
     
     num_instances = 100
     num_targets = 20
@@ -930,7 +931,7 @@ def test_data_process(test_data_process_data):
                 # data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy')
                 data = load_process_MLC(dataset_name='emotions', variant='divided', features_type='numpy', print_mode='basic')
             elif MTP_setting == 'MTR':
-                data = process_dummy_MTR(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy', variant='divided', split_ratio={'train': 0.7, 'val':0.1, 'test': 0.2}, random_state=42)
+                data = process_dummy_MTR(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format=interaction_matrix_format, features_format='dataframe', variant='divided', split_ratio={'train': 0.7, 'val':0.1, 'test': 0.2}, random_state=42)
             elif MTP_setting == 'DP':
                 # data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format='numpy')
                 data = load_process_DP(dataset_name='ern', variant='divided', random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=False, split_target_features=False, validation_setting='D', print_mode='basic')
@@ -942,10 +943,11 @@ def test_data_process(test_data_process_data):
                 assert len(val['y']['data']) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
                 assert len(test['y']['data']) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
 
-                # no overlaping instance ids between the train, val and test sets
-                assert set(train['y']['data']['instance_id']).intersection(set(val['y']['data']['instance_id'])) == set()
-                assert set(train['y']['data']['instance_id']).intersection(set(test['y']['data']['instance_id'])) == set()
-                assert set(val['y']['data']['instance_id']).intersection(set(test['y']['data']['instance_id'])) == set()
+                if interaction_matrix_format == 'dataframe':
+                    # no overlaping instance ids between the train, val and test sets
+                    assert set(train['y']['data']['instance_id']).intersection(set(val['y']['data']['instance_id'])) == set()
+                    assert set(train['y']['data']['instance_id']).intersection(set(test['y']['data']['instance_id'])) == set()
+                    assert set(val['y']['data']['instance_id']).intersection(set(test['y']['data']['instance_id'])) == set()
 
                 # in setting B you don't split on targets, so train, val and test should have the same target ids
                 assert set(train['y']['data']['target_id']) == set(val['y']['data']['target_id'])
@@ -966,10 +968,11 @@ def test_data_process(test_data_process_data):
                 assert len(val['y']['data']) == (len(set(val['y']['data']['instance_id'])) * len(set(val['y']['data']['target_id'])))
                 assert len(test['y']['data']) == (len(set(test['y']['data']['instance_id'])) * len(set(test['y']['data']['target_id'])))
                 
-                # no overlaping instance ids between the train, val and test sets
-                assert set(train['y']['data']['target_id']).intersection(set(val['y']['data']['target_id'])) == set()
-                assert set(train['y']['data']['target_id']).intersection(set(test['y']['data']['target_id'])) == set()
-                assert set(val['y']['data']['target_id']).intersection(set(test['y']['data']['target_id'])) == set()
+                if interaction_matrix_format == 'dataframe':
+                    # no overlaping instance ids between the train, val and test sets
+                    assert set(train['y']['data']['target_id']).intersection(set(val['y']['data']['target_id'])) == set()
+                    assert set(train['y']['data']['target_id']).intersection(set(test['y']['data']['target_id'])) == set()
+                    assert set(val['y']['data']['target_id']).intersection(set(test['y']['data']['target_id'])) == set()
 
                 # in setting B you don't split on targets, so train, val and test should have the same target ids
                 assert set(train['y']['data']['instance_id']) == set(val['y']['data']['instance_id'])
