@@ -40,6 +40,7 @@ jobs:
           pip3 install torch torchvision torchaudio
           pip install tensorboard
           pip install prettytable
+          pip install ConfigSpace
           pip install -r requirements.txt
           pip install -e .
       - name: Run unit tests

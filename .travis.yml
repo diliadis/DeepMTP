@@ -9,6 +9,7 @@ install:
   - pip3 install torch torchvision torchaudio
   - pip install tensorboard
   - pip install prettytable
+  - pip install ConfigSpace
   - python setup.py install
 
 script:
