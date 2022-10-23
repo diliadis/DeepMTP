@@ -58,21 +58,21 @@ class ConvNet(nn.Sequential):
 			for param in self.predictor.parameters():
 				param.requires_grad = False
 
-			if conv_architecture_last_trained_layer == "last":
+			if conv_architecture_last_trained_layer == "last":    # pragma: no cover
 				pass
-			elif conv_architecture_last_trained_layer == "layer4":
+			elif conv_architecture_last_trained_layer == "layer4":    # pragma: no cover
 				for param in self.predictor[0].avgpool.parameters():
 					param.requires_grad = True
 				for param in self.predictor[0].layer4.parameters():
 					param.requires_grad = True
-			elif conv_architecture_last_trained_layer == "layer3":
+			elif conv_architecture_last_trained_layer == "layer3":    # pragma: no cover
 				for param in self.predictor[0].avgpool.parameters():
 					param.requires_grad = True
 				for param in self.predictor[0].layer4.parameters():
 					param.requires_grad = True
 				for param in self.predictor[0].layer3.parameters():
 					param.requires_grad = True
-			elif conv_architecture_last_trained_layer == "layer2":
+			elif conv_architecture_last_trained_layer == "layer2":    # pragma: no cover
 				for param in self.predictor[0].avgpool.parameters():
 					param.requires_grad = True
 				for param in self.predictor[0].layer4.parameters():
@@ -81,7 +81,7 @@ class ConvNet(nn.Sequential):
 					param.requires_grad = True
 				for param in self.predictor[0].layer2.parameters():
 					param.requires_grad = True
-			elif conv_architecture_last_trained_layer == "layer1":
+			elif conv_architecture_last_trained_layer == "layer1":    # pragma: no cover
 				for param in self.predictor[0].avgpool.parameters():
 					param.requires_grad = True
 				for param in self.predictor[0].layer4.parameters():
@@ -134,7 +134,7 @@ class ConvNet(nn.Sequential):
 			)
 			self.predictor[0].classifier = classifier
 
-	def forward(self, v):
+	def forward(self, v):    # pragma: no cover
 		# predict
 		v = v.float()
 		for i, layer in enumerate(self.predictor):

@@ -1,6 +1,6 @@
 import pytest
 from torch import nn
-from DeepMTP.branch_models import MLP
+from DeepMTP.branch_models import MLP, ConvNet
 
 test_MLP_data = [
     {'input_dim': 10, 'output_dim': 15, 'nodes_per_layer': 100, 'num_layers': 2, 'dropout': 0, 'batch_norm': False},
@@ -28,4 +28,29 @@ def test_MLP(test_MLP_data):
         assert layer.out_features == calculated_nodes_per_layer[idx+1]
     
     
+test_ConvNet_data = [
+    {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet18', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 1},
+    {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'lalala', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 1},
+    {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet18', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 1},
+    {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet101', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 2},
+    {'pass_fail': 'fail', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet101', 'conv_architecture_last_trained_layer': 'lalala', 'conv_architecture_dense_layers': 1},
+    {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'VGG', 'conv_architecture_version': 'resnet101', 'conv_architecture_last_trained_layer': 'lalala', 'conv_architecture_dense_layers': 1},
+]
+
+
+@pytest.mark.parametrize('test_ConvNet_data', test_ConvNet_data)
+def test_ConvNet(test_ConvNet_data):
     
+    pass_fail = test_ConvNet_data['pass_fail']
+    if pass_fail == 'pass':
+        try:
+            model = ConvNet(config={}, input_dim=test_ConvNet_data['input_dim'], output_dim=test_ConvNet_data['output_dim'], conv_architecture=test_ConvNet_data['conv_architecture'], conv_architecture_version=test_ConvNet_data['conv_architecture_version'], conv_architecture_last_trained_layer= test_ConvNet_data['conv_architecture_last_trained_layer'], conv_architecture_dense_layers=test_ConvNet_data['conv_architecture_dense_layers'])
+            if test_ConvNet_data['conv_architecture'] == 'resnet':
+                assert model[0][0].fc.out_features == test_ConvNet_data['output_dim']
+            else:
+                assert [layer for layer in model[0][0].classifier if isinstance(layer, nn.Linear)][-1].out_features == test_ConvNet_data['output_dim']
+        except Exception as exc:
+            assert False
+    else:
+        with pytest.raises(Exception):
+            model = ConvNet(config={}, input_dim=test_ConvNet_data['input_dim'], output_dim=test_ConvNet_data['output_dim'], conv_architecture=test_ConvNet_data['conv_architecture'], conv_architecture_version=test_ConvNet_data['conv_architecture_version'], conv_architecture_last_trained_layer= test_ConvNet_data['conv_architecture_last_trained_layer'], conv_architecture_dense_layers=test_ConvNet_data['conv_architecture_dense_layers'])
