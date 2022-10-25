@@ -1,4 +1,3 @@
-from matplotlib.rcsetup import validate_any
 import pytest
 import torch
 from DeepMTP.hpo_worker import BaseWorker

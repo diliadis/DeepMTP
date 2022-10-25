@@ -57,7 +57,7 @@ test_TwoBranchMLPModel_data = [
 
 
 @pytest.mark.parametrize('test_TwoBranchMLPModel_data', test_TwoBranchMLPModel_data)
-def test_TwoBranchDotProductModel(test_TwoBranchMLPModel_data):
+def test_TwoBranchMLPModel(test_TwoBranchMLPModel_data):
 
     instance_branch_model = MLP({},
                                input_dim=test_TwoBranchMLPModel_data['instance_branch_input_size'], 
@@ -106,7 +106,7 @@ test_TwoBranchKroneckerModel_data = [
 
 
 @pytest.mark.parametrize('test_TwoBranchKroneckerModel_data', test_TwoBranchKroneckerModel_data)
-def test_TwoBranchDotProductModel(test_TwoBranchKroneckerModel_data):
+def test_TwoBranchKroneckerModel(test_TwoBranchKroneckerModel_data):
 
     instance_branch_model = MLP({},
                                input_dim=test_TwoBranchKroneckerModel_data['instance_branch_input_size'], 
