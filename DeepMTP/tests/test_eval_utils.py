@@ -3,17 +3,19 @@ import numpy as np
 from sklearn.metrics import hamming_loss, f1_score, recall_score, precision_score, mean_squared_error, mean_absolute_error, r2_score, accuracy_score
 import pytest
 import math
+# from sklearn.preprocessing import StandardScaler
 
 mode = [
-	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro', 'micro', 'instance'], 'format': 'numpy'},
-	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro'], 'format': 'list'},
-	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['micro'], 'format': 'numpy'},
-	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['instance'], 'format': 'numpy'},
+	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro', 'micro', 'instance'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
+	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro'], 'format': 'list', 'validation_setting': 'B', 'scaler': None},
+	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['micro'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
+	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['instance'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
 
-	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro', 'micro', 'instance'], 'format': 'numpy'},
-	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro'], 'format': 'numpy'},
-	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['micro'], 'format': 'numpy'},
-	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['instance'], 'format': 'numpy'},
+	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro', 'micro', 'instance'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
+	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
+	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['micro'], 'format': 'numpy', 'validation_setting': 'A', 'scaler': None},
+    {'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['micro'], 'format': 'numpy', 'validation_setting': 'A', 'scaler': None},
+	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['instance'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
 ]
 
 @pytest.mark.parametrize('mode', mode)
@@ -94,7 +96,7 @@ def test_get_performance_results(mode):
 			targets_arr,
 			true_values_arr,
 			pred_values_arr,
-			'B',
+			mode['validation_setting'],
 			mode['problem_mode'],
 			mode['metrics'],
 			mode['averaging'],
@@ -206,15 +208,27 @@ def test_get_performance_results(mode):
 			targets_arr = np.array(targets_arr)
 			true_values_arr = np.array(true_values_arr)
 			pred_values_arr = np.array(pred_values_arr)
-
+		
+  		true_values_arr_scaled = None
+		pred_values_arr_scaled = None
+		scaler = None
+		'''
+     	if mode['scaler'] is not None:
+			if mode['scaler'].lower() == 'standard':
+				if mode['validation_setting'] == 'A':
+					scaler = StandardScaler():
+					scaler.fit(true_values_arr.flatten())
+					true_values_arr_scaled = scaler.transform(true_values_arr)
+					pred_values_arr_scaled = scaler.transform(pred_values_arr)
+		'''
 		results = get_performance_results(
 			'train',
 			0,
 			instances_arr,
 			targets_arr,
-			true_values_arr,
-			pred_values_arr,
-			'B',
+			true_values_arr if mode['scaler'] is None else true_values_arr_scaled,
+			pred_values_arr if mode['scaler'] is None else pred_values_arr_scaled,
+			mode['validation_setting'],
 			mode['problem_mode'], 
 			mode['metrics'],
 			mode['averaging'],
@@ -225,7 +239,7 @@ def test_get_performance_results(mode):
 			top_k=None,
 			return_detailed_macro=False,
 			train_true_value=None,
-			scaler_per_target=None,
+			scaler_per_target=scaler,
 		)
 		
 		if 'MSE' in mode['metrics']:
