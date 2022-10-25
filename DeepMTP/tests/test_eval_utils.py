@@ -5,15 +5,15 @@ import pytest
 import math
 
 mode = [
-	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro', 'micro', 'instance']},
-	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro']},
-	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['micro']},
-	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['instance']},
+	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro', 'micro', 'instance'], 'format': 'numpy'},
+	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro'], 'format': 'list'},
+	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['micro'], 'format': 'numpy'},
+	{'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['instance'], 'format': 'numpy'},
 
-	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro', 'micro', 'instance']},
-	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro']},
-	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['micro']},
-	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['instance']},
+	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro', 'micro', 'instance'], 'format': 'numpy'},
+	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro'], 'format': 'numpy'},
+	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['micro'], 'format': 'numpy'},
+	{'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['instance'], 'format': 'numpy'},
 ]
 
 @pytest.mark.parametrize('mode', mode)
@@ -81,7 +81,12 @@ def test_get_performance_results(mode):
 				true_values_arr.append(y_true[i, j])
 				pred_values_arr.append(y_pred[i, j])
 
-		
+		if mode['format'] == 'numpy':
+			instances_arr = np.array(instances_arr)
+			targets_arr = np.array(targets_arr)
+			true_values_arr = np.array(true_values_arr)
+			pred_values_arr = np.array(pred_values_arr)
+
 		results = get_performance_results(
 			'train',
 			0,
@@ -195,6 +200,12 @@ def test_get_performance_results(mode):
 				targets_arr.append(j)
 				true_values_arr.append(y_true[i, j])
 				pred_values_arr.append(y_pred[i, j])
+    
+		if mode['format'] == 'numpy':
+			instances_arr = np.array(instances_arr)
+			targets_arr = np.array(targets_arr)
+			true_values_arr = np.array(true_values_arr)
+			pred_values_arr = np.array(pred_values_arr)
 
 		results = get_performance_results(
 			'train',
