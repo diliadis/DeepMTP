@@ -259,7 +259,7 @@ def get_performance_results(
                                 mode
                                 + metric_name
                                 + '_instance_'
-                                + str(target_i): metric_val
+                                + str(instance_i): metric_val
                             }
                         )
                         if per_instance_verbose:   # pragma: no cover
@@ -325,7 +325,7 @@ def base_evaluator(   # pragma: no cover
             results['MAE'] = np.mean(np.abs(true_values_arr - pred_values_arr))
         if 'R2' in metrics:
             results['R2'] = r2_score(true_values_arr, pred_values_arr)
-        if 'RRMSE' in metrics:
+        if 'RRMSE' in metrics:   # pragma: no cover
             if train_true_value is None:
                 results['RRMSE'] = np.nan
                 # raise Exception(
@@ -375,7 +375,7 @@ def base_evaluator(   # pragma: no cover
                 )
                 results['aupr'] = auc(recall, precision)
         else:
-            if verbose:
+            if verbose:   # pragma: no cover
                 print(
                     'Warning: instance'
                     + str(idx)

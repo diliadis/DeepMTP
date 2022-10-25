@@ -15,11 +15,11 @@ class BaseWorker:
     def __init__(
         self, train, val, test, data_info, base_config, metric_to_optimize, mode='standard'
     ):
-        if not os.path.exists(base_config['hpo_results_path']):
+        if not os.path.exists(base_config['hpo_results_path']):   # pragma: no cover
             os.mkdir(base_config['hpo_results_path'])
 
         self.project_name = base_config['hpo_results_path']+datetime.now().strftime('%d_%m_%Y__%H_%M_%S')+'/'
-        if not os.path.exists(self.project_name):
+        if not os.path.exists(self.project_name):   # pragma: no cover
             os.mkdir(self.project_name)
 
         self.config_to_model = {}
@@ -35,7 +35,7 @@ class BaseWorker:
 
         self.base_config = base_config
 
-        if mode not in ['standard', 'streamlit']:
+        if mode not in ['standard', 'streamlit']:   # pragma: no cover
             raise Exception('Invalid mode value for the BaseWorker (select between standard and streamlit)')
         else:
             self.mode = mode

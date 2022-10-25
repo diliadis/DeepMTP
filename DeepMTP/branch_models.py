@@ -133,6 +133,8 @@ class ConvNet(nn.Sequential):
 				nn.ReLU(inplace=True),
 			)
 			self.predictor[0].classifier = classifier
+		else:
+			raise AttributeError('Unknown name for the convolutional architecture passed. Currenty, the only options available are: '+str(['resnet', 'VGG']))
 
 	def forward(self, v):    # pragma: no cover
 		# predict

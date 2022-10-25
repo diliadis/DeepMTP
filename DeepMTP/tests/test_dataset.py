@@ -103,6 +103,8 @@ test_load_process_DP_data = [
  
 	{'pass_fail': 'fail', 'dataset_name': 'lalalala', 'variant': 'divided', 'validation_setting': 'B', 'split_instance_features': False, 'split_target_features': False},
 	{'pass_fail': 'fail', 'dataset_name': 'lalalala', 'variant': 'divided', 'validation_setting': 'B', 'split_instance_features': False, 'split_target_features': False},
+ 	{'pass_fail': 'fail', 'dataset_name': 'lalalala', 'variant': 'divided', 'validation_setting': 'lalalala', 'split_instance_features': False, 'split_target_features': False},
+	{'pass_fail': 'fail', 'dataset_name': 'lalalala', 'variant': 'lalalala', 'validation_setting': 'B', 'split_instance_features': False, 'split_target_features': False},
 ]
 
 @pytest.mark.parametrize('test_load_process_DP_data', test_load_process_DP_data)    

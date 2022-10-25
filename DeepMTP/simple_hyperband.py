@@ -33,7 +33,7 @@ class HyperBand:
         self.budgets_per_bracket = self.calculate_hyperband_iters(
             R=self.max_budget, eta=eta, verbose=False
         )
-        if self.verbose:
+        if self.verbose:   # pragma: no cover
             print('These are the pre-calculate brackets and successive halving runs:')
             print(str(self.budgets_per_bracket))
 

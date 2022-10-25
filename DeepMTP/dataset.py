@@ -44,7 +44,7 @@ def load_process_MLC(path='./data', dataset_name='bibtex', variant='undivided', 
     print(('info: ' if print_mode=='dev' else '')+'Processing...')
     available_datasets = set([x[0] for x in available_data_sets().keys()])
 
-    if not os.path.exists(path):
+    if not os.path.exists(path):    # pragma: no cover
         os.makedirs(path)
 
     if dataset_name not in available_datasets:

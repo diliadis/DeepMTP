@@ -5,6 +5,9 @@ from DeepMTP.branch_models import MLP, ConvNet
 test_MLP_data = [
     {'input_dim': 10, 'output_dim': 15, 'nodes_per_layer': 100, 'num_layers': 2, 'dropout': 0, 'batch_norm': False},
     {'input_dim': 10, 'output_dim': 15, 'nodes_per_layer': 123, 'num_layers': 2, 'dropout': 0, 'batch_norm': False},
+    {'input_dim': 10, 'output_dim': 15, 'nodes_per_layer': 100, 'num_layers': 2, 'dropout': 0.5, 'batch_norm': False},
+    {'input_dim': 10, 'output_dim': 15, 'nodes_per_layer': 123, 'num_layers': 2, 'dropout': 0, 'batch_norm': True},
+    {'input_dim': 10, 'output_dim': 15, 'nodes_per_layer': 123, 'num_layers': 2, 'dropout': 0.5, 'batch_norm': True},
     {'input_dim': 10, 'output_dim': 15, 'nodes_per_layer': [100, 200, 300], 'num_layers': 2, 'dropout': 0, 'batch_norm': False},
 ]
 
@@ -30,11 +33,13 @@ def test_MLP(test_MLP_data):
     
 test_ConvNet_data = [
     {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet18', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 1},
+    {'pass_fail': 'fail', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet18', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 10},
     {'pass_fail': 'fail', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'lalala', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 1},
     {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet18', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 1},
     {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet101', 'conv_architecture_last_trained_layer': 'last', 'conv_architecture_dense_layers': 2},
     {'pass_fail': 'fail', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'resnet', 'conv_architecture_version': 'resnet101', 'conv_architecture_last_trained_layer': 'lalala', 'conv_architecture_dense_layers': 1},
     {'pass_fail': 'pass', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'VGG', 'conv_architecture_version': 'resnet101', 'conv_architecture_last_trained_layer': 'lalala', 'conv_architecture_dense_layers': 1},
+    {'pass_fail': 'fail', 'input_dim': 10, 'output_dim': 15, 'conv_architecture': 'lalalal', 'conv_architecture_version': 'resnet101', 'conv_architecture_last_trained_layer': 'lalala', 'conv_architecture_dense_layers': 1},
 ]
 
 
