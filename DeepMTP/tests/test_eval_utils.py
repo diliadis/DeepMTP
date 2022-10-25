@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics import hamming_loss, f1_score, recall_score, precision_score, mean_squared_error, mean_absolute_error, r2_score, accuracy_score
 import pytest
 import math
-# from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler
 
 mode = [
     {'problem_mode': 'classification', 'metrics': ['accuracy', 'hamming_loss', 'f1_score', 'recall', 'precision'], 'averaging': ['macro', 'micro', 'instance'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
@@ -14,7 +14,7 @@ mode = [
     {'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro', 'micro', 'instance'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
     {'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['macro'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
     {'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['micro'], 'format': 'numpy', 'validation_setting': 'A', 'scaler': None},
-    {'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['micro'], 'format': 'numpy', 'validation_setting': 'A', 'scaler': None},
+    {'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['micro'], 'format': 'numpy', 'validation_setting': 'A', 'scaler': 'standard'},
     {'problem_mode': 'regression', 'metrics': ['RMSE', 'MSE', 'MAE', 'R2'], 'averaging': ['instance'], 'format': 'numpy', 'validation_setting': 'B', 'scaler': None},
 ]
 
@@ -212,15 +212,15 @@ def test_get_performance_results(mode):
         true_values_arr_scaled = None
         pred_values_arr_scaled = None
         scaler = None
-        '''
-         if mode['scaler'] is not None:
+        
+        if mode['scaler'] is not None:
             if mode['scaler'].lower() == 'standard':
                 if mode['validation_setting'] == 'A':
-                    scaler = StandardScaler():
-                    scaler.fit(true_values_arr.flatten())
-                    true_values_arr_scaled = scaler.transform(true_values_arr)
-                    pred_values_arr_scaled = scaler.transform(pred_values_arr)
-        '''
+                    scaler = StandardScaler()
+                    scaler.fit(true_values_arr.flatten().reshape(-1, 1))
+                    true_values_arr_scaled = scaler.transform(true_values_arr.reshape(-1, 1))
+                    pred_values_arr_scaled = scaler.transform(pred_values_arr.reshape(-1, 1))
+        
         results = get_performance_results(
             'train',
             0,
