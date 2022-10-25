@@ -87,8 +87,8 @@ def test_TwoBranchMLPModel(test_TwoBranchMLPModel_data):
         instance_branch_model,
         target_branch_model)
     
-    instance_features = torch.rand(1, test_TwoBranchDotProductModel_data['instance_branch_input_size'])
-    target_features = torch.rand(1, test_TwoBranchDotProductModel_data['target_branch_input_size'])
+    instance_features = torch.rand(1, test_TwoBranchMLPModel_data['instance_branch_input_size'])
+    target_features = torch.rand(1, test_TwoBranchMLPModel_data['target_branch_input_size'])
     output = model.forward(instance_features, target_features)
     assert len(output) == 1
     
