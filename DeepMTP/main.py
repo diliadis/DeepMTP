@@ -22,7 +22,7 @@ from DeepMTP.branch_models import *
 from DeepMTP.utils.model_utils import EarlyStopping
 from DeepMTP.utils.eval_utils import get_performance_results
 
-class TwoBranchDotProductModel(nn.Sequential):   # pragma: no cover
+class TwoBranchDotProductModel(nn.Sequential):
     '''Implements a two branch neural network that uses a dot product to combine the two embeddings.
     '''	
     def __init__(self, config, instance_branch_model, target_branch_model):
@@ -37,7 +37,7 @@ class TwoBranchDotProductModel(nn.Sequential):   # pragma: no cover
         output = torch.unsqueeze((instance_embedding*target_embedding).sum(1), 1)
         return output
 
-class TwoBranchMLPModel(nn.Sequential):   # pragma: no cover
+class TwoBranchMLPModel(nn.Sequential):
     '''Implements a two branch neural network that uses an MLP on top of the two branches. The two embedding vectors are just concatenated
     '''
     def __init__(self, config, instance_branch_model, target_branch_model):
@@ -55,7 +55,7 @@ class TwoBranchMLPModel(nn.Sequential):   # pragma: no cover
         output = self.comb_branch(v_comb)
         return output
 
-class TwoBranchKroneckerModel(nn.Sequential):   # pragma: no cover
+class TwoBranchKroneckerModel(nn.Sequential):
     '''Implements a two branch neural network that first computes the kronecker product of the two embeddings and then passes the resulting vector to an MLP (terminating to a single output node)
     '''
     def __init__(self, config, instance_branch_model, target_branch_model):
