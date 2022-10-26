@@ -50,16 +50,16 @@ def process_interaction_data(interaction_data, verbose=False, print_mode='basic'
             # check the type of the instance_id values (int for normal ids, string for image directories)
             if pd.api.types.is_integer_dtype(interaction_data.dtypes['instance_id']):
                 info['instance_id_type'] = 'int'
-            elif pd.api.types.is_string_dtype(interaction_data.dtypes['instance_id']):
-                info['instance_id_type'] = 'string'
+            # elif pd.api.types.is_string_dtype(interaction_data.dtypes['instance_id']):
+            #     info['instance_id_type'] = 'string'
             else:
                 raise TypeError('Instance_id type is not detected')
 
             # check the type of the target_id values (int for normal ids, string for image directories)
             if pd.api.types.is_integer_dtype(interaction_data.dtypes['target_id']):
                 info['target_id_type'] = 'int'
-            elif pd.api.types.is_string_dtype(interaction_data.dtypes['target_id']):
-                info['target_id_type'] = 'string'
+            # elif pd.api.types.is_string_dtype(interaction_data.dtypes['target_id']):
+            #     info['target_id_type'] = 'string'
             else:
                 raise TypeError('Target_id type is not detected')
         else:

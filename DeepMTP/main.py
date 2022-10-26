@@ -236,7 +236,7 @@ class DeepMTP:   # pragma: no cover
                     results = get_performance_results(
                         mode, 
                         epoch,
-                        instance_ids_arr, 
+                        instance_ids_arr,
                         target_ids_arr, 
                         true_scores_arr, 
                         pred_scores_arr, 

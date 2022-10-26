@@ -22,7 +22,7 @@ import pytest
 data_format_type_combo_data = [
     {'pass_fail': 'pass', 'format': 'numpy', 'ids_type': 'int'}, 
     {'pass_fail': 'pass', 'format': 'dataframe', 'ids_type': 'int'}, 
-    {'pass_fail': 'pass', 'format': 'dataframe', 'ids_type': 'string'},
+    {'pass_fail': 'fail', 'format': 'dataframe', 'ids_type': 'string'},
     {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0, 0, 1, 1], 'target_id': [0, 1, 0, 1]})}, # less than three columns
     {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0, 0, 1, 1], 'ta_id': [0, 1, 0, 1], 'value': [0, 1, 1, 0]})}, # wrong column name
     {'pass_fail': 'fail', 'data': pd.DataFrame({'instance_id': [0, 0, 1, 1], 'target_id': [0, 1, 0, 1], 'value': ['a', 'b', 'c', 'd']})}, # characters in the value column
@@ -208,9 +208,9 @@ def test_get_estimated_validation_setting(get_estimated_validation_setting_data)
 test_process_instance_features_data = [
     {'format': 'numpy', 'ids_type': 'int', 'features_type': 'features'}, 
     {'format': 'dataframe', 'ids_type': 'int', 'features_type': 'features'}, 
-    {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'features'},
+    # {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'features'},
     {'format': 'None', 'ids_type': 'None', 'features_type': 'features'},
-    {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'dir'},
+    # {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'dir'},
     ]
 
 @pytest.mark.parametrize('test_process_instance_features_data', test_process_instance_features_data)
@@ -228,6 +228,7 @@ def test_process_instance_features(test_process_instance_features_data):
         if data_format == 'numpy':
             original_instance_features = pd.DataFrame(np.arange(len(data['train']['X_instance'])), columns=['id'])
             original_instance_features['features'] = [r for r in data['train']['X_instance']]
+    '''
     else:
         if features_type == 'features':
             data = { # three instance features data sources and three interaction data matrices
@@ -263,7 +264,7 @@ def test_process_instance_features(test_process_instance_features_data):
                 'X_instance': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
                 'X_target': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
             }}
-      
+    '''  
     if ids_type in ['int', 'string']:
         instance_features = process_instance_features(data['train']['X_instance'], verbose=False)
         if 'dir' not in instance_features['data'].columns:
@@ -282,9 +283,9 @@ def test_process_instance_features(test_process_instance_features_data):
 test_process_target_features_data = [
     {'format': 'numpy', 'ids_type': 'int', 'features_type': 'features'}, 
     {'format': 'dataframe', 'ids_type': 'int', 'features_type': 'features'}, 
-    {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'features'},
+    # {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'features'},
     {'format': 'None', 'ids_type': 'None', 'features_type': 'features'},
-    {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'dir'},
+    # {'format': 'dataframe', 'ids_type': 'string', 'features_type': 'dir'},
     ]
 
 @pytest.mark.parametrize('test_process_target_features_data', test_process_target_features_data)
@@ -303,6 +304,7 @@ def test_process_target_features(test_process_target_features_data):
         if data_format == 'numpy':
             original_target_features = pd.DataFrame(np.arange(len(data['train']['X_target'])), columns=['id'])
             original_target_features['features'] = [r for r in data['train']['X_target']]
+    '''
     else:
         if features_type == 'features':
             data = { # three instance features data sources and three interaction data matrices
@@ -338,7 +340,7 @@ def test_process_target_features(test_process_target_features_data):
                 'X_target': pd.DataFrame({'id': ['g', 'h', 'i'], 'features': list(np.random.rand(3, 10))}),
                 'X_instance': pd.DataFrame({'id': ['a', 'b'], 'features': list(np.random.rand(2, 10))}),
             }}
-            
+    '''        
     if ids_type in ['int', 'string']:
         target_features = process_target_features(data['train']['X_target'], verbose=False)
         if 'dir' not in target_features['data'].columns:
