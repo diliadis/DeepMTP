@@ -52,12 +52,12 @@ class BaseWorker:
         instance_specific_param_keys = [p_name for p_name in temp_config.keys() if p_name.startswith('instance_') and p_name not in ['instance_branch_input_dim', 'instance_branch_architecture']]
         target_specific_param_keys = [p_name for p_name in temp_config.keys() if p_name.startswith('target_') and p_name not in ['target_branch_input_dim', 'target_branch_architecture']]
 
-        current_config['instance_branch_params'] = {p_name: temp_config[p_name] for p_name in instance_specific_param_keys}
-        current_config['target_branch_params'] = {p_name: temp_config[p_name] for p_name in target_specific_param_keys}
-        current_config.update({p_name: temp_config[p_name] for p_name in temp_config.keys() if p_name not in instance_specific_param_keys+target_specific_param_keys})
+        current_config['instance_branch_params'] = {p_name: temp_config[p_name] for p_name in instance_specific_param_keys} # updating the dictionary with the instance specific hyperparameters
+        current_config['target_branch_params'] = {p_name: temp_config[p_name] for p_name in target_specific_param_keys} # updating the dictionary with the target specific hyperparameters
+        current_config.update({p_name: temp_config[p_name] for p_name in temp_config.keys() if p_name not in instance_specific_param_keys+target_specific_param_keys}) # updating all other parameters that are not included in the instance or target branch hyperparameters
         current_config['results_path'] = self.project_name
         current_config['experiment_name'] = current_time
-        current_config = generate_config(**current_config)
+        current_config = generate_config(**current_config) # generating the final configuration dictionary that blends the static parameters with the hyperparameters provided by the given optimizer
 
         self.older_model_dir = None
         self.older_model_budget = None
@@ -95,6 +95,7 @@ class BaseWorker:
                 model = DeepMTP(config=current_config)
             else:
                 model = DeepMTP_st(config=current_config)
+        print('HPO worker used this final config: '+str(current_config))
 
         # train, validate and test all at once
         val_results = model.train(self.train, self.val, self.test)
