@@ -18,6 +18,7 @@ from sklearn.metrics import (
     f1_score,
 )
 import numpy as np
+import pandas as pd
 import more_itertools as mit
 
 
@@ -94,14 +95,8 @@ def get_performance_results(
     if isinstance(targets_arr, list):
         targets_arr = np.array(targets_arr)
 
-    if verbose:   # pragma: no cover
-        print('train_true_value: ' + str(train_true_value))
-        print('True_values length: ' + str(len(true_values_arr)))
-        print('Predicted_values length: ' + str(len(pred_values_arr)))
-        print('instances_arr: ' + str(instances_arr[:10]))
-        print('targets_arr: ' + str(targets_arr[:10]))
-        print('True_values: ' + str(true_values_arr[:10]))
-        print('Predicted_values: ' + str(pred_values_arr[:10]))
+    # package all arrays into a dataframe (will have to check if this implementation is faster than the numpy version)
+    df = pd.DataFrame({'instance_id': instances_arr, 'target_id': targets_arr, 'true_values': true_values_arr, 'pred_values': pred_values_arr})
 
     values_per_metric = {m: [] for m in metrics}
 
@@ -111,15 +106,11 @@ def get_performance_results(
     if validation_setting == 'A':
         # check if values are scaled and if so, inverse_transform them. In setting A you have a single scaler for the entire score matrix.
         if scaler_per_target is not None:
-            true_values_arr = scaler_per_target.inverse_transform(
-                np.reshape(true_values_arr, (-1, 1))
-            ).flatten()
-            pred_values_arr = scaler_per_target.inverse_transform(
-                np.reshape(pred_values_arr, (-1, 1))
-            ).flatten()
-            print('These are the unscaled values: ')
-            print('Unscaled True_values: ' + str(true_values_arr[:10]))
-            print('Unscaled Predicted_values: ' + str(pred_values_arr[:10]))
+            df['true_values'] = scaler_per_target.inverse_transform(df['true_values'])
+            df['pred_values'] = scaler_per_target.inverse_transform(df['pred_values'])
+            if verbose:     # pragma: no cover
+                print('These are the unscaled values: ')
+                print('Unscaled True_values: ' + str(df[['true_values', 'pred_values']].head()))
 
         if 'micro' in averaging:
             results = base_evaluator(
