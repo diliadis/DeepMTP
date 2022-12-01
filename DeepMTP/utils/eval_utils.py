@@ -16,11 +16,24 @@ from sklearn.metrics import (
     average_precision_score,
     mean_absolute_error,
     f1_score,
+    ndcg_score,
 )
 import numpy as np
 import pandas as pd
 import more_itertools as mit
 
+
+def instance_wise_true_inverse_transformation(row, scaler_per_instance): # add check for cases where there is only one unique value true value or predicted value
+    return scaler_per_instance[row['instance_id']].inverse_transform(row['true_value'])
+
+def instance_wise_pred_inverse_transformation(row, scaler_per_instance):
+    return scaler_per_instance[row['instance_id']].inverse_transform(row['pred_value'])
+
+def target_wise_true_inverse_transformation(row, scaler_per_target):
+    return scaler_per_target[row['target_id']].inverse_transform(row['true_value'])
+
+def target_wise_pred_inverse_transformation(row, scaler_per_target):
+    return scaler_per_target[row['target_id']].inverse_transform(row['pred_value'])
 
 def get_performance_results(
     mode,
@@ -70,7 +83,7 @@ def get_performance_results(
     Returns:
         dict: A dictionary with key:value pairs of metric_name: metric_value
     '''
-
+    print('CALCULATING STUFF USING DATAFRAMES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
     final_result = {}
     if mode != '':
         mode += '_'
@@ -86,19 +99,8 @@ def get_performance_results(
         if np.NaN in pred_values_arr:
             print('NaN value in pred_values_arr')
 
-    if isinstance(true_values_arr, list):
-        true_values_arr = np.array(true_values_arr)
-    if isinstance(pred_values_arr, list):
-        pred_values_arr = np.array(pred_values_arr).flatten()
-    if isinstance(instances_arr, list):
-        instances_arr = np.array(instances_arr)
-    if isinstance(targets_arr, list):
-        targets_arr = np.array(targets_arr)
-
     # package all arrays into a dataframe (will have to check if this implementation is faster than the numpy version)
     df = pd.DataFrame({'instance_id': instances_arr, 'target_id': targets_arr, 'true_values': true_values_arr, 'pred_values': pred_values_arr})
-
-    values_per_metric = {m: [] for m in metrics}
 
     if verbose: print('========== ' + str(mode) + ' ==========')   # pragma: no cover
 
@@ -114,7 +116,7 @@ def get_performance_results(
 
         if 'micro' in averaging:
             results = base_evaluator(
-                true_values_arr, pred_values_arr, problem_mode, metrics, -1, verbose=verbose
+                df, problem_mode, metrics, -1, verbose=verbose
             )
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
@@ -130,30 +132,14 @@ def get_performance_results(
 
         if scaler_per_target is not None:
             # check if values are scaled and if so, inverse_transform them
-
-            index_arr_per_target = {}
-            for target_id in np.unique(targets_arr):
-                index_arr_per_target[target_id]  = np.where(np.array(targets_arr)==target_id)[0]
-
-            for target_i, idxs in index_arr_per_target.items():
-                true_values_arr[idxs] = (
-                    scaler_per_target[target_i]
-                    .inverse_transform(np.reshape(true_values_arr[idxs], (-1, 1)))
-                    .flatten()
-                )
-                pred_values_arr[idxs] = (
-                    scaler_per_target[target_i]
-                    .inverse_transform(np.reshape(pred_values_arr[idxs], (-1, 1)))
-                    .flatten()
-                )
-
+            df['true_values'] = df.apply(target_wise_true_inverse_transformation, scaler_per_target=scaler_per_target, axis=1)
+            df['pred_values'] = df.apply(target_wise_pred_inverse_transformation, scaler_per_target=scaler_per_target, axis=1)
             if verbose:   # pragma: no cover
-                print('Unscaled True_values: ' + str(true_values_arr[:10]))
-                print('Unscaled Predicted_values: ' + str(pred_values_arr[:10]))
+                print('Unscaled True_values: ' + str(df[['true_values', 'pred_values']].head()))
 
         if 'micro' in averaging:
             results = base_evaluator(
-                true_values_arr, pred_values_arr, problem_mode, metrics, -1, verbose=verbose
+                df, problem_mode, metrics, -1, verbose=verbose
             )
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
@@ -162,123 +148,54 @@ def get_performance_results(
                     print(metric_name + '_micro: ' + str(metric_val))
 
         if 'macro' in averaging:
-
-            index_arr_per_target = {}
-            for target_id in np.unique(targets_arr):
-                index_arr_per_target[target_id]  = np.where(np.array(targets_arr)==target_id)[0]
-
+            results_per_target = df.groupby('target_id').apply(base_evaluator, problem_mode, metrics, train_true_value, verbose)
             # iterate over the targets
-            for target_i, idxs in index_arr_per_target.items():
-                if problem_mode=='regression' or (len(np.unique(true_values_arr[idxs])) > 1) or (len(np.unique(pred_values_arr[idxs])) > 1):
-
-                    results = base_evaluator(
-                        true_values_arr[idxs],
-                        pred_values_arr[idxs],
-                        problem_mode,
-                        metrics,
-                        target_i,
-                        train_true_value=None if train_true_value is None else train_true_value[target_i],
-                        verbose=verbose
-                    )
-
-                    # this prints and/or logs the performance metrics per target
-                    for metric_name, metric_val in results.items():
-                        if metric_name not in values_per_metric:
-                            values_per_metric[metric_name] = []
-                        values_per_metric[metric_name].append(metric_val)
-                        final_result.update(
-                            {
-                                mode
-                                + metric_name
-                                + '_target_'
-                                + str(target_i): metric_val
-                            }
-                        )
-                        if per_target_verbose:   # pragma: no cover
-                            print(
-                                metric_name
-                                + '_target_'
-                                + str(target_i)
-                                + ': '
-                                + str(metric_val)
-                            )
-                else:
-                    if verbose:   # pragma: no cover
-                        print(
-                            'Warning: Target'
-                            + str(target_i)
-                            + ' has '
-                            + str(len(np.unique(true_values_arr[idxs])))
-                            + ' unique true values and '
-                            + str(len(np.unique(pred_values_arr[idxs])))
-                            + ' unique predictions'
-                        )
-
-            for metric_name in values_per_metric.keys():
-                avg_val = np.mean(values_per_metric[metric_name])
-                final_result.update({mode + metric_name + '_macro': avg_val})
+            for target_i, row in results_per_target.items():
+                final_result.update({mode+k+'_target_'+str(target_i): v for k, v in row.items()})
+            if per_target_verbose:   # pragma: no cover
+                print('Per target results: '+str(results_per_target))
+                    
+            macro_results_per_metric = results_per_target.apply(pd.Series).mean()
+            final_result.update({mode + k +'_macro': v for k, v in macro_results_per_metric.to_dict().items()})
+            if verbose:   # pragma: no cover
+                print('Macro results: '+str(macro_results_per_metric))
+                
+            if top_k is not None:
+                top_k_results_per_target = df.sort_values(['target_id', 'pred_values'], ascending=[True, False]).groupby('target_id').head(top_k).reset_index(drop=True).groupby('target_id').apply(base_evaluator, problem_mode, metrics, train_true_value, verbose)
+                for target_i, row in top_k_results_per_target.items():
+                    final_result.update({mode+'top_'+str(top_k)+'_'+k+'_target_'+str(target_i): v for k, v in row.items()})
+                if per_target_verbose:   # pragma: no cover
+                    print('Per target top_'+str(top_k)+'results: '+str(top_k_results_per_target))
+                    
+                top_k_macro_results_per_metric = top_k_results_per_target.apply(pd.Series).mean()
+                final_result.update({mode + 'top_' + str(top_k) + '_' + k +'_macro': v for k, v in top_k_macro_results_per_metric.to_dict().items()})
                 if verbose:   # pragma: no cover
-                    print(metric_name + '_macro: ' + str(avg_val))
+                    print('Macro results: '+str(top_k_macro_results_per_metric))
 
         if 'instance' in averaging:
-
-            index_arr_per_instance = {}
-            for instance_i in np.unique(instances_arr):
-                index_arr_per_instance[instance_i]  = np.where(np.array(instances_arr)==instance_i)[0]
-
+            results_per_instance = df.groupby('instance_id').apply(base_evaluator, problem_mode, metrics, None, verbose)
             # iterate over the instances
-            for instance_i, idxs in index_arr_per_instance.items():
-                if problem_mode=='regression' or (len(np.unique(true_values_arr[idxs])) > 1) and (len(np.unique(pred_values_arr[idxs])) > 1):
-
-                    results = base_evaluator(
-                        true_values_arr[idxs],
-                        pred_values_arr[idxs],
-                        problem_mode,
-                        metrics,
-                        instance_i,
-                        train_true_value=None,
-                        verbose=verbose
-                    )
-
-                    # this prints and/or logs the performance metrics per instance
-                    for metric_name, metric_val in results.items():
-                        if metric_name not in values_per_metric:
-                            values_per_metric[metric_name] = []
-                        values_per_metric[metric_name].append(metric_val)
-                        final_result.update(
-                            {
-                                mode
-                                + metric_name
-                                + '_instance_'
-                                + str(instance_i): metric_val
-                            }
-                        )
-                        if per_instance_verbose:   # pragma: no cover
-                            print(
-                                metric_name
-                                + '_instance_'
-                                + str(instance_i)
-                                + ': '
-                                + str(metric_val)
-                            )
-
-                else:
-                    if verbose:   # pragma: no cover
-                        print(
-                            'Warning: Instance'
-                            + str(instance_i)
-                            + ' has '
-                            + str(len(np.unique(true_values_arr[idxs])))
-                            + ' unique true values and '
-                            + str(len(np.unique(pred_values_arr[idxs])))
-                            + ' unique predictions'
-                        )
-
-            for metric_name in metrics:
-                avg_val = np.mean(values_per_metric[metric_name])
-                final_result.update({mode + metric_name + '_instance': avg_val})
+            for instance_i, row in results_per_instance.items():
+                final_result.update({mode+k+'_instance_'+str(instance_i): v for k, v in row.items()})
+            if per_instance_verbose:   # pragma: no cover
+                print('Per instance results: '+str(results_per_instance))
+                    
+            instance_results_per_metric = results_per_instance.apply(pd.Series).mean()
+            final_result.update({mode + k +'_instance_': v for k, v in instance_results_per_metric.to_dict().items()})
+            if verbose:   # pragma: no cover
+                print('Instance results: '+str(instance_results_per_metric))
+                
+            if top_k is not None:
+                top_k_results_per_instance = df.sort_values(['instance_id', 'pred_values'], ascending=[True, False]).groupby('instance_id').head(top_k).reset_index(drop=True).groupby('instance_id').apply(base_evaluator, problem_mode, metrics, None, verbose)
+                for instance_i, row in top_k_results_per_instance.items():
+                    final_result.update({mode+'top_'+str(top_k)+'_'+k+'_instance_'+str(instance_i): v for k, v in row.items()})
+                if per_instance_verbose:   # pragma: no cover
+                    print('Per instance top_'+str(top_k)+'results: '+str(top_k_results_per_instance))
+                    
+                top_k_instance_results_per_metric = top_k_results_per_instance.apply(pd.Series).mean()
+                final_result.update({mode + 'top_' + str(top_k) + '_' + k +'_instance': v for k, v in top_k_instance_results_per_metric.to_dict().items()})
                 if verbose:   # pragma: no cover
-                    print(metric_name + '_instance: ' + str(avg_val))
+                    print('Instance results: '+str(top_k_instance_results_per_metric))
 
     if verbose:   # pragma: no cover
         print('==================================')
@@ -289,7 +206,7 @@ def get_performance_results(
 
 # with micro-averaging you loose the notion of multiple-targets. You just simplify the problem and assume you are working with just one target. The train_true_value variable is only used for the calculation of the relative root mean squared error RRMSE.
 def base_evaluator(   # pragma: no cover
-    true_values_arr, pred_values_arr, problem_mode, metrics, idx, train_true_value=None, verbose=False
+    rows, problem_mode, metrics, idx, train_true_value=None, verbose=False, threshold=0.5
 ):
     '''The function that actually calculates the different metrics
 
@@ -300,22 +217,27 @@ def base_evaluator(   # pragma: no cover
         metrics (list): The performance metrics that will be calculated.
         idx (int): The id of the instance of target.
         train_true_value (numpy.array, optional): The true values per target. This is used when calculating the RRMSE score. Defaults to None.
-
+        threshold (float): The threshold used to binarize the predictions
     Returns:
         dict: a dictionary with the results per metric
     '''
     results = {}
 
+    true_values, pred_values = rows['true_values'], rows['pred_values']
+    
+    if len(rows) == 1:
+        train_true_value = train_true_value[rows['target_id']]
+
     if problem_mode == 'regression':
 
         if 'RMSE' in metrics:
-            results['RMSE'] = np.sqrt(np.mean(np.square(true_values_arr - pred_values_arr)))
+            results['RMSE'] = np.sqrt(np.mean(np.square(true_values - pred_values)))
         if 'MSE' in metrics:
-            results['MSE'] = np.mean(np.square(true_values_arr - pred_values_arr))
+            results['MSE'] = np.mean(np.square(true_values - pred_values))
         if 'MAE' in metrics:
-            results['MAE'] = np.mean(np.abs(true_values_arr - pred_values_arr))
+            results['MAE'] = np.mean(np.abs(true_values - pred_values))
         if 'R2' in metrics:
-            results['R2'] = r2_score(true_values_arr, pred_values_arr)
+            results['R2'] = r2_score(true_values, pred_values)
         if 'RRMSE' in metrics:   # pragma: no cover
             if train_true_value is None:
                 results['RRMSE'] = np.nan
@@ -324,18 +246,18 @@ def base_evaluator(   # pragma: no cover
                 # )
             else:
                 results['RRMSE'] = np.sqrt(
-                    np.mean(np.square(true_values_arr - pred_values_arr))
+                    np.mean(np.square(true_values - pred_values))
                 ) / np.sqrt(
                     np.mean(
                         np.square(
-                            true_values_arr
-                            - [train_true_value for i in range(len(pred_values_arr))]
+                            true_values
+                            - [train_true_value for i in range(len(pred_values))]
                         )
                     )
                 )
 
     elif problem_mode == 'classification':
-        bin_arr = np.where(pred_values_arr > 0.5, 1, 0)
+        bin_values = (pred_values>= threshold).astype(int)
 
         if idx == -1:
             (
@@ -343,26 +265,27 @@ def base_evaluator(   # pragma: no cover
                 results['fp'],
                 results['fn'],
                 results['tp'],
-            ) = confusion_matrix(true_values_arr, bin_arr).ravel()
+            ) = confusion_matrix(true_values, bin_values).ravel()
 
         if 'accuracy' in metrics:
-            results['accuracy'] = accuracy_score(true_values_arr, bin_arr)
+            results['accuracy'] = accuracy_score(true_values, bin_values)
         if 'recall' in metrics:
-            results['recall'] = recall_score(true_values_arr, bin_arr, zero_division=0)
+            results['recall'] = recall_score(true_values, bin_values, zero_division=0)
         if 'precision' in metrics:
             results['precision'] = precision_score(
-                true_values_arr, bin_arr, zero_division=0
+                true_values, bin_values, zero_division=0
             )
         if 'f1_score' in metrics:
-            results['f1_score'] = f1_score(true_values_arr, bin_arr, zero_division=0)
+            results['f1_score'] = f1_score(true_values, bin_values, zero_division=0)
         if 'hamming_loss' in metrics:
-            results['hamming_loss'] = hamming_loss(true_values_arr, bin_arr)
-        if len(np.unique(true_values_arr)) > 1:
+            results['hamming_loss'] = hamming_loss(true_values, bin_values)
+            
+        if true_values.nunique() > 1:
             if 'auroc' in metrics:
-                results['auroc'] = roc_auc_score(true_values_arr, pred_values_arr)
+                results['auroc'] = roc_auc_score(true_values, pred_values)
             if 'aupr' in metrics:
                 precision, recall, thresholds = precision_recall_curve(
-                    true_values_arr, pred_values_arr
+                    true_values, pred_values
                 )
                 results['aupr'] = auc(recall, precision)
         else:
@@ -371,7 +294,7 @@ def base_evaluator(   # pragma: no cover
                     'Warning: instance'
                     + str(idx)
                     + ' has '
-                    + str(len(np.unique(true_values_arr)))
+                    + str(true_values.nunique())
                     + ' unique true values'
                 )
         if set(metrics).intersection(
@@ -386,8 +309,8 @@ def base_evaluator(   # pragma: no cover
         ):
             results.update(
                 get_epilepsy_specific_metrics(
-                    true_values_arr,
-                    bin_arr,
+                    true_values,
+                    bin_values,
                     metrics=list(
                         set(metrics).intersection(
                             set(
@@ -402,6 +325,10 @@ def base_evaluator(   # pragma: no cover
                     ),
                 )
             )
+            
+    elif problem_mode == 'ranking':         
+        if 'ndcg' in metrics:
+            results['ndcg'] = ndcg_score(true_values, pred_values)
 
     return results
 
