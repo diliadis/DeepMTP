@@ -123,6 +123,8 @@ def generate_config(
     decay = 0,
     batch_norm = False,
     dropout_rate = 0,
+    dropout_rate_instance_branch = None,
+    dropout_rate_target_branch = None,
     momentum = 0.9,
     weighted_loss = False,
     compute_mode = 'cuda:0',
@@ -132,6 +134,7 @@ def generate_config(
     num_epochs = 100,
     metrics = ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'],
     metrics_average = ['macro', 'micro'],
+    top_k = None,
     patience = 10,
     delta = 0,
 
@@ -192,6 +195,8 @@ def generate_config(
         decay (float, optional): The weight decay (L2 penalty) used by the Adam optimizer . Defaults to 0.
         batch_norm (bool, optional): The option to use batch normalization between the fully connected layers in the two branches. Defaults to False.
         dropout_rate (float, optional): The amount of dropout used in the layers of the two branches. Defaults to 0.
+        dropout_rate_instance_branch (float, optional): The amount of dropout used in the layers of the instance branch, Can be used when assymetric overfitting between branches is observed. Defaults to 0.
+        dropout_rate_target_branch (float, optional): The amount of dropout used in the layers of the target branch. Can be used when assymetric overfitting between branches is observed. Defaults to 0.
         momentum (float, optional): The momentum used by the optimizer. Defaults to 0.9.
         weighted_loss (bool, optional): Enables the use of class weights in the loss. Defaults to False.
         compute_mode (str, optional): The specific device that will be used during training. The possible values can be one the available gpus or the cpu(please dont). Defaults to 'cuda:0'.
@@ -201,6 +206,7 @@ def generate_config(
         num_epochs (int, optional): The max number of epochs allowed for training. Defaults to 100.
         metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
         metrics_average (list, optional): The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
+        top_k (float, optional): The number of top predictions used to calculate top_k versions of metrics (frequently used in collaborative filtering problems).
         patience (int, optional): The number of epochs that the network is allowed to continue training for while observing worse overall performance. Defaults to 10.
         delta (float, optional): The delta used during early stopping
         evaluate_train (bool, optional): Whether or not to calculate performance metrics over the training set. Defaults to False.
@@ -268,6 +274,8 @@ def generate_config(
         'decay': decay, 
         'batch_norm': batch_norm,
         'dropout_rate': dropout_rate,
+        'dropout_rate_instance_branch': dropout_rate_instance_branch if dropout_rate_instance_branch is not None else dropout_rate,
+        'dropout_rate_target_branch': dropout_rate_target_branch if dropout_rate_target_branch is not None else dropout_rate,
         'momentum': momentum,
         'weighted_loss': weighted_loss,
         'compute_mode': compute_mode,
@@ -308,6 +316,7 @@ def generate_config(
         'target_inference_transforms': target_inference_transforms,
         'running_hpo': running_hpo,
         'hpo_results_path': hpo_results_path,
+        'top_k': top_k
     }
 
     # various sanity checks for the metrics and averaging options that are provided by the user

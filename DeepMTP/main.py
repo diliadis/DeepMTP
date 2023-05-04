@@ -130,7 +130,7 @@ class DeepMTP:   # pragma: no cover
         # define models that will be used in the two branches
         if instance_branch_model is None:
             if self.config['instance_branch_architecture'] == 'MLP':
-                self.instance_branch_model = MLP(self.config, self.config['instance_branch_input_dim'], instance_branch_output_dim, self.config['instance_branch_nodes_per_layer'], self.config['instance_branch_layers'], self.config['dropout_rate'], self.config['batch_norm'])
+                self.instance_branch_model = MLP(self.config, self.config['instance_branch_input_dim'], instance_branch_output_dim, self.config['instance_branch_nodes_per_layer'], self.config['instance_branch_layers'], self.config['dropout_rate_instance_branch'], self.config['batch_norm'])
             elif self.config['instance_branch_architecture'] == 'CONV':
                 self.instance_branch_model = ConvNet(self.config, self.config['instance_branch_input_dim'], instance_branch_output_dim, self.config['instance_branch_conv_architecture'], self.config['instance_branch_conv_architecture_version'], self.config['instance_branch_conv_architecture_last_layer_trained'], self.config['instance_branch_conv_architecture_dense_layers'])
         else:
@@ -139,7 +139,7 @@ class DeepMTP:   # pragma: no cover
 
         if target_branch_model is None:
             if self.config['target_branch_architecture'] == 'MLP':
-                self.target_branch_model = MLP(self.config, self.config['target_branch_input_dim'], target_branch_output_dim, self.config['target_branch_nodes_per_layer'], self.config['target_branch_layers'], self.config['dropout_rate'], self.config['batch_norm'])
+                self.target_branch_model = MLP(self.config, self.config['target_branch_input_dim'], target_branch_output_dim, self.config['target_branch_nodes_per_layer'], self.config['target_branch_layers'], self.config['dropout_rate_target_branch'], self.config['batch_norm'])
             elif self.config['target_branch_architecture'] == 'CONV':
                 self.target_branch_model = ConvNet(self.config, self.config['target_branch_input_dim'], target_branch_output_dim, self.config['target_branch_conv_architecture'], self.config['target_branch_conv_architecture_version'], self.config['target_branch_conv_architecture_last_layer_trained'], self.config['target_branch_conv_architecture_dense_layers'])
         else:
@@ -249,6 +249,7 @@ class DeepMTP:   # pragma: no cover
                         per_instance_verbose=self.config['eval_instance_verbose'],
                         train_true_value=None,
                         scaler_per_target=None,
+                        top_k=self.config['top_k'],
                     )
                     if verbose: print('Done')
             
@@ -297,6 +298,16 @@ class DeepMTP:   # pragma: no cover
             self.wandb_run = wandb.init(project=self.config['wandb_project_name'], entity=self.config['wandb_project_entity'], reinit=True)
             self.wandb_run.watch(self.deepMTP_model)
             self.wandb_run.config.update(self.config)
+            
+        #########################    Profiler    ############################    
+        '''        
+        prof = torch.profiler.profile(
+                schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
+                on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/profiler'),
+                record_shapes=True,
+                with_stack=True)
+        prof.start()
+        '''
 
         # iterate over epochs
         for epoch in range(self.config['num_epochs']):
@@ -327,6 +338,9 @@ class DeepMTP:   # pragma: no cover
                 loss.backward()
                 self.optimizer.step()
                 
+                #########################    Profiler    ############################            
+                # prof.step()
+                
                 # keep train of train loss, as well as all other info needed to compute performance metrics(if the user specifies it )
                 loss_arr.append(loss.item())
                 if self.config['evaluate_train']:
@@ -353,7 +367,11 @@ class DeepMTP:   # pragma: no cover
                     per_instance_verbose=self.config['eval_instance_verbose'],
                     train_true_value=None,
                     scaler_per_target=None,
+                    top_k=self.config['top_k'],
                 )
+
+            #########################    Profiler    ############################            
+            # prof.stop()
 
             mean_loss = np.mean(loss_arr)
             # update train_run_story_table

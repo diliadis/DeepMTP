@@ -4,16 +4,18 @@ import numpy as np
 import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.utils import resample, shuffle
 import warnings
 from PIL import Image
 from torch.utils.data import Dataset
+from torch.utils.data.sampler import Sampler
 import copy
 
 def normalize(row, scaler): # pragma: no cover
     ''' Just normalizes a row or features
 
     Args:
-        row (numpy.array): an array of features 
+        row (numpy.array): an array of features
         scaler (sklearn.scaler): the scaler that will be used to scale the features
 
     Returns:
@@ -67,14 +69,12 @@ def process_interaction_data(interaction_data, verbose=False, print_mode='basic'
     elif isinstance(interaction_data, np.ndarray):
         if verbose: print(('info: ' if print_mode=='dev' else '')+'Interaction file: 2d numpy array format detected')
 
-        # converting the 2d numpy array format to the more flexible triplet format
-        triplets = [
-            (i, j, interaction_data[i, j])
-            for i in range(interaction_data.shape[0])
-            for j in range(interaction_data.shape[1])
-            if ((interaction_data[i, j] is not None) and (not np.isnan(interaction_data[i, j])))
-        ]
-        interaction_data = pd.DataFrame(triplets, columns=['instance_id', 'target_id', 'value'])
+        # converting the 2d numpy array format to the more flexible triplet format        
+        interaction_data = pd.DataFrame(interaction_data).reset_index().melt('index')
+        interaction_data.columns = ['instance_id', 'target_id', 'value']
+        # remove nans 
+        interaction_data = interaction_data.dropna(subset=['value'])
+        
         info = {'data': interaction_data,
                 'original_format': 'numpy',
                 'instance_id_type': 'int',
@@ -1011,11 +1011,8 @@ class BaseDataset(Dataset):    # pragma: no cover
         self.use_instance_features = config['use_instance_features']
         self.use_target_features = config['use_target_features']
 
-        if instance_transform is not None:
-            self.instance_transform = instance_transform
-
-        if target_transform is not None:
-            self.target_transform = target_transform
+        self.instance_transform = instance_transform
+        self.target_transform = target_transform
 
         self.triplet_data = data['data']
         self.instance_features = None
@@ -1029,9 +1026,10 @@ class BaseDataset(Dataset):    # pragma: no cover
         return len(self.triplet_data)
 
     def __getitem__(self, idx): 
-        instance_id = int(self.triplet_data.iloc[idx]['instance_id'])
-        target_id = int(self.triplet_data.iloc[idx]['target_id'])
-        value = self.triplet_data.iloc[idx]['value']
+        row = self.triplet_data.iloc[idx]
+        instance_id = int(row['instance_id'])
+        target_id = int(row['target_id'])
+        value = row['value']
         instance_features_vec = None
         target_features_vec = None
 
@@ -1058,3 +1056,67 @@ class BaseDataset(Dataset):    # pragma: no cover
         return{'instance_id': instance_id, 'target_id': target_id, 'instance_features': instance_features_vec, 'target_features': target_features_vec, 'score': value}
 
 
+class MTPSampler(Sampler):
+    '''A sampler that can be used with pytorch dataloaders. The sampler can perform class balancing (binary and multi-class are currenty supported) at three different levels: 
+        a) micro: balancing classes at the level of the entire score matrix
+        b) macro: balancing classes at the target level (basically balancing every column of the score matrix). WARNING: this can cause instances to be excluded from the final balanced dataset.
+        c) instance: balancing classes at the instance level (basically balancing every row of the score matrix). WARNING: this can cause targets to be excluded from the final balanced dataset.
+    '''
+    
+    def __init__(self, data, mode='micro', verbose=False):
+        '''
+        Args:
+            data (DataFrame): The dataset that will be balanced
+            mode (str, optional): The mode of balancing that will be used by the sampler
+                            Default: micro
+            verbose (float, optional): If True, prints status updated while balancing. This can be helpful for "instance" or "target" modes that take time to complete 
+                            Default: False
+        '''
+        if mode not in ['micro', 'macro', 'instance']:
+            raise AttributeError('Invalid value pass to parameter mode. Change the value to one of the following: '+str(['micro', 'macro', 'instance']))
+        
+        self.data = data
+        self.verbose = verbose
+        self.data.reset_index(inplace=True, drop=True)
+        if mode == 'micro':
+            self.data = self.get_balanced_df(self.data)
+        elif mode == 'macro':
+            self.data.groupby(['instance_id']).apply(self.get_balanced_df)
+        elif mode == 'instance':
+            self.data.groupby(['target_id']).apply(self.get_balanced_df)
+
+        # shuffle the dataframe so that you don't have the different classes in order
+        self.data = shuffle(self.data, random_state=0)
+        
+    
+    def get_balanced_df(self, data):
+        '''
+        Args:
+            data (DataFrame): The dataset that will be balanced
+        '''
+        # isolate the minority class
+        minority_class = data['value'].value_counts().idxmin()
+        minority_class_size = data['value'].value_counts().loc[minority_class]
+        # gather remaining classes to be sampled
+        majority_classes = list(data['value'].unique())
+        majority_classes.remove(minority_class)
+        
+        sampled_df_per_majority_class = []
+        # subsample from every non-minority class
+        for class_val in majority_classes:
+            sampled_df_per_majority_class.append(resample(data[data['value'] == class_val],
+                                                replace=True,
+                                                n_samples=minority_class_size,
+                                                random_state=42)
+                                                )
+        sampled_df_per_majority_class.append(data[data['value'] == minority_class])
+        
+        # concatenate all the sampled dataframes from every class
+        data = pd.concat(sampled_df_per_majority_class)
+        return data
+
+    def __iter__(self):
+        return iter(list(self.data.index))
+
+    def __len__(self):
+        return len(self.data)
