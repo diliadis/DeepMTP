@@ -1011,11 +1011,8 @@ class BaseDataset(Dataset):    # pragma: no cover
         self.use_instance_features = config['use_instance_features']
         self.use_target_features = config['use_target_features']
 
-        if instance_transform is not None:
-            self.instance_transform = instance_transform
-
-        if target_transform is not None:
-            self.target_transform = target_transform
+        self.instance_transform = instance_transform
+        self.target_transform = target_transform
 
         self.triplet_data = data['data']
         self.instance_features = None
@@ -1029,9 +1026,10 @@ class BaseDataset(Dataset):    # pragma: no cover
         return len(self.triplet_data)
 
     def __getitem__(self, idx): 
-        instance_id = int(self.triplet_data.iloc[idx]['instance_id'])
-        target_id = int(self.triplet_data.iloc[idx]['target_id'])
-        value = self.triplet_data.iloc[idx]['value']
+        row = self.triplet_data.iloc[idx]
+        instance_id = int(row['instance_id'])
+        target_id = int(row['target_id'])
+        value = row['value']
         instance_features_vec = None
         target_features_vec = None
 
