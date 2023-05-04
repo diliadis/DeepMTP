@@ -13,6 +13,17 @@ Installation
 `available on PyPI <https://pypi.org/project/DeepMTP/>`_
 and can be installed using **pip**::
 
+  # create and activate a conda environment
+  conda create -n DeepMTP_env python=3.8
+  conda activate DeepMTP_env
+
+  # if a gpu is available
+  pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu113
+
+  # if a gpu is NOT available
+  pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
+
+  # install DeepMTP
   pip install DeepMTP
 
 Alternatively, you can install directly from the **source code**. Simply clone the **Git**
