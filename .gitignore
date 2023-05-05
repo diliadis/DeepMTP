@@ -7,6 +7,7 @@ results/
 wandb/
 hyperband/
 DEMO_tests/
+docs/doc_env/
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
