@@ -317,10 +317,10 @@ def test_get_performance_results(mode):
                     scaler.fit(true_values_arr.flatten().reshape(-1, 1))
                     true_values_arr_scaled = scaler.transform(
                         true_values_arr.reshape(-1, 1)
-                    )
+                    ).flatten()
                     pred_values_arr_scaled = scaler.transform(
                         pred_values_arr.reshape(-1, 1)
-                    )
+                    ).flatten()
 
         results = get_performance_results(
             "train",
