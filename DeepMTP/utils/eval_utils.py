@@ -122,8 +122,12 @@ def get_performance_results(
     if validation_setting == "A":
         # check if values are scaled and if so, inverse_transform them. In setting A you have a single scaler for the entire score matrix.
         if scaler_per_target is not None:
-            df["true_values"] = scaler_per_target.inverse_transform(df["true_values"])
-            df["pred_values"] = scaler_per_target.inverse_transform(df["pred_values"])
+            df["true_values"] = scaler_per_target.inverse_transform(
+                df["true_values"].values.reshape(-1, 1)
+            )
+            df["pred_values"] = scaler_per_target.inverse_transform(
+                df["pred_values"].values.reshape(-1, 1)
+            )
             if verbose:  # pragma: no cover
                 print("These are the unscaled values: ")
                 print(
