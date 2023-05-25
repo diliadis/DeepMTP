@@ -89,7 +89,6 @@ def get_performance_results(
     Returns:
         dict: A dictionary with key:value pairs of metric_name: metric_value
     """
-    print("CALCULATING STUFF USING DATAFRAMES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     final_result = {}
     if mode != "":
         mode += "_"
@@ -352,11 +351,16 @@ def base_evaluator(  # pragma: no cover
 
     if problem_mode == "regression":
         if "RMSE" in metrics:
-            results["RMSE"] = np.sqrt(np.mean(np.square(true_values - pred_values)))
+            # results["RMSE"] = np.sqrt(np.mean(np.square(true_values - pred_values)))
+            results["RMSE"] = mean_squared_error(
+                true_values, pred_values, squared=False
+            )
         if "MSE" in metrics:
-            results["MSE"] = np.mean(np.square(true_values - pred_values))
+            # results["MSE"] = np.mean(np.square(true_values - pred_values))
+            results["MSE"] = mean_squared_error(true_values, pred_values, squared=True)
         if "MAE" in metrics:
-            results["MAE"] = np.mean(np.abs(true_values - pred_values))
+            # results["MAE"] = np.mean(np.abs(true_values - pred_values))
+            results["MAE"] = mean_absolute_error(true_values, pred_values)
         if "R2" in metrics:
             results["R2"] = r2_score(true_values, pred_values)
         if "RRMSE" in metrics:  # pragma: no cover
