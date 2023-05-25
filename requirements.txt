@@ -13,4 +13,4 @@ scipy==1.7.3
 setuptools==61.2.0
 wandb==0.13.4
 wget==3.2
-streamlit==1.13.0
+streamlit==1.22.0
