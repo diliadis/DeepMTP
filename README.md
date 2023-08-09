@@ -269,7 +269,9 @@ In the code snippet above the function generate_config is shown without any spec
 | **General architecture architecture** ||
 | `general_architecture_version` | Enables a specific version of the general neural network architecture. Available options are: `mlp` for the mlp version, `dot_product` for the dot product version, `kronecker`: for the kronecker product version. Default value is `dot_product` |
 | `batch_norm` | The option to use batch normalization between the fully connected layers in the two branches |
-| `dropout_rate` | The amount of dropout used in the layers of the two branches |
+| `dropout_rate` | The amount of dropout used in the layers of the both branches |
+| `dropout_rate_instance_branch` | The amount of dropout used in the layers of the instance branch  |
+| `dropout_rate_target_branch` | The amount of dropout used in the layers of the target branch |
 | **Instance branch architecture** ||
 | `instance_branch_architecture` | The type of architecture that will be used in the instance branch. Currently, there are two available options, `MLP`: a basic fully connected feed-forward neural network is used, `CONV` a convolutional neural network is used |
 | `instance_branch_input_dim` | The input dimension of the instance branch |
@@ -451,8 +453,9 @@ best_model_results = best_model.predict(test, verbose=True)
 | Multivariate regression (MTR)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lm7M37YPfaW3hGtSO9wg4UG_Cz_Manth?usp=sharing)   |
 | Multi-task learning (MTL)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1eztLI4ad1tclj9QP5IXzX9pbK_1SEXy3?usp=sharing) |
 | Matrix Completion (MC)  | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1cs45TN0FVI4NcRmbrdvljfjbyp0_NtVt?usp=sharing) |
-| Dyadic Prediction (DP) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1sPjYTur2xpoOPnidQEYLWMvlE4ai6WbV?usp=sharing)
-| Hyperband | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1UQxtxAYcuNoIOHZce3UJDh6kKl4T5gNa?usp=sharing)
+| Dyadic Prediction (DP) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1sPjYTur2xpoOPnidQEYLWMvlE4ai6WbV?usp=sharing) |
+| Hyperband | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1UQxtxAYcuNoIOHZce3UJDh6kKl4T5gNa?usp=sharing) |
+| Additional information for specific hyperparameters | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ns5XXtOlkzonRNHz3ljDS2IYYfwtSZE7?usp=sharing) |
 
 # Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
