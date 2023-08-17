@@ -416,7 +416,7 @@ config = {
     'use_early_stopping': True,
     'use_tensorboard_logger': True,
     'wandb_project_name': 'DeepMTP_v2',
-    'wandb_project_entity': 'diliadis',
+    'wandb_project_entity': 'John_Doe',
     'metric_to_optimize_early_stopping': 'loss',
     'metric_to_optimize_best_epoch_selection': 'loss',
     'instance_branch_architecture': 'MLP',
