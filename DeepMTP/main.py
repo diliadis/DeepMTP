@@ -394,7 +394,7 @@ class DeepMTP:  # pragma: no cover
 
         # initialize the dataloaders
         train_dataloader = DataLoader(
-            BaseDataset(
+            BasePytorchDataset(
                 self.config,
                 train_data["y"],
                 train_data["X_instance"],
@@ -409,7 +409,7 @@ class DeepMTP:  # pragma: no cover
         )
         if val_data is not None:
             val_dataloader = DataLoader(
-                BaseDataset(
+                BasePytorchDataset(
                     self.config,
                     val_data["y"],
                     val_data["X_instance"],
@@ -424,7 +424,7 @@ class DeepMTP:  # pragma: no cover
             )
         if test_data is not None:
             test_dataloader = DataLoader(
-                BaseDataset(
+                BasePytorchDataset(
                     self.config,
                     test_data["y"],
                     test_data["X_instance"],
@@ -749,7 +749,7 @@ class DeepMTP:  # pragma: no cover
     ):  # pragma: no cover
         self.deepMTP_model.to(self.device)
         dataloader = DataLoader(
-            BaseDataset(
+            BasePytorchDataset(
                 self.config,
                 data["y"],
                 data["X_instance"],
