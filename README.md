@@ -458,14 +458,20 @@ best_model_results = best_model.predict(test, verbose=True)
 | Additional information for specific hyperparameters | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ns5XXtOlkzonRNHz3ljDS2IYYfwtSZE7?usp=sharing) |
 
 # Cite Us
-If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
+If you use this package, please cite [our paper](https://www.sciencedirect.com/science/article/pii/S2352711023002121):
 ```
-@article{iliadis2022multi,
-  title={Multi-target prediction for dummies using two-branch neural networks},
+@article{iliadis2023deepmtp,
+  title={DeepMTP: A Python-based deep learning framework for multi-target prediction},
   author={Iliadis, Dimitrios and De Baets, Bernard and Waegeman, Willem},
-  journal={Machine Learning},
-  pages={1--34},
-  year={2022},
-  publisher={Springer}
+  journal={SoftwareX},
+  volume={23},
+  pages={101516},
+  year={2023},
+  publisher={Elsevier}
 }
 ```
+
+Related publications to this work:
+* Paper that showed the feasibility of using the two-branch architecture for different multi-target prediction settings: [link](https://link.springer.com/article/10.1007/s10994-021-06104-5)
+* Paper that benchmarks different hyperparameter optimization methods using the two-branch neural network as the base model: [link](https://arxiv.org/abs/2211.04362)
+* Paper that compares different embedding aggregation strategies specifically in the area of drug-target interaction prediction: [link](https://www.biorxiv.org/content/10.1101/2023.09.25.559265v2.abstract)
