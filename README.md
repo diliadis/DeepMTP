@@ -460,12 +460,13 @@ best_model_results = best_model.predict(test, verbose=True)
 # Cite Us
 If you use this package, please cite [our paper](https://link.springer.com/article/10.1007/s10994-021-06104-5):
 ```
-@article{iliadis2022multi,
-  title={Multi-target prediction for dummies using two-branch neural networks},
+@article{iliadis2023deepmtp,
+  title={DeepMTP: A Python-based deep learning framework for multi-target prediction},
   author={Iliadis, Dimitrios and De Baets, Bernard and Waegeman, Willem},
-  journal={Machine Learning},
-  pages={1--34},
-  year={2022},
-  publisher={Springer}
+  journal={SoftwareX},
+  volume={23},
+  pages={101516},
+  year={2023},
+  publisher={Elsevier}
 }
 ```
