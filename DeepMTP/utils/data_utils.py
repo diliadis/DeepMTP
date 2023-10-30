@@ -2114,4 +2114,16 @@ class MTPSampler(Sampler):
         return len(self.data)
 
 
-class MTP
+class BaseDataset:
+    def __init__(self, y, X_instance, X_target, X_dyadic):
+        self.y = y
+        self.X_instance = X_instance
+        self.X_target = X_target
+        self.X_dyadic = X_dyadic
+
+
+class MTPDataset(BaseDataset):
+    def __init__(self, train, test, val):
+        self.train = train
+        self.val = val
+        self.test = test
