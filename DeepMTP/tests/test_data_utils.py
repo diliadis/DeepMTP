@@ -3624,3 +3624,181 @@ def test_base_dataset_rejects_ids_outside_one_hot_dimensions():
 
     with pytest.raises(ValueError, match="Instance IDs must be zero-based"):
         BaseDataset(config, interactions, None, None)
+
+
+def make_base_dataset_config(**overrides):
+    config = {
+        "instance_branch_input_dim": 3,
+        "target_branch_input_dim": 2,
+        "instance_branch_architecture": "MLP",
+        "target_branch_architecture": "MLP",
+    }
+    config.update(overrides)
+    return config
+
+
+def test_base_dataset_returns_one_hot_features():
+    interactions = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [2],
+                "target_id": [1],
+                "value": [0.5],
+            }
+        )
+    }
+
+    dataset = BaseDataset(
+        make_base_dataset_config(),
+        interactions,
+        None,
+        None,
+    )
+    item = dataset[0]
+
+    assert len(dataset) == 1
+    np.testing.assert_array_equal(
+        item["instance_features"],
+        np.array([0.0, 0.0, 1.0], dtype=np.float32),
+    )
+    np.testing.assert_array_equal(
+        item["target_features"],
+        np.array([0.0, 1.0], dtype=np.float32),
+    )
+    assert item["instance_id"] == 2
+    assert item["target_id"] == 1
+    assert item["score"] == 0.5
+
+
+def test_base_dataset_indexes_features_by_id_without_mutating_source():
+    interactions = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [10],
+                "target_id": [20],
+                "value": [1],
+            }
+        )
+    }
+    instance_frame = pd.DataFrame({"id": [10], "features": [np.array([1.0, 2.0])]})
+    target_frame = pd.DataFrame({"id": [20], "features": [np.array([3.0])]})
+    original_instance_frame = instance_frame.copy(deep=True)
+    original_target_frame = target_frame.copy(deep=True)
+
+    dataset = BaseDataset(
+        make_base_dataset_config(),
+        interactions,
+        {"data": instance_frame},
+        {"data": target_frame},
+    )
+    item = dataset[0]
+
+    np.testing.assert_array_equal(item["instance_features"], np.array([1.0, 2.0]))
+    np.testing.assert_array_equal(item["target_features"], np.array([3.0]))
+    assert_frame_equal(instance_frame, original_instance_frame)
+    assert_frame_equal(target_frame, original_target_frame)
+
+
+def test_base_dataset_requires_transform_for_convolutional_features():
+    interactions = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [0],
+                "target_id": [0],
+                "value": [1],
+            }
+        )
+    }
+    instance_features = {"data": pd.DataFrame({"id": [0], "dir": ["unused-image.png"]})}
+
+    with pytest.raises(ValueError, match="instance_transform"):
+        BaseDataset(
+            make_base_dataset_config(instance_branch_architecture="CONV"),
+            interactions,
+            instance_features,
+            None,
+        )
+
+
+def test_base_dataset_rejects_missing_feature_ids():
+    interactions = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [1],
+                "target_id": [0],
+                "value": [1],
+            }
+        )
+    }
+    instance_features = {
+        "data": pd.DataFrame({"id": [0], "features": [np.array([1.0])]})
+    }
+
+    with pytest.raises(ValueError, match="missing IDs"):
+        BaseDataset(
+            make_base_dataset_config(),
+            interactions,
+            instance_features,
+            None,
+        )
+
+
+def make_sampler_data():
+    return pd.DataFrame(
+        {
+            "instance_id": [0, 1, 2, 3],
+            "target_id": [0, 0, 0, 0],
+            "value": [0, 0, 0, 1],
+        },
+        index=[10, 11, 12, 13],
+    )
+
+
+def test_mtp_sampler_balances_without_mutating_caller_data():
+    data = make_sampler_data()
+    original_data = data.copy(deep=True)
+
+    sampler = MTPSampler(data)
+
+    assert_frame_equal(data, original_data)
+    assert sampler.data["value"].value_counts().to_dict() == {0: 1, 1: 1}
+    assert set(sampler).issubset(range(len(data)))
+
+
+def test_mtp_sampler_is_deterministic():
+    first = MTPSampler(make_sampler_data())
+    second = MTPSampler(make_sampler_data())
+
+    assert list(first) == list(second)
+
+
+@pytest.mark.parametrize(
+    ("data", "mode", "message"),
+    [
+        (make_sampler_data(), "unknown", "mode must be"),
+        (
+            pd.DataFrame(columns=["instance_id", "target_id", "value"]),
+            "micro",
+            "at least one observation",
+        ),
+        (
+            pd.DataFrame({"instance_id": [0], "value": [1]}),
+            "micro",
+            "missing required columns",
+        ),
+        (
+            pd.DataFrame(
+                {
+                    "instance_id": [np.nan],
+                    "target_id": [0],
+                    "value": [1],
+                }
+            ),
+            "micro",
+            "entity IDs cannot be missing",
+        ),
+    ],
+)
+def test_mtp_sampler_rejects_invalid_inputs(data, mode, message):
+    with pytest.raises(ValueError, match=message):
+        MTPSampler(data, mode=mode)

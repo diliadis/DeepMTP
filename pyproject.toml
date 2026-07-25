@@ -196,6 +196,7 @@ module = [
     "DeepMTP.simple_hyperband_streamlit",
     "DeepMTP.streamlit_adapter",
     "DeepMTP.training",
+    "DeepMTP.utils.data_utils",
     "DeepMTP.utils.eval_utils",
     "DeepMTP.utils.model_utils",
     "DeepMTP.utils.tests",

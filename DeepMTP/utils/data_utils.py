@@ -1,6 +1,6 @@
 import copy
 import warnings
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from itertools import combinations
 from typing import Any, Literal, Protocol, TypeAlias, TypedDict, cast
 
@@ -18,6 +18,7 @@ pd.set_option("mode.chained_assignment", None)
 VariableType: TypeAlias = Literal["binary", "real-valued"]
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
 ScalingMethod: TypeAlias = Literal["MinMax", "Standard"]
+SamplerMode: TypeAlias = Literal["micro", "macro", "instance"]
 DatasetMapping: TypeAlias = Mapping[str, Any]
 ProcessedSplit: TypeAlias = dict[str, Any]
 
@@ -29,6 +30,16 @@ class DataInfo(TypedDict):
     detected_problem_mode: Literal["classification", "regression"]
     instance_branch_input_dim: int | None
     target_branch_input_dim: int | None
+
+
+class DatasetItem(TypedDict):
+    """One model-ready interaction returned by ``BaseDataset``."""
+
+    instance_id: int
+    target_id: int
+    instance_features: Any
+    target_features: Any
+    score: Any
 
 
 class InteractionInfo(TypedDict):
@@ -2137,116 +2148,147 @@ def data_process(
     )
 
 
-'''
-# fast but can blow up
 class BaseDataset(Dataset):
-    """A custom pytorch Dataset with a flexible implementation that can handle different cases of instance and target features. 
-       The speed of this could be improved by splitting this logic into multiple datasets designed for specific cases. 
-    """    
-    def __init__(self, config, data, instance_features, target_features, instance_transform=None, target_transform=None):
-        self.config = config
-        self.instance_branch_input_dim = config['instance_branch_input_dim']
-        self.target_branch_input_dim = config['target_branch_input_dim']
-
-        self.use_instance_features = config['use_instance_features']
-        self.use_target_features = config['use_target_features']
-
-        if instance_transform is not None:
-            self.instance_transform = instance_transform
-
-        if target_transform is not None:
-            self.target_transform = target_transform
-
-        self.triplet_data = data['data']
-        self.instance_features = None
-        self.target_features = None
-        if instance_features is not None:
-            self.instance_features = instance_features['data']
-        else:
-            instance_identity = np.identity(self.instance_branch_input_dim)
-            self.instance_features = pd.DataFrame(np.arange(self.instance_branch_input_dim), columns=['id'])
-            self.instance_features['features'] = [instance_identity[i] for i in range(instance_identity.shape[0])]
-
-        if target_features is not None:
-            self.target_features = target_features['data']
-        else:
-            target_identity = np.identity(self.target_branch_input_dim)
-            self.target_features = pd.DataFrame(np.arange(self.target_branch_input_dim), columns=['id'])
-            self.target_features['features'] = [target_identity[i] for i in range(target_identity.shape[0])]
-
-    def __len__(self):
-        return len(self.triplet_data)
-
-    def __getitem__(self, idx): 
-        instance_id = int(self.triplet_data.iloc[idx]['instance_id'])
-        target_id = int(self.triplet_data.iloc[idx]['target_id'])
-        value = self.triplet_data.iloc[idx]['value']
-        instance_features_vec = None
-        target_features_vec = None
-
-        if self.config['instance_branch_architecture'] == 'CONV':
-            image = Image.open(self.instance_features.loc[instance_id, 'dir']).convert('RGB')
-            instance_features_vec = self.instance_transform(image)
-        else:
-            instance_features_vec = self.instance_features.loc[instance_id, 'features']
-
-        if self.config['target_branch_architecture'] == 'CONV':
-            image = Image.open(self.target_features.loc[target_id, 'dir']).convert('RGB')
-            target_features_vec = self.target_transform(image)
-        else:
-            target_features_vec = self.target_features.loc[target_id, 'features']
-
-        return{'instance_id': instance_id, 'target_id': target_id, 'instance_features': instance_features_vec, 'target_features': target_features_vec, 'score': value}
-'''
-
-
-# slow but memory efficient
-class BaseDataset(Dataset):  # pragma: no cover
-    """A custom pytorch Dataset with a flexible implementation that can handle different cases of instance and target features.
-    The speed of this could be improved by splitting this logic into multiple datasets designed for specific cases.
-    """
+    """Resolve interaction rows to model-ready entity features."""
 
     def __init__(
         self,
-        config,
-        data,
-        instance_features,
-        target_features,
-        instance_transform=None,
-        target_transform=None,
-    ):
-        self.config = config
-        self.instance_branch_input_dim = config["instance_branch_input_dim"]
-        self.target_branch_input_dim = config["target_branch_input_dim"]
-
-        self.use_instance_features = config["use_instance_features"]
-        self.use_target_features = config["use_target_features"]
-
+        config: Mapping[str, Any],
+        data: Mapping[str, Any],
+        instance_features: Mapping[str, Any] | None,
+        target_features: Mapping[str, Any] | None,
+        instance_transform: Callable[[Image.Image], Any] | None = None,
+        target_transform: Callable[[Image.Image], Any] | None = None,
+    ) -> None:
+        self.config = dict(config)
+        self.instance_branch_input_dim = config.get("instance_branch_input_dim")
+        self.target_branch_input_dim = config.get("target_branch_input_dim")
+        self.instance_branch_architecture = config.get("instance_branch_architecture")
+        self.target_branch_architecture = config.get("target_branch_architecture")
         self.instance_transform = instance_transform
         self.target_transform = target_transform
 
-        self.triplet_data = data["data"]
-        self.instance_features = None
-        self.target_features = None
-        if instance_features is not None:
-            self.instance_features = instance_features["data"]
-        else:
+        triplet_data = data.get("data")
+        if not isinstance(triplet_data, pd.DataFrame):
+            raise TypeError("data['data'] must be a pandas DataFrame.")
+        required_columns = {"instance_id", "target_id", "value"}
+        missing_columns = required_columns.difference(triplet_data.columns)
+        if missing_columns:
+            raise ValueError(
+                "Interaction data is missing required columns: "
+                f"{sorted(missing_columns)}."
+            )
+        if triplet_data.empty:
+            raise ValueError("Interaction data must contain at least one observation.")
+        for id_column, entity_name in (
+            ("instance_id", "Instance"),
+            ("target_id", "Target"),
+        ):
+            if not pd.api.types.is_integer_dtype(triplet_data[id_column]):
+                raise TypeError(f"{entity_name} IDs must contain integers.")
+        if triplet_data["value"].isna().any():
+            raise ValueError("Interaction scores cannot be missing.")
+        self.triplet_data = triplet_data.copy(deep=True)
+
+        self.instance_features = self._prepare_feature_frame(
+            instance_features,
+            id_column="instance_id",
+            architecture=self.instance_branch_architecture,
+            transform=instance_transform,
+            entity_name="Instance",
+        )
+        self.target_features = self._prepare_feature_frame(
+            target_features,
+            id_column="target_id",
+            architecture=self.target_branch_architecture,
+            transform=target_transform,
+            entity_name="Target",
+        )
+
+        if self.instance_features is None:
+            self.instance_branch_input_dim = self._validate_input_dimension(
+                self.instance_branch_input_dim,
+                "instance_branch_input_dim",
+            )
             self._validate_one_hot_ids(
                 id_column="instance_id",
                 input_dim=self.instance_branch_input_dim,
                 entity_name="Instance",
             )
-        if target_features is not None:
-            self.target_features = target_features["data"]
-        else:
+        if self.target_features is None:
+            self.target_branch_input_dim = self._validate_input_dimension(
+                self.target_branch_input_dim,
+                "target_branch_input_dim",
+            )
             self._validate_one_hot_ids(
                 id_column="target_id",
                 input_dim=self.target_branch_input_dim,
                 entity_name="Target",
             )
 
-    def _validate_one_hot_ids(self, id_column, input_dim, entity_name):
+    @staticmethod
+    def _validate_input_dimension(value: object, name: str) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(
+                f"{name} must be a positive integer when features are not supplied."
+            )
+        return value
+
+    def _prepare_feature_frame(
+        self,
+        source: Mapping[str, Any] | None,
+        *,
+        id_column: Literal["instance_id", "target_id"],
+        architecture: object,
+        transform: Callable[[Image.Image], Any] | None,
+        entity_name: Literal["Instance", "Target"],
+    ) -> pd.DataFrame | None:
+        if source is None:
+            if architecture == "CONV":
+                raise ValueError(
+                    f"{entity_name} features are required for a CONV branch."
+                )
+            return None
+
+        frame = source.get("data")
+        if not isinstance(frame, pd.DataFrame):
+            raise TypeError(
+                f"{entity_name} feature source must contain a pandas DataFrame."
+            )
+        if "id" not in frame.columns:
+            raise ValueError(f"{entity_name} features must contain an 'id' column.")
+        if frame["id"].isna().any() or frame["id"].duplicated().any():
+            raise ValueError(f"{entity_name} feature IDs must be unique and non-null.")
+
+        value_column = "dir" if architecture == "CONV" else "features"
+        if value_column not in frame.columns:
+            raise ValueError(
+                f"{entity_name} features must contain a {value_column!r} column."
+            )
+        if architecture == "CONV" and transform is None:
+            raise ValueError(
+                f"{entity_name.lower()}_transform is required for a CONV branch."
+            )
+
+        prepared_frame = frame.copy(deep=True).set_index("id", drop=False)
+        interaction_ids = set(self.triplet_data[id_column])
+        missing_ids = interaction_ids.difference(prepared_frame.index)
+        if missing_ids:
+            raise ValueError(
+                f"{entity_name} features are missing IDs used by interactions: "
+                f"{sorted(missing_ids)!r}."
+            )
+        return prepared_frame
+
+    def _validate_one_hot_ids(
+        self,
+        id_column: Literal["instance_id", "target_id"],
+        input_dim: int,
+        entity_name: Literal["Instance", "Target"],
+    ) -> None:
         ids = self.triplet_data[id_column].to_numpy()
+        if not pd.api.types.is_integer_dtype(ids):
+            raise TypeError(f"{entity_name} IDs must contain integers.")
         invalid_ids = ids[(ids < 0) | (ids >= input_dim)]
         if invalid_ids.size:
             invalid_id = int(invalid_ids[0])
@@ -2257,23 +2299,31 @@ class BaseDataset(Dataset):  # pragma: no cover
                 "features."
             )
 
-    def __len__(self):
+    @staticmethod
+    def _load_image_features(
+        frame: pd.DataFrame,
+        entity_id: int,
+        transform: Callable[[Image.Image], Any],
+    ) -> Any:
+        with Image.open(frame.loc[entity_id, "dir"]) as image:
+            return transform(image.convert("RGB"))
+
+    def __len__(self) -> int:
         return len(self.triplet_data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> DatasetItem:
         row = self.triplet_data.iloc[idx]
         instance_id = int(row["instance_id"])
         target_id = int(row["target_id"])
         value = row["value"]
-        instance_features_vec = None
-        target_features_vec = None
 
         if self.instance_features is not None:
-            if self.config["instance_branch_architecture"] == "CONV":
-                image = Image.open(
-                    self.instance_features.loc[instance_id, "dir"]
-                ).convert("RGB")
-                instance_features_vec = self.instance_transform(image)
+            if self.instance_branch_architecture == "CONV":
+                instance_features_vec = self._load_image_features(
+                    self.instance_features,
+                    instance_id,
+                    cast(Callable[[Image.Image], Any], self.instance_transform),
+                )
             else:
                 instance_features_vec = self.instance_features.loc[
                     instance_id, "features"
@@ -2285,11 +2335,12 @@ class BaseDataset(Dataset):  # pragma: no cover
             instance_features_vec[instance_id] = 1
 
         if self.target_features is not None:
-            if self.config["target_branch_architecture"] == "CONV":
-                image = Image.open(self.target_features.loc[target_id, "dir"]).convert(
-                    "RGB"
+            if self.target_branch_architecture == "CONV":
+                target_features_vec = self._load_image_features(
+                    self.target_features,
+                    target_id,
+                    cast(Callable[[Image.Image], Any], self.target_transform),
                 )
-                target_features_vec = self.target_transform(image)
             else:
                 target_features_vec = self.target_features.loc[target_id, "features"]
         else:
@@ -2314,7 +2365,12 @@ class MTPSampler(Sampler):
     c) instance: balancing classes at the instance level (basically balancing every row of the score matrix). WARNING: this can cause targets to be excluded from the final balanced dataset.
     """
 
-    def __init__(self, data, mode="micro", verbose=False):
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        mode: str = "micro",
+        verbose: bool = False,
+    ) -> None:
         """
         Args:
             data (DataFrame): The dataset that will be balanced
@@ -2323,23 +2379,37 @@ class MTPSampler(Sampler):
             verbose (float, optional): If True, prints status updated while balancing. This can be helpful for "instance" or "target" modes that take time to complete
                             Default: False
         """
-        if mode not in ["micro", "macro", "instance"]:
-            raise AttributeError(
-                "Invalid value pass to parameter mode. Change the value to one of the following: "
-                + str(["micro", "macro", "instance"])
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError("data must be a pandas DataFrame.")
+        if mode not in {"micro", "macro", "instance"}:
+            raise ValueError(
+                "mode must be one of 'micro', 'macro', or 'instance'; "
+                f"received {mode!r}."
             )
+        required_columns = {"instance_id", "target_id", "value"}
+        missing_columns = required_columns.difference(data.columns)
+        if missing_columns:
+            raise ValueError(
+                f"Sampler data is missing required columns: {sorted(missing_columns)}."
+            )
+        if data.empty:
+            raise ValueError("Sampler data must contain at least one observation.")
+        if data["value"].isna().any():
+            raise ValueError("Sampler class values cannot be missing.")
+        if data[["instance_id", "target_id"]].isna().any().any():
+            raise ValueError("Sampler entity IDs cannot be missing.")
 
-        self.data = data
+        sampler_mode = cast(SamplerMode, mode)
+        self.data = data.copy(deep=True).reset_index(drop=True)
         self.verbose = verbose
-        self.data.reset_index(inplace=True, drop=True)
-        if mode == "micro":
+        if sampler_mode == "micro":
             self.data = self.get_balanced_df(self.data)
-        elif mode == "macro":
+        elif sampler_mode == "macro":
             self.data = pd.concat(
                 self.get_balanced_df(group)
                 for _, group in self.data.groupby("target_id")
             )
-        elif mode == "instance":
+        else:
             self.data = pd.concat(
                 self.get_balanced_df(group)
                 for _, group in self.data.groupby("instance_id")
@@ -2348,19 +2418,22 @@ class MTPSampler(Sampler):
         # shuffle the dataframe so that you don't have the different classes in order
         self.data = shuffle(self.data, random_state=0)
 
-    def get_balanced_df(self, data):
+    def get_balanced_df(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Args:
             data (DataFrame): The dataset that will be balanced
         """
         # isolate the minority class
-        minority_class = data["value"].value_counts().idxmin()
-        minority_class_size = data["value"].value_counts().loc[minority_class]
+        class_counts = data["value"].value_counts()
+        if class_counts.empty:
+            raise ValueError("Cannot balance data without class values.")
+        minority_class = class_counts.idxmin()
+        minority_class_size = int(class_counts.loc[minority_class])
         # gather remaining classes to be sampled
         majority_classes = list(data["value"].unique())
         majority_classes.remove(minority_class)
 
-        sampled_df_per_majority_class = []
+        sampled_df_per_majority_class: list[pd.DataFrame] = []
         # subsample from every non-minority class
         for class_val in majority_classes:
             sampled_df_per_majority_class.append(
@@ -2374,11 +2447,10 @@ class MTPSampler(Sampler):
         sampled_df_per_majority_class.append(data[data["value"] == minority_class])
 
         # concatenate all the sampled dataframes from every class
-        data = pd.concat(sampled_df_per_majority_class)
-        return data
+        return pd.concat(sampled_df_per_majority_class)
 
-    def __iter__(self):
-        return iter(list(self.data.index))
+    def __iter__(self) -> Iterator[int]:
+        return iter(self.data.index.tolist())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.data)
