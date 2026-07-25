@@ -1,26 +1,21 @@
-from sklearn.metrics import (
-    f1_score,
-    accuracy_score,
-    hamming_loss,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-    multilabel_confusion_matrix,
-    average_precision_score,
-    precision_recall_curve,
-    auc,
-    ndcg_score,
-    mean_squared_error,
-    confusion_matrix,
-    r2_score,
-    average_precision_score,
-    mean_absolute_error,
-    f1_score,
-    ndcg_score,
-)
+import more_itertools as mit
 import numpy as np
 import pandas as pd
-import more_itertools as mit
+from sklearn.metrics import (
+    accuracy_score,
+    auc,
+    confusion_matrix,
+    f1_score,
+    hamming_loss,
+    mean_absolute_error,
+    mean_squared_error,
+    ndcg_score,
+    precision_recall_curve,
+    precision_score,
+    r2_score,
+    recall_score,
+    roc_auc_score,
+)
 
 
 def instance_wise_true_inverse_transformation(
@@ -510,9 +505,6 @@ def get_epilepsy_specific_metrics(
     # define consecutive epileptic moments
     true_episodes = [
         list(group) for group in mit.consecutive_groups(np.where(y_true == 1)[0])
-    ]
-    predicted_episodes = [
-        list(group) for group in mit.consecutive_groups(np.where(y_pred == 1)[0])
     ]
 
     TP_OVLP = 0
