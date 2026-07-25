@@ -1,6 +1,16 @@
-import torchvision.transforms as transforms
+import importlib
 
 from DeepMTP.config import DeepMTPConfig
+
+
+def _load_torchvision_transforms():
+    try:
+        return importlib.import_module("torchvision.transforms")
+    except ImportError as exc:
+        raise ModuleNotFoundError(
+            "Image transforms require the optional 'image' dependencies. "
+            "Install them with `pip install 'DeepMTP[image]'`."
+        ) from exc
 
 
 def get_optimization_direction(metric_name: str) -> str:
@@ -104,6 +114,7 @@ def get_default_train_transform():  # pragma: no cover
     Returns:
        torchvision.transforms : A transformation pipeline
     """
+    transforms = _load_torchvision_transforms()
     pretrained_size = 224
     pretrained_means = [0.485, 0.456, 0.406]
     pretrained_stds = [0.229, 0.224, 0.225]
@@ -125,6 +136,7 @@ def get_default_inference_transform():  # pragma: no cover
     Returns:
        torchvision.transforms : A transformation pipeline
     """
+    transforms = _load_torchvision_transforms()
     pretrained_size = 224
     pretrained_means = [0.485, 0.456, 0.406]
     pretrained_stds = [0.229, 0.224, 0.225]

@@ -9,9 +9,7 @@ class HyperBand(CoreHyperBand):  # pragma: no cover
 
     def __init__(self, *args, progress=None, **kwargs):
         streamlit_progress = (
-            progress
-            if progress is not None
-            else StreamlitHPOProgressObserver()
+            progress if progress is not None else StreamlitHPOProgressObserver()
         )
         super().__init__(
             *args,

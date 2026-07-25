@@ -2,25 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
-from datetime import datetime
 import inspect
 import json
 import os
-from pathlib import Path
 import pickle
 import tempfile
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import torch
 
 from DeepMTP.config import DeepMTPConfig
 
-
-CHECKPOINT_KEYS = frozenset(
-    {"model_state_dict", "optimizer_state_dict", "config"}
-)
+CHECKPOINT_KEYS = frozenset({"model_state_dict", "optimizer_state_dict", "config"})
 
 
 @dataclass(frozen=True)
@@ -66,16 +63,12 @@ class ExperimentStore:
         validation_summary: str,
         test_summary: str,
     ) -> Path:
-        summary = "\n".join(
-            [train_summary, validation_summary, test_summary]
-        )
+        summary = "\n".join([train_summary, validation_summary, test_summary])
         summary_path = self.experiment_dir / "summary.txt"
         _atomic_write_text(summary_path, summary)
         return summary_path
 
-    def save_config(
-        self, config: Mapping[str, Any] | DeepMTPConfig
-    ) -> Path:
+    def save_config(self, config: Mapping[str, Any] | DeepMTPConfig) -> Path:
         """Save JSON-compatible configs as JSON and all others as pickle."""
         if isinstance(config, DeepMTPConfig):
             config = config.to_dict()
@@ -140,8 +133,7 @@ class ExperimentStore:
         missing_keys = CHECKPOINT_KEYS.difference(checkpoint)
         if missing_keys:
             raise ValueError(
-                "DeepMTP checkpoint is missing required keys: "
-                f"{sorted(missing_keys)}."
+                f"DeepMTP checkpoint is missing required keys: {sorted(missing_keys)}."
             )
         return checkpoint
 

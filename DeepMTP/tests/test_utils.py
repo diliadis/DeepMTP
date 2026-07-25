@@ -1,3 +1,4 @@
+import DeepMTP.utils.utils as utils
 from DeepMTP.utils.utils import generate_config, get_optimization_direction
 import pytest
 
@@ -81,6 +82,16 @@ def test_get_optimization_direction(get_optimization_direction_data):
     min_max = get_optimization_direction_data[0]
     metric_name = get_optimization_direction_data[1]
     assert get_optimization_direction(metric_name) == min_max
+
+
+def test_default_image_transforms_explain_optional_dependency(monkeypatch):
+    def missing_torchvision(_module_name):
+        raise ImportError("torchvision is not installed")
+
+    monkeypatch.setattr(utils.importlib, "import_module", missing_torchvision)
+
+    with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[image\]"):
+        utils.get_default_train_transform()
 
 
 def test_generate_config():

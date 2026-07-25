@@ -25,6 +25,13 @@ from DeepMTP.reporting import build_reporter
 from DeepMTP.training import TrainingEngine
 from DeepMTP.utils.model_utils import EarlyStopping
 
+__all__ = [
+    "DeepMTP",
+    "TwoBranchDotProductModel",
+    "TwoBranchKroneckerModel",
+    "TwoBranchMLPModel",
+]
+
 
 class DeepMTP:  # pragma: no cover
     """Implements the training and inference logic of the DeepMTP framework."""
@@ -84,10 +91,7 @@ class DeepMTP:  # pragma: no cover
         # initialize the device that will be used of training-inference
         self.device = torch.device(
             self.configuration.compute_mode
-            if (
-                torch.cuda.is_available()
-                and "cuda" in self.configuration.compute_mode
-            )
+            if (torch.cuda.is_available() and "cuda" in self.configuration.compute_mode)
             else "cpu"
         )
         if self.config["verbose"]:
@@ -104,9 +108,7 @@ class DeepMTP:  # pragma: no cover
         # Keep the historical string attribute for downstream HPO code.
         self.experiment_dir = str(self.experiment_store.experiment_dir)
         self.config["experiment_dir"] = self.experiment_dir
-        self.configuration.set_runtime_value(
-            "experiment_dir", self.experiment_dir
-        )
+        self.configuration.set_runtime_value("experiment_dir", self.experiment_dir)
 
         model_bundle = ModelFactory(self.configuration).build(
             instance_branch_factory=instance_branch_model,
@@ -194,9 +196,7 @@ class DeepMTP:  # pragma: no cover
         results = {}
 
         if should_evaluate and self.configuration.metrics:
-            progress.on_event(
-                ProgressEvent("metrics_started", epoch=epoch, mode=mode)
-            )
+            progress.on_event(ProgressEvent("metrics_started", epoch=epoch, mode=mode))
             results = self.evaluator.evaluate(mode, epoch, epoch_output)
             progress.on_event(
                 ProgressEvent("metrics_completed", epoch=epoch, mode=mode)
@@ -272,9 +272,7 @@ class DeepMTP:  # pragma: no cover
                 self.evaluator.policy.should_evaluate_training(epoch)
                 and self.configuration.metrics
             ):
-                train_results = self.evaluator.evaluate(
-                    "train", epoch, epoch_output
-                )
+                train_results = self.evaluator.evaluate("train", epoch, epoch_output)
 
             #########################    Profiler    ############################
             # prof.stop()
@@ -304,9 +302,7 @@ class DeepMTP:  # pragma: no cover
             )
 
             # generate predictions for the validation set. This needs to be done in order to early stop and to select between configurations
-            self.progress.on_event(
-                ProgressEvent("validation_started", epoch=epoch)
-            )
+            self.progress.on_event(ProgressEvent("validation_started", epoch=epoch))
             val_results = self.inference(
                 self.deepMTP_model,
                 val_dataloader,
@@ -367,10 +363,9 @@ class DeepMTP:  # pragma: no cover
             self.early_stopping.get_best_performance_results()
         )
         results_to_log = {
-            "best_val_"
-            + m
-            + "_"
-            + av: val_best_performance_results["val_" + m + "_" + av]
+            "best_val_" + m + "_" + av: val_best_performance_results[
+                "val_" + m + "_" + av
+            ]
             for m in self.config["metrics"]
             for av in self.config["metrics_average"]
             if "val_" + m + "_" + av in val_best_performance_results

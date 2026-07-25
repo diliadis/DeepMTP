@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 import importlib
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -88,7 +88,7 @@ class TensorBoardReporter:
 
     def __init__(self, log_dir: str | Path):
         self.log_dir = Path(log_dir)
-        self._writer = None
+        self._writer: Any = None
         self._last_step = 0
 
     def start(self, config: Mapping[str, Any], model: Any) -> None:
@@ -130,7 +130,7 @@ class WandBReporter:
     def __init__(self, project_name: str, project_entity: str):
         self.project_name = project_name
         self.project_entity = project_entity
-        self._run = None
+        self._run: Any = None
 
     def start(self, config: Mapping[str, Any], model: Any) -> None:
         wandb_module = _import_optional_module(

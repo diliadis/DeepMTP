@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import math
+from dataclasses import dataclass, field
 from typing import Any
 
 import torch
@@ -134,7 +134,5 @@ class TrainingEngine:
     ) -> None:
         output.true_values.extend(true_values.detach().cpu().numpy())
         output.predicted_values.extend(predictions.detach().cpu().numpy())
-        output.instance_ids.extend(
-            batch["instance_id"].detach().cpu().numpy()
-        )
+        output.instance_ids.extend(batch["instance_id"].detach().cpu().numpy())
         output.target_ids.extend(batch["target_id"].detach().cpu().numpy())

@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
 
 import torch
 from torch import nn
 
-from DeepMTP.branch_models import ConvNet, MLP
+from DeepMTP.branch_models import MLP, ConvNet
 from DeepMTP.config import DeepMTPConfig
 
 
-class TwoBranchDotProductModel(nn.Sequential):
+class TwoBranchDotProductModel(nn.Module):
     """Combine equal-sized branch embeddings with a dot product."""
 
     def __init__(self, config, instance_branch_model, target_branch_model):
@@ -31,7 +31,7 @@ class TwoBranchDotProductModel(nn.Sequential):
         )
 
 
-class TwoBranchMLPModel(nn.Sequential):
+class TwoBranchMLPModel(nn.Module):
     """Combine branch embeddings using a multilayer perceptron."""
 
     def __init__(self, config, instance_branch_model, target_branch_model):
@@ -63,7 +63,7 @@ class TwoBranchMLPModel(nn.Sequential):
         return self.comb_branch(combined_embedding)
 
 
-class TwoBranchKroneckerModel(nn.Sequential):
+class TwoBranchKroneckerModel(nn.Module):
     """Combine branch embeddings using batched Kronecker products."""
 
     def __init__(self, config, instance_branch_model, target_branch_model):
@@ -85,6 +85,7 @@ class TwoBranchKroneckerModel(nn.Sequential):
                 for instance_vector, target_vector in zip(
                     instance_embedding,
                     target_embedding,
+                    strict=True,
                 )
             ],
             dim=0,
@@ -122,9 +123,7 @@ class ModelFactory:
     ) -> ModelBundle:
         """Build branches and their configured combination model."""
         with isolated_torch_seed(self.config.random_seed):
-            instance_output_dim, target_output_dim = (
-                self._branch_output_dimensions()
-            )
+            instance_output_dim, target_output_dim = self._branch_output_dimensions()
             instance_branch = self._build_branch(
                 "instance",
                 instance_output_dim,
@@ -145,12 +144,8 @@ class ModelFactory:
         if self.config.general_architecture_version == "dot_product":
             return self.config.embedding_size, self.config.embedding_size
         return (
-            self._last_node_count(
-                self.config.instance_branch_nodes_per_layer
-            ),
-            self._last_node_count(
-                self.config.target_branch_nodes_per_layer
-            ),
+            self._last_node_count(self.config.instance_branch_nodes_per_layer),
+            self._last_node_count(self.config.target_branch_nodes_per_layer),
         )
 
     @staticmethod
@@ -166,9 +161,7 @@ class ModelFactory:
         if custom_factory is not None:
             model = custom_factory(self.legacy_config)
             if not isinstance(model, nn.Module):
-                raise TypeError(
-                    f"{branch}_branch_factory must return torch.nn.Module."
-                )
+                raise TypeError(f"{branch}_branch_factory must return torch.nn.Module.")
             return model
 
         architecture = getattr(self.config, f"{branch}_branch_architecture")
@@ -206,9 +199,7 @@ class ModelFactory:
                     f"{branch}_branch_conv_architecture_dense_layers",
                 ),
             )
-        raise ValueError(
-            f"Unsupported {branch} branch architecture: {architecture!r}."
-        )
+        raise ValueError(f"Unsupported {branch} branch architecture: {architecture!r}.")
 
     def _build_combined_model(
         self,

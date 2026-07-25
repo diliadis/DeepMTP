@@ -1,7 +1,18 @@
+from collections import OrderedDict
+import importlib
+
 import torch
 from torch import nn
-import torchvision.models as models
-from collections import OrderedDict
+
+
+def _load_torchvision_models():
+	try:
+		return importlib.import_module("torchvision.models")
+	except ImportError as exc:
+		raise ModuleNotFoundError(
+			"Image models require the optional 'image' dependencies. "
+			"Install them with `pip install 'DeepMTP[image]'`."
+		) from exc
 
 class MLP(nn.Sequential):
 	''' A standard fully connected feed-forward neural network.
@@ -43,7 +54,8 @@ class ConvNet(nn.Sequential):
 		super(ConvNet, self).__init__()
 
 		self.predictor = nn.ModuleList()
-		
+		models = _load_torchvision_models()
+
 		if conv_architecture == 'resnet':
 			in_size = 512			
 			if conv_architecture_version == 'resnet18':
@@ -141,6 +153,4 @@ class ConvNet(nn.Sequential):
 		v = v.float()
 		for i, layer in enumerate(self.predictor):
 			v = layer(v)
-		return v  
-
-		
+		return v

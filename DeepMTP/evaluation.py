@@ -39,10 +39,7 @@ class EvaluationPolicy:
         """Return whether inference metrics are required for this epoch."""
         return (
             mode == "test"
-            or (
-                epoch % self.eval_every_n_epochs == 0
-                and self.evaluate_val
-            )
+            or (epoch % self.eval_every_n_epochs == 0 and self.evaluate_val)
             or self.metric_to_optimize_early_stopping != "loss"
             or epoch == self.num_epochs - 1
         )
@@ -50,8 +47,7 @@ class EvaluationPolicy:
     def should_evaluate_training(self, epoch: int) -> bool:
         """Return whether training metrics are required for this epoch."""
         return self.evaluate_train and (
-            epoch % self.eval_every_n_epochs == 0
-            or epoch == self.num_epochs - 1
+            epoch % self.eval_every_n_epochs == 0 or epoch == self.num_epochs - 1
         )
 
 

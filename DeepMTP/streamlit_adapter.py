@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import importlib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -26,11 +26,9 @@ class StreamlitProgressObserver:
         streamlit_module=None,
     ):
         self._st = streamlit_module or _import_streamlit()
-        self._config = None
-        self._experiment_dir = (
-            None if experiment_dir is None else Path(experiment_dir)
-        )
-        self._slots = {}
+        self._config: DeepMTPConfig | None = None
+        self._experiment_dir = None if experiment_dir is None else Path(experiment_dir)
+        self._slots: dict[str, Any] = {}
         self._train_rows: list[dict[str, Any]] = []
         self._validation_rows: list[dict[str, Any]] = []
         self._loss_rows: list[dict[str, float]] = []
@@ -73,8 +71,7 @@ class StreamlitProgressObserver:
     ) -> None:
         if self._experiment_dir is not None:
             self._slots["status"].info(
-                "Experiment artifacts were saved to "
-                f"`{self._experiment_dir}`."
+                f"Experiment artifacts were saved to `{self._experiment_dir}`."
             )
         if self._config is not None and self._config.running_hpo:
             self.clear()
@@ -125,8 +122,7 @@ class StreamlitProgressObserver:
             loss_key="val_loss",
         )
         row["early_stopping"] = (
-            f"{event.early_stopping_counter}/"
-            f"{event.early_stopping_patience}"
+            f"{event.early_stopping_counter}/{event.early_stopping_patience}"
         )
         self._validation_rows.append(row)
         self._slots["validation_table"].dataframe(
@@ -135,9 +131,7 @@ class StreamlitProgressObserver:
 
         train_loss = self._train_rows[-1]["loss"]
         validation_loss = row["loss"]
-        self._loss_rows.append(
-            {"train": train_loss, "validation": validation_loss}
-        )
+        self._loss_rows.append({"train": train_loss, "validation": validation_loss})
         self._slots["chart"].line_chart(pd.DataFrame(self._loss_rows))
 
     def _record_test(self, event: ProgressEvent) -> None:
@@ -189,10 +183,10 @@ class StreamlitHPOProgressObserver:
 
     def __init__(self, *, streamlit_module=None):
         self._st = streamlit_module or _import_streamlit()
-        self._status = None
-        self._overall_progress = None
-        self._iteration_progress = None
-        self._config = None
+        self._status: Any = None
+        self._overall_progress: Any = None
+        self._iteration_progress: Any = None
+        self._config: Any = None
 
     def on_event(self, event: HPOProgressEvent) -> None:
         if event.kind == "optimizer_started":
@@ -202,13 +196,9 @@ class StreamlitHPOProgressObserver:
                 f"Running bracket {event.current}/{event.total} "
                 f"with starting budget {event.bracket}."
             )
-            self._overall_progress.progress(
-                _percentage(event.current, event.total)
-            )
+            self._overall_progress.progress(_percentage(event.current, event.total))
         elif event.kind == "iteration_started":
-            self._iteration_progress.progress(
-                _percentage(event.current, event.total)
-            )
+            self._iteration_progress.progress(_percentage(event.current, event.total))
         elif event.kind == "configuration_started":
             self._status.write(
                 f"Evaluating configuration {event.current}/{event.total}."
@@ -216,13 +206,10 @@ class StreamlitHPOProgressObserver:
             self._config.json(_config_dictionary(event.config))
         elif event.kind == "configuration_completed":
             self._status.write(
-                "Finished evaluating configuration with score "
-                f"{event.score}."
+                f"Finished evaluating configuration with score {event.score}."
             )
             if event.bracket is None:
-                self._overall_progress.progress(
-                    _percentage(event.current, event.total)
-                )
+                self._overall_progress.progress(_percentage(event.current, event.total))
         elif event.kind == "optimizer_completed":
             self._overall_progress.progress(100)
             self._iteration_progress.progress(100)

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
 import re
-from typing import Any, Literal, Mapping, TypeAlias
 import warnings
-
+from collections.abc import Mapping
+from dataclasses import dataclass, field, fields
+from typing import Any, Literal, TypeAlias, cast
 
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
 ProblemMode: TypeAlias = Literal["classification", "regression"]
@@ -77,9 +77,7 @@ class DeepMTPConfig:
             "precision",
         ]
     )
-    metrics_average: list[str] = field(
-        default_factory=lambda: ["macro", "micro"]
-    )
+    metrics_average: list[str] = field(default_factory=lambda: ["macro", "micro"])
     top_k: int | None = None
     metric_to_optimize_early_stopping: str = "loss"
     metric_to_optimize_best_epoch_selection: str = "loss"
@@ -157,9 +155,7 @@ class DeepMTPConfig:
         self._warn_about_inert_legacy_options()
 
     @classmethod
-    def from_mapping(
-        cls, config: Mapping[str, Any] | DeepMTPConfig
-    ) -> DeepMTPConfig:
+    def from_mapping(cls, config: Mapping[str, Any] | DeepMTPConfig) -> DeepMTPConfig:
         """Create a validated typed config without discarding extension keys."""
         if isinstance(config, cls):
             return config
@@ -201,14 +197,10 @@ class DeepMTPConfig:
             else [name for name in public_fields if name in self._present_fields]
         )
         result = {
-            name: _copy_config_value(getattr(self, name))
-            for name in included_fields
+            name: _copy_config_value(getattr(self, name)) for name in included_fields
         }
         result.update(
-            {
-                key: _copy_config_value(value)
-                for key, value in self._extras.items()
-            }
+            {key: _copy_config_value(value) for key, value in self._extras.items()}
         )
         return result
 
@@ -228,29 +220,32 @@ class DeepMTPConfig:
 
     def _normalize(self) -> None:
         if isinstance(self.validation_setting, str):
-            self.validation_setting = self.validation_setting.upper()
+            self.validation_setting = cast(
+                ValidationSetting,
+                self.validation_setting.upper(),
+            )
         if isinstance(self.problem_mode, str):
-            self.problem_mode = self.problem_mode.lower()
+            self.problem_mode = cast(ProblemMode, self.problem_mode.lower())
         if isinstance(self.general_architecture_version, str):
             self.general_architecture_version = (
                 self.general_architecture_version.lower()
             )
         if isinstance(self.instance_branch_architecture, str):
-            self.instance_branch_architecture = (
-                self.instance_branch_architecture.upper()
+            self.instance_branch_architecture = cast(
+                BranchArchitecture,
+                self.instance_branch_architecture.upper(),
             )
         if isinstance(self.target_branch_architecture, str):
-            self.target_branch_architecture = (
-                self.target_branch_architecture.upper()
+            self.target_branch_architecture = cast(
+                BranchArchitecture,
+                self.target_branch_architecture.upper(),
             )
 
         if self.problem_mode == "classification":
             self.metrics = [metric.lower() for metric in self.metrics]
         elif self.problem_mode == "regression":
             self.metrics = [metric.upper() for metric in self.metrics]
-        self.metrics_average = [
-            averaging.lower() for averaging in self.metrics_average
-        ]
+        self.metrics_average = [averaging.lower() for averaging in self.metrics_average]
 
     def validate(self) -> None:
         """Validate values needed by model construction and training."""
@@ -293,12 +288,8 @@ class DeepMTPConfig:
         self._require_positive_integer("val_batchsize", self.val_batchsize)
         self._require_positive_integer("num_epochs", self.num_epochs)
         if self.random_seed is not None:
-            self._require_non_negative_integer(
-                "random_seed", self.random_seed
-            )
-        self._require_positive_integer(
-            "eval_every_n_epochs", self.eval_every_n_epochs
-        )
+            self._require_non_negative_integer("random_seed", self.random_seed)
+        self._require_positive_integer("eval_every_n_epochs", self.eval_every_n_epochs)
         self._require_non_negative_integer("patience", self.patience)
         self._require_positive_integer("embedding_size", self.embedding_size)
         if self.top_k is not None:
@@ -313,9 +304,7 @@ class DeepMTPConfig:
             )
         if not isinstance(self.results_path, str) or not self.results_path:
             raise ConfigValidationError("results_path must be a non-empty string.")
-        if (self.wandb_project_name is None) != (
-            self.wandb_project_entity is None
-        ):
+        if (self.wandb_project_name is None) != (self.wandb_project_entity is None):
             raise ConfigValidationError(
                 "wandb_project_name and wandb_project_entity must either both "
                 "be provided or both be None."
@@ -329,16 +318,14 @@ class DeepMTPConfig:
         unknown_metrics = set(self.metrics).difference(valid_metrics)
         if unknown_metrics:
             raise ConfigValidationError(
-                f"Unsupported {self.problem_mode} metrics: "
-                f"{sorted(unknown_metrics)}."
+                f"Unsupported {self.problem_mode} metrics: {sorted(unknown_metrics)}."
             )
         unknown_averaging = set(self.metrics_average).difference(
             METRIC_AVERAGING_SCHEMES
         )
         if unknown_averaging:
             raise ConfigValidationError(
-                "Unsupported metric averaging schemes: "
-                f"{sorted(unknown_averaging)}."
+                f"Unsupported metric averaging schemes: {sorted(unknown_averaging)}."
             )
 
         selectable_metrics = {
@@ -368,24 +355,19 @@ class DeepMTPConfig:
 
         if architecture == "MLP":
             input_dim = getattr(self, f"{branch}_branch_input_dim")
-            self._require_positive_integer(
-                f"{branch}_branch_input_dim", input_dim
-            )
+            self._require_positive_integer(f"{branch}_branch_input_dim", input_dim)
             nodes = getattr(self, f"{branch}_branch_nodes_per_layer")
             layers = getattr(self, f"{branch}_branch_layers")
             self._validate_nodes(f"{branch}_branch_nodes_per_layer", nodes)
             if isinstance(nodes, int):
-                self._require_positive_integer(
-                    f"{branch}_branch_layers", layers
-                )
+                self._require_positive_integer(f"{branch}_branch_layers", layers)
         elif architecture == "CONV":
             dense_layers = getattr(
                 self, f"{branch}_branch_conv_architecture_dense_layers"
             )
             if dense_layers not in {1, 2}:
                 raise ConfigValidationError(
-                    f"{branch}_branch_conv_architecture_dense_layers must be "
-                    "1 or 2."
+                    f"{branch}_branch_conv_architecture_dense_layers must be 1 or 2."
                 )
 
     def _warn_about_inert_legacy_options(self) -> None:
@@ -401,9 +383,7 @@ class DeepMTPConfig:
         if self.use_target_features:
             inert_options.append("use_target_features")
         if self.load_pretrained_model or self.pretrained_model_path:
-            inert_options.extend(
-                ["load_pretrained_model", "pretrained_model_path"]
-            )
+            inert_options.extend(["load_pretrained_model", "pretrained_model_path"])
         if (
             self.general_architecture_version == "mlp"
             and self.comb_mlp_nodes_reducing_factor != 2
@@ -440,28 +420,19 @@ class DeepMTPConfig:
             or not 0 <= value < 1
         ):
             raise ConfigValidationError(
-                f"{name} must be a number in the interval [0, 1); "
-                f"received {value!r}."
+                f"{name} must be a number in the interval [0, 1); received {value!r}."
             )
 
     @staticmethod
     def _require_positive(name: str, value: float) -> None:
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or value <= 0
-        ):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
             raise ConfigValidationError(
                 f"{name} must be greater than zero; received {value!r}."
             )
 
     @staticmethod
     def _require_non_negative(name: str, value: float) -> None:
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or value < 0
-        ):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
             raise ConfigValidationError(
                 f"{name} must be non-negative; received {value!r}."
             )

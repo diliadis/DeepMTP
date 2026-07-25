@@ -1,8 +1,108 @@
 [build-system]
-requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "DeepMTP"
+dynamic = ["version"]
+description = "A deep learning framework for multi-target prediction"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE.md"]
+authors = [
+    { name = "Dimitris Iliadis", email = "dimitrios.iliadis@ugent.be" },
+]
+classifiers = [
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "more-itertools>=9",
+    "numpy>=1.23",
+    "pandas>=1.5",
+    "pillow>=9",
+    "prettytable>=3.3",
+    "scikit-learn>=1.2",
+    "torch>=2.0",
+]
+
+[project.optional-dependencies]
+datasets = [
+    "liac-arff>=2.5",
+    "requests>=2.28",
+    "scikit-multilearn>=0.2",
+    "scipy>=1.9",
+    "wget>=3.2",
+]
+hpo = ["ConfigSpace>=1.2"]
+image = ["torchvision>=0.15"]
+streamlit = ["streamlit>=1.53.0"]
+tracking = [
+    "tensorboard>=2.12",
+    "wandb>=0.15",
+]
+test = [
+    "ConfigSpace>=1.2",
+    "liac-arff>=2.5",
+    "pytest>=8,<10",
+    "requests>=2.28",
+    "scikit-multilearn>=0.2",
+    "scipy>=1.9",
+    "wget>=3.2",
+]
+quality = [
+    "mypy>=1.16",
+    "ruff>=0.12",
+]
+docs = [
+    "sphinx>=7,<9",
+    "sphinx-rtd-theme>=2,<4",
+]
+dev = [
+    "ConfigSpace>=1.2",
+    "build>=1.2",
+    "liac-arff>=2.5",
+    "mypy>=1.16",
+    "pytest>=8,<10",
+    "requests>=2.28",
+    "ruff>=0.12",
+    "scikit-multilearn>=0.2",
+    "scipy>=1.9",
+    "sphinx>=7,<9",
+    "sphinx-rtd-theme>=2,<4",
+    "twine>=6",
+    "wget>=3.2",
+]
+all = [
+    "ConfigSpace>=1.2",
+    "liac-arff>=2.5",
+    "requests>=2.28",
+    "scikit-multilearn>=0.2",
+    "scipy>=1.9",
+    "streamlit>=1.53.0",
+    "tensorboard>=2.12",
+    "torchvision>=0.15",
+    "wandb>=0.15",
+    "wget>=3.2",
+]
+
+[project.urls]
+Documentation = "https://deepmtp.readthedocs.io/"
+Issues = "https://github.com/diliadis/DeepMTP/issues"
+Repository = "https://github.com/diliadis/DeepMTP"
+
+[tool.setuptools.packages.find]
+include = ["DeepMTP*"]
+
 [tool.setuptools_scm]
+fallback_version = "0.0.0"
 
 [tool.pytest.ini_options]
 testpaths = ["DeepMTP/tests"]
@@ -13,3 +113,54 @@ markers = [
     "gpu: requires a CUDA-capable GPU",
     "integration: exercises multiple package layers together",
 ]
+
+[tool.ruff]
+line-length = 88
+include = [
+    "pyproject.toml",
+    "DeepMTP/__init__.py",
+    "DeepMTP/config.py",
+    "DeepMTP/data_loading.py",
+    "DeepMTP/evaluation.py",
+    "DeepMTP/hpo_progress.py",
+    "DeepMTP/main.py",
+    "DeepMTP/main_streamlit.py",
+    "DeepMTP/model_factory.py",
+    "DeepMTP/persistence.py",
+    "DeepMTP/presentation.py",
+    "DeepMTP/random_search.py",
+    "DeepMTP/random_search_streamlit.py",
+    "DeepMTP/reporting.py",
+    "DeepMTP/simple_hyperband.py",
+    "DeepMTP/simple_hyperband_streamlit.py",
+    "DeepMTP/streamlit_adapter.py",
+    "DeepMTP/training.py",
+]
+
+[tool.ruff.lint]
+select = ["B", "E4", "E7", "E9", "F", "I", "SIM", "UP"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.10"
+files = [
+    "DeepMTP/config.py",
+    "DeepMTP/data_loading.py",
+    "DeepMTP/evaluation.py",
+    "DeepMTP/hpo_progress.py",
+    "DeepMTP/model_factory.py",
+    "DeepMTP/persistence.py",
+    "DeepMTP/presentation.py",
+    "DeepMTP/reporting.py",
+    "DeepMTP/streamlit_adapter.py",
+    "DeepMTP/training.py",
+]
+check_untyped_defs = true
+follow_imports = "skip"
+ignore_missing_imports = true
+no_implicit_optional = true
+show_error_codes = true
+warn_redundant_casts = true
+warn_unused_ignores = true

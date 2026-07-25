@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
-
 HPOProgressEventKind = Literal[
     "optimizer_started",
     "bracket_started",
@@ -53,15 +52,9 @@ class ConsoleHPOProgressObserver:
                 f"with starting budget {event.bracket}"
             )
         elif event.kind == "configuration_started":
-            print(
-                "---- Evaluating configuration "
-                f"{event.current}/{event.total}..."
-            )
+            print(f"---- Evaluating configuration {event.current}/{event.total}...")
         elif event.kind == "configuration_completed":
-            print(
-                "---- Finished evaluating configuration with score: "
-                f"{event.score}"
-            )
+            print(f"---- Finished evaluating configuration with score: {event.score}")
         elif event.kind == "optimizer_completed":
             print("Hyperparameter optimization completed.")
 

@@ -1,5 +1,6 @@
 import pytest
 from torch import nn
+import DeepMTP.branch_models as branch_models
 from DeepMTP.branch_models import MLP, ConvNet
 
 test_MLP_data = [
@@ -29,6 +30,24 @@ def test_MLP(test_MLP_data):
     for idx, layer in enumerate(linear_layers):
         assert layer.in_features == calculated_nodes_per_layer[idx]
         assert layer.out_features == calculated_nodes_per_layer[idx+1]
+
+
+def test_convnet_explains_how_to_install_image_dependencies(monkeypatch):
+    def missing_torchvision(_module_name):
+        raise ImportError("torchvision is not installed")
+
+    monkeypatch.setattr(branch_models.importlib, "import_module", missing_torchvision)
+
+    with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[image\]"):
+        ConvNet(
+            config={},
+            input_dim=10,
+            output_dim=15,
+            conv_architecture="resnet",
+            conv_architecture_version="resnet18",
+            conv_architecture_last_trained_layer="last",
+            conv_architecture_dense_layers=1,
+        )
     
     
 test_ConvNet_data = [

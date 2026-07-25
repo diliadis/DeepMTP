@@ -80,12 +80,14 @@ class RunHistory:
         results: Mapping[str, float],
     ) -> list[object]:
         rendered_loss = round(loss, 4) if isinstance(loss, float) else loss
-        return [mode, str(epoch), rendered_loss] + [
+        row: list[object] = [mode, str(epoch), rendered_loss]
+        row.extend(
             round(results[key], 4) if key in results else "-"
             for metric in self.metrics
             for average in self.averaging
             for key in [f"{mode}_{metric}_{average}"]
-        ]
+        )
+        return row
 
 
 ProgressEventKind = Literal[
