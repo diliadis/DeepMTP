@@ -154,6 +154,7 @@ def generate_config(
     train_batchsize=512,
     val_batchsize=512,
     num_epochs=100,
+    random_seed=2,
     metrics=None,
     metrics_average=None,
     top_k=None,
@@ -217,6 +218,7 @@ def generate_config(
         train_batchsize (int, optional): The number of samples that comprise a batch from the training set. Defaults to 512.
         val_batchsize (int, optional): 	The number of samples that comprise a batch from the validation and test sets. Defaults to 512.
         num_epochs (int, optional): The max number of epochs allowed for training. Defaults to 100.
+        random_seed (int, optional): The seed used for isolated model initialization and training-data shuffling. Use None for nondeterministic behavior. Defaults to 2.
         metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
         metrics_average (list, optional): The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
         top_k (float, optional): The number of top predictions used to calculate top_k versions of metrics (frequently used in collaborative filtering problems).
@@ -327,6 +329,7 @@ def generate_config(
         "train_batchsize": train_batchsize,
         "val_batchsize": val_batchsize,
         "num_epochs": num_epochs,
+        "random_seed": random_seed,
         "use_early_stopping": use_early_stopping,
         "patience": patience,
         "delta": delta,

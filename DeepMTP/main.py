@@ -1,18 +1,18 @@
+import copy
+from collections.abc import Mapping
+
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
 
-from collections.abc import Mapping
-import numpy as np
-
-torch.manual_seed(2)
-np.random.seed(3)
-import copy
-
-from DeepMTP.utils.data_utils import *
-from DeepMTP.branch_models import *
 from DeepMTP.config import DeepMTPConfig
+from DeepMTP.data_loading import DataLoaderFactory
 from DeepMTP.evaluation import Evaluator
+from DeepMTP.model_factory import (
+    ModelFactory,
+    TwoBranchDotProductModel,
+    TwoBranchKroneckerModel,
+    TwoBranchMLPModel,
+)
 from DeepMTP.persistence import ExperimentStore
 from DeepMTP.presentation import (
     ConsoleProgressObserver,
@@ -24,84 +24,6 @@ from DeepMTP.presentation import (
 from DeepMTP.reporting import build_reporter
 from DeepMTP.training import TrainingEngine
 from DeepMTP.utils.model_utils import EarlyStopping
-
-
-class TwoBranchDotProductModel(nn.Sequential):
-    """Implements a two branch neural network that uses a dot product to combine the two embeddings."""
-
-    def __init__(self, config, instance_branch_model, target_branch_model):
-        super(TwoBranchDotProductModel, self).__init__()
-        self.instance_branch_model = instance_branch_model
-        self.target_branch_model = target_branch_model
-
-    def forward(self, instance_features, target_features):
-        instance_embedding = self.instance_branch_model(instance_features)
-        target_embedding = self.target_branch_model(target_features)
-
-        output = torch.unsqueeze((instance_embedding * target_embedding).sum(1), 1)
-        return output
-
-
-class TwoBranchMLPModel(nn.Sequential):
-    """Implements a two branch neural network that uses an MLP on top of the two branches. The two embedding vectors are just concatenated"""
-
-    def __init__(self, config, instance_branch_model, target_branch_model):
-        super(TwoBranchMLPModel, self).__init__()
-        self.instance_branch_model = instance_branch_model
-        self.target_branch_model = target_branch_model
-        comb_dim = (
-            instance_branch_model[0][-2].out_features
-            + target_branch_model[0][-2].out_features
-        )
-        self.comb_branch = MLP(
-            config,
-            comb_dim,
-            1,
-            config["comb_mlp_nodes_per_layer"],
-            config["comb_mlp_layers"],
-            config["dropout_rate"],
-            config["batch_norm"],
-            skip_last_act=True,
-        )
-
-    def forward(self, instance_features, target_features):
-        instance_embedding = self.instance_branch_model(instance_features)
-        target_embedding = self.target_branch_model(target_features)
-        # concatenate the two embedding vectors
-        v_comb = torch.cat((instance_embedding, target_embedding), 1)
-        output = self.comb_branch(v_comb)
-        return output
-
-
-class TwoBranchKroneckerModel(nn.Sequential):
-    """Implements a two branch neural network that first computes the kronecker product of the two embeddings and then passes the resulting vector to an MLP (terminating to a single output node)"""
-
-    def __init__(self, config, instance_branch_model, target_branch_model):
-        super(TwoBranchKroneckerModel, self).__init__()
-        self.instance_branch_model = instance_branch_model
-        self.target_branch_model = target_branch_model
-
-        comb_dim = (
-            instance_branch_model[0][-2].out_features
-            * target_branch_model[0][-2].out_features
-        )
-        # self.comb_branch = MLP(config, comb_dim, 1, config['comb_mlp_nodes_per_layer'], config['comb_mlp_layers'], config['dropout_rate'], config['batch_norm'])
-        self.comb_branch = nn.Linear(comb_dim, 1)
-
-    def forward(self, instance_features, target_features):
-        instance_embedding = self.instance_branch_model(instance_features)
-        target_embedding = self.target_branch_model(target_features)
-        # compute the Kronecker product
-        # v_comb = torch.kron(instance_embedding, target_embedding) # there is no dim option for a batch operation...
-        v_comb = torch.stack(
-            [
-                torch.kron(ai, bi)
-                for ai, bi in zip(instance_embedding, target_embedding)
-            ],
-            dim=0,
-        )
-        output = self.comb_branch(v_comb)
-        return output
 
 
 class DeepMTP:  # pragma: no cover
@@ -170,6 +92,10 @@ class DeepMTP:  # pragma: no cover
         )
         if self.config["verbose"]:
             print("Selected device: " + str(self.device))
+        self.data_loader_factory = DataLoaderFactory(
+            self.configuration,
+            self.device,
+        )
 
         self.experiment_store = ExperimentStore.create(
             self.config["results_path"],
@@ -182,90 +108,13 @@ class DeepMTP:  # pragma: no cover
             "experiment_dir", self.experiment_dir
         )
 
-        """
-            Two main variants of the two-branch neural network are currently supported:
-            1) The dot-product version: the two embedding vectors have the same size, so their dot-product is just computed.
-            2) The MLP version: the two embedding vectors (don't have to be of the same size) are concatenated and then passed through a series or fully connected layers.
-        """
-        if self.config["general_architecture_version"] == "dot_product":
-            instance_branch_output_dim = self.config["embedding_size"]
-            target_branch_output_dim = self.config["embedding_size"]
-        else:
-            instance_branch_output_dim = (
-                self.config["instance_branch_nodes_per_layer"][-1]
-                if isinstance(self.config["instance_branch_nodes_per_layer"], list)
-                else self.config["instance_branch_nodes_per_layer"]
-            )
-            target_branch_output_dim = (
-                self.config["target_branch_nodes_per_layer"][-1]
-                if isinstance(self.config["target_branch_nodes_per_layer"], list)
-                else self.config["target_branch_nodes_per_layer"]
-            )
-
-        # define models that will be used in the two branches
-        if instance_branch_model is None:
-            if self.config["instance_branch_architecture"] == "MLP":
-                self.instance_branch_model = MLP(
-                    self.config,
-                    self.config["instance_branch_input_dim"],
-                    instance_branch_output_dim,
-                    self.config["instance_branch_nodes_per_layer"],
-                    self.config["instance_branch_layers"],
-                    self.config["dropout_rate_instance_branch"],
-                    self.config["batch_norm"],
-                )
-            elif self.config["instance_branch_architecture"] == "CONV":
-                self.instance_branch_model = ConvNet(
-                    self.config,
-                    self.config["instance_branch_input_dim"],
-                    instance_branch_output_dim,
-                    self.config["instance_branch_conv_architecture"],
-                    self.config["instance_branch_conv_architecture_version"],
-                    self.config["instance_branch_conv_architecture_last_layer_trained"],
-                    self.config["instance_branch_conv_architecture_dense_layers"],
-                )
-        else:
-            # support for custom instance branch models
-            self.instance_branch_model = instance_branch_model(self.config)
-
-        if target_branch_model is None:
-            if self.config["target_branch_architecture"] == "MLP":
-                self.target_branch_model = MLP(
-                    self.config,
-                    self.config["target_branch_input_dim"],
-                    target_branch_output_dim,
-                    self.config["target_branch_nodes_per_layer"],
-                    self.config["target_branch_layers"],
-                    self.config["dropout_rate_target_branch"],
-                    self.config["batch_norm"],
-                )
-            elif self.config["target_branch_architecture"] == "CONV":
-                self.target_branch_model = ConvNet(
-                    self.config,
-                    self.config["target_branch_input_dim"],
-                    target_branch_output_dim,
-                    self.config["target_branch_conv_architecture"],
-                    self.config["target_branch_conv_architecture_version"],
-                    self.config["target_branch_conv_architecture_last_layer_trained"],
-                    self.config["target_branch_conv_architecture_dense_layers"],
-                )
-        else:
-            # support for custom target branch models
-            self.target_branch_model = target_branch_model(self.config)
-
-        # initalize the two-branch neural network
-        if self.config["general_architecture_version"] == "dot_product":
-            self.deepMTP_model = TwoBranchDotProductModel(
-                self.config, self.instance_branch_model, self.target_branch_model
-            )
-        elif self.config["general_architecture_version"] == "mlp":
-            self.deepMTP_model = TwoBranchMLPModel(
-                self.config, self.instance_branch_model, self.target_branch_model
-            )
-        elif self.config["general_architecture_version"] == "kronecker":
-            self.deepMTP_model = TwoBranchKroneckerModel(
-                self.config, self.instance_branch_model, self.target_branch_model
-            )
+        model_bundle = ModelFactory(self.configuration).build(
+            instance_branch_factory=instance_branch_model,
+            target_branch_factory=target_branch_model,
+        )
+        self.instance_branch_model = model_bundle.instance_branch
+        self.target_branch_model = model_bundle.target_branch
+        self.deepMTP_model = model_bundle.model
 
         self.deepMTP_model.to(self.device)
 
@@ -383,55 +232,14 @@ class DeepMTP:  # pragma: no cover
     def _train(self, train_data, val_data, test_data, verbose=False):
         self.deepMTP_model.train()
 
-        # train_dataset = BaseDataset(self.config, train_data['y'], train_data['X_instance'], train_data['X_target'])
-        # test_dataset = BaseDataset(self.config, test_data['y'], test_data['X_instance'], test_data['X_target'])
-        # val_dataset = BaseDataset(self.config, val_data['y'], val_data['X_instance'], val_data['X_target'])
-
-        # initialize the dataloaders
-        train_dataloader = DataLoader(
-            BaseDataset(
-                self.config,
-                train_data["y"],
-                train_data["X_instance"],
-                train_data["X_target"],
-                instance_transform=self.config["instance_train_transforms"],
-                target_transform=self.config["target_train_transforms"],
-            ),
-            self.config["train_batchsize"],
-            shuffle=True,
-            num_workers=self.config["num_workers"],
-            pin_memory=self.device.type == "cuda",
+        dataloaders = self.data_loader_factory.for_training(
+            train_data,
+            val_data,
+            test_data,
         )
-        if val_data is not None:
-            val_dataloader = DataLoader(
-                BaseDataset(
-                    self.config,
-                    val_data["y"],
-                    val_data["X_instance"],
-                    val_data["X_target"],
-                    instance_transform=self.config["instance_inference_transforms"],
-                    target_transform=self.config["target_inference_transforms"],
-                ),
-                self.config["val_batchsize"],
-                shuffle=False,
-                num_workers=self.config["num_workers"],
-                pin_memory=self.device.type == "cuda",
-            )
-        if test_data is not None:
-            test_dataloader = DataLoader(
-                BaseDataset(
-                    self.config,
-                    test_data["y"],
-                    test_data["X_instance"],
-                    test_data["X_target"],
-                    instance_transform=self.config["instance_inference_transforms"],
-                    target_transform=self.config["target_inference_transforms"],
-                ),
-                self.config["val_batchsize"],
-                shuffle=False,
-                num_workers=self.config["num_workers"],
-                pin_memory=self.device.type == "cuda",
-            )
+        train_dataloader = dataloaders.train
+        val_dataloader = dataloaders.validation
+        test_dataloader = dataloaders.test
 
         self.progress.on_event(ProgressEvent("training_started"))
         run_history = RunHistory(
@@ -605,20 +413,7 @@ class DeepMTP:  # pragma: no cover
         self, data, return_predictions=False, verbose=False
     ):  # pragma: no cover
         self.deepMTP_model.to(self.device)
-        dataloader = DataLoader(
-            BaseDataset(
-                self.config,
-                data["y"],
-                data["X_instance"],
-                data["X_target"],
-                instance_transform=self.config["instance_inference_transforms"],
-                target_transform=self.config["target_inference_transforms"],
-            ),
-            self.config["val_batchsize"],
-            shuffle=False,
-            num_workers=self.config["num_workers"],
-            pin_memory=self.device.type == "cuda",
-        )
+        dataloader = self.data_loader_factory.for_prediction(data)
         return self.inference(
             self.deepMTP_model,
             dataloader,

@@ -5,7 +5,15 @@ from DeepMTP.config import (
     ConfigValidationError,
     DeepMTPConfig,
 )
+from DeepMTP.data_loading import DataLoaderFactory, TrainingDataLoaders
 from DeepMTP.evaluation import EvaluationPolicy, Evaluator
+from DeepMTP.model_factory import (
+    ModelBundle,
+    ModelFactory,
+    TwoBranchDotProductModel,
+    TwoBranchKroneckerModel,
+    TwoBranchMLPModel,
+)
 from DeepMTP.persistence import ExperimentStore
 from DeepMTP.presentation import (
     ConsoleProgressObserver,
@@ -34,8 +42,15 @@ __all__ = [
     "ConfigDeprecationWarning",
     "ConfigValidationError",
     "DeepMTPConfig",
+    "DataLoaderFactory",
+    "TrainingDataLoaders",
     "EvaluationPolicy",
     "Evaluator",
+    "ModelBundle",
+    "ModelFactory",
+    "TwoBranchDotProductModel",
+    "TwoBranchKroneckerModel",
+    "TwoBranchMLPModel",
     "ExperimentStore",
     "ExperimentReporter",
     "CompositeReporter",

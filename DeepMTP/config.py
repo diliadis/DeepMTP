@@ -64,6 +64,7 @@ class DeepMTPConfig:
     train_batchsize: int = 512
     val_batchsize: int = 512
     num_epochs: int = 100
+    random_seed: int | None = 2
 
     metrics: list[str] = field(
         default_factory=lambda: [
@@ -291,6 +292,10 @@ class DeepMTPConfig:
         self._require_positive_integer("train_batchsize", self.train_batchsize)
         self._require_positive_integer("val_batchsize", self.val_batchsize)
         self._require_positive_integer("num_epochs", self.num_epochs)
+        if self.random_seed is not None:
+            self._require_non_negative_integer(
+                "random_seed", self.random_seed
+            )
         self._require_positive_integer(
             "eval_every_n_epochs", self.eval_every_n_epochs
         )

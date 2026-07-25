@@ -96,6 +96,7 @@ def test_typed_config_normalizes_public_names():
         ("dropout_rate", 1),
         ("num_workers", -1),
         ("train_batchsize", 0),
+        ("random_seed", -1),
         ("eval_every_n_epochs", 0),
         ("instance_branch_input_dim", 0),
         ("metric_to_optimize_best_epoch_selection", "accuracy_micro"),
