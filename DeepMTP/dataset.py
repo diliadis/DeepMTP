@@ -173,6 +173,53 @@ def _require_positive_integer(name: str, value: int) -> None:
         raise ValueError(f"{name} must be a positive integer.")
 
 
+def _require_optional_non_negative_integer(
+    name: str,
+    value: int | None,
+) -> None:
+    if value is not None and (
+        isinstance(value, bool) or not isinstance(value, int) or value < 0
+    ):
+        raise ValueError(f"{name} must be a non-negative integer or None.")
+
+
+def _generate_static_feature_frame(
+    num_entities: int,
+    num_features: int | None,
+) -> pd.DataFrame | None:
+    if num_features in {None, 0}:
+        return None
+
+    entity_ids = np.arange(num_entities)
+    feature_values = np.repeat(
+        entity_ids.astype(float)[:, np.newaxis],
+        num_features,
+        axis=1,
+    )
+    return pd.DataFrame(
+        {
+            "id": entity_ids,
+            "features": [row.copy() for row in feature_values],
+        }
+    )
+
+
+def _copy_feature_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    copied = frame.copy(deep=True)
+    copied["features"] = [
+        np.asarray(feature_vector).copy()
+        for feature_vector in copied["features"].to_numpy()
+    ]
+    return copied
+
+
+def _select_feature_ids(
+    frame: pd.DataFrame,
+    ids: np.ndarray,
+) -> pd.DataFrame:
+    return _copy_feature_frame(frame.loc[frame["id"].isin(ids)])
+
+
 def _random_generator(
     random_state: int | None,
     *,
@@ -1367,14 +1414,31 @@ def generate_MTP_dataset(
     """
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
-    if num_instance_features is not None and num_instance_features < 0:
-        raise ValueError("num_instance_features must be non-negative or None.")
-    if num_target_features is not None and num_target_features < 0:
-        raise ValueError("num_target_features must be non-negative or None.")
+    _require_optional_non_negative_integer(
+        "num_instance_features",
+        num_instance_features,
+    )
+    _require_optional_non_negative_integer(
+        "num_target_features",
+        num_target_features,
+    )
+    if not isinstance(return_static_features_data, bool):
+        raise TypeError("return_static_features_data must be a boolean.")
 
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
+    X_train_instance = _generate_static_feature_frame(
+        num_instances,
+        num_instance_features,
+    )
+    X_val_instance: pd.DataFrame | None = None
+    X_test_instance: pd.DataFrame | None = None
+    X_train_target = _generate_static_feature_frame(
+        num_targets,
+        num_target_features,
+    )
+    X_val_target: pd.DataFrame | None = None
+    X_test_target: pd.DataFrame | None = None
+    y_val: pd.DataFrame | None = None
+    y_test: pd.DataFrame | None = None
     split_instances = _optional_split_ratio(
         split_instances,
         parameter_name="split_instances",
@@ -1386,34 +1450,15 @@ def generate_MTP_dataset(
     train_instance_ids, val_instance_ids, test_instance_ids = None, None, None
     train_target_ids, val_target_ids, test_target_ids = None, None, None
 
-    # generate instance features
-    if num_instance_features is not None and num_instance_features != 0:
-        X_train_instance = np.zeros((num_instances, num_instance_features))
-        for i in range(0, num_instances):
-            X_train_instance[i, :].fill(i)
-        temp_instance_features_df = pd.DataFrame(
-            np.arange(num_instances), columns=["id"]
-        )
-        temp_instance_features_df["features"] = [r for r in X_train_instance]
-        X_train_instance = temp_instance_features_df
-    # generate target features
-    if num_target_features is not None and num_target_features != 0:
-        X_train_target = np.zeros((num_targets, num_target_features))
-        for i in range(0, num_targets):
-            X_train_target[i, :].fill(i)
-        temp_target_features_df = pd.DataFrame(np.arange(num_targets), columns=["id"])
-        temp_target_features_df["features"] = [r for r in X_train_target]
-        X_train_target = temp_target_features_df
-    # generate score matrix
-    y_train = np.zeros((num_instances, num_targets))
-    for i in range(0, num_instances):
-        y_train[i, :].fill(i)
-    triplets = [
-        (i, j, y_train[i, j])
-        for i in range(y_train.shape[0])
-        for j in range(y_train.shape[1])
-    ]
-    y_train = pd.DataFrame(triplets, columns=["instance_id", "target_id", "value"])
+    instance_ids = np.repeat(np.arange(num_instances), num_targets)
+    target_ids = np.tile(np.arange(num_targets), num_instances)
+    y_train = pd.DataFrame(
+        {
+            "instance_id": instance_ids,
+            "target_id": target_ids,
+            "value": instance_ids.astype(float),
+        }
+    )
 
     if split_instances is not None:
         train_instance_ids, val_instance_ids, test_instance_ids = _partition_ids(
@@ -1431,57 +1476,56 @@ def generate_MTP_dataset(
 
     if val_instance_ids is not None:
         if X_train_instance is not None:
-            X_val_instance = X_train_instance[
-                X_train_instance["id"].isin(val_instance_ids)
-            ]
-        y_val = y_train[y_train["instance_id"].isin(val_instance_ids)]
-    else:
-        if X_train_instance is not None and return_static_features_data:
-            X_val_instance = X_train_instance
+            X_val_instance = _select_feature_ids(
+                X_train_instance,
+                val_instance_ids,
+            )
+        y_val = y_train.loc[y_train["instance_id"].isin(val_instance_ids)].copy()
+    elif X_train_instance is not None and return_static_features_data:
+        X_val_instance = _copy_feature_frame(X_train_instance)
 
     if test_instance_ids is not None:
         if X_train_instance is not None:
-            X_test_instance = X_train_instance[
-                X_train_instance["id"].isin(test_instance_ids)
-            ]
-        y_test = y_train[y_train["instance_id"].isin(test_instance_ids)]
-    else:
-        if X_train_instance is not None and return_static_features_data:
-            X_test_instance = X_train_instance
+            X_test_instance = _select_feature_ids(
+                X_train_instance,
+                test_instance_ids,
+            )
+        y_test = y_train.loc[y_train["instance_id"].isin(test_instance_ids)].copy()
+    elif X_train_instance is not None and return_static_features_data:
+        X_test_instance = _copy_feature_frame(X_train_instance)
 
     if train_instance_ids is not None:
         if X_train_instance is not None:
-            X_train_instance = X_train_instance[
-                X_train_instance["id"].isin(train_instance_ids)
-            ]
-        y_train = y_train[y_train["instance_id"].isin(train_instance_ids)]
+            X_train_instance = _select_feature_ids(
+                X_train_instance,
+                train_instance_ids,
+            )
+        y_train = y_train.loc[y_train["instance_id"].isin(train_instance_ids)].copy()
 
     if val_target_ids is not None:
         if X_train_target is not None:
-            X_val_target = X_train_target[X_train_target["id"].isin(val_target_ids)]
+            X_val_target = _select_feature_ids(X_train_target, val_target_ids)
         if y_val is not None:
-            y_val = y_val[y_val["target_id"].isin(val_target_ids)]
+            y_val = y_val.loc[y_val["target_id"].isin(val_target_ids)].copy()
         else:
-            y_val = y_train[y_train["target_id"].isin(val_target_ids)]
-    else:
-        if X_train_target is not None and return_static_features_data:
-            X_val_target = X_train_target
+            y_val = y_train.loc[y_train["target_id"].isin(val_target_ids)].copy()
+    elif X_train_target is not None and return_static_features_data:
+        X_val_target = _copy_feature_frame(X_train_target)
 
     if test_target_ids is not None:
         if X_train_target is not None:
-            X_test_target = X_train_target[X_train_target["id"].isin(test_target_ids)]
+            X_test_target = _select_feature_ids(X_train_target, test_target_ids)
         if y_test is not None:
-            y_test = y_test[y_test["target_id"].isin(test_target_ids)]
+            y_test = y_test.loc[y_test["target_id"].isin(test_target_ids)].copy()
         else:
-            y_test = y_train[y_train["target_id"].isin(test_target_ids)]
-    else:
-        if X_train_target is not None and return_static_features_data:
-            X_test_target = X_train_target
+            y_test = y_train.loc[y_train["target_id"].isin(test_target_ids)].copy()
+    elif X_train_target is not None and return_static_features_data:
+        X_test_target = _copy_feature_frame(X_train_target)
 
     if train_target_ids is not None:
         if X_train_target is not None:
-            X_train_target = X_train_target[X_train_target["id"].isin(train_target_ids)]
-        y_train = y_train[y_train["target_id"].isin(train_target_ids)]
+            X_train_target = _select_feature_ids(X_train_target, train_target_ids)
+        y_train = y_train.loc[y_train["target_id"].isin(train_target_ids)].copy()
 
     return {
         "train": {

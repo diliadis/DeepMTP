@@ -80,6 +80,103 @@ def test_generate_mtp_dataset_rejects_splits_without_training_ids():
         )
 
 
+@pytest.mark.parametrize(
+    ("parameter_name", "value"),
+    [
+        ("num_instance_features", True),
+        ("num_instance_features", 1.5),
+        ("num_instance_features", -1),
+        ("num_target_features", False),
+        ("num_target_features", 1.5),
+        ("num_target_features", -1),
+    ],
+)
+def test_generate_mtp_dataset_validates_optional_feature_dimensions(
+    parameter_name,
+    value,
+):
+    with pytest.raises(ValueError, match=parameter_name):
+        generate_MTP_dataset(20, 10, **{parameter_name: value})
+
+
+def test_generate_mtp_dataset_treats_zero_features_as_absent():
+    data = generate_MTP_dataset(
+        20,
+        10,
+        num_instance_features=0,
+        num_target_features=None,
+        return_static_features_data=True,
+    )
+
+    assert len(data["train"]["y"]["data"]) == 200
+    for split_name in ("train", "val", "test"):
+        assert data[split_name]["X_instance"] is None
+        assert data[split_name]["X_target"] is None
+
+
+def test_generate_mtp_dataset_preserves_triplet_order_and_values():
+    interactions = generate_MTP_dataset(3, 2)["train"]["y"]["data"]
+
+    np.testing.assert_array_equal(
+        interactions[["instance_id", "target_id"]].to_numpy(),
+        np.array(
+            [
+                [0, 0],
+                [0, 1],
+                [1, 0],
+                [1, 1],
+                [2, 0],
+                [2, 1],
+            ]
+        ),
+    )
+    np.testing.assert_array_equal(
+        interactions["value"].to_numpy(),
+        np.array([0.0, 0.0, 1.0, 1.0, 2.0, 2.0]),
+    )
+
+
+def test_generate_mtp_dataset_validates_static_feature_flag():
+    with pytest.raises(TypeError, match="return_static_features_data"):
+        generate_MTP_dataset(
+            20,
+            10,
+            return_static_features_data=1,
+        )
+
+
+@pytest.mark.parametrize("feature_key", ["X_instance", "X_target"])
+def test_generate_mtp_dataset_returns_independent_static_feature_frames(feature_key):
+    data = generate_MTP_dataset(
+        6,
+        4,
+        num_instance_features=2,
+        num_target_features=2,
+        return_static_features_data=True,
+    )
+    frames = [
+        data[split_name][feature_key]["data"] for split_name in ("train", "val", "test")
+    ]
+
+    assert len({id(frame) for frame in frames}) == 3
+    assert not np.shares_memory(
+        frames[0].iloc[0]["features"],
+        frames[1].iloc[0]["features"],
+    )
+    assert not np.shares_memory(
+        frames[0].iloc[0]["features"],
+        frames[2].iloc[0]["features"],
+    )
+
+    frames[1].at[0, "id"] = 999
+    frames[1].iloc[0]["features"][0] = 999
+
+    assert frames[0].at[0, "id"] == 0
+    assert frames[2].at[0, "id"] == 0
+    assert frames[0].iloc[0]["features"][0] == 0
+    assert frames[2].iloc[0]["features"][0] == 0
+
+
 def test_generate_dummy_dataset_default_mode_is_valid():
     data = generate_dummy_dataset(
         num_instances=20,
