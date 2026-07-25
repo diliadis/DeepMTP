@@ -3353,6 +3353,141 @@ def test_cross_input_checks_reject_unknown_validation_setting(checker):
         checker(data, "Z", verbose=False)
 
 
+def make_setting_a_split_data():
+    interactions = pd.DataFrame(
+        [
+            (instance_id, target_id, instance_id + target_id)
+            for instance_id in range(4)
+            for target_id in range(2)
+        ],
+        columns=["instance_id", "target_id", "value"],
+    )
+    instance_features = {
+        "data": pd.DataFrame(
+            {
+                "id": range(4),
+                "features": [np.array([float(value)]) for value in range(4)],
+            }
+        )
+    }
+    target_features = {
+        "data": pd.DataFrame(
+            {
+                "id": range(2),
+                "features": [np.array([float(value)]) for value in range(2)],
+            }
+        )
+    }
+    return {
+        "train": {
+            "y": {"data": interactions},
+            "X_instance": instance_features,
+            "X_target": target_features,
+        },
+        "val": {"y": None, "X_instance": None, "X_target": None},
+        "test": {"y": None, "X_instance": None, "X_target": None},
+    }
+
+
+@pytest.mark.parametrize(
+    ("validation_setting", "split_method", "message"),
+    [
+        ("Z", "random", "validation setting"),
+        ("A", "stratified", "split method"),
+    ],
+)
+def test_split_data_rejects_unsupported_modes(
+    validation_setting,
+    split_method,
+    message,
+):
+    with pytest.raises(ValueError, match=message):
+        split_data(
+            {},
+            validation_setting,
+            split_method=split_method,
+            ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+            shuffle=True,
+            seed=42,
+            verbose=False,
+        )
+
+
+def test_split_data_honors_disabled_shuffle_independently_of_seed():
+    first = make_setting_a_split_data()
+    second = make_setting_a_split_data()
+
+    for data, seed in ((first, 1), (second, 999)):
+        split_data(
+            data,
+            "A",
+            split_method="random",
+            ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+            shuffle=False,
+            seed=seed,
+            verbose=False,
+        )
+
+    for mode in ("train", "val", "test"):
+        assert (
+            first[mode]["y"]["data"].index.tolist()
+            == second[mode]["y"]["data"].index.tolist()
+        )
+
+
+def test_split_data_detaches_shared_feature_sources():
+    data = make_setting_a_split_data()
+
+    split_data(
+        data,
+        "A",
+        split_method="random",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=True,
+        seed=42,
+        verbose=False,
+    )
+
+    assert data["train"]["X_instance"] is not data["val"]["X_instance"]
+    assert data["train"]["X_instance"]["data"] is not data["val"]["X_instance"]["data"]
+    data["val"]["X_instance"]["data"].iloc[0]["features"][0] = 99.0
+    assert data["train"]["X_instance"]["data"].iloc[0]["features"][0] == 0.0
+
+
+def test_split_data_rejects_overlapping_setting_b_entities():
+    def split(instance_id, target_id):
+        return {
+            "y": {
+                "data": pd.DataFrame(
+                    {
+                        "instance_id": [instance_id],
+                        "target_id": [target_id],
+                        "value": [1],
+                    }
+                )
+            },
+            "X_instance": {"data": pd.DataFrame({"id": [instance_id]})},
+            "X_target": None,
+        }
+
+    data = {
+        "train": split(0, 0),
+        "val": split(1, 0),
+        "test": split(0, 1),
+    }
+
+    with pytest.raises(ValueError, match="instance_id values overlap"):
+        split_data(
+            data,
+            "B",
+            split_method="random",
+            ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+            shuffle=True,
+            seed=42,
+            verbose=False,
+        )
+
+
 @pytest.mark.parametrize(
     ("mode", "group_column"),
     [("macro", "target_id"), ("instance", "instance_id")],

@@ -1,6 +1,7 @@
 import copy
 import warnings
-from collections.abc import Mapping
+from collections.abc import Mapping, MutableMapping
+from itertools import combinations
 from typing import Any, Literal, Protocol, TypeAlias, TypedDict
 
 import numpy as np
@@ -1120,16 +1121,115 @@ def cross_input_consistency_check_targets(
                 pass
 
 
+def _split_frame_rows(
+    frame: pd.DataFrame,
+    test_size: float,
+    *,
+    shuffle_rows: bool,
+    seed: int | None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    train_frame, held_out_frame = train_test_split(
+        frame,
+        test_size=test_size,
+        random_state=seed if shuffle_rows else None,
+        shuffle=shuffle_rows,
+    )
+    return train_frame.copy(), held_out_frame.copy()
+
+
+def _copy_feature_source(source: Mapping[str, Any]) -> dict[str, Any]:
+    copied_source = copy.deepcopy(dict(source))
+    source_frame = source.get("data")
+    if isinstance(source_frame, pd.DataFrame):
+        copied_frame = source_frame.copy(deep=True)
+        if "features" in copied_frame:
+            copied_frame["features"] = [
+                np.asarray(feature_vector).copy()
+                for feature_vector in copied_frame["features"]
+            ]
+        copied_source["data"] = copied_frame
+    return copied_source
+
+
+def _detach_shared_feature_sources(data: MutableMapping[str, Any]) -> None:
+    for feature_key in ("X_instance", "X_target"):
+        seen_source_ids: set[int] = set()
+        seen_frame_ids: set[int] = set()
+        for mode in ("train", "val", "test"):
+            source = data[mode][feature_key]
+            if source is None:
+                continue
+            source_id = id(source)
+            frame_id = id(source.get("data"))
+            if source_id in seen_source_ids or frame_id in seen_frame_ids:
+                source = _copy_feature_source(source)
+                data[mode][feature_key] = source
+                source_id = id(source)
+                frame_id = id(source.get("data"))
+            seen_source_ids.add(source_id)
+            seen_frame_ids.add(frame_id)
+
+
+def _interaction_pairs(frame: pd.DataFrame) -> set[tuple[Any, Any]]:
+    return set(
+        frame[["instance_id", "target_id"]].itertuples(
+            index=False,
+            name=None,
+        )
+    )
+
+
+def _validate_split_result(
+    data: DatasetMapping,
+    validation_setting: ValidationSetting,
+) -> None:
+    split_frames: dict[str, pd.DataFrame] = {}
+    for mode in ("train", "val", "test"):
+        interaction_source = data[mode]["y"]
+        if interaction_source is None:
+            raise ValueError(f"Splitting did not produce {mode} interaction data.")
+        frame = interaction_source["data"]
+        if frame.empty:
+            raise ValueError(f"Splitting produced an empty {mode} interaction set.")
+        split_frames[mode] = frame
+
+    pair_sets = {
+        mode: _interaction_pairs(frame) for mode, frame in split_frames.items()
+    }
+    for left_mode, right_mode in combinations(pair_sets, 2):
+        if pair_sets[left_mode].intersection(pair_sets[right_mode]):
+            raise ValueError(f"{left_mode} and {right_mode} interaction sets overlap.")
+
+    disjoint_columns: tuple[str, ...]
+    if validation_setting == "B":
+        disjoint_columns = ("instance_id",)
+    elif validation_setting == "C":
+        disjoint_columns = ("target_id",)
+    elif validation_setting == "D":
+        disjoint_columns = ("instance_id", "target_id")
+    else:
+        disjoint_columns = ()
+
+    for column in disjoint_columns:
+        id_sets = {mode: set(frame[column]) for mode, frame in split_frames.items()}
+        for left_mode, right_mode in combinations(id_sets, 2):
+            if id_sets[left_mode].intersection(id_sets[right_mode]):
+                raise ValueError(
+                    f"{column} values overlap between {left_mode} and "
+                    f"{right_mode} for validation setting {validation_setting}."
+                )
+
+
 def split_data(
-    data,
-    validation_setting,
-    split_method,
-    ratio,
-    shuffle,
-    seed,
-    verbose,
-    print_mode="basic",
-):
+    data: MutableMapping[str, Any],
+    validation_setting: ValidationSetting,
+    split_method: str,
+    ratio: object,
+    shuffle: bool,
+    seed: int | None,
+    verbose: bool,
+    print_mode: str = "basic",
+) -> None:
     """Splits the dataset and offers two main functionalities:
         * split based on the 4 different validation settings (A, B, C, D)
         * if a test set already exists it separates a validation set, otherwise it first creates a test set and then a validation set.
@@ -1144,6 +1244,17 @@ def split_data(
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     """
+    if validation_setting not in {"A", "B", "C", "D"}:
+        raise ValueError(f"Unknown validation setting: {validation_setting!r}.")
+    if split_method != "random":
+        raise ValueError(
+            f"Unsupported split method {split_method!r}; only 'random' is available."
+        )
+    if not isinstance(shuffle, bool):
+        raise TypeError("shuffle must be a boolean.")
+    if seed is not None and (not isinstance(seed, int) or isinstance(seed, bool)):
+        raise TypeError("seed must be an integer or None.")
+
     # Work on a private copy so callers can safely reuse their split
     # configuration across experiments.
     ratio = validate_split_ratio(ratio)
@@ -1162,7 +1273,7 @@ def split_data(
             train_ids, test_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
                 test_size=ratio["test"],
-                random_state=seed,
+                random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
             train_ids.sort()
@@ -1198,7 +1309,7 @@ def split_data(
             train_ids, val_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
                 test_size=round(ratio["val"], 4),
-                random_state=seed,
+                random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
             train_ids.sort()
@@ -1269,7 +1380,7 @@ def split_data(
             train_ids, test_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
                 test_size=ratio["test"],
-                random_state=seed,
+                random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
             train_ids.sort()
@@ -1305,7 +1416,7 @@ def split_data(
             train_ids, val_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
                 test_size=ratio["val"],
-                random_state=seed,
+                random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
             train_ids.sort()
@@ -1373,14 +1484,14 @@ def split_data(
                     + "... ",
                     end="",
                 )
-            test_y_data = data["train"]["y"]["data"].sample(
-                frac=ratio["test"], replace=False, random_state=seed
+            train_y_data, test_y_data = _split_frame_rows(
+                data["train"]["y"]["data"],
+                ratio["test"],
+                shuffle_rows=shuffle,
+                seed=seed,
             )
             data["test"]["y"] = {"data": test_y_data}
-            # data['test']['y'].update({k:v for k,v in data['train']['y'].items() if k!=data})
-            data["train"]["y"]["data"] = data["train"]["y"]["data"].drop(
-                test_y_data.index
-            )
+            data["train"]["y"]["data"] = train_y_data
             if data["train"]["X_instance"] is not None:
                 data["test"]["X_instance"] = data["train"]["X_instance"]
             if data["train"]["X_target"] is not None:
@@ -1397,14 +1508,14 @@ def split_data(
                     + "... ",
                     end="",
                 )
-            val_y_data = data["train"]["y"]["data"].sample(
-                frac=ratio["val"], replace=False, random_state=seed
+            train_y_data, val_y_data = _split_frame_rows(
+                data["train"]["y"]["data"],
+                ratio["val"],
+                shuffle_rows=shuffle,
+                seed=seed,
             )
             data["val"]["y"] = {"data": val_y_data}
-            # data['val']['y'].update({k:v for k,v in data['train']['y'].items() if k!=data})
-            data["train"]["y"]["data"] = data["train"]["y"]["data"].drop(
-                val_y_data.index
-            )
+            data["train"]["y"]["data"] = train_y_data
             if data["train"]["X_instance"] is not None:
                 if data["test"]["X_instance"] is None:
                     data["test"]["X_instance"] = data["train"]["X_instance"]
@@ -1431,7 +1542,7 @@ def split_data(
             train_instance_ids, test_instance_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
                 test_size=ratio["test"],
-                random_state=seed,
+                random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
             train_instance_ids.sort()
@@ -1439,7 +1550,7 @@ def split_data(
             train_target_ids, test_target_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
                 test_size=ratio["test"],
-                random_state=seed,
+                random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
             train_target_ids.sort()
@@ -1486,7 +1597,7 @@ def split_data(
             train_instance_ids, val_instance_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
                 test_size=ratio["val"],
-                random_state=seed,
+                random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
             train_instance_ids.sort()
@@ -1494,7 +1605,7 @@ def split_data(
             train_target_ids, val_target_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
                 test_size=ratio["val"],
-                random_state=seed,
+                random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
             train_target_ids.sort()
@@ -1587,6 +1698,9 @@ def split_data(
 
         if verbose:
             print(("info: " if print_mode == "dev" else "") + "Done")
+
+    _detach_shared_feature_sources(data)
+    _validate_split_result(data, validation_setting)
 
 
 def data_process(
