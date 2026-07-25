@@ -1,5 +1,6 @@
 import json
 import pickle
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +12,7 @@ from DeepMTP.dataset import (
     generate_dummy_dataset,
     generate_interaction_matrix,
     generate_MTP_dataset,
+    load_process_MC,
     load_process_MTL,
     load_process_MTR,
     process_dummy_DP,
@@ -71,6 +73,156 @@ def write_mtl_dataset(
         for index in range(1, 5):
             (image_dir / f"{index}.jpg").touch()
     return dataset_dir
+
+
+def write_movielens_dataset(
+    root,
+    content="10\t100\t5\t900\n20\t100\t3\t901\n10\t200\t4\t902\n",
+):
+    dataset_dir = root / "matrix-completion-datasets" / "ml-100k"
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    (dataset_dir / "u.data").write_text(content, encoding="utf-8")
+    return dataset_dir
+
+
+def write_movielens_archive(
+    root,
+    content="10\t100\t5\t900\n20\t100\t3\t901\n10\t200\t4\t902\n",
+):
+    archive_path = root / "matrix-completion-datasets" / "ml-100k.zip"
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("ml-100k/u.data", content)
+    return archive_path
+
+
+def test_load_process_mc_reads_cached_ratings_without_network(
+    monkeypatch,
+    tmp_path,
+):
+    write_movielens_dataset(tmp_path)
+
+    def unexpected_operation(*args, **kwargs):
+        raise AssertionError("a complete cache must not be downloaded or extracted")
+
+    monkeypatch.setattr(dataset_module, "download_file", unexpected_operation)
+    monkeypatch.setattr(dataset_module, "extract_zip_file", unexpected_operation)
+
+    data = load_process_MC(tmp_path)
+
+    pd.testing.assert_frame_equal(
+        data["train"]["y"],
+        pd.DataFrame(
+            {
+                "instance_id": [0, 1, 0],
+                "target_id": [0, 0, 1],
+                "value": [5, 3, 4],
+            }
+        ),
+    )
+    assert data["train"]["X_instance"] is None
+    assert data["train"]["X_target"] is None
+    assert data["val"] == {"y": None, "X_instance": None, "X_target": None}
+    assert data["test"] == {"y": None, "X_instance": None, "X_target": None}
+
+
+@pytest.mark.parametrize(
+    ("overrides", "exception", "message"),
+    [
+        ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
+        ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"path": object()}, TypeError, "path"),
+    ],
+)
+def test_load_process_mc_validates_arguments_before_download(
+    monkeypatch,
+    tmp_path,
+    overrides,
+    exception,
+    message,
+):
+    def unexpected_download(*args, **kwargs):
+        raise AssertionError("invalid arguments must not trigger a download")
+
+    monkeypatch.setattr(dataset_module, "download_file", unexpected_download)
+    arguments = {"path": tmp_path, "dataset_name": "ml-100k"}
+    arguments.update(overrides)
+
+    with pytest.raises(exception, match=message):
+        load_process_MC(**arguments)
+
+
+def test_load_process_mc_repairs_incomplete_cache_from_archive(
+    monkeypatch,
+    tmp_path,
+):
+    write_movielens_archive(tmp_path)
+
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda *args, **kwargs: pytest.fail("cached archive should be reused"),
+    )
+
+    data = load_process_MC(tmp_path)
+
+    assert len(data["train"]["y"]) == 3
+    assert (tmp_path / "matrix-completion-datasets" / "ml-100k" / "u.data").is_file()
+
+
+def test_load_process_mc_replaces_corrupt_cached_archive(monkeypatch, tmp_path):
+    archive_path = tmp_path / "matrix-completion-datasets" / "ml-100k.zip"
+    archive_path.parent.mkdir(parents=True)
+    archive_path.write_bytes(b"not a zip")
+    calls = []
+
+    def download(url, destination):
+        calls.append((url, destination))
+        write_movielens_archive(tmp_path)
+
+    monkeypatch.setattr(dataset_module, "download_file", download)
+
+    data = load_process_MC(tmp_path)
+
+    assert len(calls) == 1
+    assert len(data["train"]["y"]) == 3
+
+
+def test_load_process_mc_reports_missing_downloaded_dataset(
+    monkeypatch,
+    tmp_path,
+):
+    def download(url, destination):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(destination, "w") as archive:
+            archive.writestr("ml-100k/README", "no ratings")
+
+    monkeypatch.setattr(dataset_module, "download_file", download)
+
+    with pytest.raises(FileNotFoundError, match="expected file"):
+        load_process_MC(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("", "empty"),
+        ("10\t100\t5\n", "missing fields"),
+        ("10\t100\t5\t900\textra\n", "extra fields"),
+        ("ten\t100\t5\t900\n", "must be numeric"),
+        ("10\t100\t6\t900\n", "between 1 and 5"),
+        ("10\t100\t3.5\t900\n", "must be integers"),
+        (
+            "10\t100\t5\t900\n10\t100\t4\t901\n",
+            "duplicate instance-target",
+        ),
+    ],
+)
+def test_load_process_mc_rejects_invalid_ratings(tmp_path, content, message):
+    write_movielens_dataset(tmp_path, content)
+
+    with pytest.raises(ValueError, match=message):
+        load_process_MC(tmp_path)
 
 
 @pytest.mark.parametrize(

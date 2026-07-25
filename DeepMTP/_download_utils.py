@@ -5,12 +5,14 @@ from __future__ import annotations
 import io
 import os
 import stat
+import tempfile
 import zipfile
 from pathlib import Path
 
 import requests
 
 DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 30.0
+DOWNLOAD_CHUNK_SIZE_BYTES = 64 * 1024
 
 
 class DatasetDownloadError(RuntimeError):
@@ -39,6 +41,72 @@ def _validate_archive_members(
             )
 
 
+def _extract_archive(
+    archive: zipfile.ZipFile,
+    destination: Path,
+) -> None:
+    _validate_archive_members(archive, destination)
+    corrupt_member = archive.testzip()
+    if corrupt_member is not None:
+        raise DatasetDownloadError(
+            f"Dataset archive contains a corrupt file: {corrupt_member!r}."
+        )
+    archive.extractall(destination)
+
+
+def download_file(
+    url: str,
+    destination: str | os.PathLike[str],
+    *,
+    timeout: float = DEFAULT_DOWNLOAD_TIMEOUT_SECONDS,
+) -> None:
+    """Stream a URL to a file without exposing a partial destination."""
+    destination_path = Path(destination)
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+
+    try:
+        with requests.get(url, stream=True, timeout=timeout) as response:
+            response.raise_for_status()
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                dir=destination_path.parent,
+                prefix=f".{destination_path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary_file:
+                temporary_path = Path(temporary_file.name)
+                for chunk in response.iter_content(
+                    chunk_size=DOWNLOAD_CHUNK_SIZE_BYTES
+                ):
+                    if chunk:
+                        temporary_file.write(chunk)
+        temporary_path.replace(destination_path)
+    except requests.RequestException as exc:
+        raise DatasetDownloadError(f"Failed to download file from {url!r}.") from exc
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
+
+
+def extract_zip_file(
+    archive_path: str | os.PathLike[str],
+    destination: str | os.PathLike[str],
+) -> None:
+    """Extract a local ZIP archive after validating all of its members."""
+    archive_file = Path(archive_path)
+    destination_path = Path(destination)
+    destination_path.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with zipfile.ZipFile(archive_file) as archive:
+            _extract_archive(archive, destination_path)
+    except zipfile.BadZipFile as exc:
+        raise DatasetDownloadError(
+            f"Dataset archive is not a valid ZIP file: {archive_file}."
+        ) from exc
+
+
 def download_and_extract_zip(
     url: str,
     destination: str | os.PathLike[str],
@@ -58,13 +126,7 @@ def download_and_extract_zip(
     destination_path.mkdir(parents=True, exist_ok=True)
     try:
         with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
-            _validate_archive_members(archive, destination_path)
-            corrupt_member = archive.testzip()
-            if corrupt_member is not None:
-                raise DatasetDownloadError(
-                    f"Dataset archive contains a corrupt file: {corrupt_member!r}."
-                )
-            archive.extractall(destination_path)
+            _extract_archive(archive, destination_path)
     except zipfile.BadZipFile as exc:
         raise DatasetDownloadError(
             f"Downloaded content from {url!r} is not a valid ZIP archive."

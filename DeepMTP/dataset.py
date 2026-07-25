@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import pickle
-import zipfile
 from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
@@ -12,14 +11,18 @@ from typing import Literal, TypeAlias, TypedDict
 import arff
 import numpy as np
 import pandas as pd
-import requests
 import scipy
 import wget
 from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
 from skmultilearn.dataset import available_data_sets, load_dataset
 
-from DeepMTP._download_utils import download_and_extract_zip
+from DeepMTP._download_utils import (
+    DatasetDownloadError,
+    download_and_extract_zip,
+    download_file,
+    extract_zip_file,
+)
 from DeepMTP._split_utils import (
     partition_ordered_ids as _partition_ids,
 )
@@ -56,6 +59,15 @@ _MTR_DATASET_TARGETS = {
 _MTL_DATASET_NAMES = frozenset({"bird", "dog"})
 _MTL_ARCHIVE_URL_TEMPLATE = (
     "https://github.com/diliadis/MTL/blob/main/{dataset_name}.zip?raw=true"
+)
+_MC_DATASET_URLS = {
+    "ml-100k": "https://files.grouplens.org/datasets/movielens/ml-100k.zip",
+}
+_MOVIELENS_RATINGS_COLUMNS = (
+    "instance_id",
+    "target_id",
+    "value",
+    "timestamp",
 )
 
 
@@ -1014,100 +1026,163 @@ def process_dummy_DP(
     }
 
 
+def _load_movielens_ratings(ratings_path: Path) -> pd.DataFrame:
+    """Read and validate a MovieLens 100K ratings file."""
+    try:
+        ratings = pd.read_csv(
+            ratings_path,
+            sep="\t",
+            header=None,
+            dtype=str,
+        )
+    except pd.errors.EmptyDataError as exc:
+        raise ValueError(f"MovieLens ratings file is empty: {ratings_path}.") from exc
+    except (pd.errors.ParserError, UnicodeDecodeError) as exc:
+        raise ValueError(
+            f"MovieLens ratings file could not be parsed: {ratings_path}."
+        ) from exc
+
+    if ratings.empty:
+        raise ValueError(f"MovieLens ratings file is empty: {ratings_path}.")
+    if ratings.shape[1] != len(_MOVIELENS_RATINGS_COLUMNS):
+        raise ValueError(
+            "MovieLens ratings file has missing fields or extra fields; "
+            f"expected exactly {len(_MOVIELENS_RATINGS_COLUMNS)} columns."
+        )
+    ratings.columns = list(_MOVIELENS_RATINGS_COLUMNS)
+    if ratings.isna().any(axis=None):
+        raise ValueError(f"MovieLens ratings file has missing fields: {ratings_path}.")
+
+    for column in _MOVIELENS_RATINGS_COLUMNS:
+        try:
+            ratings[column] = pd.to_numeric(ratings[column], errors="raise")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"MovieLens ratings column {column!r} must be numeric."
+            ) from exc
+
+    numeric_values = ratings[list(_MOVIELENS_RATINGS_COLUMNS)].to_numpy(dtype=float)
+    if not np.isfinite(numeric_values).all():
+        raise ValueError("MovieLens ratings must contain only finite numeric values.")
+
+    for column in ("instance_id", "target_id", "timestamp"):
+        values = ratings[column].to_numpy(dtype=float)
+        if (values <= 0).any() or not np.equal(values, np.floor(values)).all():
+            raise ValueError(
+                f"MovieLens ratings column {column!r} must contain positive integers."
+            )
+
+    if not ratings["value"].between(1, 5, inclusive="both").all():
+        raise ValueError("MovieLens rating values must be between 1 and 5.")
+    rating_values = ratings["value"].to_numpy(dtype=float)
+    if not np.equal(rating_values, np.floor(rating_values)).all():
+        raise ValueError("MovieLens rating values must be integers.")
+    if ratings.duplicated(subset=["instance_id", "target_id"]).any():
+        raise ValueError(
+            "MovieLens ratings contain duplicate instance-target interactions."
+        )
+
+    ratings["instance_id"] = pd.factorize(ratings["instance_id"], sort=False)[0]
+    ratings["target_id"] = pd.factorize(ratings["target_id"], sort=False)[0]
+    return ratings.drop(columns="timestamp")
+
+
+def _download_movielens_archive(
+    url: str,
+    archive_path: Path,
+    dataset_name: str,
+    print_mode: PrintMode,
+) -> None:
+    prefix = "info: " if print_mode == "dev" else ""
+    print(
+        f"{prefix}Downloading dataset {dataset_name} from scratch... ",
+        end="",
+    )
+    download_file(url, archive_path)
+    print(f"{prefix}Done")
+
+
 def load_process_MC(
-    path: str = "./data",
+    path: str | os.PathLike[str] = "./data",
     dataset_name: str = "ml-100k",
     print_mode: PrintMode = "basic",
 ) -> DatasetBundle:
-    """Load matrix completion datasets from the Movielens repository.
+    """Load a matrix-completion dataset from the MovieLens repository.
 
     Args:
-        path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
-        dataset_name (str, optional): The name of the matrix completion dataset. Defaults to 'ml-100k'.
-        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        path: Directory used for the local dataset cache.
+        dataset_name: Matrix-completion dataset to load.
+        print_mode: ``"basic"`` for ordinary messages or ``"dev"`` for
+            messages prefixed for the development application.
 
     Raises:
-        AttributeError: if the dataset_name doesn't exist in the repository
+        ValueError: If an option or the ratings data is invalid.
+        DatasetDownloadError: If the archive cannot be downloaded or extracted.
+        FileNotFoundError: If the archive does not contain the expected ratings file.
 
     Returns:
-        dict: A dictionary with all the available data for the matrix completion dataset.
+        The ratings triplets and empty side-feature and held-out splits.
     """
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
+    if dataset_name not in _MC_DATASET_URLS:
+        raise ValueError(f"dataset_name must be one of {sorted(_MC_DATASET_URLS)}.")
+    if print_mode not in {"basic", "dev"}:
+        raise ValueError("print_mode must be either 'basic' or 'dev'.")
 
-    path += "/matrix-completion-datasets"
-    urls_checksums_per_dataset = {
-        "ml-100k": "https://files.grouplens.org/datasets/movielens/ml-100k.zip",
-        # 'ml-1m': 'https://files.grouplens.org/datasets/movielens/ml-1m.zip',
-        # 'ml-10m': 'https://files.grouplens.org/datasets/movielens/ml-10m.zip',
-    }
+    data_root = _prepare_dataset_root(path)
+    base_dir = data_root / "matrix-completion-datasets"
+    data_dir = base_dir / dataset_name
+    ratings_path = data_dir / "u.data"
+    url = _MC_DATASET_URLS[dataset_name]
+    archive_path = base_dir / Path(url).name
 
-    if dataset_name not in urls_checksums_per_dataset:  # pragma: no cover
-        raise AttributeError(
-            "Please use one of the valid dataset names: "
-            + str(list(urls_checksums_per_dataset.keys()))
+    if not ratings_path.is_file():
+        base_dir.mkdir(parents=True, exist_ok=True)
+        cached_archive = archive_path.is_file()
+        if not cached_archive:
+            _download_movielens_archive(
+                url,
+                archive_path,
+                dataset_name,
+                print_mode,
+            )
+
+        try:
+            extract_zip_file(archive_path, base_dir)
+        except DatasetDownloadError:
+            if not cached_archive:
+                raise
+            _download_movielens_archive(
+                url,
+                archive_path,
+                dataset_name,
+                print_mode,
+            )
+            extract_zip_file(archive_path, base_dir)
+
+        if not ratings_path.is_file() and cached_archive:
+            _download_movielens_archive(
+                url,
+                archive_path,
+                dataset_name,
+                print_mode,
+            )
+            extract_zip_file(archive_path, base_dir)
+
+    if not ratings_path.is_file():
+        raise FileNotFoundError(
+            "MovieLens dataset extraction did not create the expected file "
+            f"{ratings_path}."
         )
 
-    url = urls_checksums_per_dataset[dataset_name]
-
-    os.makedirs(path, exist_ok=True)
-    fname = os.path.join(path, url.split("/")[-1])
-    # print('fname: '+str(fname))
-
-    base_dir = os.path.dirname(fname)
-    data_dir, ext = os.path.splitext(fname)
-    # print('base_dir: '+str(base_dir))
-    # print('data_dir: '+str(data_dir))
-    # print('ext: '+str(ext))
-
-    if not os.path.exists(data_dir):  # pragma: no cover
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + "Downloading dataset "
-            + dataset_name
-            + " from scratch... ",
-            end="",
-        )
-        r = requests.get(url, stream=True, verify=True)
-        with open(fname, "wb") as f:
-            f.write(r.content)
-        print(("info: " if print_mode == "dev" else "") + "Done")
-
-    fp = zipfile.ZipFile(fname, "r")
-    fp.extractall(base_dir)
-
-    names = ["instance_id", "target_id", "value", "timestamp"]
-    y_train = pd.read_csv(
-        filepath_or_buffer=os.path.join(data_dir, "u.data"),
-        sep="\t",
-        names=names,
-        engine="python",
-    )
-
-    y_train.drop(["timestamp"], axis=1, inplace=True)
-    unique_instance_ids = y_train["instance_id"].unique()
-    unique_target_ids = y_train["target_id"].unique()
-
-    old_to_new_instance_ids_map = {
-        old_id: new_id for new_id, old_id in enumerate(unique_instance_ids)
-    }
-    old_to_new_target_ids_map = {
-        old_id: new_id for new_id, old_id in enumerate(unique_target_ids)
-    }
-
-    y_train["instance_id"] = y_train["instance_id"].map(old_to_new_instance_ids_map)
-    y_train["target_id"] = y_train["target_id"].map(old_to_new_target_ids_map)
-
-    # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
+    y_train = _load_movielens_ratings(ratings_path)
     return {
         "train": {
             "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": X_train_target,
+            "X_instance": None,
+            "X_target": None,
         },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
+        "test": {"y": None, "X_instance": None, "X_target": None},
+        "val": {"y": None, "X_instance": None, "X_target": None},
     }
 
 
