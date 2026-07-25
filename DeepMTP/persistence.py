@@ -71,7 +71,7 @@ class ExperimentStore:
     def save_config(self, config: Mapping[str, Any] | DeepMTPConfig) -> Path:
         """Save JSON-compatible configs as JSON and all others as pickle."""
         if isinstance(config, DeepMTPConfig):
-            config = config.to_dict()
+            config = config.to_dict(include_defaults=True)
         elif not isinstance(config, Mapping):
             raise TypeError(
                 "config must be a mapping or DeepMTPConfig, "
@@ -100,7 +100,7 @@ class ExperimentStore:
     ) -> Path:
         """Atomically save a checkpoint using the historical payload format."""
         if isinstance(config, DeepMTPConfig):
-            config = config.to_dict()
+            config = config.to_dict(include_defaults=True)
         checkpoint = {
             "model_state_dict": dict(model_state_dict),
             "optimizer_state_dict": dict(optimizer_state_dict),

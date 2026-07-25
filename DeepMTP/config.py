@@ -184,8 +184,13 @@ class DeepMTPConfig:
         }
         return typed_config
 
-    def to_dict(self) -> dict[str, Any]:
-        """Return a compatibility dictionary, including extension metadata."""
+    def to_dict(self, *, include_defaults: bool = False) -> dict[str, Any]:
+        """Return a compatibility dictionary, including extension metadata.
+
+        ``include_defaults`` materializes every normalized public field for
+        internal runtime consumers. The default preserves the historical
+        round-trip behavior for partial legacy mappings.
+        """
         public_fields = [
             config_field.name
             for config_field in fields(self)
@@ -193,7 +198,7 @@ class DeepMTPConfig:
         ]
         included_fields = (
             public_fields
-            if self._present_fields is None
+            if include_defaults or self._present_fields is None
             else [name for name in public_fields if name in self._present_fields]
         )
         result = {

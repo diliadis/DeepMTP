@@ -182,6 +182,8 @@ module = [
     "DeepMTP.hpo_progress",
     "DeepMTP.hpo_types",
     "DeepMTP.hpo_worker",
+    "DeepMTP.main",
+    "DeepMTP.main_streamlit",
     "DeepMTP.model_factory",
     "DeepMTP.persistence",
     "DeepMTP.presentation",

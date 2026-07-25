@@ -140,7 +140,7 @@ class ModelFactory:
         config: DeepMTPConfig | Mapping[str, Any],
     ):
         self.config = DeepMTPConfig.from_mapping(config)
-        self.legacy_config = self.config.to_dict()
+        self.legacy_config = self.config.to_dict(include_defaults=True)
 
     def build(
         self,

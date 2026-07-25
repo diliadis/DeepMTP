@@ -31,7 +31,7 @@ class DataLoaderFactory:
         device: torch.device,
     ):
         self.config = DeepMTPConfig.from_mapping(config)
-        self.dataset_config = self.config.to_dict()
+        self.dataset_config = self.config.to_dict(include_defaults=True)
         self.device = device
 
     def for_training(

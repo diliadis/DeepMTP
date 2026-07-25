@@ -47,6 +47,22 @@ def test_typed_config_round_trip_preserves_extension_metadata():
     assert typed_config.to_dict() == config
 
 
+def test_runtime_dict_materializes_defaults_for_partial_mapping():
+    typed_config = DeepMTPConfig.from_mapping(
+        {
+            "validation_setting": "B",
+            "problem_mode": "classification",
+            "instance_branch_architecture": "MLP",
+            "instance_branch_input_dim": 3,
+            "target_branch_architecture": "MLP",
+            "target_branch_input_dim": 2,
+        }
+    )
+
+    assert "verbose" not in typed_config.to_dict()
+    assert typed_config.to_dict(include_defaults=True)["verbose"] is False
+
+
 def test_typed_config_does_not_copy_opaque_transform_objects():
     class NonCopyableTransform:
         def __deepcopy__(self, memo):

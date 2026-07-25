@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from os import PathLike
+from typing import Any
+
+from DeepMTP.config import DeepMTPConfig
 from DeepMTP.main import DeepMTP as CoreDeepMTP
+from DeepMTP.model_factory import BranchFactory
+from DeepMTP.presentation import ProgressObserver
+from DeepMTP.reporting import ExperimentReporter
 from DeepMTP.streamlit_adapter import StreamlitProgressObserver
 
 
@@ -11,13 +19,13 @@ class DeepMTP(CoreDeepMTP):  # pragma: no cover
 
     def __init__(
         self,
-        config,
-        instance_branch_model=None,
-        target_branch_model=None,
-        checkpoint_dir=None,
-        reporter=None,
-        progress=None,
-    ):
+        config: DeepMTPConfig | Mapping[str, Any],
+        instance_branch_model: BranchFactory | None = None,
+        target_branch_model: BranchFactory | None = None,
+        checkpoint_dir: str | PathLike[str] | None = None,
+        reporter: ExperimentReporter | None = None,
+        progress: ProgressObserver | None = None,
+    ) -> None:
         streamlit_progress = (
             progress if progress is not None else StreamlitProgressObserver()
         )
@@ -36,5 +44,7 @@ class DeepMTP(CoreDeepMTP):  # pragma: no cover
             )
 
 
-def initialize_mode(config):  # pragma: no cover
+def initialize_mode(
+    config: DeepMTPConfig | Mapping[str, Any],
+) -> DeepMTP:  # pragma: no cover
     return DeepMTP(config)
