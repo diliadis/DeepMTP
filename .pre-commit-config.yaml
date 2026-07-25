@@ -14,7 +14,7 @@ repos:
       - id: ruff-check
         args: [--fix]
         files: &quality_python >-
-          ^DeepMTP/(?:__init__|branch_models|config|data_loading|evaluation|hpo_progress|hpo_worker|main|main_streamlit|model_factory|persistence|presentation|random_search|random_search_streamlit|reporting|simple_hyperband|simple_hyperband_streamlit|streamlit_adapter|training|utils/(?:data_utils|eval_utils|model_utils|tests|utils))\.py$
+          ^DeepMTP/(?:__init__|branch_models|config|data_loading|dataset|evaluation|hpo_progress|hpo_worker|main|main_streamlit|model_factory|persistence|presentation|random_search|random_search_streamlit|reporting|simple_hyperband|simple_hyperband_streamlit|streamlit_adapter|training|utils/(?:__init__|data_utils|eval_utils|model_utils|tests|utils))\.py$
         types_or: [python, pyi]
       - id: ruff-format
         files: *quality_python
