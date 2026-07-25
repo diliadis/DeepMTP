@@ -12,15 +12,16 @@ from DeepMTP.utils.data_utils import (
     cross_input_consistency_check_instances,
     cross_input_consistency_check_targets,
     split_data,
+    validate_split_ratio,
     data_process,
+    BaseDataset,
+    MTPSampler,
 )
 from DeepMTP.dataset import (
     process_dummy_MLC,
     process_dummy_MTR,
     process_dummy_DP,
     generate_MTP_dataset,
-    load_process_MLC,
-    load_process_DP,
 )
 import pandas as pd
 from pandas.testing import assert_frame_equal
@@ -2701,7 +2702,7 @@ def test_split_data(test_split_data_data):
         processed_data,
         test_split_data_data["validation_setting"],
         split_method="random",
-        ratio={"train": 0.7, "val": 0.1, "test": 0.3},
+        ratio={"train": 0.6, "val": 0.1, "test": 0.3},
         shuffle=False,
         seed=42,
         verbose=False,
@@ -2793,15 +2794,17 @@ def test_data_process(test_data_process_data):
             ]
             scale_instance_features = test_data_process_data["scale_instance_features"]
             scale_target_features = test_data_process_data["scale_target_features"]
+            validation_setting = None
 
             if MTP_setting == "MLC":
-                # data = process_dummy_MLC(num_features=num_instance_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', features_format='numpy')
-                data = load_process_MLC(
-                    dataset_name="emotions",
-                    variant="divided",
-                    features_type="numpy",
-                    print_mode="basic",
+                data = process_dummy_MLC(
+                    num_features=num_instance_features,
+                    num_instances=num_instances,
+                    num_targets=num_targets,
+                    interaction_matrix_format=interaction_matrix_format,
+                    features_format="numpy",
                 )
+                validation_setting = "B"
             elif MTP_setting == "MTR":
                 data = process_dummy_MTR(
                     num_features=num_instance_features,
@@ -2814,21 +2817,20 @@ def test_data_process(test_data_process_data):
                     random_state=42,
                 )
             elif MTP_setting == "DP":
-                # data = process_dummy_DP(num_instance_features=num_instance_features, num_target_features=num_target_features, num_instances=num_instances, num_targets=num_targets, interaction_matrix_format='numpy', instance_features_format='numpy', target_features_format='numpy')
-                data = load_process_DP(
-                    dataset_name="ern",
-                    variant="divided",
-                    random_state=42,
-                    split_ratio={"train": 0.7, "val": 0.1, "test": 0.2},
-                    split_instance_features=True,
-                    split_target_features=True,
-                    validation_setting="D",
-                    print_mode="basic",
+                data = process_dummy_DP(
+                    num_instance_features=num_instance_features,
+                    num_target_features=num_target_features,
+                    num_instances=num_instances,
+                    num_targets=num_targets,
+                    interaction_matrix_format=interaction_matrix_format,
+                    instance_features_format="dataframe",
+                    target_features_format="dataframe",
                 )
+                validation_setting = "D"
 
             train, val, test, info = data_process(
                 data,
-                validation_setting=None,
+                validation_setting=validation_setting,
                 split_method="random",
                 ratio={"train": 0.7, "test": 0.2, "val": 0.1},
                 shuffle=True,
@@ -3040,3 +3042,92 @@ def test_data_process(test_data_process_data):
                 scale_instance_features=None,
                 scale_target_features=None,
             )
+
+
+def test_data_process_default_ratio_is_reusable():
+    data = process_dummy_MLC(
+        num_features=5,
+        num_instances=100,
+        num_targets=4,
+        interaction_matrix_format="numpy",
+        features_format="numpy",
+    )
+
+    first = data_process(data, validation_setting="B")
+    second = data_process(data, validation_setting="B")
+
+    first_split_sizes = tuple(len(split["y"]["data"]) for split in first[:3])
+    second_split_sizes = tuple(len(split["y"]["data"]) for split in second[:3])
+    assert first_split_sizes == second_split_sizes
+
+
+@pytest.mark.parametrize(
+    "ratio",
+    [
+        {"train": 0.7, "val": 0.1},
+        {"train": 0.7, "val": 0.1, "test": 0.3},
+        {"train": 0.8, "val": -0.1, "test": 0.3},
+    ],
+)
+def test_validate_split_ratio_rejects_invalid_values(ratio):
+    with pytest.raises((TypeError, ValueError)):
+        validate_split_ratio(ratio)
+
+
+def test_validate_split_ratio_returns_an_independent_copy():
+    ratio = {"train": 0.7, "val": 0.1, "test": 0.2}
+
+    validated = validate_split_ratio(ratio)
+    validated["val"] = 0.5
+
+    assert ratio["val"] == 0.1
+
+
+@pytest.mark.parametrize(
+    ("mode", "group_column"),
+    [("macro", "target_id"), ("instance", "instance_id")],
+)
+def test_mtp_sampler_balances_within_requested_group(mode, group_column):
+    data = pd.DataFrame(
+        {
+            "instance_id": [0, 1, 2, 3, 0, 1, 2, 3],
+            "target_id": [0, 0, 0, 0, 1, 1, 1, 1],
+            "value": [0, 0, 0, 1, 0, 1, 1, 1],
+        }
+    )
+    if mode == "instance":
+        data = pd.DataFrame(
+            {
+                "instance_id": [0, 0, 0, 0, 1, 1, 1, 1],
+                "target_id": [0, 1, 2, 3, 0, 1, 2, 3],
+                "value": [0, 0, 0, 1, 0, 1, 1, 1],
+            }
+        )
+
+    sampler = MTPSampler(data.copy(), mode=mode)
+
+    for _, group in sampler.data.groupby(group_column):
+        assert group["value"].value_counts().nunique() == 1
+
+
+def test_base_dataset_rejects_ids_outside_one_hot_dimensions():
+    config = {
+        "instance_branch_input_dim": 2,
+        "target_branch_input_dim": 2,
+        "use_instance_features": False,
+        "use_target_features": False,
+        "instance_branch_architecture": "MLP",
+        "target_branch_architecture": "MLP",
+    }
+    interactions = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [10],
+                "target_id": [0],
+                "value": [1],
+            }
+        )
+    }
+
+    with pytest.raises(ValueError, match="Instance IDs must be zero-based"):
+        BaseDataset(config, interactions, None, None)

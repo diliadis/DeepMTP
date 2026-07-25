@@ -217,7 +217,7 @@ def load_process_MTR(path='./data', dataset_name='enb', features_type='numpy', p
     # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
     return {'train': {'y': y_train, 'X_instance': X_train_instance, 'X_target': X_train_target}, 'test': {'y': y_test, 'X_instance': X_test_instance, 'X_target': X_test_target}, 'val': {'y': y_val, 'X_instance': X_val_instance, 'X_target': X_val_target}}
 
-def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy', variant='undivided', split_ratio={'train': 0.7, 'val':0.1, 'test': 0.2}, random_state=42):    # pragma: no cover
+def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interaction_matrix_format='numpy', features_format='numpy', variant='undivided', split_ratio=None, random_state=42):    # pragma: no cover
     '''Generates a dummy multivariate regression dataset
 
     Args:
@@ -228,6 +228,11 @@ def process_dummy_MTR(num_features=10, num_instances=50, num_targets=5, interact
     Returns:
         dict: A dictionary with all the available data for the multivariate regression dataset.
     '''
+    split_ratio = (
+        {'train': 0.7, 'val': 0.1, 'test': 0.2}
+        if split_ratio is None
+        else dict(split_ratio)
+    )
     if interaction_matrix_format not in ['numpy', 'dataframe']:
         raise AttributeError('Please use one of the valid interaction_matrix_format values: '+str(['numpy', 'dataframe']))
 
@@ -299,7 +304,7 @@ def print_MTR_datasets():   # pragma: no cover
     table.add_row(['scpf', '1137', '23', '3'])
     print(table.get_string())
 
-def load_process_DP(path='./data', dataset_name='ern', variant='undivided', random_state=42, split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}, split_instance_features=False, split_target_features=False, validation_setting='B', print_mode='basic'):
+def load_process_DP(path='./data', dataset_name='ern', variant='undivided', random_state=42, split_ratio=None, split_instance_features=False, split_target_features=False, validation_setting='B', print_mode='basic'):
     '''Load dyadic prediction datasets from the following repository: https://people.montefiore.uliege.be.
 
     Args:
@@ -313,6 +318,11 @@ def load_process_DP(path='./data', dataset_name='ern', variant='undivided', rand
     Returns:
         dict: A dictionary with all the available data for the dyadic prediction dataset.
     '''
+    split_ratio = (
+        {'train': 0.7, 'val': 0.1, 'test': 0.2}
+        if split_ratio is None
+        else dict(split_ratio)
+    )
     if variant not in ['undivided', 'divided']:
         raise AttributeError('Please use one of the valid variant values: '+str(['undivided', 'divided']))
  
@@ -589,8 +599,13 @@ def generate_interaction_matrix(input_path, output_path):    # pragma: no cover
     pickle.dump(y, open(output_path, 'wb'))
 
 
-def generate_dummy_dataset(num_instances, num_targets, num_instance_features, num_target_features, error_mu, error_sigma, sklearn_version=False, seed=42, mode='log', split_ratio={'train': 0.7, 'val': 0.1, 'test': 0.2}):     # pragma: no cover
+def generate_dummy_dataset(num_instances, num_targets, num_instance_features, num_target_features, error_mu, error_sigma, sklearn_version=False, seed=42, mode='log', split_ratio=None):     # pragma: no cover
 
+    split_ratio = (
+        {'train': 0.7, 'val': 0.1, 'test': 0.2}
+        if split_ratio is None
+        else dict(split_ratio)
+    )
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None 
@@ -647,6 +662,10 @@ def generate_MTP_dataset(num_instances, num_targets, num_instance_features=None,
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None 
+    split_instances = (
+        None if split_instances is None else dict(split_instances)
+    )
+    split_targets = None if split_targets is None else dict(split_targets)
     train_instance_ids, val_instance_ids, test_instance_ids = None, None, None
     train_target_ids, val_target_ids, test_target_ids = None, None, None
     

@@ -177,7 +177,12 @@ def get_performance_results(
 
         if "macro" in averaging:
             results_per_target = df.groupby("target_id").apply(
-                base_evaluator, problem_mode, metrics, train_true_value, verbose
+                base_evaluator,
+                problem_mode=problem_mode,
+                metrics=metrics,
+                idx=None,
+                train_true_value=train_true_value,
+                verbose=verbose,
             )
             # iterate over the targets
             for target_i, row in results_per_target.items():
@@ -207,7 +212,12 @@ def get_performance_results(
                     .reset_index(drop=True)
                     .groupby("target_id")
                     .apply(
-                        base_evaluator, problem_mode, metrics, train_true_value, verbose
+                        base_evaluator,
+                        problem_mode=problem_mode,
+                        metrics=metrics,
+                        idx=None,
+                        train_true_value=train_true_value,
+                        verbose=verbose,
                     )
                 )
                 for target_i, row in top_k_results_per_target.items():
@@ -245,7 +255,11 @@ def get_performance_results(
 
         if "instance" in averaging:
             results_per_instance = df.groupby("instance_id").apply(
-                base_evaluator, problem_mode, metrics, None, verbose
+                base_evaluator,
+                problem_mode=problem_mode,
+                metrics=metrics,
+                idx=None,
+                verbose=verbose,
             )
             # iterate over the instances
             for instance_i, row in results_per_instance.items():
@@ -277,7 +291,13 @@ def get_performance_results(
                     .head(top_k)
                     .reset_index(drop=True)
                     .groupby("instance_id")
-                    .apply(base_evaluator, problem_mode, metrics, None, verbose)
+                    .apply(
+                        base_evaluator,
+                        problem_mode=problem_mode,
+                        metrics=metrics,
+                        idx=None,
+                        verbose=verbose,
+                    )
                 )
                 for instance_i, row in top_k_results_per_instance.items():
                     final_result.update(
@@ -346,18 +366,21 @@ def base_evaluator(  # pragma: no cover
 
     true_values, pred_values = rows["true_values"], rows["pred_values"]
 
-    if len(rows) == 1:
-        train_true_value = train_true_value[rows["target_id"]]
+    if idx is None:
+        idx = getattr(rows, "name", None)
+
+    if train_true_value is not None and idx not in (None, -1):
+        train_true_value = train_true_value[idx]
 
     if problem_mode == "regression":
         if "RMSE" in metrics:
-            # results["RMSE"] = np.sqrt(np.mean(np.square(true_values - pred_values)))
-            results["RMSE"] = mean_squared_error(
-                true_values, pred_values, squared=False
-            )
+            # ``squared`` was removed from mean_squared_error in newer
+            # scikit-learn releases. The explicit square root works across the
+            # old and modern APIs.
+            results["RMSE"] = np.sqrt(mean_squared_error(true_values, pred_values))
         if "MSE" in metrics:
             # results["MSE"] = np.mean(np.square(true_values - pred_values))
-            results["MSE"] = mean_squared_error(true_values, pred_values, squared=True)
+            results["MSE"] = mean_squared_error(true_values, pred_values)
         if "MAE" in metrics:
             # results["MAE"] = np.mean(np.abs(true_values - pred_values))
             results["MAE"] = mean_absolute_error(true_values, pred_values)
@@ -390,7 +413,7 @@ def base_evaluator(  # pragma: no cover
                 results["fp"],
                 results["fn"],
                 results["tp"],
-            ) = confusion_matrix(true_values, bin_values).ravel()
+            ) = confusion_matrix(true_values, bin_values, labels=[0, 1]).ravel()
 
         if "accuracy" in metrics:
             results["accuracy"] = accuracy_score(true_values, bin_values)
@@ -461,12 +484,7 @@ def base_evaluator(  # pragma: no cover
 def get_epilepsy_specific_metrics(
     y_true,
     y_pred,
-    metrics=[
-        "sensitivity",
-        "false_alarm_rate_per_hour",
-        "positive_predictive_value",
-        "f1_score_epilepsy_version",
-    ],
+    metrics=None,
 ):  # pragma: no cover
     """Function that calculates specific metrics used in Epilepsy prediction tasks
 
@@ -478,6 +496,16 @@ def get_epilepsy_specific_metrics(
     Returns:
         dict: a dictionary with the results per metric
     """
+    metrics = (
+        [
+            "sensitivity",
+            "false_alarm_rate_per_hour",
+            "positive_predictive_value",
+            "f1_score_epilepsy_version",
+        ]
+        if metrics is None
+        else list(metrics)
+    )
     results = {}
     # define consecutive epileptic moments
     true_episodes = [

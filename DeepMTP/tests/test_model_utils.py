@@ -1,4 +1,5 @@
 from DeepMTP.utils.model_utils import EarlyStopping
+import pytest
 
 def test_early_stopping():
     
@@ -97,3 +98,8 @@ def test_early_stopping():
             
     assert early.get_best_epoch() == 4
     assert early.get_best_score() == -0.5
+
+
+def test_early_stopping_rejects_unknown_metric():
+    with pytest.raises(AttributeError, match="Invalid metric name"):
+        EarlyStopping(True, metric_to_track="not_a_metric")

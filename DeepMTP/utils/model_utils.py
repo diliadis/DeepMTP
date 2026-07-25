@@ -53,7 +53,7 @@ class EarlyStopping:
         ]:
             self.fac = -1
         else:
-            AttributeError(
+            raise AttributeError(
                 'Invalid metric name used for early stopping: '
                 + str(self.metric_to_track)
             )

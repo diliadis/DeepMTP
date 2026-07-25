@@ -111,9 +111,15 @@ def test_get_performance_results(mode):
             result = y_true[:, j] == y_pred[:, j]
             accuracy_per_column.append(accuracy_score(y_true[:, j], y_pred[:, j]))
             hamming_loss_per_column.append(hamming_loss(y_true[:, j], y_pred[:, j]))
-            f1_score_per_column.append(f1_score(y_true[:, j], y_pred[:, j]))
-            recall_per_column.append(recall_score(y_true[:, j], y_pred[:, j]))
-            precision_per_column.append(precision_score(y_true[:, j], y_pred[:, j]))
+            f1_score_per_column.append(
+                f1_score(y_true[:, j], y_pred[:, j], zero_division=0)
+            )
+            recall_per_column.append(
+                recall_score(y_true[:, j], y_pred[:, j], zero_division=0)
+            )
+            precision_per_column.append(
+                precision_score(y_true[:, j], y_pred[:, j], zero_division=0)
+            )
 
         macro_accuracy = np.mean(accuracy_per_column)
         macro_hamming_loss = np.mean(hamming_loss_per_column)
@@ -123,9 +129,15 @@ def test_get_performance_results(mode):
 
         micro_accuracy = accuracy_score(y_true.flatten(), y_pred.flatten())
         micro_hamming_loss = hamming_loss(y_true.flatten(), y_pred.flatten())
-        micro_f1_score = f1_score(y_true.flatten(), y_pred.flatten())
-        micro_recall = recall_score(y_true.flatten(), y_pred.flatten())
-        micro_precision = precision_score(y_true.flatten(), y_pred.flatten())
+        micro_f1_score = f1_score(
+            y_true.flatten(), y_pred.flatten(), zero_division=0
+        )
+        micro_recall = recall_score(
+            y_true.flatten(), y_pred.flatten(), zero_division=0
+        )
+        micro_precision = precision_score(
+            y_true.flatten(), y_pred.flatten(), zero_division=0
+        )
 
         accuracy_per_row = []
         hamming_loss_per_row = []
@@ -136,9 +148,15 @@ def test_get_performance_results(mode):
             result = y_true[j, :] == y_pred[j, :]
             accuracy_per_row.append(accuracy_score(y_true[j, :], y_pred[j, :]))
             hamming_loss_per_row.append(hamming_loss(y_true[j, :], y_pred[j, :]))
-            f1_score_per_row.append(f1_score(y_true[j, :], y_pred[j, :]))
-            recall_per_row.append(recall_score(y_true[j, :], y_pred[j, :]))
-            precision_per_row.append(precision_score(y_true[j, :], y_pred[j, :]))
+            f1_score_per_row.append(
+                f1_score(y_true[j, :], y_pred[j, :], zero_division=0)
+            )
+            recall_per_row.append(
+                recall_score(y_true[j, :], y_pred[j, :], zero_division=0)
+            )
+            precision_per_row.append(
+                precision_score(y_true[j, :], y_pred[j, :], zero_division=0)
+            )
 
         instance_accuracy = np.mean(accuracy_per_row)
         instance_hamming_loss = np.mean(hamming_loss_per_row)
@@ -251,11 +269,9 @@ def test_get_performance_results(mode):
         R2_per_column = []
         for j in range(y_true.shape[1]):
             RMSE_per_column.append(
-                mean_squared_error(y_true[:, j], y_pred[:, j], squared=False)
+                np.sqrt(mean_squared_error(y_true[:, j], y_pred[:, j]))
             )
-            MSE_per_column.append(
-                mean_squared_error(y_true[:, j], y_pred[:, j], squared=True)
-            )
+            MSE_per_column.append(mean_squared_error(y_true[:, j], y_pred[:, j]))
             MAE_score_per_column.append(mean_absolute_error(y_true[:, j], y_pred[:, j]))
             R2_per_column.append(r2_score(y_true[:, j], y_pred[:, j]))
 
@@ -271,11 +287,9 @@ def test_get_performance_results(mode):
         R2_per_row = []
         for j in range(y_true.shape[0]):
             RMSE_per_row.append(
-                mean_squared_error(y_true[j, :], y_pred[j, :], squared=False)
+                np.sqrt(mean_squared_error(y_true[j, :], y_pred[j, :]))
             )
-            MSE_per_row.append(
-                mean_squared_error(y_true[j, :], y_pred[j, :], squared=True)
-            )
+            MSE_per_row.append(mean_squared_error(y_true[j, :], y_pred[j, :]))
             MAE_score_per_row.append(mean_absolute_error(y_true[j, :], y_pred[j, :]))
             R2_per_row.append(r2_score(y_true[j, :], y_pred[j, :]))
 
@@ -285,10 +299,8 @@ def test_get_performance_results(mode):
         instance_R2 = np.mean(R2_per_row)
 
         # calculating metrics
-        micro_RMSE = mean_squared_error(
-            y_true.flatten(), y_pred.flatten(), squared=False
-        )
-        micro_MSE = mean_squared_error(y_true.flatten(), y_pred.flatten(), squared=True)
+        micro_RMSE = np.sqrt(mean_squared_error(y_true.flatten(), y_pred.flatten()))
+        micro_MSE = mean_squared_error(y_true.flatten(), y_pred.flatten())
         micro_MAE = mean_absolute_error(y_true.flatten(), y_pred.flatten())
         micro_R2 = r2_score(y_true.flatten(), y_pred.flatten())
 
@@ -384,3 +396,62 @@ def test_get_performance_results(mode):
                 assert math.isclose(
                     results["train_RMSE_instance"], instance_RMSE, abs_tol=0.01
                 )
+
+
+def test_single_class_micro_confusion_matrix_has_all_cells():
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=np.array([0, 1]),
+        targets_arr=np.array([0, 0]),
+        true_values_arr=np.array([0, 0]),
+        pred_values_arr=np.array([0.1, 0.2]),
+        validation_setting="B",
+        problem_mode="classification",
+        metrics=["accuracy"],
+        averaging=["micro"],
+    )
+
+    assert results["test_tn_micro"] == 2
+    assert results["test_fp_micro"] == 0
+    assert results["test_fn_micro"] == 0
+    assert results["test_tp_micro"] == 0
+
+
+def test_singleton_macro_groups_are_evaluated():
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=np.array([0, 1]),
+        targets_arr=np.array([0, 1]),
+        true_values_arr=np.array([0, 1]),
+        pred_values_arr=np.array([0.1, 0.9]),
+        validation_setting="B",
+        problem_mode="classification",
+        metrics=["accuracy"],
+        averaging=["macro"],
+    )
+
+    assert results["test_accuracy_target_0"] == 1.0
+    assert results["test_accuracy_target_1"] == 1.0
+    assert results["test_accuracy_macro"] == 1.0
+
+
+def test_macro_rrmse_uses_each_targets_training_mean():
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=np.array([0, 1, 0, 1]),
+        targets_arr=np.array([0, 0, 1, 1]),
+        true_values_arr=np.array([2.0, 4.0, 10.0, 14.0]),
+        pred_values_arr=np.array([1.0, 5.0, 8.0, 16.0]),
+        validation_setting="B",
+        problem_mode="regression",
+        metrics=["RRMSE"],
+        averaging=["macro"],
+        train_true_value={0: 3.0, 1: 12.0},
+    )
+
+    assert results["test_RRMSE_target_0"] == pytest.approx(1.0)
+    assert results["test_RRMSE_target_1"] == pytest.approx(1.0)
+    assert results["test_RRMSE_macro"] == pytest.approx(1.0)

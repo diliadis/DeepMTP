@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 import pandas as pd
 
 pd.set_option("mode.chained_assignment", None)
@@ -11,6 +13,40 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 import copy
+
+
+def validate_split_ratio(ratio):
+    """Validate and copy a train/validation/test split ratio mapping."""
+    if not isinstance(ratio, Mapping):
+        raise TypeError("ratio must be a mapping with train, val, and test keys.")
+
+    required_keys = {"train", "val", "test"}
+    missing_keys = required_keys.difference(ratio)
+    if missing_keys:
+        raise ValueError(
+            f"ratio is missing required keys: {sorted(missing_keys)}."
+        )
+
+    validated_ratio = {}
+    for split_name in required_keys:
+        value = ratio[split_name]
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not 0 < value < 1
+        ):
+            raise ValueError(
+                f"ratio[{split_name!r}] must be a number between 0 and 1; "
+                f"received {value!r}."
+            )
+        validated_ratio[split_name] = float(value)
+
+    if not np.isclose(sum(validated_ratio.values()), 1.0):
+        raise ValueError(
+            "train, val, and test ratios must sum to 1; received "
+            f"{validated_ratio}."
+        )
+    return validated_ratio
 
 
 def normalize(row, scaler):  # pragma: no cover
@@ -1003,6 +1039,9 @@ def split_data(
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     """
+    # Work on a private copy so callers can safely reuse their split
+    # configuration across experiments.
+    ratio = validate_split_ratio(ratio)
     ratio["val"] = ratio["val"] / (1 - ratio["test"])
 
     if validation_setting == "B":
@@ -1487,7 +1526,7 @@ def data_process(
     data,
     validation_setting=None,
     split_method="random",
-    ratio={"train": 0.7, "test": 0.2, "val": 0.1},
+    ratio=None,
     shuffle=True,
     seed=42,
     verbose=False,
@@ -1517,6 +1556,11 @@ def data_process(
             * general information about the datasets
     """
     data = copy.deepcopy(data)
+    ratio = (
+        {"train": 0.7, "test": 0.2, "val": 0.1}
+        if ratio is None
+        else dict(ratio)
+    )
     train_flag, test_flag, val_flag = False, False, False
     setting_A_flag, setting_B_flag, setting_C_flag, setting_D_flag = (
         None,
@@ -1990,8 +2034,32 @@ class BaseDataset(Dataset):  # pragma: no cover
         self.target_features = None
         if instance_features is not None:
             self.instance_features = instance_features["data"]
+        else:
+            self._validate_one_hot_ids(
+                id_column="instance_id",
+                input_dim=self.instance_branch_input_dim,
+                entity_name="Instance",
+            )
         if target_features is not None:
             self.target_features = target_features["data"]
+        else:
+            self._validate_one_hot_ids(
+                id_column="target_id",
+                input_dim=self.target_branch_input_dim,
+                entity_name="Target",
+            )
+
+    def _validate_one_hot_ids(self, id_column, input_dim, entity_name):
+        ids = self.triplet_data[id_column].to_numpy()
+        invalid_ids = ids[(ids < 0) | (ids >= input_dim)]
+        if invalid_ids.size:
+            invalid_id = int(invalid_ids[0])
+            raise ValueError(
+                f"{entity_name} IDs must be zero-based and smaller than "
+                f"{input_dim} when features are not supplied; found "
+                f"{invalid_id}. Remap the IDs or provide {entity_name.lower()} "
+                "features."
+            )
 
     def __len__(self):
         return len(self.triplet_data)
@@ -2071,9 +2139,15 @@ class MTPSampler(Sampler):
         if mode == "micro":
             self.data = self.get_balanced_df(self.data)
         elif mode == "macro":
-            self.data.groupby(["instance_id"]).apply(self.get_balanced_df)
+            self.data = pd.concat(
+                self.get_balanced_df(group)
+                for _, group in self.data.groupby("target_id")
+            )
         elif mode == "instance":
-            self.data.groupby(["target_id"]).apply(self.get_balanced_df)
+            self.data = pd.concat(
+                self.get_balanced_df(group)
+                for _, group in self.data.groupby("instance_id")
+            )
 
         # shuffle the dataframe so that you don't have the different classes in order
         self.data = shuffle(self.data, random_state=0)
@@ -2096,7 +2170,7 @@ class MTPSampler(Sampler):
             sampled_df_per_majority_class.append(
                 resample(
                     data[data["value"] == class_val],
-                    replace=True,
+                    replace=False,
                     n_samples=minority_class_size,
                     random_state=42,
                 )
