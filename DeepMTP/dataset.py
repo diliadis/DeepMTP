@@ -12,7 +12,6 @@ import arff
 import numpy as np
 import pandas as pd
 import scipy
-import wget
 from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
 from skmultilearn.dataset import available_data_sets, load_dataset
@@ -22,6 +21,9 @@ from DeepMTP._download_utils import (
     download_and_extract_zip,
     download_file,
     extract_zip_file,
+)
+from DeepMTP._split_utils import (
+    absolute_split_sizes as _absolute_split_sizes,
 )
 from DeepMTP._split_utils import (
     partition_ordered_ids as _partition_ids,
@@ -69,6 +71,25 @@ _MOVIELENS_RATINGS_COLUMNS = (
     "value",
     "timestamp",
 )
+_DP_DATASET_SOURCES: dict[str, tuple[str, str | None]] = {
+    "ern": (
+        "https://people.montefiore.uliege.be/schrynemackers/ern/",
+        ",",
+    ),
+    "srn": (
+        "https://people.montefiore.uliege.be/schrynemackers/srn/",
+        ",",
+    ),
+    "dpie": (
+        "https://people.montefiore.uliege.be/schrynemackers/dpix/dpie_",
+        None,
+    ),
+    "dpii": (
+        "https://people.montefiore.uliege.be/schrynemackers/dpix/dpii_",
+        None,
+    ),
+}
+_DP_FILE_STEMS = ("Y", "X1", "X2")
 
 
 class DatasetSplit(TypedDict):
@@ -688,262 +709,316 @@ def print_MTR_datasets() -> None:  # pragma: no cover
     print(table.get_string())
 
 
-def load_process_DP(
-    path: str = "./data",
-    dataset_name: str = "ern",
-    variant: DatasetVariant = "undivided",
-    random_state: int = 42,
-    split_ratio: Mapping[str, float] | None = None,
-    split_instance_features: bool = False,
-    split_target_features: bool = False,
-    validation_setting: str = "B",
-    print_mode: PrintMode = "basic",
+def _load_numeric_matrix(
+    file_path: Path,
+    *,
+    delimiter: str | None,
+) -> np.ndarray:
+    """Load one non-empty, finite, two-dimensional numeric matrix."""
+    if file_path.stat().st_size == 0:
+        raise ValueError(f"Dataset file must contain a non-empty matrix: {file_path}.")
+    try:
+        matrix = np.loadtxt(
+            file_path,
+            delimiter=delimiter,
+            dtype=float,
+            ndmin=2,
+        )
+    except ValueError as exc:
+        raise ValueError(
+            f"Dataset file must contain a numeric matrix: {file_path}."
+        ) from exc
+
+    if matrix.size == 0 or matrix.shape[0] < 1 or matrix.shape[1] < 1:
+        raise ValueError(f"Dataset file must contain a non-empty matrix: {file_path}.")
+    if not np.isfinite(matrix).all():
+        raise ValueError(
+            f"Dataset file must contain only finite numeric values: {file_path}."
+        )
+    return matrix
+
+
+def _load_dp_matrices(
+    dataset_files: Mapping[str, Path],
+    *,
+    delimiter: str | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    y = _load_numeric_matrix(dataset_files["Y"], delimiter=delimiter)
+    X_instance = _load_numeric_matrix(dataset_files["X1"], delimiter=delimiter)
+    X_target = _load_numeric_matrix(dataset_files["X2"], delimiter=delimiter)
+
+    if X_instance.shape[0] != y.shape[0]:
+        raise ValueError(
+            "Dyadic prediction instance features must have one row per "
+            f"interaction-matrix row; received {X_instance.shape[0]} and {y.shape[0]}."
+        )
+    if X_target.shape[0] != y.shape[1]:
+        raise ValueError(
+            "Dyadic prediction target features must have one row per "
+            f"interaction-matrix column; received {X_target.shape[0]} and {y.shape[1]}."
+        )
+    return y, X_instance, X_target
+
+
+def _split_dp_matrices(
+    y_train: np.ndarray,
+    X_train_instance: np.ndarray,
+    X_train_target: np.ndarray,
+    *,
+    random_state: int | None,
+    split_ratio: Mapping[str, float],
+    split_instance_features: bool,
+    split_target_features: bool,
+    validation_setting: str,
 ) -> DatasetBundle:
-    """Load dyadic prediction datasets from the following repository: https://people.montefiore.uliege.be.
+    X_val_instance, X_test_instance = None, None
+    X_val_target, X_test_target = None, None
+    y_val, y_test = None, None
 
-    Args:
-        path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
-        dataset_name (str, optional): The name of the dyadic prediction dataset. Defaults to 'ern'.
-        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
-
-    Raises:
-        AttributeError: if the dataset_name doesn't exist in the repository
-
-    Returns:
-        dict: A dictionary with all the available data for the dyadic prediction dataset.
-    """
-    split_ratio = _split_ratio(split_ratio)
-    if variant not in ["undivided", "divided"]:
-        raise AttributeError(
-            "Please use one of the valid variant values: "
-            + str(["undivided", "divided"])
+    if validation_setting in {"B", "D"}:
+        _absolute_split_sizes(
+            y_train.shape[0],
+            split_ratio,
+            parameter_name="split ratio",
+            population_name="instance",
+        )
+    if validation_setting in {"C", "D"}:
+        _absolute_split_sizes(
+            y_train.shape[1],
+            split_ratio,
+            parameter_name="split ratio",
+            population_name="target",
         )
 
-    if validation_setting.upper() not in ["B", "C", "D"]:
-        raise AttributeError(
-            "Invalid validation setting symbol prodived: "
-            + str(validation_setting.upper())
-            + ". Choose one of the following: "
-            + str(["B", "C", "D"])
-        )
-    validation_setting = validation_setting.upper()
-
-    # The current version downloads all the datasets from https://people.montefiore.uliege.be
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
-
-    print(("info: " if print_mode == "dev" else "") + "Processing...")
-
-    available_data_sets = ["ern", "srn", "dpie", "dpii"]
-
-    if dataset_name.startswith("dp"):  # pragma: no cover
-        url = (
-            "https://people.montefiore.uliege.be/schrynemackers/dpix/"
-            + dataset_name
-            + "_"
-        )
-    else:
-        url = "https://people.montefiore.uliege.be/schrynemackers/" + dataset_name + "/"
-
-    if dataset_name not in available_data_sets:
-        raise AttributeError(
-            "Please use one of the valid dataset names: " + str(available_data_sets)
-        )
-
-    else:
-        if not os.path.exists(
-            path + "/dyadic_prediction-datasets/" + dataset_name
-        ):  # pragma: no cover
-            os.makedirs(path + "/dyadic_prediction-datasets/" + dataset_name)
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Downloading dataset from scratch... ",
-                end="",
+    validation_size = split_ratio["val"] / (1 - split_ratio["test"])
+    if validation_setting == "B":
+        if split_instance_features:
+            (
+                X_train_instance,
+                X_test_instance,
+                y_train,
+                y_test,
+            ) = train_test_split(
+                X_train_instance,
+                y_train,
+                test_size=split_ratio["test"],
+                random_state=random_state,
             )
-            wget.download(
-                url + "Y.txt",
-                path + "/dyadic_prediction-datasets/" + dataset_name + "/",
-            )
-            wget.download(
-                url + "X1.txt",
-                path + "/dyadic_prediction-datasets/" + dataset_name + "/",
-            )
-            wget.download(
-                url + "X2.txt",
-                path + "/dyadic_prediction-datasets/" + dataset_name + "/",
-            )
-            print(("info: " if print_mode == "dev" else "") + "Done")
-
-        if (dataset_name == "ern") or (dataset_name == "srn"):
-            y_train = np.genfromtxt(
-                path + "/dyadic_prediction-datasets/" + dataset_name + "/Y.txt",
-                delimiter=",",
-            )
-            X_train_instance = np.genfromtxt(
-                path + "/dyadic_prediction-datasets/" + dataset_name + "/X1.txt",
-                delimiter=",",
-            )
-            X_train_target = np.genfromtxt(
-                path + "/dyadic_prediction-datasets/" + dataset_name + "/X2.txt",
-                delimiter=",",
+            (
+                X_train_instance,
+                X_val_instance,
+                y_train,
+                y_val,
+            ) = train_test_split(
+                X_train_instance,
+                y_train,
+                test_size=validation_size,
+                random_state=random_state,
             )
         else:
-            y_train = np.genfromtxt(
-                path
-                + "/dyadic_prediction-datasets/"
-                + dataset_name
-                + "/"
-                + dataset_name
-                + "_Y.txt"
+            y_train, y_test = train_test_split(
+                y_train,
+                test_size=split_ratio["test"],
+                random_state=random_state,
             )
-            X_train_instance = np.genfromtxt(
-                path
-                + "/dyadic_prediction-datasets/"
-                + dataset_name
-                + "/"
-                + dataset_name
-                + "_X1.txt"
+            y_train, y_val = train_test_split(
+                y_train,
+                test_size=validation_size,
+                random_state=random_state,
             )
-            X_train_target = np.genfromtxt(
-                path
-                + "/dyadic_prediction-datasets/"
-                + dataset_name
-                + "/"
-                + dataset_name
-                + "_X2.txt"
-            )
+    elif validation_setting == "C":
+        y_train_target_ids, y_test_target_ids = train_test_split(
+            range(y_train.shape[1]),
+            test_size=split_ratio["test"],
+            random_state=random_state,
+        )
+        y_train_target_ids, y_val_target_ids = train_test_split(
+            y_train_target_ids,
+            test_size=validation_size,
+            random_state=random_state,
+        )
+        y_val = y_train[:, y_val_target_ids]
+        y_test = y_train[:, y_test_target_ids]
+        y_train = y_train[:, y_train_target_ids]
 
-        if variant != "undivided":
-            if validation_setting == "B":
-                if split_instance_features:
-                    (
-                        X_train_instance,
-                        X_test_instance,
-                        y_train,
-                        y_test,
-                    ) = train_test_split(
-                        X_train_instance,
-                        y_train,
-                        test_size=split_ratio["test"],
-                        random_state=random_state,
-                    )
-                    (
-                        X_train_instance,
-                        X_val_instance,
-                        y_train,
-                        y_val,
-                    ) = train_test_split(
-                        X_train_instance,
-                        y_train,
-                        test_size=split_ratio["val"] / (1 - split_ratio["test"]),
-                        random_state=random_state,
-                    )
+        if split_target_features:
+            X_val_target = X_train_target[y_val_target_ids, :]
+            X_test_target = X_train_target[y_test_target_ids, :]
+            X_train_target = X_train_target[y_train_target_ids, :]
+    else:  # validation_setting == "D"
+        y_train_instance_ids, y_test_instance_ids = train_test_split(
+            range(y_train.shape[0]),
+            test_size=split_ratio["test"],
+            random_state=random_state,
+        )
+        y_train_instance_ids, y_val_instance_ids = train_test_split(
+            y_train_instance_ids,
+            test_size=validation_size,
+            random_state=random_state,
+        )
+        y_train_target_ids, y_test_target_ids = train_test_split(
+            range(y_train.shape[1]),
+            test_size=split_ratio["test"],
+            random_state=random_state,
+        )
+        y_train_target_ids, y_val_target_ids = train_test_split(
+            y_train_target_ids,
+            test_size=validation_size,
+            random_state=random_state,
+        )
 
-                else:
-                    (
-                        y_train,
-                        y_test,
-                    ) = train_test_split(
-                        y_train,
-                        test_size=split_ratio["test"],
-                        random_state=random_state,
-                    )
-                    (
-                        y_train,
-                        y_val,
-                    ) = train_test_split(
-                        y_train,
-                        test_size=split_ratio["val"] / (1 - split_ratio["test"]),
-                        random_state=random_state,
-                    )
+        y_val = y_train[y_val_instance_ids, :][:, y_val_target_ids]
+        y_test = y_train[y_test_instance_ids, :][:, y_test_target_ids]
+        y_train = y_train[y_train_instance_ids, :][:, y_train_target_ids]
 
-            elif validation_setting == "C":
-                (
-                    y_train_target_ids,
-                    y_test_target_ids,
-                ) = train_test_split(
-                    range(y_train.shape[1]),
-                    test_size=split_ratio["test"],
-                    random_state=random_state,
-                )
-                (
-                    y_train_target_ids,
-                    y_val_target_ids,
-                ) = train_test_split(
-                    y_train_target_ids,
-                    test_size=split_ratio["val"] / (1 - split_ratio["test"]),
-                    random_state=random_state,
-                )
-                y_val = y_train[:, y_val_target_ids]
-                y_test = y_train[:, y_test_target_ids]
-                y_train = y_train[:, y_train_target_ids]
+        if split_instance_features:
+            X_val_instance = X_train_instance[y_val_instance_ids, :]
+            X_test_instance = X_train_instance[y_test_instance_ids, :]
+            X_train_instance = X_train_instance[y_train_instance_ids, :]
+        if split_target_features:
+            X_val_target = X_train_target[y_val_target_ids, :]
+            X_test_target = X_train_target[y_test_target_ids, :]
+            X_train_target = X_train_target[y_train_target_ids, :]
 
-                if split_target_features:
-                    X_val_target = X_train_target[y_val_target_ids, :]
-                    X_test_target = X_train_target[y_test_target_ids, :]
-                    X_train_target = X_train_target[y_train_target_ids, :]
-
-            else:  # validation_setting == 'D'
-                (
-                    y_train_instance_ids,
-                    y_test_instance_ids,
-                ) = train_test_split(
-                    range(y_train.shape[0]),
-                    test_size=split_ratio["test"],
-                    random_state=random_state,
-                )
-                (
-                    y_train_instance_ids,
-                    y_val_instance_ids,
-                ) = train_test_split(
-                    y_train_instance_ids,
-                    test_size=split_ratio["val"] / (1 - split_ratio["test"]),
-                    random_state=random_state,
-                )
-                (
-                    y_train_target_ids,
-                    y_test_target_ids,
-                ) = train_test_split(
-                    range(y_train.shape[1]),
-                    test_size=split_ratio["test"],
-                    random_state=random_state,
-                )
-                (
-                    y_train_target_ids,
-                    y_val_target_ids,
-                ) = train_test_split(
-                    y_train_target_ids,
-                    test_size=split_ratio["val"] / (1 - split_ratio["test"]),
-                    random_state=random_state,
-                )
-
-                y_val = y_train[y_val_instance_ids, :][:, y_val_target_ids]
-                y_test = y_train[y_test_instance_ids, :][:, y_test_target_ids]
-                y_train = y_train[y_train_instance_ids, :][:, y_train_target_ids]
-
-                if split_instance_features:
-                    X_val_instance = X_train_instance[y_val_instance_ids, :]
-                    X_test_instance = X_train_instance[y_test_instance_ids, :]
-                    X_train_instance = X_train_instance[y_train_instance_ids, :]
-
-                if split_target_features:
-                    X_val_target = X_train_target[y_val_target_ids, :]
-                    X_test_target = X_train_target[y_test_target_ids, :]
-                    X_train_target = X_train_target[y_train_target_ids, :]
-
-    print(("info: " if print_mode == "dev" else "") + "Done")
-
-    # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
     return {
         "train": {
             "y": y_train,
             "X_instance": X_train_instance,
             "X_target": X_train_target,
         },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
+        "test": {
+            "y": y_test,
+            "X_instance": X_test_instance,
+            "X_target": X_test_target,
+        },
+        "val": {
+            "y": y_val,
+            "X_instance": X_val_instance,
+            "X_target": X_val_target,
+        },
     }
+
+
+def load_process_DP(
+    path: str | os.PathLike[str] = "./data",
+    dataset_name: str = "ern",
+    variant: DatasetVariant = "undivided",
+    random_state: int | None = 42,
+    split_ratio: Mapping[str, float] | None = None,
+    split_instance_features: bool = False,
+    split_target_features: bool = False,
+    validation_setting: str = "B",
+    print_mode: PrintMode = "basic",
+) -> DatasetBundle:
+    """Load a dyadic-prediction dataset and optionally create held-out splits.
+
+    Args:
+        path: Directory used for the local dataset cache.
+        dataset_name: One of ``"ern"``, ``"srn"``, ``"dpie"``, or ``"dpii"``.
+        variant: Return the complete matrices or create train/validation/test splits.
+        random_state: Seed used by the split operations, or ``None``.
+        split_ratio: Train, validation, and test proportions.
+        split_instance_features: Split instance features with interaction rows.
+        split_target_features: Split target features with interaction columns.
+        validation_setting: Novelty setting ``"B"``, ``"C"``, or ``"D"``.
+        print_mode: ``"basic"`` for ordinary messages or ``"dev"`` for
+            messages prefixed for the development application.
+
+    Raises:
+        ValueError: If an option or dataset matrix is invalid.
+        TypeError: If a feature-splitting flag is not boolean.
+        DatasetDownloadError: If a required dataset file cannot be downloaded.
+        FileNotFoundError: If a download does not create all required files.
+    """
+    validated_split_ratio = _split_ratio(split_ratio)
+    if dataset_name not in _DP_DATASET_SOURCES:
+        raise ValueError(f"dataset_name must be one of {sorted(_DP_DATASET_SOURCES)}.")
+    if variant not in {"undivided", "divided"}:
+        raise ValueError("variant must be either 'undivided' or 'divided'.")
+    if not isinstance(validation_setting, str):
+        raise ValueError("validation_setting must be one of ['B', 'C', 'D'].")
+    validation_setting = validation_setting.upper()
+    if validation_setting not in {"B", "C", "D"}:
+        raise ValueError("validation_setting must be one of ['B', 'C', 'D'].")
+    if not isinstance(split_instance_features, bool):
+        raise TypeError("split_instance_features must be a boolean.")
+    if not isinstance(split_target_features, bool):
+        raise TypeError("split_target_features must be a boolean.")
+    if print_mode not in {"basic", "dev"}:
+        raise ValueError("print_mode must be either 'basic' or 'dev'.")
+    _random_generator(random_state)
+
+    data_root = _prepare_dataset_root(path)
+    dataset_dir = data_root / "dyadic_prediction-datasets" / dataset_name
+    url_prefix, delimiter = _DP_DATASET_SOURCES[dataset_name]
+    dataset_files = {
+        stem: dataset_dir / Path(f"{url_prefix}{stem}.txt").name
+        for stem in _DP_FILE_STEMS
+    }
+    invalid_cache_paths = [
+        dataset_file
+        for dataset_file in dataset_files.values()
+        if dataset_file.exists() and not dataset_file.is_file()
+    ]
+    if invalid_cache_paths:
+        raise IsADirectoryError(
+            "Expected dyadic prediction cache paths to be files: "
+            f"{[str(cache_path) for cache_path in invalid_cache_paths]}."
+        )
+    missing_files = [
+        (stem, dataset_file)
+        for stem, dataset_file in dataset_files.items()
+        if not dataset_file.is_file()
+    ]
+
+    prefix = "info: " if print_mode == "dev" else ""
+    print(f"{prefix}Processing...")
+    if missing_files:
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        print(f"{prefix}Downloading missing dataset files... ", end="")
+        for stem, destination in missing_files:
+            download_file(f"{url_prefix}{stem}.txt", destination)
+        print(f"{prefix}Done")
+
+    still_missing = [
+        str(dataset_file)
+        for dataset_file in dataset_files.values()
+        if not dataset_file.is_file()
+    ]
+    if still_missing:
+        raise FileNotFoundError(
+            "Dyadic prediction download did not create the expected files: "
+            f"{still_missing}."
+        )
+
+    y_train, X_train_instance, X_train_target = _load_dp_matrices(
+        dataset_files,
+        delimiter=delimiter,
+    )
+    if variant == "undivided":
+        data: DatasetBundle = {
+            "train": {
+                "y": y_train,
+                "X_instance": X_train_instance,
+                "X_target": X_train_target,
+            },
+            "test": {"y": None, "X_instance": None, "X_target": None},
+            "val": {"y": None, "X_instance": None, "X_target": None},
+        }
+    else:
+        data = _split_dp_matrices(
+            y_train,
+            X_train_instance,
+            X_train_target,
+            random_state=random_state,
+            split_ratio=validated_split_ratio,
+            split_instance_features=split_instance_features,
+            split_target_features=split_target_features,
+            validation_setting=validation_setting,
+        )
+
+    print(f"{prefix}Done")
+    return data
 
 
 def process_dummy_DP(

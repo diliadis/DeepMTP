@@ -302,7 +302,7 @@ def test_load_process_DP(test_load_process_DP_data):
     split_target_features = test_load_process_DP_data["split_target_features"]
 
     if pass_fail == "fail":
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValueError):
             data = load_process_DP(
                 path="./data",
                 dataset_name=test_load_process_DP_data["dataset_name"],

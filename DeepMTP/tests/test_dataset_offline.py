@@ -12,6 +12,7 @@ from DeepMTP.dataset import (
     generate_dummy_dataset,
     generate_interaction_matrix,
     generate_MTP_dataset,
+    load_process_DP,
     load_process_MC,
     load_process_MTL,
     load_process_MTR,
@@ -73,6 +74,285 @@ def write_mtl_dataset(
         for index in range(1, 5):
             (image_dir / f"{index}.jpg").touch()
     return dataset_dir
+
+
+def write_dp_dataset(
+    root,
+    *,
+    dataset_name="ern",
+    y=None,
+    X_instance=None,
+    X_target=None,
+):
+    y = np.arange(96, dtype=float).reshape(12, 8) if y is None else y
+    X_instance = (
+        np.arange(36, dtype=float).reshape(12, 3) if X_instance is None else X_instance
+    )
+    X_target = (
+        np.arange(16, dtype=float).reshape(8, 2) if X_target is None else X_target
+    )
+    dataset_dir = root / "dyadic_prediction-datasets" / dataset_name
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    filename_prefix = f"{dataset_name}_" if dataset_name.startswith("dp") else ""
+    delimiter = "," if dataset_name in {"ern", "srn"} else " "
+    paths = {
+        "Y": dataset_dir / f"{filename_prefix}Y.txt",
+        "X1": dataset_dir / f"{filename_prefix}X1.txt",
+        "X2": dataset_dir / f"{filename_prefix}X2.txt",
+    }
+    for stem, matrix in {
+        "Y": y,
+        "X1": X_instance,
+        "X2": X_target,
+    }.items():
+        np.savetxt(paths[stem], matrix, delimiter=delimiter)
+    return paths
+
+
+@pytest.mark.parametrize("dataset_name", ["ern", "dpii"])
+def test_load_process_dp_reads_cached_files_without_network(
+    monkeypatch,
+    tmp_path,
+    dataset_name,
+):
+    paths = write_dp_dataset(tmp_path, dataset_name=dataset_name)
+
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda *args, **kwargs: pytest.fail("complete cache should not be downloaded"),
+    )
+
+    data = load_process_DP(tmp_path, dataset_name=dataset_name)
+
+    delimiter = "," if dataset_name == "ern" else None
+    np.testing.assert_array_equal(
+        data["train"]["y"],
+        np.loadtxt(paths["Y"], delimiter=delimiter, ndmin=2),
+    )
+    assert data["train"]["X_instance"].shape == (12, 3)
+    assert data["train"]["X_target"].shape == (8, 2)
+    assert data["val"] == {"y": None, "X_instance": None, "X_target": None}
+    assert data["test"] == {"y": None, "X_instance": None, "X_target": None}
+
+
+@pytest.mark.parametrize(
+    ("overrides", "exception", "message"),
+    [
+        ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
+        ({"variant": "unknown"}, ValueError, "variant"),
+        ({"validation_setting": "A"}, ValueError, "validation_setting"),
+        ({"validation_setting": 1}, ValueError, "validation_setting"),
+        ({"split_instance_features": 1}, TypeError, "split_instance_features"),
+        ({"split_target_features": None}, TypeError, "split_target_features"),
+        ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"random_state": True}, ValueError, "random_state"),
+        ({"split_ratio": {"test": 1.0}}, ValueError, "split ratio"),
+        ({"path": object()}, TypeError, "path"),
+    ],
+)
+def test_load_process_dp_validates_arguments_before_download(
+    monkeypatch,
+    tmp_path,
+    overrides,
+    exception,
+    message,
+):
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda *args, **kwargs: pytest.fail(
+            "invalid arguments must not trigger a download"
+        ),
+    )
+    arguments = {"path": tmp_path, "dataset_name": "ern"}
+    arguments.update(overrides)
+
+    with pytest.raises(exception, match=message):
+        load_process_DP(**arguments)
+
+
+def test_load_process_dp_downloads_only_missing_cache_files(monkeypatch, tmp_path):
+    paths = write_dp_dataset(tmp_path)
+    paths["X2"].unlink()
+    calls = []
+    target_features = np.arange(16, dtype=float).reshape(8, 2)
+
+    def download(url, destination):
+        calls.append((url, destination))
+        np.savetxt(destination, target_features, delimiter=",")
+
+    monkeypatch.setattr(dataset_module, "download_file", download)
+
+    data = load_process_DP(tmp_path)
+
+    assert calls == [
+        (
+            "https://people.montefiore.uliege.be/schrynemackers/ern/X2.txt",
+            paths["X2"],
+        )
+    ]
+    np.testing.assert_array_equal(data["train"]["X_target"], target_features)
+
+
+def test_load_process_dp_reports_missing_downloaded_files(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda url, destination: None,
+    )
+
+    with pytest.raises(FileNotFoundError, match="expected files"):
+        load_process_DP(tmp_path)
+
+
+def test_load_process_dp_rejects_directory_at_cache_file_path(
+    monkeypatch,
+    tmp_path,
+):
+    paths = write_dp_dataset(tmp_path)
+    paths["X2"].unlink()
+    paths["X2"].mkdir()
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda *args, **kwargs: pytest.fail("invalid cache must not be downloaded"),
+    )
+
+    with pytest.raises(IsADirectoryError, match="cache paths"):
+        load_process_DP(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("matrix_name", "matrix", "message"),
+    [
+        ("Y", np.arange(88, dtype=float).reshape(11, 8), "instance features"),
+        ("X2", np.arange(14, dtype=float).reshape(7, 2), "target features"),
+    ],
+)
+def test_load_process_dp_rejects_misaligned_matrices(
+    tmp_path,
+    matrix_name,
+    matrix,
+    message,
+):
+    paths = write_dp_dataset(tmp_path)
+    np.savetxt(paths[matrix_name], matrix, delimiter=",")
+
+    with pytest.raises(ValueError, match=message):
+        load_process_DP(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("not,numeric\n", "numeric matrix"),
+        ("1,inf\n", "finite numeric"),
+        ("", "non-empty"),
+    ],
+)
+def test_load_process_dp_rejects_invalid_matrix_values(tmp_path, content, message):
+    paths = write_dp_dataset(tmp_path)
+    paths["X1"].write_text(content, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_process_DP(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("validation_setting", "split_instance_features", "split_target_features"),
+    [
+        ("B", True, False),
+        ("C", False, True),
+        ("D", True, True),
+    ],
+)
+def test_load_process_dp_aligns_split_features(
+    tmp_path,
+    validation_setting,
+    split_instance_features,
+    split_target_features,
+):
+    write_dp_dataset(tmp_path)
+
+    data = load_process_DP(
+        tmp_path,
+        variant="divided",
+        split_ratio={"train": 0.6, "val": 0.2, "test": 0.2},
+        split_instance_features=split_instance_features,
+        split_target_features=split_target_features,
+        validation_setting=validation_setting,
+    )
+
+    for split_name in ("train", "val", "test"):
+        interactions = data[split_name]["y"]
+        assert interactions is not None
+        if split_instance_features:
+            assert data[split_name]["X_instance"].shape[0] == interactions.shape[0]
+        if split_target_features:
+            assert data[split_name]["X_target"].shape[0] == interactions.shape[1]
+
+
+def test_load_process_dp_keeps_unsplit_features_in_training_bundle(tmp_path):
+    write_dp_dataset(tmp_path)
+
+    data = load_process_DP(
+        tmp_path,
+        variant="divided",
+        split_ratio={"train": 0.6, "val": 0.2, "test": 0.2},
+        validation_setting="D",
+    )
+
+    assert data["train"]["X_instance"].shape == (12, 3)
+    assert data["train"]["X_target"].shape == (8, 2)
+    assert data["val"]["X_instance"] is None
+    assert data["val"]["X_target"] is None
+    assert data["test"]["X_instance"] is None
+    assert data["test"]["X_target"] is None
+    assert sum(data[split]["y"].shape[0] for split in ("train", "val", "test")) == 12
+    assert sum(data[split]["y"].shape[1] for split in ("train", "val", "test")) == 8
+
+
+@pytest.mark.parametrize(
+    ("validation_setting", "y", "X_instance", "X_target", "message"),
+    [
+        (
+            "B",
+            np.arange(16, dtype=float).reshape(2, 8),
+            np.arange(6, dtype=float).reshape(2, 3),
+            np.arange(16, dtype=float).reshape(8, 2),
+            "training instance",
+        ),
+        (
+            "C",
+            np.arange(24, dtype=float).reshape(12, 2),
+            np.arange(36, dtype=float).reshape(12, 3),
+            np.arange(4, dtype=float).reshape(2, 2),
+            "training target",
+        ),
+    ],
+)
+def test_load_process_dp_rejects_splits_without_training_entities(
+    tmp_path,
+    validation_setting,
+    y,
+    X_instance,
+    X_target,
+    message,
+):
+    write_dp_dataset(
+        tmp_path,
+        y=y,
+        X_instance=X_instance,
+        X_target=X_target,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        load_process_DP(
+            tmp_path,
+            variant="divided",
+            validation_setting=validation_setting,
+        )
 
 
 def write_movielens_dataset(
