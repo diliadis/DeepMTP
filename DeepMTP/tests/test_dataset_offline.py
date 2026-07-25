@@ -175,3 +175,95 @@ def test_dummy_mtr_rejects_invalid_split_ratios(ratio):
 def test_dummy_datasets_reject_non_positive_dimensions(factory, overrides, message):
     with pytest.raises(ValueError, match=message):
         factory(**overrides)
+
+
+@pytest.mark.parametrize(
+    ("factory", "arguments"),
+    [
+        (process_dummy_MLC, {"random_state": 17}),
+        (
+            process_dummy_MTR,
+            {
+                "variant": "divided",
+                "random_state": 17,
+            },
+        ),
+        (process_dummy_DP, {"random_state": 17}),
+    ],
+)
+def test_dummy_dataset_factories_are_reproducible(factory, arguments):
+    first = factory(**arguments)
+    second = factory(**arguments)
+
+    for split_name in ("train", "val", "test"):
+        for source_name in ("y", "X_instance", "X_target"):
+            first_source = first[split_name][source_name]
+            second_source = second[split_name][source_name]
+            if first_source is None:
+                assert second_source is None
+            else:
+                np.testing.assert_array_equal(first_source, second_source)
+
+
+@pytest.mark.parametrize(
+    ("factory", "arguments"),
+    [
+        (process_dummy_MLC, {"random_state": 17}),
+        (process_dummy_MTR, {"random_state": None}),
+        (process_dummy_DP, {"random_state": 17}),
+    ],
+)
+def test_dummy_dataset_factories_do_not_mutate_global_rng(factory, arguments):
+    original_state = np.random.get_state()
+    try:
+        np.random.seed(1234)
+        expected_values = np.random.random(3)
+        np.random.seed(1234)
+
+        factory(**arguments)
+
+        actual_values = np.random.random(3)
+    finally:
+        np.random.set_state(original_state)
+
+    np.testing.assert_array_equal(actual_values, expected_values)
+
+
+def test_dummy_dataset_random_state_changes_generated_values():
+    first = process_dummy_MLC(random_state=1)
+    second = process_dummy_MLC(random_state=2)
+
+    assert not np.array_equal(
+        first["train"]["X_instance"],
+        second["train"]["X_instance"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("factory", "arguments", "parameter_name"),
+    [
+        (process_dummy_MLC, {"random_state": True}, "random_state"),
+        (process_dummy_MTR, {"random_state": -1}, "random_state"),
+        (process_dummy_DP, {"random_state": 2**32}, "random_state"),
+        (
+            generate_dummy_dataset,
+            {
+                "num_instances": 20,
+                "num_targets": 5,
+                "num_instance_features": 3,
+                "num_target_features": 3,
+                "error_mu": 0,
+                "error_sigma": 0,
+                "seed": True,
+            },
+            "seed",
+        ),
+    ],
+)
+def test_dummy_dataset_factories_validate_random_state(
+    factory,
+    arguments,
+    parameter_name,
+):
+    with pytest.raises(ValueError, match=parameter_name):
+        factory(**arguments)

@@ -85,6 +85,22 @@ def _require_positive_integer(name: str, value: int) -> None:
         raise ValueError(f"{name} must be a positive integer.")
 
 
+def _random_generator(
+    random_state: int | None,
+    *,
+    parameter_name: str = "random_state",
+) -> np.random.Generator:
+    if random_state is not None and (
+        isinstance(random_state, bool)
+        or not isinstance(random_state, int)
+        or not 0 <= random_state <= np.iinfo(np.uint32).max
+    ):
+        raise ValueError(
+            f"{parameter_name} must be a non-negative 32-bit integer or None."
+        )
+    return np.random.default_rng(random_state)
+
+
 def load_process_MLC(
     path: str = "./data",
     dataset_name: str = "bibtex",
@@ -190,6 +206,7 @@ def process_dummy_MLC(
     num_targets: int = 5,
     interaction_matrix_format: ArrayFormat = "numpy",
     features_format: ArrayFormat = "numpy",
+    random_state: int | None = 42,
 ) -> DatasetBundle:  # pragma: no cover
     """Generates a dummy multi-label classification dataset
 
@@ -197,6 +214,8 @@ def process_dummy_MLC(
         num_features (int, optional): The number of instance features. Defaults to 10.
         num_instances (int, optional): The number of instances. Defaults to 50.
         num_targets (int, optional): The number of targets. Defaults to 5.
+        random_state (int, optional): Seed for an isolated NumPy generator. Use
+            None for non-deterministic data. Defaults to 42.
 
     Returns:
         dict: A dictionary with all the available data for the multi-label classification dataset.
@@ -215,7 +234,8 @@ def process_dummy_MLC(
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None
 
-    X_train_instance = np.random.random((num_instances, num_features))
+    generator = _random_generator(random_state)
+    X_train_instance = generator.random((num_instances, num_features))
     for i in range(num_instances):
         X_train_instance[i, 0] = i
     if features_format == "dataframe":
@@ -225,7 +245,7 @@ def process_dummy_MLC(
         temp_instance_features_df["features"] = [r for r in X_train_instance]
         X_train_instance = temp_instance_features_df
 
-    y_train = np.random.randint(2, size=(num_instances, num_targets))
+    y_train = generator.integers(2, size=(num_instances, num_targets))
     if interaction_matrix_format == "dataframe":
         triplets = [
             (i, j, y_train[i, j])
@@ -396,7 +416,7 @@ def process_dummy_MTR(
     features_format: ArrayFormat = "numpy",
     variant: DatasetVariant = "undivided",
     split_ratio: Mapping[str, float] | None = None,
-    random_state: int = 42,
+    random_state: int | None = 42,
 ) -> DatasetBundle:  # pragma: no cover
     """Generates a dummy multivariate regression dataset
 
@@ -404,6 +424,8 @@ def process_dummy_MTR(
         num_features (int, optional): The number of instance features. Defaults to 10.
         num_instances (int, optional): The number of instances. Defaults to 50.
         num_targets (int, optional): The number of targets. Defaults to 5.
+        random_state (int, optional): Seed used for both data generation and
+            splitting. Use None for non-deterministic data. Defaults to 42.
 
     Returns:
         dict: A dictionary with all the available data for the multivariate regression dataset.
@@ -426,11 +448,17 @@ def process_dummy_MTR(
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None
 
-    X_train_instance = np.random.random((num_instances, num_features))
+    generator = _random_generator(random_state)
+    split_random_state = (
+        random_state
+        if random_state is not None
+        else int(generator.integers(0, np.iinfo(np.uint32).max))
+    )
+    X_train_instance = generator.random((num_instances, num_features))
     for i in range(num_instances):
         X_train_instance[i, 0] = i
 
-    y_train = np.random.randint(10, size=(num_instances, num_targets))
+    y_train = generator.integers(10, size=(num_instances, num_targets))
 
     if features_format == "dataframe":
         temp_instance_features_df = pd.DataFrame(
@@ -450,12 +478,12 @@ def process_dummy_MTR(
         train_ids, test_ids = train_test_split(
             range(num_instances),
             test_size=split_ratio["test"],
-            random_state=random_state,
+            random_state=split_random_state,
         )
         train_ids, val_ids = train_test_split(
             train_ids,
             test_size=split_ratio["val"] / (1 - split_ratio["test"]),
-            random_state=random_state,
+            random_state=split_random_state,
         )
 
         if interaction_matrix_format == "dataframe":
@@ -782,6 +810,7 @@ def process_dummy_DP(
     interaction_matrix_format: ArrayFormat = "numpy",
     instance_features_format: ArrayFormat = "numpy",
     target_features_format: ArrayFormat = "numpy",
+    random_state: int | None = 42,
 ) -> DatasetBundle:  # pragma: no cover
     """Generates a dummy multivariate regression dataset
 
@@ -790,6 +819,8 @@ def process_dummy_DP(
         num_target_features (int, optional): The number of target features. Defaults to 3.
         num_instances (int, optional): The number of instances. Defaults to 50.
         num_targets (int, optional): The number of targets. Defaults to 5.
+        random_state (int, optional): Seed for an isolated NumPy generator. Use
+            None for non-deterministic data. Defaults to 42.
 
     Returns:
         dict: A dictionary with all the available data for the dyadic prediction dataset.
@@ -809,7 +840,8 @@ def process_dummy_DP(
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
 
-    X_train_instance = np.random.random((num_instances, num_instance_features))
+    generator = _random_generator(random_state)
+    X_train_instance = generator.random((num_instances, num_instance_features))
     for i in range(num_instances):
         X_train_instance[i, 0] = i
     if instance_features_format == "dataframe":
@@ -819,7 +851,7 @@ def process_dummy_DP(
         temp_instance_features_df["features"] = [r for r in X_train_instance]
         X_train_instance = temp_instance_features_df
 
-    X_train_target = np.random.random((num_targets, num_target_features))
+    X_train_target = generator.random((num_targets, num_target_features))
     for i in range(num_targets):
         X_train_target[i, 0] = i
     if target_features_format == "dataframe":
@@ -829,7 +861,7 @@ def process_dummy_DP(
         temp_target_features_df["features"] = [r for r in X_train_target]
         X_train_target = temp_target_features_df
 
-    y_train = np.random.randint(10, size=(num_instances, num_targets))
+    y_train = generator.integers(10, size=(num_instances, num_targets))
     if interaction_matrix_format == "dataframe":
         triplets = [
             (i, j, y_train[i, j])
@@ -1104,7 +1136,7 @@ def generate_dummy_dataset(
     y_train, y_val, y_test = None, None, None
 
     # generate the instance and target feature numpy arrays
-    generator = np.random.default_rng(seed)
+    generator = _random_generator(seed, parameter_name="seed")
     if sklearn_version:
         # inspired by sklearn
         X_train_instance = generator.standard_normal(
