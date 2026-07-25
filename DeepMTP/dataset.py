@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import os
 import pickle
@@ -54,6 +53,10 @@ _MTR_DATASET_TARGETS = {
     "osales": 12,
     "scpf": 3,
 }
+_MTL_DATASET_NAMES = frozenset({"bird", "dog"})
+_MTL_ARCHIVE_URL_TEMPLATE = (
+    "https://github.com/diliadis/MTL/blob/main/{dataset_name}.zip?raw=true"
+)
 
 
 class DatasetSplit(TypedDict):
@@ -188,6 +191,83 @@ def _random_generator(
             f"{parameter_name} must be a non-negative 32-bit integer or None."
         )
     return np.random.default_rng(random_state)
+
+
+def _prepare_dataset_root(path: str | os.PathLike[str]) -> Path:
+    try:
+        data_root = Path(path)
+    except TypeError as exc:
+        raise TypeError("path must be a string or path-like object.") from exc
+    if data_root.exists() and not data_root.is_dir():
+        raise NotADirectoryError(f"Dataset path is not a directory: {data_root}.")
+    data_root.mkdir(parents=True, exist_ok=True)
+    return data_root
+
+
+def _validate_mtl_scores(scores: object, *, source: Path) -> np.ndarray:
+    try:
+        score_matrix = np.asarray(scores, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"MTL scores in {source} must be numeric.") from exc
+    if score_matrix.ndim != 2 or score_matrix.shape[0] < 1 or score_matrix.shape[1] < 1:
+        raise ValueError(
+            f"MTL scores in {source} must be a two-dimensional matrix with "
+            f"at least one row and column; received shape {score_matrix.shape}."
+        )
+    if np.isinf(score_matrix).any():
+        raise ValueError(f"MTL scores in {source} cannot contain infinite values.")
+    return score_matrix
+
+
+def _load_mtl_interaction_matrix(input_path: str | os.PathLike[str]) -> np.ndarray:
+    source = Path(input_path)
+    with source.open(encoding="utf-8") as input_file:
+        try:
+            data = json.load(input_file)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"MTL dataset in {source} is not valid JSON.") from exc
+    if not isinstance(data, Mapping):
+        raise ValueError(f"MTL dataset in {source} must contain a JSON object.")
+    try:
+        raw_labels = data["true_labels"]
+        raw_worker_labels = data["WorkerLabels"]
+    except KeyError as exc:
+        raise ValueError(
+            f"MTL dataset in {source} requires true_labels and WorkerLabels."
+        ) from exc
+
+    try:
+        labels = np.asarray(raw_labels, dtype=float)
+        worker_labels = np.asarray(raw_worker_labels, dtype=float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"MTL labels in {source} must be numeric.") from exc
+    if labels.ndim != 1 or labels.size < 1 or not np.isfinite(labels).all():
+        raise ValueError(
+            f"true_labels in {source} must be a finite one-dimensional array "
+            "with at least one entry."
+        )
+    if worker_labels.ndim == 1:
+        if worker_labels.size % labels.size != 0:
+            raise ValueError(
+                f"WorkerLabels in {source} cannot be reshaped to match "
+                f"{labels.size} true labels."
+            )
+        worker_labels = worker_labels.reshape(labels.size, -1)
+    if (
+        worker_labels.ndim != 2
+        or worker_labels.shape[0] != labels.size
+        or worker_labels.shape[1] < 1
+        or not np.isfinite(worker_labels).all()
+    ):
+        raise ValueError(
+            f"WorkerLabels in {source} must be a finite two-dimensional matrix "
+            f"with {labels.size} rows."
+        )
+
+    missing = worker_labels == -1
+    score_matrix = (worker_labels == labels[:, np.newaxis]).astype(float)
+    score_matrix[missing] = np.nan
+    return _validate_mtl_scores(score_matrix, source=source)
 
 
 def load_process_MLC(
@@ -383,13 +463,7 @@ def load_process_MTR(
         raise ValueError("print_mode must be either 'basic' or 'dev'.")
     if dataset_name not in _MTR_DATASET_TARGETS:
         raise ValueError(f"dataset_name must be one of {sorted(_MTR_DATASET_TARGETS)}.")
-    try:
-        data_root = Path(path)
-    except TypeError as exc:
-        raise TypeError("path must be a string or path-like object.") from exc
-    if data_root.exists() and not data_root.is_dir():
-        raise NotADirectoryError(f"Dataset path is not a directory: {data_root}.")
-    data_root.mkdir(parents=True, exist_ok=True)
+    data_root = _prepare_dataset_root(path)
 
     # The current version downloads all the datasets from a personal github repo
     X_train_instance, X_val_instance, X_test_instance = None, None, None
@@ -1038,7 +1112,7 @@ def load_process_MC(
 
 
 def load_process_MTL(
-    path: str = "./data",
+    path: str | os.PathLike[str] = "./data",
     dataset_name: str = "dog",
     print_mode: PrintMode = "basic",
 ) -> DatasetBundle:
@@ -1050,7 +1124,9 @@ def load_process_MTL(
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     Raises:
-        AttributeError: if the dataset_name doesn't exist in the repository
+        ValueError: If a public option or dataset file is invalid.
+        DatasetDownloadError: If the dataset archive cannot be downloaded safely.
+        FileNotFoundError: If required score or image files are missing.
 
     Returns:
         dict: A dictionary with all the available data for the multi-task learning dataset.
@@ -1059,20 +1135,18 @@ def load_process_MTL(
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None
 
-    if dataset_name not in ["dog", "bird"]:
-        raise AttributeError(
-            "Please use one of the valid dataset names: " + str(["dog", "bird"])
-        )
+    if dataset_name not in _MTL_DATASET_NAMES:
+        raise ValueError(f"dataset_name must be one of {sorted(_MTL_DATASET_NAMES)}.")
+    if print_mode not in {"basic", "dev"}:
+        raise ValueError("print_mode must be either 'basic' or 'dev'.")
 
-    path += "/multi-task_learning-datasets"
+    data_root = _prepare_dataset_root(path)
+    base_dir = data_root / "multi-task_learning-datasets"
+    data_dir = base_dir / dataset_name
+    json_path = data_dir / "data.json"
+    legacy_scores_path = data_dir / "y_dog.pkl"
 
-    os.makedirs(path, exist_ok=True)
-    data_dir = path + "/" + dataset_name
-    base_dir = os.path.dirname(data_dir)
-    # print('base_dir: '+str(base_dir))
-    # print('data_dir: '+str(data_dir))
-
-    if not os.path.exists(data_dir):  # pragma: no cover
+    if not json_path.is_file() and not legacy_scores_path.is_file():  # pragma: no cover
         print(
             ("info: " if print_mode == "dev" else "")
             + "Downloading dataset "
@@ -1080,24 +1154,38 @@ def load_process_MTL(
             + " from scratch... ",
             end="",
         )
-        r = requests.get(
-            "https://github.com/diliadis/MTL/blob/main/"
-            + dataset_name
-            + ".zip?raw=true"
+        download_and_extract_zip(
+            _MTL_ARCHIVE_URL_TEMPLATE.format(dataset_name=dataset_name),
+            base_dir,
         )
-        z = zipfile.ZipFile(io.BytesIO(r.content))
-        z.extractall(base_dir)
         print(("info: " if print_mode == "dev" else "") + "Done")
-        generate_interaction_matrix(data_dir + "/data.json", data_dir + "/y_dog.pkl")
 
-    with open(data_dir + "/y_dog.pkl", "rb") as scores_file:
-        scores_matrix = pickle.load(scores_file)
+    if json_path.is_file():
+        scores_matrix = _load_mtl_interaction_matrix(json_path)
+    elif legacy_scores_path.is_file():
+        # Compatibility with caches created by older DeepMTP releases.
+        with legacy_scores_path.open("rb") as scores_file:
+            scores_matrix = _validate_mtl_scores(
+                pickle.load(scores_file),
+                source=legacy_scores_path,
+            )
+    else:
+        raise FileNotFoundError(
+            f"Dataset archive did not contain the expected file: {json_path}."
+        )
+    if scores_matrix.shape[0] < 2:
+        raise ValueError("MTL datasets require at least two instances to split.")
+
+    image_dir = data_dir / "image"
     instance_ids = np.array(
-        [
-            data_dir + "/image/" + str(i + 1) + ".jpg"
-            for i in range(0, scores_matrix.shape[0])
-        ]
+        [str(image_dir / f"{index + 1}.jpg") for index in range(scores_matrix.shape[0])]
     )
+    missing_images = [
+        image_path for image_path in instance_ids if not Path(image_path).is_file()
+    ]
+    if missing_images:
+        raise FileNotFoundError(f"MTL dataset image is missing: {missing_images[0]}.")
+
     train_ids, test_ids = train_test_split(
         np.arange(scores_matrix.shape[0]), test_size=0.25, shuffle=True, random_state=42
     )
@@ -1139,30 +1227,9 @@ def load_process_MTL(
 def generate_interaction_matrix(
     input_path: str | os.PathLike[str],
     output_path: str | os.PathLike[str],
-) -> None:  # pragma: no cover
-    """Helper function that transforms the multi-task learning dataset into a basic interaction matrix
-
-    Args:
-        input_path (_type_): _description_
-        output_path (_type_): _description_
-    """
-    with open(input_path) as f:
-        data = json.load(f)
-
-    labels = data["true_labels"]
-    y = np.array(data["WorkerLabels"]).astype("float")
-    if "dog" in os.fspath(input_path):
-        y = y.reshape(800, -1)
-
-    for i in range(y.shape[0]):
-        for j in range(y.shape[1]):
-            if y[i, j] != -1:
-                if y[i, j] == labels[i]:
-                    y[i, j] = 1.0
-                else:
-                    y[i, j] = 0.0
-
-    y[y == -1] = "nan"
+) -> None:
+    """Convert annotator labels into a binary correctness matrix."""
+    y = _load_mtl_interaction_matrix(input_path)
     with open(output_path, "wb") as output_file:
         pickle.dump(y, output_file)
 

@@ -1,7 +1,9 @@
 import json
 import pickle
+from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import DeepMTP.dataset as dataset_module
@@ -9,6 +11,7 @@ from DeepMTP.dataset import (
     generate_dummy_dataset,
     generate_interaction_matrix,
     generate_MTP_dataset,
+    load_process_MTL,
     load_process_MTR,
     process_dummy_DP,
     process_dummy_MLC,
@@ -35,6 +38,148 @@ def write_mtr_dataset(root, content=None):
         encoding="utf-8",
     )
     return dataset_path
+
+
+def write_mtl_dataset(
+    root,
+    *,
+    dataset_name="dog",
+    flatten_worker_labels=True,
+    include_images=True,
+):
+    dataset_dir = root / "multi-task_learning-datasets" / dataset_name
+    image_dir = dataset_dir / "image"
+    image_dir.mkdir(parents=True, exist_ok=True)
+    worker_labels = [
+        [1, 2, -1],
+        [0, 1, 0],
+        [2, -1, 1],
+        [0, 1, 1],
+    ]
+    if flatten_worker_labels:
+        worker_labels = [label for row in worker_labels for label in row]
+    (dataset_dir / "data.json").write_text(
+        json.dumps(
+            {
+                "true_labels": [1, 0, 2, 1],
+                "WorkerLabels": worker_labels,
+            }
+        ),
+        encoding="utf-8",
+    )
+    if include_images:
+        for index in range(1, 5):
+            (image_dir / f"{index}.jpg").touch()
+    return dataset_dir
+
+
+@pytest.mark.parametrize(
+    ("dataset_name", "flatten_worker_labels"),
+    [("dog", True), ("bird", False)],
+)
+def test_load_process_mtl_reads_cached_json_without_network(
+    tmp_path,
+    dataset_name,
+    flatten_worker_labels,
+):
+    write_mtl_dataset(
+        tmp_path,
+        dataset_name=dataset_name,
+        flatten_worker_labels=flatten_worker_labels,
+    )
+
+    data = load_process_MTL(tmp_path, dataset_name=dataset_name)
+
+    interactions = pd.concat(
+        [data["train"]["y"], data["test"]["y"]],
+        ignore_index=True,
+    )
+    instance_features = pd.concat(
+        [data["train"]["X_instance"], data["test"]["X_instance"]],
+        ignore_index=True,
+    )
+    assert len(interactions) == 10
+    assert set(interactions["value"]) == {0.0, 1.0}
+    assert set(interactions["instance_id"]) == set(instance_features["id"])
+    assert all(Path(image_path).is_file() for image_path in instance_features["dir"])
+
+
+@pytest.mark.parametrize(
+    ("overrides", "exception", "message"),
+    [
+        ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
+        ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"path": object()}, TypeError, "path"),
+    ],
+)
+def test_load_process_mtl_validates_arguments_before_download(
+    monkeypatch,
+    tmp_path,
+    overrides,
+    exception,
+    message,
+):
+    def unexpected_download(*args, **kwargs):
+        raise AssertionError("invalid arguments must not trigger a download")
+
+    monkeypatch.setattr(
+        dataset_module,
+        "download_and_extract_zip",
+        unexpected_download,
+    )
+    arguments = {"path": tmp_path, "dataset_name": "dog"}
+    arguments.update(overrides)
+
+    with pytest.raises(exception, match=message):
+        load_process_MTL(**arguments)
+
+
+def test_load_process_mtl_repairs_incomplete_cache(monkeypatch, tmp_path):
+    (tmp_path / "multi-task_learning-datasets" / "dog").mkdir(parents=True)
+    calls = []
+
+    def download(url, destination):
+        calls.append((url, destination))
+        write_mtl_dataset(tmp_path)
+
+    monkeypatch.setattr(dataset_module, "download_and_extract_zip", download)
+
+    data = load_process_MTL(tmp_path)
+
+    assert len(calls) == 1
+    assert len(data["train"]["y"]) + len(data["test"]["y"]) == 10
+
+
+def test_load_process_mtl_reports_missing_downloaded_dataset(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        dataset_module,
+        "download_and_extract_zip",
+        lambda url, destination: None,
+    )
+
+    with pytest.raises(FileNotFoundError, match="expected file"):
+        load_process_MTL(tmp_path)
+
+
+def test_load_process_mtl_supports_legacy_score_cache(tmp_path):
+    dataset_dir = tmp_path / "multi-task_learning-datasets" / "dog"
+    image_dir = dataset_dir / "image"
+    image_dir.mkdir(parents=True)
+    for index in range(1, 5):
+        (image_dir / f"{index}.jpg").touch()
+    with (dataset_dir / "y_dog.pkl").open("wb") as score_file:
+        pickle.dump(np.ones((4, 2)), score_file)
+
+    data = load_process_MTL(tmp_path)
+
+    assert len(data["train"]["y"]) + len(data["test"]["y"]) == 8
+
+
+def test_load_process_mtl_reports_missing_images(tmp_path):
+    write_mtl_dataset(tmp_path, include_images=False)
+
+    with pytest.raises(FileNotFoundError, match="image is missing"):
+        load_process_MTL(tmp_path)
 
 
 def test_load_process_mtr_reads_cached_arff_without_network(tmp_path):
@@ -336,6 +481,34 @@ def test_generate_interaction_matrix_writes_expected_scores(tmp_path):
         scores,
         np.array([[1.0, 0.0, np.nan], [1.0, 0.0, np.nan]]),
     )
+
+
+def test_generate_interaction_matrix_supports_single_flattened_row(tmp_path):
+    input_path = tmp_path / "labels.json"
+    output_path = tmp_path / "scores.pkl"
+    input_path.write_text(
+        json.dumps(
+            {
+                "true_labels": [1],
+                "WorkerLabels": [1, 0, -1],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    generate_interaction_matrix(input_path, output_path)
+
+    with output_path.open("rb") as output_file:
+        scores = pickle.load(output_file)
+    np.testing.assert_equal(scores, np.array([[1.0, 0.0, np.nan]]))
+
+
+def test_generate_interaction_matrix_reports_invalid_json(tmp_path):
+    input_path = tmp_path / "labels.json"
+    input_path.write_text("{", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="not valid JSON"):
+        generate_interaction_matrix(input_path, tmp_path / "scores.pkl")
 
 
 @pytest.mark.parametrize(
