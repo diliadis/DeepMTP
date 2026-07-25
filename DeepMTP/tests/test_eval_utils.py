@@ -417,6 +417,28 @@ def test_single_class_micro_confusion_matrix_has_all_cells():
     assert results["test_tp_micro"] == 0
 
 
+@pytest.mark.parametrize("averaging", ["micro", "macro"])
+def test_single_class_curve_metrics_are_reported_as_undefined(averaging):
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=np.array([0, 1]),
+        targets_arr=np.array([0, 1]),
+        true_values_arr=np.array([0, 0]),
+        pred_values_arr=np.array([0.1, 0.2]),
+        validation_setting="B",
+        problem_mode="classification",
+        metrics=["auroc", "aupr"],
+        averaging=[averaging],
+    )
+
+    assert math.isnan(results[f"test_auroc_{averaging}"])
+    assert math.isnan(results[f"test_aupr_{averaging}"])
+    if averaging == "macro":
+        assert math.isnan(results["test_auroc_target_0"])
+        assert math.isnan(results["test_aupr_target_1"])
+
+
 def test_singleton_macro_groups_are_evaluated():
     results = get_performance_results(
         mode="test",
@@ -520,6 +542,7 @@ def test_verbose_evaluation_uses_modern_numpy_nan_api(capsys):
         ({"problem_mode": "forecasting"}, "problem_mode"),
         ({"averaging": ["weighted"]}, "averaging"),
         ({"top_k": 0}, "top_k"),
+        ({"metrics": ["BOGUS"]}, "Unsupported regression metrics"),
     ],
 )
 def test_evaluation_rejects_invalid_boundary_values(override, message):
@@ -539,6 +562,40 @@ def test_evaluation_rejects_invalid_boundary_values(override, message):
 
     with pytest.raises(ValueError, match=message):
         get_performance_results(**arguments)
+
+
+def test_ranking_ndcg_accepts_one_query_as_flat_values():
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=[0, 0, 0],
+        targets_arr=[0, 1, 2],
+        true_values_arr=[3.0, 2.0, 1.0],
+        pred_values_arr=[0.9, 0.2, 0.1],
+        validation_setting="A",
+        problem_mode="ranking",
+        metrics=["ndcg"],
+        averaging=["micro"],
+    )
+
+    assert results["test_ndcg_micro"] == pytest.approx(1.0)
+
+
+def test_singleton_ranking_group_reports_undefined_ndcg():
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=[0],
+        targets_arr=[0],
+        true_values_arr=[1.0],
+        pred_values_arr=[0.9],
+        validation_setting="A",
+        problem_mode="ranking",
+        metrics=["ndcg"],
+        averaging=["micro"],
+    )
+
+    assert math.isnan(results["test_ndcg_micro"])
 
 
 def test_epilepsy_metrics_count_single_sample_episode_overlap():

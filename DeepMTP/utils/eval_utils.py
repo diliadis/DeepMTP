@@ -35,6 +35,30 @@ class InverseTransformer(Protocol):
 
 
 ScalerInput: TypeAlias = InverseTransformer | Mapping[Any, InverseTransformer] | None
+EPILEPSY_METRICS = frozenset(
+    {
+        "sensitivity",
+        "false_alarm_rate_per_hour",
+        "positive_predictive_value",
+        "f1_score_epilepsy_version",
+    }
+)
+SUPPORTED_METRICS = {
+    "classification": frozenset(
+        {
+            "accuracy",
+            "aupr",
+            "auroc",
+            "f1_score",
+            "hamming_loss",
+            "precision",
+            "recall",
+        }
+    )
+    | EPILEPSY_METRICS,
+    "regression": frozenset({"MAE", "MSE", "R2", "RMSE", "RRMSE"}),
+    "ranking": frozenset({"ndcg"}),
+}
 
 
 def _inverse_transform_scalar(
@@ -116,6 +140,7 @@ def _validate_evaluation_inputs(
     predicted_values: ArrayValues,
     validation_setting: str,
     problem_mode: str,
+    metrics: Sequence[str],
     averaging: Sequence[str],
     top_k: int | None,
 ) -> None:
@@ -141,6 +166,7 @@ def _validate_evaluation_inputs(
             "problem_mode must be 'classification', 'regression', or 'ranking'; "
             f"received {problem_mode!r}."
         )
+    _validate_metrics(problem_mode, metrics)
     unknown_averaging = set(averaging).difference({"micro", "macro", "instance"})
     if unknown_averaging:
         raise ValueError(
@@ -207,6 +233,7 @@ def get_performance_results(
         pred_values_arr,
         validation_setting,
         problem_mode,
+        metrics,
         averaging,
         top_k,
     )
@@ -471,7 +498,7 @@ def get_performance_results(
 
 
 # with micro-averaging you loose the notion of multiple-targets. You just simplify the problem and assume you are working with just one target. The train_true_value variable is only used for the calculation of the relative root mean squared error RRMSE.
-def base_evaluator(  # pragma: no cover
+def base_evaluator(
     rows: pd.DataFrame,
     problem_mode: str,
     metrics: Sequence[str],
@@ -500,6 +527,7 @@ def base_evaluator(  # pragma: no cover
             "problem_mode must be 'classification', 'regression', or 'ranking'; "
             f"received {problem_mode!r}."
         )
+    _validate_metrics(problem_mode, metrics)
 
     results: MetricResults = {}
 
@@ -591,6 +619,10 @@ def base_evaluator(  # pragma: no cover
                 )
                 results["aupr"] = float(auc(recall, precision))
         else:
+            if "auroc" in metrics:
+                results["auroc"] = float("nan")
+            if "aupr" in metrics:
+                results["aupr"] = float("nan")
             if verbose:  # pragma: no cover
                 print(
                     "Warning: instance"
@@ -599,38 +631,27 @@ def base_evaluator(  # pragma: no cover
                     + str(true_values.nunique())
                     + " unique true values"
                 )
-        if set(metrics).intersection(
-            set(
-                [
-                    "sensitivity",
-                    "false_alarm_rate_per_hour",
-                    "positive_predictive_value",
-                    "f1_score_epilepsy_version",
-                ]
-            )
-        ):
+        selected_epilepsy_metrics = set(metrics).intersection(EPILEPSY_METRICS)
+        if selected_epilepsy_metrics:
             results.update(
                 get_epilepsy_specific_metrics(
                     true_values,
                     bin_values,
-                    metrics=list(
-                        set(metrics).intersection(
-                            set(
-                                [
-                                    "sensitivity",
-                                    "false_alarm_rate_per_hour",
-                                    "positive_predictive_value",
-                                    "f1_score_epilepsy_version",
-                                ]
-                            )
-                        )
-                    ),
+                    metrics=sorted(selected_epilepsy_metrics),
                 )
             )
 
     elif problem_mode == "ranking":
         if "ndcg" in metrics:
-            results["ndcg"] = float(ndcg_score(true_values, pred_values))
+            if len(true_values) < 2:
+                results["ndcg"] = float("nan")
+            else:
+                results["ndcg"] = float(
+                    ndcg_score(
+                        np.asarray(true_values, dtype=float).reshape(1, -1),
+                        np.asarray(pred_values, dtype=float).reshape(1, -1),
+                    )
+                )
 
     return results
 
@@ -660,13 +681,7 @@ def get_epilepsy_specific_metrics(
         if metrics is None
         else list(metrics)
     )
-    supported_metrics = {
-        "sensitivity",
-        "false_alarm_rate_per_hour",
-        "positive_predictive_value",
-        "f1_score_epilepsy_version",
-    }
-    unknown_metrics = set(selected_metrics).difference(supported_metrics)
+    unknown_metrics = set(selected_metrics).difference(EPILEPSY_METRICS)
     if unknown_metrics:
         raise ValueError(f"Unsupported epilepsy metrics: {sorted(unknown_metrics)}.")
 
@@ -735,3 +750,11 @@ def get_epilepsy_specific_metrics(
                 else 0
             )
     return results
+
+
+def _validate_metrics(problem_mode: str, metrics: Sequence[str]) -> None:
+    unknown_metrics = set(metrics).difference(SUPPORTED_METRICS[problem_mode])
+    if unknown_metrics:
+        raise ValueError(
+            f"Unsupported {problem_mode} metrics: {sorted(unknown_metrics)}."
+        )
