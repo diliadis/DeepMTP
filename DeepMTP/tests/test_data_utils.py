@@ -1,37 +1,49 @@
-from DeepMTP.utils.data_utils import (
-    process_interaction_data,
-    check_interaction_files_format,
-    check_interaction_files_column_type_format,
-    check_variable_type,
-    check_target_variable_type,
-    check_novel_instances,
-    check_novel_targets,
-    get_estimated_validation_setting,
-    process_instance_features,
-    process_target_features,
-    cross_input_consistency_check_instances,
-    cross_input_consistency_check_targets,
-    split_data,
-    validate_split_ratio,
-    data_process,
-    BaseDataset,
-    MTPSampler,
-)
+import numpy as np
+import pandas as pd
+import pytest
+from pandas.testing import assert_frame_equal
+
 from DeepMTP.dataset import (
+    generate_MTP_dataset,
+    process_dummy_DP,
     process_dummy_MLC,
     process_dummy_MTR,
-    process_dummy_DP,
-    generate_MTP_dataset,
 )
-import pandas as pd
-from pandas.testing import assert_frame_equal
-import numpy as np
-import pytest
+from DeepMTP.utils.data_utils import (
+    BaseDataset,
+    MTPSampler,
+    check_interaction_files_column_type_format,
+    check_interaction_files_format,
+    check_novel_instances,
+    check_novel_targets,
+    check_target_variable_type,
+    check_variable_type,
+    cross_input_consistency_check_instances,
+    cross_input_consistency_check_targets,
+    data_process,
+    get_estimated_validation_setting,
+    process_instance_features,
+    process_interaction_data,
+    process_target_features,
+    split_data,
+    validate_split_ratio,
+)
 
 data_format_type_combo_data = [
     {"pass_fail": "pass", "format": "numpy", "ids_type": "int"},
     {"pass_fail": "pass", "format": "dataframe", "ids_type": "int"},
-    {"pass_fail": "fail", "format": "dataframe", "ids_type": "string"},
+    {
+        "pass_fail": "fail",
+        "format": "dataframe",
+        "ids_type": "string",
+        "data": pd.DataFrame(
+            {
+                "instance_id": ["a", "a", "b", "b"],
+                "target_id": [0, 1, 0, 1],
+                "value": [0, 1, 1, 0],
+            }
+        ),
+    },
     {
         "pass_fail": "fail",
         "data": pd.DataFrame({"instance_id": [0, 0, 1, 1], "target_id": [0, 1, 0, 1]}),
@@ -85,7 +97,7 @@ def test_process_interaction_data(data_format_type_combo_data):
     num_instance_features = 2
 
     if pass_fail == "fail":
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, ValueError)):
             info = process_interaction_data(
                 data_format_type_combo_data["data"], verbose=False
             )
@@ -176,9 +188,17 @@ def test_process_interaction_data(data_format_type_combo_data):
                     triplets, columns=["instance_id", "target_id", "value"]
                 )
                 # assert temp_df.equals(info["data"])
-                assert_frame_equal(temp_df.sort_values(by=temp_df.columns.tolist()).reset_index(drop=True), info["data"].sort_values(by=info["data"].columns.tolist()).reset_index(drop=True), check_dtype=False)
+                assert_frame_equal(
+                    temp_df.sort_values(by=temp_df.columns.tolist()).reset_index(
+                        drop=True
+                    ),
+                    info["data"]
+                    .sort_values(by=info["data"].columns.tolist())
+                    .reset_index(drop=True),
+                    check_dtype=False,
+                )
         except Exception as exc:
-            assert False
+            raise AssertionError("valid case unexpectedly failed") from exc
 
 
 interaction_files_format_check_should_throw_error = [True, False]
@@ -210,13 +230,13 @@ def test_check_interaction_files_format(test_check_interaction_files_format_data
     pass_fail, data = test_check_interaction_files_format_data
 
     if pass_fail == "fail":
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, ValueError)):
             check_interaction_files_format(data)
     else:
         try:
             check_interaction_files_format(data)
         except Exception as exc:
-            assert False
+            raise AssertionError("valid case unexpectedly failed") from exc
 
 
 check_interaction_files_column_type_format_data = [
@@ -268,9 +288,9 @@ def test_check_interaction_files_column_type_format(
         try:
             check_interaction_files_column_type_format(data)
         except Exception as exc:
-            assert False
+            raise AssertionError("valid case unexpectedly failed") from exc
     else:
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, ValueError)):
             check_interaction_files_column_type_format(data)
 
 
@@ -358,7 +378,7 @@ def test_check_target_variable_type(check_target_variable_type_data):
     if pass_fail == "pass":
         assert check_target_variable_type(data) == data["mode"]
     else:
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, ValueError)):
             check_target_variable_type(data)
 
 
@@ -630,7 +650,6 @@ def test_process_instance_features(test_process_instance_features_data):
 
     data_format = test_process_instance_features_data["format"]
     ids_type = test_process_instance_features_data["ids_type"]
-    features_type = test_process_instance_features_data["features_type"]
 
     if ids_type == "int":
         data = process_dummy_MLC(
@@ -697,7 +716,7 @@ def test_process_instance_features(test_process_instance_features_data):
         else:
             assert data["train"]["X_instance"].equals(instance_features["data"])
     else:
-        assert None == process_instance_features(None, verbose=False)
+        assert process_instance_features(None, verbose=False) is None
 
 
 test_process_target_features_data = [
@@ -720,7 +739,6 @@ def test_process_target_features(test_process_target_features_data):
 
     data_format = test_process_target_features_data["format"]
     ids_type = test_process_target_features_data["ids_type"]
-    features_type = test_process_target_features_data["features_type"]
 
     if ids_type == "int":
         data = process_dummy_DP(
@@ -789,7 +807,7 @@ def test_process_target_features(test_process_target_features_data):
         else:
             assert data["train"]["X_target"].equals(target_features["data"])
     else:
-        assert None == process_target_features(None, verbose=False)
+        assert process_target_features(None, verbose=False) is None
 
 
 test_cross_input_consistency_check_instances_data = [
@@ -1621,9 +1639,9 @@ def test_cross_input_consistency_check_instances(
                 data, data["validation_setting"], verbose=False
             )
         except Exception as exc:
-            assert False
+            raise AssertionError("valid case unexpectedly failed") from exc
     else:
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, ValueError)):
             cross_input_consistency_check_instances(
                 data, data["validation_setting"], verbose=False
             )
@@ -2519,9 +2537,9 @@ def test_cross_input_consistency_check_targets(
                 data, data["validation_setting"], verbose=False
             )
         except Exception as exc:
-            assert False
+            raise AssertionError("valid case unexpectedly failed") from exc
     else:
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, ValueError)):
             cross_input_consistency_check_targets(
                 data, data["validation_setting"], verbose=False
             )
@@ -2710,7 +2728,7 @@ def test_split_data(test_split_data_data):
     )
 
     assert len(original_data) == len(processed_data)
-    for mode in original_data.keys():
+    for mode in original_data:
         print("mode: " + str(mode))
         assert original_data[mode]["y"]["data"].equals(
             processed_data[mode]["y"]["data"]
@@ -3085,9 +3103,9 @@ def test_data_process(test_data_process_data):
                 )
 
         except Exception as exc:
-            assert False
+            raise AssertionError("valid case unexpectedly failed") from exc
     else:
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, ValueError)):
             train, val, test, info = data_process(
                 test_data_process_data["data"],
                 validation_setting=None,

@@ -85,7 +85,7 @@ def process_interaction_data(interaction_data, verbose=False, print_mode="basic"
             if set(interaction_data.columns) != set(
                 {"instance_id", "target_id", "value"}
             ):
-                raise Exception(
+                raise ValueError(
                     "Interaction file: The dataset has no header. Please supply an interaction file with a header of the following format <instance_id, target_id, score>"
                 )
             info = {"data": interaction_data, "original_format": "triplets"}
@@ -110,7 +110,7 @@ def process_interaction_data(interaction_data, verbose=False, print_mode="basic"
             else:
                 raise TypeError("Target_id type is not detected")
         else:
-            raise Exception(
+            raise ValueError(
                 "Interaction file with invalid header detected. Please use the following header <instance_id, target_id, value>"
             )
     elif isinstance(interaction_data, np.ndarray):
@@ -133,7 +133,7 @@ def process_interaction_data(interaction_data, verbose=False, print_mode="basic"
             "target_id_type": "int",
         }
     else:
-        raise Exception(
+        raise ValueError(
             "Could not recognize the format of the interaction data. A 2d numpy array or a dataframe(<instance_id, target_id, value>) is currently supported"
         )
     info["missing_values"] = len(info["data"]) != (
@@ -168,7 +168,7 @@ def check_interaction_files_format(data, verbose=False, print_mode="basic"):
         if len(distinct_formats) == 1:
             print(("info: " if print_mode == "dev" else "") + "Passed")
         else:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Inconsistent file formats across the different interaction files"
             )
@@ -202,7 +202,7 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode="
             if verbose:
                 print(("info: " if print_mode == "dev" else "") + "Passed")
         else:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Inconsistent instance id column type across the different interaction files"
             )
@@ -226,7 +226,7 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode="
             if verbose:
                 print(("info: " if print_mode == "dev" else "") + "Passed")
         else:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Inconsistent target id column type across the different interaction files"
             )
@@ -274,12 +274,12 @@ def check_target_variable_type(data, verbose=False, print_mode="basic"):
             if verbose:
                 print(("info: " if print_mode == "dev" else "") + "Passed")
         else:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Inconsistent target variable type across the different interaction files"
             )
     else:
-        raise Exception(
+        raise ValueError(
             ("error: " if print_mode == "dev" else "")
             + "Could not detect the type of target variables"
         )
@@ -570,7 +570,7 @@ def cross_input_consistency_check_instances(
         ):
             if validation_setting in ["B", "D"]:
                 if num_interaction_data_sources != num_instance_features_sources:
-                    raise Exception(
+                    raise ValueError(
                         ("error: " if print_mode == "dev" else "")
                         + "Different number of (numpy) interaction files and instance feature files is not currently supported"
                     )
@@ -602,7 +602,7 @@ def cross_input_consistency_check_instances(
                                     + " set"
                                 )
                         else:
-                            raise Exception(
+                            raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
                                 + "Different instance ids in the interaction and features files for the "
                                 + mode
@@ -611,7 +611,7 @@ def cross_input_consistency_check_instances(
 
             elif validation_setting in ["C", "A"]:
                 if num_instance_features_sources != 1:
-                    raise Exception(
+                    raise ValueError(
                         ("error: " if print_mode == "dev" else "")
                         + "Setting "
                         + validation_setting
@@ -645,7 +645,7 @@ def cross_input_consistency_check_instances(
                                 + "-- Same instance ids in the interaction and features file"
                             )
                     else:
-                        raise Exception(
+                        raise ValueError(
                             ("error: " if print_mode == "dev" else "")
                             + "Different instance ids in the interaction and features files"
                         )
@@ -660,7 +660,7 @@ def cross_input_consistency_check_instances(
 
             if validation_setting in ["B", "D", "A"]:
                 if num_instance_features_sources > num_interaction_data_sources:
-                    raise Exception(
+                    raise ValueError(
                         ("error: " if print_mode == "dev" else "")
                         + "More instance feature files than (triplet) interaction files provided. This is currently not supported"
                     )
@@ -686,7 +686,7 @@ def cross_input_consistency_check_instances(
                                     + " set"
                                 )
                         else:
-                            raise Exception(
+                            raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
                                 + "Different instance ids in the interaction and features files for the "
                                 + mode
@@ -697,7 +697,7 @@ def cross_input_consistency_check_instances(
                         num_interaction_data_sources == 3
                         and num_instance_features_sources == 2
                     ):
-                        raise Exception(
+                        raise ValueError(
                             ("error: " if print_mode == "dev" else "")
                             + "When three (triplet) interaction files are provided, only one instance features file is allowed"
                         )
@@ -724,13 +724,13 @@ def cross_input_consistency_check_instances(
                                     + "-- Same instance ids in the interaction and features file"
                                 )
                         else:
-                            raise Exception(
+                            raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
                                 + "Different instance ids in the interaction and features files"
                             )
             elif validation_setting == "C":
                 if num_instance_features_sources != 1:
-                    raise Exception(
+                    raise ValueError(
                         ("error: " if print_mode == "dev" else "")
                         + "When "
                         + str(len(valid_modes))
@@ -766,7 +766,7 @@ def cross_input_consistency_check_instances(
                                 + "-- Same instance ids in the interaction and features file"
                             )
                     else:
-                        raise Exception(
+                        raise ValueError(
                             ("error: " if print_mode == "dev" else "")
                             + "Different instance ids in the interaction and features files"
                         )
@@ -807,7 +807,7 @@ def cross_input_consistency_check_targets(
         ):
             if validation_setting in ["C", "D"]:
                 if num_interaction_data_sources != num_target_features_sources:
-                    raise Exception(
+                    raise ValueError(
                         ("error: " if print_mode == "dev" else "")
                         + "Different number of (numpy) interaction files and target feature files is not currently supported"
                     )
@@ -839,7 +839,7 @@ def cross_input_consistency_check_targets(
                                     + " set"
                                 )
                         else:
-                            raise Exception(
+                            raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
                                 + "Different target ids in the interaction and features files for the "
                                 + mode
@@ -847,7 +847,7 @@ def cross_input_consistency_check_targets(
                             )
             elif validation_setting in ["B", "A"]:
                 if num_target_features_sources != 1:
-                    raise Exception(
+                    raise ValueError(
                         ("error: " if print_mode == "dev" else "")
                         + "Setting "
                         + validation_setting
@@ -881,7 +881,7 @@ def cross_input_consistency_check_targets(
                                 + "-- Same target ids in the interaction and features file"
                             )
                     else:
-                        raise Exception(
+                        raise ValueError(
                             ("error: " if print_mode == "dev" else "")
                             + "Different target ids in the interaction and features files"
                         )
@@ -896,7 +896,7 @@ def cross_input_consistency_check_targets(
 
             if validation_setting in ["C", "D", "A"]:
                 if num_target_features_sources > num_interaction_data_sources:
-                    raise Exception(
+                    raise ValueError(
                         ("error: " if print_mode == "dev" else "")
                         + "More target feature files than (triplet) interaction files provided. This is currently not supported"
                     )
@@ -922,7 +922,7 @@ def cross_input_consistency_check_targets(
                                     + " set"
                                 )
                         else:
-                            raise Exception(
+                            raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
                                 + "Different target ids in the interaction and features files for the "
                                 + mode
@@ -933,7 +933,7 @@ def cross_input_consistency_check_targets(
                         num_interaction_data_sources == 3
                         and num_target_features_sources == 2
                     ):
-                        raise Exception(
+                        raise ValueError(
                             ("error: " if print_mode == "dev" else "")
                             + "When three (triplet) interaction files are provided, only one target features file is allowed"
                         )
@@ -960,13 +960,13 @@ def cross_input_consistency_check_targets(
                                     + "-- Same target ids in the interaction and features file"
                                 )
                         else:
-                            raise Exception(
+                            raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
                                 + "Different target ids in the interaction and features files"
                             )
             elif validation_setting == "B":
                 if num_target_features_sources != 1:
-                    raise Exception(
+                    raise ValueError(
                         ("error: " if print_mode == "dev" else "")
                         + "When "
                         + str(len(valid_modes))
@@ -1002,7 +1002,7 @@ def cross_input_consistency_check_targets(
                                 + "-- Same target ids in the interaction and features file"
                             )
                     else:
-                        raise Exception(
+                        raise ValueError(
                             ("error: " if print_mode == "dev" else "")
                             + "Different target ids in the interaction and features files"
                         )
@@ -1558,7 +1558,7 @@ def data_process(
         )
 
     if data["test"]["y"] is None and data["val"]["y"] is not None:
-        raise Exception(
+        raise ValueError(
             ("error: " if print_mode == "dev" else "")
             + "Supplying a validation set without a test set is not currently supported!!"
         )
@@ -1601,22 +1601,22 @@ def data_process(
     # check if the specified validation setting makes sense given the supplied datasets
     if validation_setting is not None:
         if validation_setting == "B" and data["train"]["X_instance"] is None:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Specified validation setting B without supplying instance features"
             )
         elif validation_setting == "C" and data["train"]["X_target"] is None:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Specified validation setting C without supplying instance features"
             )
         elif validation_setting == "D" and data["train"]["X_instance"] is None:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Specified validation setting D without supplying instance features"
             )
         elif validation_setting == "D" and data["train"]["X_target"] is None:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Specified validation setting D without supplying target features"
             )
@@ -1728,7 +1728,7 @@ def data_process(
         if validation_setting_detected is not None:
             validation_setting = validation_setting_detected
         else:
-            raise Exception(
+            raise ValueError(
                 ("error: " if print_mode == "dev" else "")
                 + "Validation setting was both not provided and not detected"
             )
@@ -1740,7 +1740,7 @@ def data_process(
                 + validation_setting
             )
         # elif validation_setting_detected != validation_setting:
-        #     raise Exception('Mismatch between the auto-detected validation setting and the one defined by the user --> User: '+validation_setting+' != Auto-detected: '+validation_setting_detected)
+        #     raise ValueError('Mismatch between the auto-detected validation setting and the one defined by the user --> User: '+validation_setting+' != Auto-detected: '+validation_setting_detected)
 
     data["info"] = {"detected_validation_setting": validation_setting}
     data["info"]["detected_problem_mode"] = (

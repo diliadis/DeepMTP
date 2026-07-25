@@ -155,6 +155,7 @@ include = [
     "DeepMTP/tests/test_branch_models.py",
     "DeepMTP/tests/test_config.py",
     "DeepMTP/tests/test_data_loading.py",
+    "DeepMTP/tests/test_data_utils.py",
     "DeepMTP/tests/test_dataset_offline.py",
     "DeepMTP/tests/test_eval_utils.py",
     "DeepMTP/tests/test_evaluation.py",
