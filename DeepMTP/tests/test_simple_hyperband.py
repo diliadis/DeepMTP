@@ -8,9 +8,9 @@ def test_HyperBand():
     cs= CS.ConfigurationSpace()
     
     lr= CSH.UniformFloatHyperparameter(
-        "learning_rate", lower=1e-6, upper=1e-3, default_value="1e-3", log=True
+        "learning_rate", lower=1e-6, upper=1e-3, default_value=1e-3, log=True
     )
-    cs.add_hyperparameters([lr])
+    cs.add(lr)
 
     embedding_size= CSH.UniformIntegerHyperparameter(
         "embedding_size", lower=8, upper=2048, default_value=64, log=False
@@ -38,7 +38,7 @@ def test_HyperBand():
 
     batch_norm = CSH.CategoricalHyperparameter("batch_norm", [True, False])
 
-    cs.add_hyperparameters(
+    cs.add(
         [
             embedding_size,
             instance_branch_layers,

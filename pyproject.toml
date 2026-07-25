@@ -3,3 +3,13 @@ requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+testpaths = ["DeepMTP/tests"]
+addopts = "-ra -m 'not network and not slow'"
+markers = [
+    "network: requires external network access or downloaded datasets",
+    "slow: takes too long for the default local feedback loop",
+    "gpu: requires a CUDA-capable GPU",
+    "integration: exercises multiple package layers together",
+]

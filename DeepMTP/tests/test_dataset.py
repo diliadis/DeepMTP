@@ -1,6 +1,8 @@
 from DeepMTP.dataset import load_process_MLC, load_process_MTR, load_process_DP, load_process_MC, load_process_MTL
 import pytest
 
+pytestmark = pytest.mark.network
+
 test_load_process_MLC_data = [
 	{'pass_fail': 'pass', 'dataset_name': 'bibtex', 'variant': 'undivided','features_type': 'numpy'},
 	{'pass_fail': 'pass', 'dataset_name': 'bibtex', 'variant': 'divided','features_type': 'dataframe'},

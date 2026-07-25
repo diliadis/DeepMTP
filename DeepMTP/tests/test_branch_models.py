@@ -44,6 +44,7 @@ test_ConvNet_data = [
 
 
 @pytest.mark.parametrize('test_ConvNet_data', test_ConvNet_data)
+@pytest.mark.network
 def test_ConvNet(test_ConvNet_data):
     
     pass_fail = test_ConvNet_data['pass_fail']

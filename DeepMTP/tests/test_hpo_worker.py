@@ -3,6 +3,8 @@ import torch
 from DeepMTP.hpo_worker import BaseWorker
 from DeepMTP.dataset import load_process_MLC
 from DeepMTP.utils.data_utils import data_process
+
+pytestmark = [pytest.mark.network, pytest.mark.slow, pytest.mark.integration]
 '''
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
