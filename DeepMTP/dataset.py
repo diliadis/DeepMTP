@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import pickle
+import tempfile
 from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
@@ -266,6 +267,21 @@ def _require_optional_non_negative_integer(
 def _validate_array_format(name: str, value: object) -> None:
     if not isinstance(value, str) or value not in {"numpy", "dataframe"}:
         raise ValueError(f"{name} must be either 'numpy' or 'dataframe'.")
+
+
+def _validate_print_mode(print_mode: object) -> None:
+    if not isinstance(print_mode, str) or print_mode not in {"basic", "dev"}:
+        raise ValueError("print_mode must be either 'basic' or 'dev'.")
+
+
+def _print_dataset_status(
+    message: str,
+    print_mode: PrintMode,
+    *,
+    end: str = "\n",
+) -> None:
+    prefix = "info: " if print_mode == "dev" else ""
+    print(f"{prefix}{message}", end=end)
 
 
 def _format_feature_matrix(
@@ -781,23 +797,20 @@ def load_process_MLC(
         raise ValueError(f"dataset_name must be one of {sorted(_MLC_DATASET_NAMES)}.")
     if not isinstance(variant, str) or variant not in {"undivided", "divided"}:
         raise ValueError("variant must be either 'undivided' or 'divided'.")
-    if features_type not in {"numpy", "dataframe"}:
-        raise ValueError("features_type must be either 'numpy' or 'dataframe'.")
-    if print_mode not in {"basic", "dev"}:
-        raise ValueError("print_mode must be either 'basic' or 'dev'.")
+    _validate_array_format("features_type", features_type)
+    _validate_print_mode(print_mode)
 
     data_root = _prepare_dataset_root(path)
     dataset_dir = data_root / "multi-label_classification"
     variants = ("undivided",) if variant == "undivided" else ("train", "test")
-    prefix = "info: " if print_mode == "dev" else ""
-    print(f"{prefix}Processing...")
+    _print_dataset_status("Processing...", print_mode)
     dataset_files, downloaded = _ensure_mlc_cache(
         dataset_dir,
         dataset_name,
         variants,
     )
     if downloaded:
-        print(f"{prefix}Downloaded missing dataset files")
+        _print_dataset_status("Downloaded missing dataset files", print_mode)
 
     X_train_array, y_train = _load_mlc_variant(dataset_files[variants[0]])
     X_test_array: np.ndarray | None = None
@@ -822,20 +835,11 @@ def load_process_MLC(
         if X_test_array is not None
         else None
     )
-    print(f"{prefix}Done")
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": None,
-        },
-        "test": {
-            "y": y_test,
-            "X_instance": X_test_instance,
-            "X_target": None,
-        },
-        "val": {"y": None, "X_instance": None, "X_target": None},
-    }
+    _print_dataset_status("Done", print_mode)
+    return _dataset_bundle(
+        train=_dataset_split(y=y_train, X_instance=X_train_instance),
+        test=_dataset_split(y=y_test, X_instance=X_test_instance),
+    )
 
 
 def process_dummy_MLC(
@@ -905,55 +909,23 @@ def load_process_MTR(
     Returns:
         dict: A dictionary with all the available data for the multivariate regression dataset.
     """
-    if features_type not in {"numpy", "dataframe"}:
-        raise ValueError("features_type must be either 'numpy' or 'dataframe'.")
-    if print_mode not in {"basic", "dev"}:
-        raise ValueError("print_mode must be either 'basic' or 'dev'.")
+    _validate_array_format("features_type", features_type)
+    _validate_print_mode(print_mode)
     if dataset_name not in _MTR_DATASET_TARGETS:
         raise ValueError(f"dataset_name must be one of {sorted(_MTR_DATASET_TARGETS)}.")
     data_root = _prepare_dataset_root(path)
 
-    # The current version downloads all the datasets from a personal github repo
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
-
-    print(("info: " if print_mode == "dev" else "") + "Processing...")
-
-    """
-    +--------+------------+--------------------+----------+
-    |  name  | #instances | #instance_features | #targets |
-    +--------+------------+--------------------+----------+
-    | atp1d  |    337     |        411         |    6     |
-    | atp7d  |    296     |        411         |    6     |
-    | oes97  |    334     |        263         |    16    |
-    | oes10  |    403     |        298         |    16    |
-    |  rf1   |    9125    |         64         |    8     |
-    |  rf2   |    9125    |        576         |    8     |
-    | scm1d  |    9803    |        280         |    16    |
-    | scm20d |    8966    |         61         |    16    |
-    |  edm   |    154     |         16         |    2     |
-    |  sf1   |    323     |         10         |    3     |
-    |  sf2   |    1066    |         10         |    3     |
-    |  jura  |    359     |         15         |    3     |
-    |   wq   |    1060    |         16         |    14    |
-    |  enb   |    768     |         8          |    2     |
-    | slump  |    103     |         7          |    3     |
-    | andro  |     49     |         30         |    6     |
-    | osales |    639     |        413         |    12    |
-    |  scfp  |    1137    |         23         |    3     |
-    +--------+------------+--------------------+----------+
-    """
+    _print_dataset_status("Processing...", print_mode)
 
     dataset_path = data_root / "mtr-datasets" / f"{dataset_name}.arff"
-    if not dataset_path.is_file():  # pragma: no cover
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + "Downloading and extracting dataset from scratch... ",
+    if not dataset_path.is_file():
+        _print_dataset_status(
+            "Downloading and extracting dataset from scratch... ",
+            print_mode,
             end="",
         )
         download_and_extract_zip(_MTR_ARCHIVE_URL, data_root)
-        print(("info: " if print_mode == "dev" else "") + "Done")
+        _print_dataset_status("Done", print_mode)
     if not dataset_path.is_file():
         raise FileNotFoundError(
             f"Dataset archive did not contain the expected file: {dataset_path}."
@@ -966,26 +938,16 @@ def load_process_MTR(
     if data.ndim != 2 or data.shape[1] <= num_targets:
         raise ValueError(f"Dataset file has an invalid shape: {data.shape}.")
 
-    X_train_instance = np.array(data[:, :-num_targets])
-    if features_type == "dataframe":
-        temp_df = pd.DataFrame(np.arange(len(X_train_instance)), columns=["id"])
-        temp_df["features"] = [r for r in X_train_instance]
-        X_train_instance = temp_df
-
+    X_train_instance = _format_feature_matrix(
+        np.array(data[:, :-num_targets]),
+        features_type,
+    )
     y_train = np.array(data[:, -num_targets:])
 
-    print(("info: " if print_mode == "dev" else "") + "Done")
-
-    # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": X_train_target,
-        },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
-    }
+    _print_dataset_status("Done", print_mode)
+    return _dataset_bundle(
+        train=_dataset_split(y=y_train, X_instance=X_train_instance),
+    )
 
 
 def process_dummy_MTR(
@@ -1291,23 +1253,23 @@ def _split_dp_matrices(
             X_test_target = X_train_target[y_test_target_ids, :]
             X_train_target = X_train_target[y_train_target_ids, :]
 
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": X_train_target,
-        },
-        "test": {
-            "y": y_test,
-            "X_instance": X_test_instance,
-            "X_target": X_test_target,
-        },
-        "val": {
-            "y": y_val,
-            "X_instance": X_val_instance,
-            "X_target": X_val_target,
-        },
-    }
+    return _dataset_bundle(
+        train=_dataset_split(
+            y=y_train,
+            X_instance=X_train_instance,
+            X_target=X_train_target,
+        ),
+        val=_dataset_split(
+            y=y_val,
+            X_instance=X_val_instance,
+            X_target=X_val_target,
+        ),
+        test=_dataset_split(
+            y=y_test,
+            X_instance=X_test_instance,
+            X_target=X_test_target,
+        ),
+    )
 
 
 def load_process_DP(
@@ -1355,8 +1317,7 @@ def load_process_DP(
         raise TypeError("split_instance_features must be a boolean.")
     if not isinstance(split_target_features, bool):
         raise TypeError("split_target_features must be a boolean.")
-    if print_mode not in {"basic", "dev"}:
-        raise ValueError("print_mode must be either 'basic' or 'dev'.")
+    _validate_print_mode(print_mode)
     _random_generator(random_state)
 
     data_root = _prepare_dataset_root(path)
@@ -1382,14 +1343,17 @@ def load_process_DP(
         if not dataset_file.is_file()
     ]
 
-    prefix = "info: " if print_mode == "dev" else ""
-    print(f"{prefix}Processing...")
+    _print_dataset_status("Processing...", print_mode)
     if missing_files:
         dataset_dir.mkdir(parents=True, exist_ok=True)
-        print(f"{prefix}Downloading missing dataset files... ", end="")
+        _print_dataset_status(
+            "Downloading missing dataset files... ",
+            print_mode,
+            end="",
+        )
         for stem, destination in missing_files:
             download_file(f"{url_prefix}{stem}.txt", destination)
-        print(f"{prefix}Done")
+        _print_dataset_status("Done", print_mode)
 
     still_missing = [
         str(dataset_file)
@@ -1407,15 +1371,13 @@ def load_process_DP(
         delimiter=delimiter,
     )
     if variant == "undivided":
-        data: DatasetBundle = {
-            "train": {
-                "y": y_train,
-                "X_instance": X_train_instance,
-                "X_target": X_train_target,
-            },
-            "test": {"y": None, "X_instance": None, "X_target": None},
-            "val": {"y": None, "X_instance": None, "X_target": None},
-        }
+        data = _dataset_bundle(
+            train=_dataset_split(
+                y=y_train,
+                X_instance=X_train_instance,
+                X_target=X_train_target,
+            ),
+        )
     else:
         data = _split_dp_matrices(
             y_train,
@@ -1428,7 +1390,7 @@ def load_process_DP(
             validation_setting=validation_setting,
         )
 
-    print(f"{prefix}Done")
+    _print_dataset_status("Done", print_mode)
     return data
 
 
@@ -1565,13 +1527,13 @@ def _download_movielens_archive(
     dataset_name: str,
     print_mode: PrintMode,
 ) -> None:
-    prefix = "info: " if print_mode == "dev" else ""
-    print(
-        f"{prefix}Downloading dataset {dataset_name} from scratch... ",
+    _print_dataset_status(
+        f"Downloading dataset {dataset_name} from scratch... ",
+        print_mode,
         end="",
     )
     download_file(url, archive_path)
-    print(f"{prefix}Done")
+    _print_dataset_status("Done", print_mode)
 
 
 def load_process_MC(
@@ -1597,8 +1559,7 @@ def load_process_MC(
     """
     if dataset_name not in _MC_DATASET_URLS:
         raise ValueError(f"dataset_name must be one of {sorted(_MC_DATASET_URLS)}.")
-    if print_mode not in {"basic", "dev"}:
-        raise ValueError("print_mode must be either 'basic' or 'dev'.")
+    _validate_print_mode(print_mode)
 
     data_root = _prepare_dataset_root(path)
     base_dir = data_root / "matrix-completion-datasets"
@@ -1647,15 +1608,7 @@ def load_process_MC(
         )
 
     y_train = _load_movielens_ratings(ratings_path)
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": None,
-            "X_target": None,
-        },
-        "test": {"y": None, "X_instance": None, "X_target": None},
-        "val": {"y": None, "X_instance": None, "X_target": None},
-    }
+    return _dataset_bundle(train=_dataset_split(y=y_train))
 
 
 def load_process_MTL(
@@ -1678,14 +1631,9 @@ def load_process_MTL(
     Returns:
         dict: A dictionary with all the available data for the multi-task learning dataset.
     """
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
-
     if dataset_name not in _MTL_DATASET_NAMES:
         raise ValueError(f"dataset_name must be one of {sorted(_MTL_DATASET_NAMES)}.")
-    if print_mode not in {"basic", "dev"}:
-        raise ValueError("print_mode must be either 'basic' or 'dev'.")
+    _validate_print_mode(print_mode)
 
     data_root = _prepare_dataset_root(path)
     base_dir = data_root / "multi-task_learning-datasets"
@@ -1693,19 +1641,17 @@ def load_process_MTL(
     json_path = data_dir / "data.json"
     legacy_scores_path = data_dir / "y_dog.pkl"
 
-    if not json_path.is_file() and not legacy_scores_path.is_file():  # pragma: no cover
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + "Downloading dataset "
-            + dataset_name
-            + " from scratch... ",
+    if not json_path.is_file() and not legacy_scores_path.is_file():
+        _print_dataset_status(
+            f"Downloading dataset {dataset_name} from scratch... ",
+            print_mode,
             end="",
         )
         download_and_extract_zip(
             _MTL_ARCHIVE_URL_TEMPLATE.format(dataset_name=dataset_name),
             base_dir,
         )
-        print(("info: " if print_mode == "dev" else "") + "Done")
+        _print_dataset_status("Done", print_mode)
 
     if json_path.is_file():
         scores_matrix = _load_mtl_interaction_matrix(json_path)
@@ -1760,25 +1706,47 @@ def load_process_MTL(
         [(i, instance_ids[i]) for i in test_ids], columns=["id", "dir"]
     )
 
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": X_train_target,
-        },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
-    }
+    return _dataset_bundle(
+        train=_dataset_split(y=y_train, X_instance=X_train_instance),
+        test=_dataset_split(y=y_test, X_instance=X_test_instance),
+    )
 
 
 def generate_interaction_matrix(
     input_path: str | os.PathLike[str],
     output_path: str | os.PathLike[str],
 ) -> None:
-    """Convert annotator labels into a binary correctness matrix."""
-    y = _load_mtl_interaction_matrix(input_path)
-    with open(output_path, "wb") as output_file:
-        pickle.dump(y, output_file)
+    """Convert annotator labels into an atomically written correctness matrix."""
+    try:
+        destination = Path(output_path)
+    except TypeError as exc:
+        raise TypeError("output_path must be a string or path-like object.") from exc
+    if destination.exists() and not destination.is_file():
+        raise IsADirectoryError(f"Output path is not a file: {destination}.")
+    if destination.parent.exists() and not destination.parent.is_dir():
+        raise NotADirectoryError(
+            f"Output parent path is not a directory: {destination.parent}."
+        )
+
+    scores = _load_mtl_interaction_matrix(input_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "wb",
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as output_file:
+            temporary_path = Path(output_file.name)
+            pickle.dump(scores, output_file, protocol=pickle.HIGHEST_PROTOCOL)
+            output_file.flush()
+            os.fsync(output_file.fileno())
+        temporary_path.replace(destination)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def generate_dummy_dataset(

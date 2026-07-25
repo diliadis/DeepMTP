@@ -197,6 +197,7 @@ def test_load_process_mlc_reads_cached_published_split(tmp_path):
         ({"variant": []}, ValueError, "variant"),
         ({"features_type": "unknown"}, ValueError, "features_type"),
         ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"print_mode": []}, ValueError, "print_mode"),
         ({"path": object()}, TypeError, "path"),
     ],
 )
@@ -516,6 +517,7 @@ def test_load_process_dp_reads_cached_files_without_network(
         ({"split_instance_features": 1}, TypeError, "split_instance_features"),
         ({"split_target_features": None}, TypeError, "split_target_features"),
         ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"print_mode": []}, ValueError, "print_mode"),
         ({"random_state": True}, ValueError, "random_state"),
         ({"split_ratio": {"test": 1.0}}, ValueError, "split ratio"),
         ({"path": object()}, TypeError, "path"),
@@ -781,6 +783,7 @@ def test_load_process_mc_reads_cached_ratings_without_network(
     [
         ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
         ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"print_mode": []}, ValueError, "print_mode"),
         ({"path": object()}, TypeError, "path"),
     ],
 )
@@ -911,6 +914,7 @@ def test_load_process_mtl_reads_cached_json_without_network(
     [
         ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
         ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"print_mode": []}, ValueError, "print_mode"),
         ({"path": object()}, TypeError, "path"),
     ],
 )
@@ -999,12 +1003,34 @@ def test_load_process_mtr_reads_cached_arff_without_network(tmp_path):
     )
 
 
+def test_load_process_mtr_formats_dataframe_features_and_dev_status(
+    tmp_path,
+    capsys,
+):
+    write_mtr_dataset(tmp_path)
+
+    data = load_process_MTR(
+        tmp_path,
+        dataset_name="enb",
+        features_type="dataframe",
+        print_mode="dev",
+    )
+
+    assert data["train"]["X_instance"].columns.tolist() == ["id", "features"]
+    np.testing.assert_array_equal(
+        np.stack(data["train"]["X_instance"]["features"]),
+        np.array([[1.0, 2.0], [5.0, 6.0]]),
+    )
+    assert capsys.readouterr().out == "info: Processing...\ninfo: Done\n"
+
+
 @pytest.mark.parametrize(
     ("overrides", "exception", "message"),
     [
         ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
         ({"features_type": "unknown"}, ValueError, "features_type"),
         ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"print_mode": []}, ValueError, "print_mode"),
         ({"path": object()}, TypeError, "path"),
     ],
 )
@@ -1405,7 +1431,7 @@ def test_generate_dummy_dataset_preserves_legacy_noise_modes(
 
 def test_generate_interaction_matrix_writes_expected_scores(tmp_path):
     input_path = tmp_path / "labels.json"
-    output_path = tmp_path / "scores.pkl"
+    output_path = tmp_path / "generated" / "scores.pkl"
     input_path.write_text(
         json.dumps(
             {
@@ -1453,6 +1479,44 @@ def test_generate_interaction_matrix_reports_invalid_json(tmp_path):
 
     with pytest.raises(ValueError, match="not valid JSON"):
         generate_interaction_matrix(input_path, tmp_path / "scores.pkl")
+
+
+def test_generate_interaction_matrix_preserves_existing_output_on_write_failure(
+    monkeypatch,
+    tmp_path,
+):
+    input_path = tmp_path / "labels.json"
+    output_path = tmp_path / "scores.pkl"
+    input_path.write_text(
+        json.dumps({"true_labels": [1], "WorkerLabels": [[1, 0]]}),
+        encoding="utf-8",
+    )
+    output_path.write_bytes(b"existing output")
+
+    def fail_after_partial_write(scores, output_file, *, protocol):
+        output_file.write(b"partial output")
+        raise pickle.PicklingError("serialization failed")
+
+    monkeypatch.setattr(dataset_module.pickle, "dump", fail_after_partial_write)
+
+    with pytest.raises(pickle.PicklingError, match="serialization failed"):
+        generate_interaction_matrix(input_path, output_path)
+
+    assert output_path.read_bytes() == b"existing output"
+    assert not list(tmp_path.glob(".scores.pkl.*.tmp"))
+
+
+def test_generate_interaction_matrix_rejects_directory_output(tmp_path):
+    input_path = tmp_path / "labels.json"
+    input_path.write_text(
+        json.dumps({"true_labels": [1], "WorkerLabels": [[1]]}),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "output"
+    output_path.mkdir()
+
+    with pytest.raises(IsADirectoryError, match="not a file"):
+        generate_interaction_matrix(input_path, output_path)
 
 
 @pytest.mark.parametrize(
