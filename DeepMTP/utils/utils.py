@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import importlib
+from typing import Any
 
 from DeepMTP.config import DeepMTPConfig
 
@@ -41,40 +44,39 @@ def get_optimization_direction(metric_name: str) -> str:
 class BaseExperimentInfo:  # pragma: no cover
     """A class used to keep track of all relevant info of a given experiment. This is mainly used by the HPO methods."""
 
-    def __init__(self, config, budget):
+    def __init__(self, config: Any, budget: int | float) -> None:
         self.config = config
-        self.score = 0
+        self.score = 0.0
         self.budget = budget
-        self.info = {}
+        self.info: dict[str, Any] = {}
 
-    def update_score(self, score):
+    def update_score(self, score: float) -> None:
         self.score = score
 
-    def get_config(self):
+    def get_config(self) -> Any:
         return self.config
 
-    def get_budget(self):
+    def get_budget(self) -> int | float:
         return self.budget
 
-    def __lt__(self, other):
+    def __lt__(self, other: BaseExperimentInfo) -> bool:
         return self.score < other.score
 
-    def __le__(self, other):
+    def __le__(self, other: BaseExperimentInfo) -> bool:
         return self.score <= other.score
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, BaseExperimentInfo):
+            return NotImplemented
         return self.score == other.score
 
-    def __ne__(self, other):
-        return self.score != other.score
-
-    def __gt__(self, other):
+    def __gt__(self, other: BaseExperimentInfo) -> bool:
         return self.score > other.score
 
-    def __ge__(self, other):
+    def __ge__(self, other: BaseExperimentInfo) -> bool:
         return self.score >= other.score
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             "config: "
             + str(self.config)

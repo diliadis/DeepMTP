@@ -1,6 +1,11 @@
-import os
-from datetime import datetime
+from __future__ import annotations
 
+from collections.abc import Mapping
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from DeepMTP.hpo_types import HPOConfiguration, HPOWorkerResult
 from DeepMTP.main import DeepMTP
 from DeepMTP.utils.utils import generate_config
 
@@ -10,44 +15,41 @@ class BaseWorker:
 
     def __init__(
         self,
-        train,
-        val,
-        test,
-        data_info,
-        base_config,
-        metric_to_optimize,
-        mode="standard",
-    ):
-        if not os.path.exists(base_config["hpo_results_path"]):  # pragma: no cover
-            os.mkdir(base_config["hpo_results_path"])
+        train: Any,
+        val: Any,
+        test: Any,
+        data_info: Any,
+        base_config: Mapping[str, Any],
+        metric_to_optimize: str,
+        mode: str = "standard",
+    ) -> None:
+        results_path = Path(base_config["hpo_results_path"])
+        results_path.mkdir(parents=True, exist_ok=True)
+        project_path = results_path / datetime.now().strftime("%d_%m_%Y__%H_%M_%S")
+        project_path.mkdir(exist_ok=True)
+        self.project_name = str(project_path)
 
-        self.project_name = (
-            base_config["hpo_results_path"]
-            + datetime.now().strftime("%d_%m_%Y__%H_%M_%S")
-            + "/"
-        )
-        if not os.path.exists(self.project_name):  # pragma: no cover
-            os.mkdir(self.project_name)
-
-        self.config_to_model = {}
-        self.older_model_dir = None
-        self.current_model_dir = None
-        self.older_model_budget = None
-        self.older_model = None
+        self.config_to_model: dict[
+            tuple[tuple[str, Any], ...],
+            dict[str, Any],
+        ] = {}
+        self.older_model_dir: str | None = None
+        self.current_model_dir: str | None = None
+        self.older_model_budget: int | None = None
+        self.older_model: Any = None
         self.optimize = metric_to_optimize
 
         self.train = train
         self.val = val
         self.test = test
 
-        self.base_config = base_config
+        self.base_config = dict(base_config)
 
-        if mode not in ["standard", "streamlit"]:  # pragma: no cover
-            raise Exception(
+        if mode not in {"standard", "streamlit"}:
+            raise ValueError(
                 "Invalid mode value for the BaseWorker (select between standard and streamlit)"
             )
-        else:
-            self.mode = mode
+        self.mode = mode
         self.trainer_type: type[DeepMTP]
         if mode == "streamlit":
             from DeepMTP.main_streamlit import DeepMTP as StreamlitDeepMTP
@@ -56,9 +58,13 @@ class BaseWorker:
         else:
             self.trainer_type = DeepMTP
 
-    def compute(self, budget, config):  # pragma: no cover
+    def compute(
+        self,
+        budget: int | float,
+        config: HPOConfiguration,
+    ) -> HPOWorkerResult:  # pragma: no cover
         """The input parameter 'config' (dictionary) contains the sampled configurations passed by the bohb optimizer"""
-        current_config = self.base_config.copy()
+        current_config: dict[str, Any] = self.base_config.copy()
         temp_config = dict(config)
         original_budget = int(budget)
         current_time = datetime.now().strftime("%d_%m_%Y__%H_%M_%S")
@@ -110,9 +116,9 @@ class BaseWorker:
             self.older_model_dir = self.config_to_model[model_config_key]["model_dir"][
                 -1
             ]
-            self.older_model_budget = self.config_to_model[model_config_key]["budget"][
-                -1
-            ]
+            self.older_model_budget = int(
+                self.config_to_model[model_config_key]["budget"][-1]
+            )
             budget = budget - self.older_model_budget
         else:
             self.config_to_model[model_config_key] = {
@@ -158,10 +164,11 @@ class BaseWorker:
         # json.dump(self.config_to_model, output_file)
         # output_file.close()
 
+        optimized_metric = (
+            "val_" + self.optimize if "val" not in self.optimize else self.optimize
+        )
         return {
-            "loss": val_results[
-                "val_" + self.optimize if "val" not in self.optimize else self.optimize
-            ],  # remember: always minimizes!
+            "loss": float(val_results[optimized_metric]),  # always minimizes
             "info": {
                 "model_dir": self.config_to_model[model_config_key]["model_dir"][-1],
                 "config": current_config,

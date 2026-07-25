@@ -1,11 +1,21 @@
 import math
-from typing import Any
+from typing import TypedDict
 
 from DeepMTP.hpo_progress import (
     HPOProgressEvent,
+    HPOProgressObserver,
     build_hpo_progress_observer,
 )
+from DeepMTP.hpo_types import ConfigurationSpace, HPOWorker
 from DeepMTP.utils.utils import BaseExperimentInfo
+
+
+class HyperbandBracket(TypedDict):
+    """Configuration counts and budgets for one Hyperband bracket."""
+
+    n_i: list[int]
+    r_i: list[int]
+    num_iters: int
 
 
 class HyperBand:
@@ -13,14 +23,21 @@ class HyperBand:
 
     def __init__(
         self,
-        base_worker,
-        configspace,
-        eta=3,
-        max_budget=1,
-        direction="min",
-        verbose=False,
-        progress=None,
-    ):
+        base_worker: HPOWorker,
+        configspace: ConfigurationSpace,
+        eta: int = 3,
+        max_budget: int = 1,
+        direction: str = "min",
+        verbose: bool = False,
+        progress: HPOProgressObserver | None = None,
+    ) -> None:
+        if eta <= 1:
+            raise ValueError("eta must be greater than 1.")
+        if max_budget < 1:
+            raise ValueError("max_budget must be at least 1.")
+        if direction not in {"min", "max"}:
+            raise ValueError("direction must be either 'min' or 'max'.")
+
         self.base_worker = base_worker
         self.configspace = configspace
         self.verbose = verbose
@@ -37,14 +54,20 @@ class HyperBand:
         self.budgets_per_bracket = self.calculate_hyperband_iters(
             R=self.max_budget, eta=eta, verbose=False
         )
-        self.best_experiments_per_bracket = {}
-        self.experiment_history = {}
+        self.best_experiments_per_bracket: dict[int, BaseExperimentInfo] = {}
+        self.experiment_history: dict[
+            int,
+            dict[int, list[BaseExperimentInfo]],
+        ] = {}
+        self.configs_to_evaluate: list[BaseExperimentInfo] = []
         # self.starting_configs_per_bracket = {num_configs:[BaseExperimentInfo(config=configspace.sample_configuration(), budget=d['r_i'][0]) for c in range(num_configs)] for num_configs, d in self.budgets_per_bracket.items()}
 
-    def get_run_summary(self):  # pragma: no cover
+    def get_run_summary(
+        self,
+    ) -> dict[int, dict[int, list[BaseExperimentInfo]]]:  # pragma: no cover
         return self.experiment_history
 
-    def run_optimizer(self):  # pragma: no cover
+    def run_optimizer(self) -> BaseExperimentInfo:  # pragma: no cover
         # iterate over the calculated brackets
         total_brackets = len(self.budgets_per_bracket)
         self.progress.on_event(
@@ -146,8 +169,13 @@ class HyperBand:
         self.progress.on_event(HPOProgressEvent("optimizer_completed"))
         return best_overall_config
 
-    def calculate_hyperband_iters(self, R, eta, verbose=False):
-        result_dict: dict[int, dict[str, Any]] = {}
+    def calculate_hyperband_iters(
+        self,
+        R: int,
+        eta: int,
+        verbose: bool = False,
+    ) -> dict[int, HyperbandBracket]:
+        result_dict: dict[int, HyperbandBracket] = {}
         smax = math.floor(math.log(R, eta))
         B = (smax + 1) * R
         if verbose:  # pragma: no cover

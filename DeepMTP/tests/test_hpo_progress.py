@@ -1,3 +1,5 @@
+import pytest
+
 from DeepMTP.random_search import RandomSearch
 from DeepMTP.simple_hyperband import HyperBand
 
@@ -53,6 +55,7 @@ def test_random_search_emits_shared_progress_events():
         "configuration_completed",
         "optimizer_completed",
     ]
+    assert optimizer.get_run_summary() == {1: best, 2: optimizer.configs_to_evaluate[1]}
 
 
 def test_hyperband_emits_shared_progress_events():
@@ -76,3 +79,29 @@ def test_hyperband_emits_shared_progress_events():
         "configuration_completed",
         "optimizer_completed",
     ]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"budget": 0}, "budget"),
+        ({"max_num_epochs": 0}, "max_num_epochs"),
+        ({"direction": "sideways"}, "direction"),
+    ],
+)
+def test_random_search_rejects_invalid_parameters(overrides, message):
+    with pytest.raises(ValueError, match=message):
+        RandomSearch(FakeWorker(), FakeConfigSpace(), **overrides)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"eta": 1}, "eta"),
+        ({"max_budget": 0}, "max_budget"),
+        ({"direction": "sideways"}, "direction"),
+    ],
+)
+def test_hyperband_rejects_invalid_parameters(overrides, message):
+    with pytest.raises(ValueError, match=message):
+        HyperBand(FakeWorker(), FakeConfigSpace(), **overrides)

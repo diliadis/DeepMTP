@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 from DeepMTP.hpo_progress import (
     HPOProgressEvent,
+    HPOProgressObserver,
     build_hpo_progress_observer,
 )
+from DeepMTP.hpo_types import ConfigurationSpace, HPOWorker
 from DeepMTP.utils.utils import BaseExperimentInfo
 
 
@@ -10,30 +14,37 @@ class RandomSearch:
 
     def __init__(
         self,
-        base_worker,
-        configspace,
-        budget=1,
-        max_num_epochs=100,
-        direction="min",
-        verbose=False,
-        progress=None,
-    ):
+        base_worker: HPOWorker,
+        configspace: ConfigurationSpace,
+        budget: int = 1,
+        max_num_epochs: int = 100,
+        direction: str = "min",
+        verbose: bool = False,
+        progress: HPOProgressObserver | None = None,
+    ) -> None:
+        if budget < 1:
+            raise ValueError("budget must be at least 1.")
+        if max_num_epochs < 1:
+            raise ValueError("max_num_epochs must be at least 1.")
+        if direction not in {"min", "max"}:
+            raise ValueError("direction must be either 'min' or 'max'.")
+
         self.base_worker = base_worker
         self.configspace = configspace
         self.verbose = verbose
         self.direction = direction
         self.budget = budget
         self.max_num_epochs = max_num_epochs
-        self.experiment_history = {}
+        self.experiment_history: dict[int, BaseExperimentInfo] = {}
+        self.configs_to_evaluate: list[BaseExperimentInfo] = []
         self.progress = (
             progress if progress is not None else build_hpo_progress_observer(verbose)
         )
 
-    def get_run_summary(self):  # pragma: no cover
+    def get_run_summary(self) -> dict[int, BaseExperimentInfo]:  # pragma: no cover
         return self.experiment_history
 
-    def run_optimizer(self):  # pragma: no cover
-
+    def run_optimizer(self) -> BaseExperimentInfo:  # pragma: no cover
         self.configs_to_evaluate = [
             BaseExperimentInfo(
                 config=self.configspace.sample_configuration(),
@@ -75,6 +86,10 @@ class RandomSearch:
             key=lambda x: x.score,
             reverse=self.direction != "min",
         )
+        self.experiment_history = {
+            index: experiment
+            for index, experiment in enumerate(self.configs_to_evaluate, start=1)
+        }
 
         best_overall_config = self.configs_to_evaluate[0]
         best_overall_config.info["config"]["experiment_name"] = "best_model"
