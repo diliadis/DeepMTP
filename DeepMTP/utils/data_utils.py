@@ -2,7 +2,7 @@ import copy
 import warnings
 from collections.abc import Mapping, MutableMapping
 from itertools import combinations
-from typing import Any, Literal, Protocol, TypeAlias, TypedDict
+from typing import Any, Literal, Protocol, TypeAlias, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,18 @@ pd.set_option("mode.chained_assignment", None)
 
 VariableType: TypeAlias = Literal["binary", "real-valued"]
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
+ScalingMethod: TypeAlias = Literal["MinMax", "Standard"]
 DatasetMapping: TypeAlias = Mapping[str, Any]
+ProcessedSplit: TypeAlias = dict[str, Any]
+
+
+class DataInfo(TypedDict):
+    """Metadata inferred while preparing a multi-target dataset."""
+
+    detected_validation_setting: ValidationSetting
+    detected_problem_mode: Literal["classification", "regression"]
+    instance_branch_input_dim: int | None
+    target_branch_input_dim: int | None
 
 
 class InteractionInfo(TypedDict):
@@ -1703,18 +1714,134 @@ def split_data(
     _validate_split_result(data, validation_setting)
 
 
+def _prepare_dataset_mapping(data: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(data, Mapping):
+        raise TypeError("data must be a mapping.")
+    if "train" not in data:
+        raise AttributeError(
+            "The train key-value pair should always be present in the custom data "
+            "object"
+        )
+
+    prepared_data = copy.deepcopy(dict(data))
+    for mode in ("train", "val", "test"):
+        source = prepared_data.get(mode, {})
+        if not isinstance(source, Mapping):
+            raise TypeError(f"data[{mode!r}] must be a mapping.")
+        prepared_source = dict(source)
+        for source_key in ("y", "X_instance", "X_target"):
+            prepared_source.setdefault(source_key, None)
+        prepared_data[mode] = prepared_source
+    return prepared_data
+
+
+def _normalize_validation_setting(
+    validation_setting: str | None,
+) -> ValidationSetting | None:
+    if validation_setting is None:
+        return None
+    if not isinstance(validation_setting, str):
+        raise TypeError("validation_setting must be a string or None.")
+
+    normalized_setting = validation_setting.upper()
+    if normalized_setting == "A":
+        return "A"
+    if normalized_setting == "B":
+        return "B"
+    if normalized_setting == "C":
+        return "C"
+    if normalized_setting == "D":
+        return "D"
+    raise ValueError(f"Unknown validation setting: {validation_setting!r}.")
+
+
+def _normalize_scaling_method(
+    scaling_method: str | None,
+    parameter_name: str,
+) -> ScalingMethod | None:
+    if scaling_method is None:
+        return None
+    if scaling_method == "MinMax":
+        return "MinMax"
+    if scaling_method == "Standard":
+        return "Standard"
+    raise ValueError(
+        f"{parameter_name} must be 'MinMax', 'Standard', or None; "
+        f"received {scaling_method!r}."
+    )
+
+
+def _scale_feature_splits(
+    data: MutableMapping[str, Any],
+    feature_key: Literal["X_instance", "X_target"],
+    entity_name: Literal["instance", "target"],
+    scaling_method: ScalingMethod | None,
+    *,
+    verbose: bool,
+    print_mode: str,
+) -> None:
+    if scaling_method is None:
+        return
+
+    train_source = data["train"][feature_key]
+    if train_source is None:
+        if verbose:
+            print(
+                ("warning: " if print_mode == "dev" else "")
+                + f"-- Requested {scaling_method} scaling for the {entity_name} "
+                f"features without supplying any {entity_name} features. This "
+                "step will be skipped"
+            )
+        return
+
+    train_frame = train_source["data"]
+    if "features" not in train_frame.columns:
+        if verbose:
+            print(
+                ("warning: " if print_mode == "dev" else "")
+                + f"-- Requested {scaling_method} scaling for the {entity_name} "
+                "features while supplying images. This step will be skipped"
+            )
+        return
+
+    if verbose:
+        print(
+            ("info: " if print_mode == "dev" else "")
+            + f"Scaling {entity_name} features... ",
+            end="",
+        )
+
+    scaler = MinMaxScaler() if scaling_method == "MinMax" else StandardScaler()
+    scaler.fit(np.stack(train_frame["features"].to_numpy()))
+    for mode in ("train", "val", "test"):
+        source = data[mode][feature_key]
+        if source is None:
+            raise ValueError(
+                f"{entity_name.capitalize()} features are missing from the {mode} "
+                "split after splitting."
+            )
+        feature_frame = source["data"]
+        feature_frame["features"] = feature_frame.apply(
+            lambda row: normalize(row["features"], scaler),
+            axis=1,
+        )
+
+    if verbose:
+        print(("info: " if print_mode == "dev" else "") + "Done")
+
+
 def data_process(
-    data,
-    validation_setting=None,
-    split_method="random",
-    ratio=None,
-    shuffle=True,
-    seed=42,
-    verbose=False,
-    print_mode="basic",
-    scale_instance_features=None,
-    scale_target_features=None,
-):
+    data: Mapping[str, Any],
+    validation_setting: str | None = None,
+    split_method: str = "random",
+    ratio: object = None,
+    shuffle: bool = True,
+    seed: int | None = 42,
+    verbose: bool = False,
+    print_mode: str = "basic",
+    scale_instance_features: str | None = None,
+    scale_target_features: str | None = None,
+) -> tuple[ProcessedSplit, ProcessedSplit, ProcessedSplit, DataInfo]:
     """The main function that handles all the preprocessing steps and checks needed to prepare the dataset to be used by the model.
 
     Args:
@@ -1732,47 +1859,23 @@ def data_process(
     Returns:
         dict, dict, dict, dict: Four different dictionaries containing:
             * Train processed data
-            * Test processed data
             * Validation processed data
+            * Test processed data
             * general information about the datasets
     """
-    data = copy.deepcopy(data)
-    ratio = {"train": 0.7, "test": 0.2, "val": 0.1} if ratio is None else dict(ratio)
-    if validation_setting is not None:
-        validation_setting = validation_setting.upper()
-
-    # the user doesn't have to explicitly add any of the train, val, test key-value pairs in the custom data object. The same rule applies at the y, X_instance and X_target level
-    if "train" not in data:
-        raise AttributeError(
-            "The train key-value pair should always be present in the custom data object"
-        )
-    else:
-        if "y" not in data["train"]:
-            data["train"]["y"] = None
-        if "X_instance" not in data["train"]:
-            data["train"]["X_instance"] = None
-        if "X_target" not in data["train"]:
-            data["train"]["X_target"] = None
-
-    if "test" not in data:
-        data["test"] = {"y": None, "X_instance": None, "X_target": None}
-    else:
-        if "y" not in data["test"]:
-            data["test"]["y"] = None
-        if "X_instance" not in data["test"]:
-            data["test"]["X_instance"] = None
-        if "X_target" not in data["test"]:
-            data["test"]["X_target"] = None
-
-    if "val" not in data:
-        data["val"] = {"y": None, "X_instance": None, "X_target": None}
-    else:
-        if "y" not in data["val"]:
-            data["val"]["y"] = None
-        if "X_instance" not in data["val"]:
-            data["val"]["X_instance"] = None
-        if "X_target" not in data["val"]:
-            data["val"]["X_target"] = None
+    data = _prepare_dataset_mapping(data)
+    ratio = validate_split_ratio(
+        {"train": 0.7, "test": 0.2, "val": 0.1} if ratio is None else ratio
+    )
+    validation_setting = _normalize_validation_setting(validation_setting)
+    instance_scaling_method = _normalize_scaling_method(
+        scale_instance_features,
+        "scale_instance_features",
+    )
+    target_scaling_method = _normalize_scaling_method(
+        scale_target_features,
+        "scale_target_features",
+    )
 
     # check if at least one train dataset exists (Can be only the y_train)
     if data["train"]["y"] is None:
@@ -1832,7 +1935,7 @@ def data_process(
         elif validation_setting == "C" and data["train"]["X_target"] is None:
             raise ValueError(
                 ("error: " if print_mode == "dev" else "")
-                + "Specified validation setting C without supplying instance features"
+                + "Specified validation setting C without supplying target features"
             )
         elif validation_setting == "D" and data["train"]["X_instance"] is None:
             raise ValueError(
@@ -1865,7 +1968,8 @@ def data_process(
         data, verbose=verbose, print_mode=print_mode
     )
 
-    print("")
+    if verbose:
+        print()
     # get the type of the target variable.
     target_variable_type = check_target_variable_type(
         data, verbose=verbose, print_mode=print_mode
@@ -1924,7 +2028,8 @@ def data_process(
     validation_setting_detected = get_estimated_validation_setting(
         novel_instances, novel_targets, verbose, print_mode=print_mode
     )
-    print("")
+    if verbose:
+        print()
 
     # process the instance features
     data["train"]["X_instance"] = process_instance_features(
@@ -1947,7 +2052,8 @@ def data_process(
         data["val"]["X_target"], verbose=verbose, print_mode=print_mode
     )
 
-    print("")
+    if verbose:
+        print()
     if validation_setting is None:
         if validation_setting_detected is not None:
             validation_setting = validation_setting_detected
@@ -1957,7 +2063,7 @@ def data_process(
                 + "Validation setting was both not provided and not detected"
             )
     else:
-        if validation_setting_detected == "D":
+        if verbose and validation_setting_detected == "D":
             print(
                 ("info: " if print_mode == "dev" else "")
                 + "Detected validation setting D as a possibility but will use the one defined by the user: setting "
@@ -1966,26 +2072,25 @@ def data_process(
         # elif validation_setting_detected != validation_setting:
         #     raise ValueError('Mismatch between the auto-detected validation setting and the one defined by the user --> User: '+validation_setting+' != Auto-detected: '+validation_setting_detected)
 
-    data["info"] = {"detected_validation_setting": validation_setting}
-    data["info"]["detected_problem_mode"] = (
-        "classification" if target_variable_type == "binary" else "regression"
-    )
     if data["train"]["X_instance"] is not None:
-        data["info"]["instance_branch_input_dim"] = data["train"]["X_instance"][
-            "num_features"
-        ]
+        instance_branch_input_dim = data["train"]["X_instance"]["num_features"]
     else:
-        data["info"]["instance_branch_input_dim"] = len(
+        instance_branch_input_dim = len(
             data["train"]["y"]["data"]["instance_id"].unique()
         )
     if data["train"]["X_target"] is not None:
-        data["info"]["target_branch_input_dim"] = data["train"]["X_target"][
-            "num_features"
-        ]
+        target_branch_input_dim = data["train"]["X_target"]["num_features"]
     else:
-        data["info"]["target_branch_input_dim"] = len(
-            data["train"]["y"]["data"]["target_id"].unique()
-        )
+        target_branch_input_dim = len(data["train"]["y"]["data"]["target_id"].unique())
+    data_info: DataInfo = {
+        "detected_validation_setting": validation_setting,
+        "detected_problem_mode": (
+            "classification" if target_variable_type == "binary" else "regression"
+        ),
+        "instance_branch_input_dim": instance_branch_input_dim,
+        "target_branch_input_dim": target_branch_input_dim,
+    }
+    data["info"] = data_info
 
     cross_input_consistency_check_instances(
         data, validation_setting, verbose, print_mode=print_mode
@@ -1994,7 +2099,8 @@ def data_process(
         data, validation_setting, verbose, print_mode=print_mode
     )
 
-    print("")
+    if verbose:
+        print()
     split_data(
         data,
         validation_setting=validation_setting,
@@ -2006,109 +2112,29 @@ def data_process(
         print_mode=print_mode,
     )
 
-    if scale_instance_features is not None:
-        if scale_instance_features == "MinMax":
-            instance_scaler = MinMaxScaler()
-        elif scale_instance_features == "Standard":
-            instance_scaler = StandardScaler()
+    _scale_feature_splits(
+        data,
+        "X_instance",
+        "instance",
+        instance_scaling_method,
+        verbose=verbose,
+        print_mode=print_mode,
+    )
+    _scale_feature_splits(
+        data,
+        "X_target",
+        "target",
+        target_scaling_method,
+        verbose=verbose,
+        print_mode=print_mode,
+    )
 
-        if data["train"]["X_instance"] is not None:
-            if "features" in data["train"]["X_instance"]["data"].columns:
-                if verbose:
-                    print(
-                        ("info: " if print_mode == "dev" else "")
-                        + "Scaling instance features... ",
-                        end="",
-                    )
-                # fit the instance features scaler
-                instance_scaler.fit(
-                    np.stack(data["train"]["X_instance"]["data"]["features"].to_numpy())
-                )
-                # transform the instance features for the train,val and test sets
-                data["train"]["X_instance"]["data"]["features"] = data["train"][
-                    "X_instance"
-                ]["data"].apply(
-                    lambda row: normalize(row["features"], instance_scaler), axis=1
-                )
-                data["val"]["X_instance"]["data"]["features"] = data["val"][
-                    "X_instance"
-                ]["data"].apply(
-                    lambda row: normalize(row["features"], instance_scaler), axis=1
-                )
-                data["test"]["X_instance"]["data"]["features"] = data["test"][
-                    "X_instance"
-                ]["data"].apply(
-                    lambda row: normalize(row["features"], instance_scaler), axis=1
-                )
-                if verbose:
-                    print(("info: " if print_mode == "dev" else "") + "Done")
-            else:
-                if verbose:
-                    print(
-                        ("warning: " if print_mode == "dev" else "")
-                        + "-- Requested "
-                        + scale_instance_features
-                        + " scaling for the instance features while supplying images. This step will be skipped"
-                    )
-        else:
-            if verbose:
-                print(
-                    ("warning: " if print_mode == "dev" else "")
-                    + "-- Requested "
-                    + scale_instance_features
-                    + " scaling for the instance features without supplying any instance features. This step will be skipped"
-                )
-
-    if scale_target_features is not None:
-        if scale_target_features == "MinMax":
-            target_scaler = MinMaxScaler()
-        elif scale_target_features == "Standard":
-            target_scaler = StandardScaler()
-
-        if data["train"]["X_target"] is not None:
-            if "features" in data["train"]["X_target"]["data"].columns:
-                if verbose:
-                    print(
-                        ("info: " if print_mode == "dev" else "")
-                        + "Scaling target features... ",
-                        end="",
-                    )
-                # fit the instance features scaler
-                target_scaler.fit(
-                    np.stack(data["train"]["X_target"]["data"]["features"].to_numpy())
-                )
-                # transform the instance features for the train,val and test sets
-                data["train"]["X_target"]["data"]["features"] = data["train"][
-                    "X_target"
-                ]["data"].apply(
-                    lambda row: normalize(row["features"], target_scaler), axis=1
-                )
-                data["val"]["X_target"]["data"]["features"] = data["val"]["X_target"][
-                    "data"
-                ].apply(lambda row: normalize(row["features"], target_scaler), axis=1)
-                data["test"]["X_target"]["data"]["features"] = data["test"]["X_target"][
-                    "data"
-                ].apply(lambda row: normalize(row["features"], target_scaler), axis=1)
-                if verbose:
-                    print(("info: " if print_mode == "dev" else "") + "Done")
-            else:
-                if verbose:
-                    print(
-                        ("warning: " if print_mode == "dev" else "")
-                        + "-- Requested "
-                        + scale_target_features
-                        + " scaling for the target features while supplying images. This step will be skipped"
-                    )
-        else:
-            if verbose:
-                print(
-                    ("warning: " if print_mode == "dev" else "")
-                    + "-- Requested "
-                    + scale_target_features
-                    + " scaling for the target features without supplying any target features. This step will be skipped"
-                )
-
-    return data["train"], data["val"], data["test"], data["info"]
+    return (
+        cast(ProcessedSplit, data["train"]),
+        cast(ProcessedSplit, data["val"]),
+        cast(ProcessedSplit, data["test"]),
+        data_info,
+    )
 
 
 '''

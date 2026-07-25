@@ -3137,6 +3137,94 @@ def test_data_process_default_ratio_is_reusable():
     assert first_split_sizes == second_split_sizes
 
 
+def make_data_process_scaling_data():
+    return {
+        "train": {
+            "y": np.tile(np.array([[0, 1]]), (8, 1)),
+            "X_instance": np.arange(8, dtype=float).reshape(-1, 1),
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    "parameter_name",
+    ["scale_instance_features", "scale_target_features"],
+)
+def test_data_process_rejects_unknown_scalers(parameter_name):
+    kwargs = {parameter_name: "Robust"}
+
+    with pytest.raises(ValueError, match=parameter_name):
+        data_process(
+            make_data_process_scaling_data(),
+            validation_setting="B",
+            **kwargs,
+        )
+
+
+def test_data_process_normalizes_and_validates_validation_setting():
+    _, _, _, info = data_process(
+        make_data_process_scaling_data(),
+        validation_setting="b",
+    )
+    assert info["detected_validation_setting"] == "B"
+
+    with pytest.raises(ValueError, match="validation setting"):
+        data_process(
+            make_data_process_scaling_data(),
+            validation_setting="unknown",
+        )
+
+
+def test_data_process_rejects_non_mapping_splits():
+    with pytest.raises(TypeError, match=r"data\['train'\] must be a mapping"):
+        data_process({"train": []}, validation_setting="A")
+
+
+def test_data_process_is_silent_when_verbose_is_disabled(capsys):
+    data_process(
+        make_data_process_scaling_data(),
+        validation_setting="B",
+        verbose=False,
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+def test_data_process_fits_scaler_on_training_features_only():
+    data = make_data_process_scaling_data()
+    original_features = data["train"]["X_instance"].copy()
+
+    train, val, test, _ = data_process(
+        data,
+        validation_setting="B",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=False,
+        seed=999,
+        scale_instance_features="Standard",
+    )
+
+    training_values = np.arange(4, dtype=float)
+    training_mean = training_values.mean()
+    training_scale = training_values.std()
+    for split in (train, val, test):
+        feature_frame = split["X_instance"]["data"].sort_values("id")
+        actual_values = np.stack(feature_frame["features"])[:, 0]
+        expected_values = (feature_frame["id"].to_numpy() - training_mean) / (
+            training_scale
+        )
+        np.testing.assert_allclose(actual_values, expected_values)
+
+    np.testing.assert_array_equal(data["train"]["X_instance"], original_features)
+
+
+def test_data_process_setting_c_error_names_missing_target_features():
+    with pytest.raises(ValueError, match="target features"):
+        data_process(
+            make_data_process_scaling_data(),
+            validation_setting="C",
+        )
+
+
 @pytest.mark.parametrize(
     "ratio",
     [
