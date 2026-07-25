@@ -126,7 +126,7 @@ def test_load_process_MTR(test_load_process_MTR_data):
     dataset_name = test_load_process_MTR_data["dataset_name"]
 
     if pass_fail == "fail":
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValueError):
             data = load_process_MTR(
                 path="./data",
                 dataset_name=dataset_name,

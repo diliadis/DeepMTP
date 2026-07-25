@@ -4,14 +4,135 @@ import pickle
 import numpy as np
 import pytest
 
+import DeepMTP.dataset as dataset_module
 from DeepMTP.dataset import (
     generate_dummy_dataset,
     generate_interaction_matrix,
     generate_MTP_dataset,
+    load_process_MTR,
     process_dummy_DP,
     process_dummy_MLC,
     process_dummy_MTR,
 )
+
+
+def write_mtr_dataset(root, content=None):
+    dataset_dir = root / "mtr-datasets"
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    dataset_path = dataset_dir / "enb.arff"
+    dataset_path.write_text(
+        content
+        or """
+@RELATION enb
+@ATTRIBUTE feature_1 NUMERIC
+@ATTRIBUTE feature_2 NUMERIC
+@ATTRIBUTE target_1 NUMERIC
+@ATTRIBUTE target_2 NUMERIC
+@DATA
+1,2,3,4
+5,6,7,8
+""".strip(),
+        encoding="utf-8",
+    )
+    return dataset_path
+
+
+def test_load_process_mtr_reads_cached_arff_without_network(tmp_path):
+    write_mtr_dataset(tmp_path)
+
+    data = load_process_MTR(tmp_path, dataset_name="enb")
+
+    np.testing.assert_array_equal(
+        data["train"]["X_instance"],
+        np.array([[1.0, 2.0], [5.0, 6.0]]),
+    )
+    np.testing.assert_array_equal(
+        data["train"]["y"],
+        np.array([[3.0, 4.0], [7.0, 8.0]]),
+    )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "exception", "message"),
+    [
+        ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
+        ({"features_type": "unknown"}, ValueError, "features_type"),
+        ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"path": object()}, TypeError, "path"),
+    ],
+)
+def test_load_process_mtr_validates_arguments_before_download(
+    monkeypatch,
+    tmp_path,
+    overrides,
+    exception,
+    message,
+):
+    def unexpected_download(*args, **kwargs):
+        raise AssertionError("invalid arguments must not trigger a download")
+
+    monkeypatch.setattr(
+        dataset_module,
+        "download_and_extract_zip",
+        unexpected_download,
+    )
+    arguments = {"path": tmp_path, "dataset_name": "enb"}
+    arguments.update(overrides)
+
+    with pytest.raises(exception, match=message):
+        load_process_MTR(**arguments)
+
+
+def test_load_process_mtr_rejects_file_as_dataset_root(tmp_path):
+    dataset_root = tmp_path / "not-a-directory"
+    dataset_root.write_text("content", encoding="utf-8")
+
+    with pytest.raises(NotADirectoryError, match="not a directory"):
+        load_process_MTR(dataset_root)
+
+
+def test_load_process_mtr_repairs_incomplete_cache(monkeypatch, tmp_path):
+    (tmp_path / "mtr-datasets").mkdir()
+    calls = []
+
+    def download(url, destination):
+        calls.append((url, destination))
+        write_mtr_dataset(destination)
+
+    monkeypatch.setattr(dataset_module, "download_and_extract_zip", download)
+
+    data = load_process_MTR(tmp_path)
+
+    assert len(calls) == 1
+    assert data["train"]["y"].shape == (2, 2)
+
+
+def test_load_process_mtr_reports_missing_downloaded_dataset(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        dataset_module,
+        "download_and_extract_zip",
+        lambda url, destination: None,
+    )
+
+    with pytest.raises(FileNotFoundError, match="expected file"):
+        load_process_MTR(tmp_path)
+
+
+def test_load_process_mtr_rejects_invalid_dataset_shape(tmp_path):
+    write_mtr_dataset(
+        tmp_path,
+        """
+@RELATION enb
+@ATTRIBUTE target_1 NUMERIC
+@ATTRIBUTE target_2 NUMERIC
+@DATA
+1,2
+3,4
+""".strip(),
+    )
+
+    with pytest.raises(ValueError, match="invalid shape"):
+        load_process_MTR(tmp_path)
 
 
 def test_generate_mtp_dataset_splits_without_side_features():

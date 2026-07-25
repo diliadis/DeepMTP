@@ -7,6 +7,7 @@ import pickle
 import zipfile
 from collections.abc import Mapping
 from numbers import Real
+from pathlib import Path
 from typing import Literal, TypeAlias, TypedDict
 
 import arff
@@ -19,6 +20,7 @@ from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
 from skmultilearn.dataset import available_data_sets, load_dataset
 
+from DeepMTP._download_utils import download_and_extract_zip
 from DeepMTP._split_utils import (
     partition_ordered_ids as _partition_ids,
 )
@@ -30,6 +32,28 @@ ArrayFormat: TypeAlias = Literal["numpy", "dataframe"]
 DatasetVariant: TypeAlias = Literal["undivided", "divided"]
 PrintMode: TypeAlias = Literal["basic", "dev"]
 DatasetValue: TypeAlias = np.ndarray | pd.DataFrame | None
+
+_MTR_ARCHIVE_URL = "https://github.com/diliadis/MTR/blob/main/mtr-datasets.zip?raw=true"
+_MTR_DATASET_TARGETS = {
+    "atp1d": 6,
+    "atp7d": 6,
+    "oes97": 16,
+    "oes10": 16,
+    "rf1": 8,
+    "rf2": 8,
+    "scm1d": 16,
+    "scm20d": 16,
+    "edm": 2,
+    "sf1": 3,
+    "sf2": 3,
+    "jura": 3,
+    "wq": 14,
+    "enb": 2,
+    "slump": 3,
+    "andro": 6,
+    "osales": 12,
+    "scpf": 3,
+}
 
 
 class DatasetSplit(TypedDict):
@@ -332,7 +356,7 @@ def process_dummy_MLC(
 
 
 def load_process_MTR(
-    path: str = "./data",
+    path: str | os.PathLike[str] = "./data",
     dataset_name: str = "enb",
     features_type: ArrayFormat = "numpy",
     print_mode: PrintMode = "basic",
@@ -346,16 +370,26 @@ def load_process_MTR(
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     Raises:
-        AttributeError: if the dataset_name doesn't exist in the mulan repository
+        ValueError: If a public option or downloaded dataset is invalid.
+        DatasetDownloadError: If the dataset archive cannot be downloaded safely.
+        FileNotFoundError: If the archive does not contain the requested dataset.
 
     Returns:
         dict: A dictionary with all the available data for the multivariate regression dataset.
     """
-    if features_type not in ["numpy", "dataframe"]:
-        raise AttributeError(
-            "Please use one of the valid features_type values: "
-            + str(["numpy", "dataframe"])
-        )
+    if features_type not in {"numpy", "dataframe"}:
+        raise ValueError("features_type must be either 'numpy' or 'dataframe'.")
+    if print_mode not in {"basic", "dev"}:
+        raise ValueError("print_mode must be either 'basic' or 'dev'.")
+    if dataset_name not in _MTR_DATASET_TARGETS:
+        raise ValueError(f"dataset_name must be one of {sorted(_MTR_DATASET_TARGETS)}.")
+    try:
+        data_root = Path(path)
+    except TypeError as exc:
+        raise TypeError("path must be a string or path-like object.") from exc
+    if data_root.exists() and not data_root.is_dir():
+        raise NotADirectoryError(f"Dataset path is not a directory: {data_root}.")
+    data_root.mkdir(parents=True, exist_ok=True)
 
     # The current version downloads all the datasets from a personal github repo
     X_train_instance, X_val_instance, X_test_instance = None, None, None
@@ -389,75 +423,34 @@ def load_process_MTR(
     +--------+------------+--------------------+----------+
     """
 
-    labels_per_dataset = {
-        "atp1d": 6,
-        "atp7d": 6,
-        "oes97": 16,
-        "oes10": 16,
-        "rf1": 8,
-        "rf2": 8,
-        "scm1d": 16,
-        "scm20d": 16,
-        "edm": 2,
-        "sf1": 3,
-        "sf2": 3,
-        "jura": 3,
-        "wq": 14,
-        "enb": 2,
-        "slump": 3,
-        "andro": 6,
-        "osales": 12,
-        "scpf": 3,
-    }
-
-    available_data_sets = list(labels_per_dataset.keys())
-
-    if dataset_name not in available_data_sets:
-        raise AttributeError(
-            "Please use one of the valid dataset names: " + str(available_data_sets)
-        )
-
-    if not os.path.exists(path):  # pragma: no cover
-        os.makedirs(path)
-
-    if not os.path.exists(path + "/mtr-datasets"):  # pragma: no cover
+    dataset_path = data_root / "mtr-datasets" / f"{dataset_name}.arff"
+    if not dataset_path.is_file():  # pragma: no cover
         print(
             ("info: " if print_mode == "dev" else "")
             + "Downloading and extracting dataset from scratch... ",
             end="",
         )
-        r = requests.get(
-            "https://github.com/diliadis/MTR/blob/main/mtr-datasets.zip?raw=true"
-        )
-        z = zipfile.ZipFile(io.BytesIO(r.content))
-        z.extractall(path)
+        download_and_extract_zip(_MTR_ARCHIVE_URL, data_root)
         print(("info: " if print_mode == "dev" else "") + "Done")
+    if not dataset_path.is_file():
+        raise FileNotFoundError(
+            f"Dataset archive did not contain the expected file: {dataset_path}."
+        )
 
-    with open(
-        path + "/mtr-datasets/" + dataset_name + ".arff", encoding="utf-8"
-    ) as dataset_file:
+    with dataset_path.open(encoding="utf-8") as dataset_file:
         dataset = arff.load(dataset_file)
     data = np.array(dataset["data"])
+    num_targets = _MTR_DATASET_TARGETS[dataset_name]
+    if data.ndim != 2 or data.shape[1] <= num_targets:
+        raise ValueError(f"Dataset file has an invalid shape: {data.shape}.")
 
-    X_train_instance = np.array(
-        data[:, [i for i in range(0, data.shape[1] - labels_per_dataset[dataset_name])]]
-    )
+    X_train_instance = np.array(data[:, :-num_targets])
     if features_type == "dataframe":
         temp_df = pd.DataFrame(np.arange(len(X_train_instance)), columns=["id"])
         temp_df["features"] = [r for r in X_train_instance]
         X_train_instance = temp_df
 
-    y_train = np.array(
-        data[
-            :,
-            [
-                i
-                for i in range(
-                    data.shape[1] - labels_per_dataset[dataset_name], data.shape[1]
-                )
-            ],
-        ]
-    )
+    y_train = np.array(data[:, -num_targets:])
 
     print(("info: " if print_mode == "dev" else "") + "Done")
 
