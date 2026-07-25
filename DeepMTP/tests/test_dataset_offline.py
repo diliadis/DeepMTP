@@ -94,6 +94,18 @@ def test_dummy_mtr_split_ratio_is_relative_to_original_dataset():
     assert data["test"]["y"].shape[0] == 20
 
 
+def test_dummy_mtr_derives_omitted_train_split_ratio():
+    data = process_dummy_MTR(
+        num_instances=100,
+        variant="divided",
+        split_ratio={"val": 0.2, "test": 0.2},
+    )
+
+    assert data["train"]["y"].shape[0] == 60
+    assert data["val"]["y"].shape[0] == 20
+    assert data["test"]["y"].shape[0] == 20
+
+
 def test_generated_dummy_dataset_requires_matching_feature_dimensions():
     with pytest.raises(ValueError, match="must match"):
         generate_dummy_dataset(
@@ -145,6 +157,34 @@ def test_generated_dummy_dataset_is_reproducible_from_seed():
         )
 
 
+@pytest.mark.parametrize("sklearn_version", [False, True])
+@pytest.mark.parametrize(
+    "mode",
+    ["u+logv", "u*logv", "u^v", "u^v_reversed", "max(u,v)", "u*v"],
+)
+def test_generated_dummy_dataset_modes_produce_finite_values(
+    mode,
+    sklearn_version,
+):
+    data = generate_dummy_dataset(
+        num_instances=20,
+        num_targets=5,
+        num_instance_features=3,
+        num_target_features=3,
+        error_mu=0,
+        error_sigma=0.1,
+        mode=mode,
+        sklearn_version=sklearn_version,
+    )
+
+    for split_name in ("train", "val", "test"):
+        assert np.isfinite(data[split_name]["y"]).all()
+        assert np.isfinite(data[split_name]["X_instance"]).all()
+    assert np.isfinite(data["train"]["X_target"]).all()
+    assert data["val"]["X_target"] is None
+    assert data["test"]["X_target"] is None
+
+
 @pytest.mark.parametrize(
     "ratio",
     [
@@ -152,11 +192,43 @@ def test_generated_dummy_dataset_is_reproducible_from_seed():
         {"val": True, "test": 0.2},
         {"val": "invalid", "test": 0.2},
         {"val": 0.5, "test": 0.5},
+        {"train": True, "val": 0.1, "test": 0.2},
+        {"train": 0.8, "val": 0.1, "test": 0.2},
+        {"val": 0.1, "test": 0.2, "holdout": 0.1},
     ],
 )
 def test_dummy_mtr_rejects_invalid_split_ratios(ratio):
     with pytest.raises(ValueError, match="split ratio|sum"):
         process_dummy_MTR(split_ratio=ratio)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "exception", "message"),
+    [
+        ({"mode": "unsupported"}, ValueError, "mode"),
+        ({"sklearn_version": 1}, TypeError, "sklearn_version"),
+        ({"error_mu": np.nan}, ValueError, "error_mu"),
+        ({"error_sigma": np.inf}, ValueError, "error_sigma"),
+        ({"error_sigma": -0.1}, ValueError, "error_sigma"),
+    ],
+)
+def test_generated_dummy_dataset_validates_generation_parameters(
+    overrides,
+    exception,
+    message,
+):
+    arguments = {
+        "num_instances": 20,
+        "num_targets": 5,
+        "num_instance_features": 3,
+        "num_target_features": 3,
+        "error_mu": 0,
+        "error_sigma": 0,
+    }
+    arguments.update(overrides)
+
+    with pytest.raises(exception, match=message):
+        generate_dummy_dataset(**arguments)
 
 
 @pytest.mark.parametrize(

@@ -66,18 +66,33 @@ class ProcessedDatasetBundle(TypedDict):
 def _split_ratio(
     ratio: Mapping[str, float] | None,
 ) -> dict[str, float]:
-    result = {"train": 0.7, "val": 0.1, "test": 0.2} if ratio is None else dict(ratio)
+    if ratio is None:
+        return {"train": 0.7, "val": 0.1, "test": 0.2}
+    if not isinstance(ratio, Mapping):
+        raise TypeError("split ratio must be a mapping.")
+
+    result = dict(ratio)
+    unknown = set(result).difference({"train", "val", "test"})
+    if unknown:
+        raise ValueError(f"split ratio contains unknown keys: {sorted(unknown)}.")
     missing = {"val", "test"}.difference(result)
     if missing:
         raise ValueError(f"split ratio is missing required keys: {sorted(missing)}.")
-    for split_name in ("val", "test"):
+    for split_name in ("train", "val", "test"):
+        if split_name not in result:
+            continue
         value = result[split_name]
         if isinstance(value, bool) or not isinstance(value, Real) or not 0 < value < 1:
             raise ValueError(f"split ratio {split_name!r} must be between 0 and 1.")
         result[split_name] = float(value)
-    if result["val"] + result["test"] >= 1:
+
+    train_ratio = 1 - result["val"] - result["test"]
+    if train_ratio <= 0:
         raise ValueError("validation and test split ratios must sum to less than 1.")
-    return result
+    if "train" in result and not np.isclose(result["train"], train_ratio):
+        raise ValueError("train, validation, and test split ratios must sum to 1.")
+
+    return {"train": train_ratio, "val": result["val"], "test": result["test"]}
 
 
 def _require_positive_integer(name: str, value: int) -> None:
@@ -1121,11 +1136,41 @@ def generate_dummy_dataset(
     mode: str = "u+logv",
     split_ratio: Mapping[str, float] | None = None,
 ) -> DatasetBundle:  # pragma: no cover
+    """Generate a reproducible dyadic regression dataset.
+
+    ``sklearn_version`` starts from normally distributed features. For modes
+    involving logarithms or fractional powers, the relevant features are
+    transformed to a positive domain so every generated score remains real.
+    """
     split_ratio = _split_ratio(split_ratio)
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
     _require_positive_integer("num_instance_features", num_instance_features)
     _require_positive_integer("num_target_features", num_target_features)
+    valid_modes = {
+        "u+logv",
+        "u*logv",
+        "u^v",
+        "u^v_reversed",
+        "max(u,v)",
+        "u*v",
+    }
+    if not isinstance(mode, str) or mode not in valid_modes:
+        raise ValueError(f"mode must be one of {sorted(valid_modes)}.")
+    if not isinstance(sklearn_version, bool):
+        raise TypeError("sklearn_version must be a boolean.")
+    for parameter_name, value in {
+        "error_mu": error_mu,
+        "error_sigma": error_sigma,
+    }.items():
+        if isinstance(value, bool) or not isinstance(value, Real):
+            raise TypeError(f"{parameter_name} must be a finite real number.")
+        if not np.isfinite(value):
+            raise ValueError(f"{parameter_name} must be finite.")
+    if error_sigma < 0:
+        raise ValueError("error_sigma must be non-negative.")
+    error_mu = float(error_mu)
+    error_sigma = float(error_sigma)
     if num_instance_features != num_target_features:
         raise ValueError(
             "num_instance_features and num_target_features must match for "
@@ -1145,9 +1190,15 @@ def generate_dummy_dataset(
         X_train_target = generator.standard_normal(
             size=(num_targets, num_target_features)
         )
+        if mode in {"u+logv", "u*logv"}:
+            X_train_target = np.exp(X_train_target)
+        elif mode in {"u^v", "u^v_reversed"}:
+            X_train_instance = np.exp(X_train_instance)
     else:
         X_train_instance = generator.random((num_instances, num_instance_features))
         X_train_target = generator.random((num_targets, num_target_features))
+    if mode in {"u+logv", "u*logv"}:
+        X_train_target = np.maximum(X_train_target, np.finfo(float).tiny)
 
     # generate the score matrix using some kind of relationship between the instance and target features
     y_train = np.zeros((num_instances, num_targets))
@@ -1190,10 +1241,10 @@ def generate_dummy_dataset(
         for i in range(num_instances):
             for j in range(num_targets):
                 y_train[i, j] = np.sum(X_train_instance[i] * X_train_target[j])
-    else:
-        raise AttributeError(
-            "Please use one of the valid modes: "
-            + str(["u+logv", "u*logv", "u^v", "u^v_reversed", "max(u,v)", "u*v"])
+    if not np.isfinite(y_train).all():
+        raise ValueError(
+            "Synthetic score generation produced non-finite values; "
+            "use less extreme feature or noise parameters."
         )
 
     (
