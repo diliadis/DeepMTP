@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import importlib
 from collections import OrderedDict
+from collections.abc import Mapping
+from types import ModuleType
+from typing import Any
 
+import torch
 from torch import nn
 
 
-def _load_torchvision_models():
+def _load_torchvision_models() -> ModuleType:
     try:
         return importlib.import_module("torchvision.models")
     except ImportError as exc:
@@ -19,27 +25,44 @@ class MLP(nn.Sequential):
 
     def __init__(
         self,
-        config,
-        input_dim,
-        output_dim,
-        nodes_per_layer,
-        num_layers,
-        dropout_rate,
-        batch_norm,
-        skip_last_act=False,
-    ):
+        config: Mapping[str, Any],
+        input_dim: int,
+        output_dim: int,
+        nodes_per_layer: list[int] | int,
+        num_layers: int | None,
+        dropout_rate: float,
+        batch_norm: bool,
+        skip_last_act: bool = False,
+    ) -> None:
         super().__init__()
+        if input_dim <= 0:
+            raise ValueError("input_dim must be a positive integer.")
+        if output_dim <= 0:
+            raise ValueError("output_dim must be a positive integer.")
+        if not 0 <= dropout_rate < 1:
+            raise ValueError("dropout_rate must be between 0 (inclusive) and 1.")
+
         if isinstance(nodes_per_layer, list):
-            num_layers = len(nodes_per_layer)
+            if not nodes_per_layer or any(nodes <= 0 for nodes in nodes_per_layer):
+                raise ValueError("nodes_per_layer must contain positive integers.")
+            layer_count = len(nodes_per_layer)
             dims = [input_dim] + nodes_per_layer + [output_dim]
         else:
-            dims = [input_dim] + num_layers * [nodes_per_layer] + [output_dim]
+            if nodes_per_layer <= 0:
+                raise ValueError("nodes_per_layer must be a positive integer.")
+            if num_layers is None or num_layers < 0:
+                raise ValueError(
+                    "num_layers must be a non-negative integer when "
+                    "nodes_per_layer is an integer."
+                )
+            layer_count = num_layers
+            dims = [input_dim] + layer_count * [nodes_per_layer] + [output_dim]
         # self.predictor = nn.ModuleList([nn.Linear(dims[i], dims[i+1]) for i in range(num_layers+1)])
         self.predictor = nn.ModuleList()
-        for i in range(num_layers + 1):
+        for i in range(layer_count + 1):
             self.predictor.append(nn.Linear(dims[i], dims[i + 1]))
 
-            if i != num_layers:
+            if i != layer_count:
                 self.predictor.append(nn.LeakyReLU())
                 if batch_norm:
                     # pass
@@ -50,7 +73,7 @@ class MLP(nn.Sequential):
                 if not skip_last_act:
                     self.predictor.append(nn.LeakyReLU())
 
-    def forward(self, v):  # pragma: no cover
+    def forward(self, v: torch.Tensor) -> torch.Tensor:  # pragma: no cover
         # predict
         v = v.float()
         for layer in self.predictor:
@@ -63,15 +86,44 @@ class ConvNet(nn.Sequential):
 
     def __init__(
         self,
-        config,
-        input_dim,
-        output_dim,
-        conv_architecture,
-        conv_architecture_version,
-        conv_architecture_last_trained_layer,
-        conv_architecture_dense_layers,
-    ):
+        config: Mapping[str, Any],
+        input_dim: int,
+        output_dim: int,
+        conv_architecture: str,
+        conv_architecture_version: str,
+        conv_architecture_last_trained_layer: str,
+        conv_architecture_dense_layers: int,
+    ) -> None:
         super().__init__()
+
+        if output_dim <= 0:
+            raise ValueError("output_dim must be a positive integer.")
+        if conv_architecture not in {"resnet", "VGG"}:
+            raise AttributeError(
+                "Unknown name for the convolutional architecture passed. "
+                f"Currently, the only options available are: {['resnet', 'VGG']}"
+            )
+        if conv_architecture == "resnet":
+            if conv_architecture_version not in {"resnet18", "resnet101"}:
+                raise AttributeError(
+                    f"{conv_architecture_version} is not a supported resnet version."
+                )
+            if conv_architecture_last_trained_layer not in {
+                "last",
+                "layer4",
+                "layer3",
+                "layer2",
+                "layer1",
+            }:
+                raise AttributeError(
+                    f"{conv_architecture_last_trained_layer} is not a valid "
+                    f"{conv_architecture_version} layer."
+                )
+            if conv_architecture_dense_layers not in {1, 2}:
+                raise AttributeError(
+                    "Only 1 or 2 dense layers are currently allowed in the "
+                    f"{conv_architecture_version} version of resnet."
+                )
 
         self.predictor = nn.ModuleList()
         models = _load_torchvision_models()
@@ -186,7 +238,7 @@ class ConvNet(nn.Sequential):
                 + str(["resnet", "VGG"])
             )
 
-    def forward(self, v):  # pragma: no cover
+    def forward(self, v: torch.Tensor) -> torch.Tensor:  # pragma: no cover
         # predict
         v = v.float()
         for layer in self.predictor:

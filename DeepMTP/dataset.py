@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import io
 import json
 import os
 import pickle
 import zipfile
+from collections.abc import Mapping
+from numbers import Real
+from typing import Literal, TypeAlias, TypedDict
 
 import arff
 import numpy as np
@@ -14,14 +19,79 @@ from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
 from skmultilearn.dataset import available_data_sets, load_dataset
 
+ArrayFormat: TypeAlias = Literal["numpy", "dataframe"]
+DatasetVariant: TypeAlias = Literal["undivided", "divided"]
+PrintMode: TypeAlias = Literal["basic", "dev"]
+DatasetValue: TypeAlias = np.ndarray | pd.DataFrame | None
+
+
+class DatasetSplit(TypedDict):
+    """One raw train, validation, or test split."""
+
+    y: DatasetValue
+    X_instance: DatasetValue
+    X_target: DatasetValue
+
+
+class DatasetBundle(TypedDict):
+    """Stable outer structure returned by legacy dataset helpers."""
+
+    train: DatasetSplit
+    val: DatasetSplit
+    test: DatasetSplit
+
+
+class ProcessedDatasetValue(TypedDict):
+    """Processed data container consumed by legacy data utilities."""
+
+    data: pd.DataFrame
+
+
+class ProcessedDatasetSplit(TypedDict):
+    """One processed split with optional interactions and side features."""
+
+    y: ProcessedDatasetValue | None
+    X_instance: ProcessedDatasetValue | None
+    X_target: ProcessedDatasetValue | None
+
+
+class ProcessedDatasetBundle(TypedDict):
+    """Processed train, validation, and test data."""
+
+    train: ProcessedDatasetSplit
+    val: ProcessedDatasetSplit
+    test: ProcessedDatasetSplit
+
+
+def _split_ratio(
+    ratio: Mapping[str, float] | None,
+) -> dict[str, float]:
+    result = {"train": 0.7, "val": 0.1, "test": 0.2} if ratio is None else dict(ratio)
+    missing = {"val", "test"}.difference(result)
+    if missing:
+        raise ValueError(f"split ratio is missing required keys: {sorted(missing)}.")
+    for split_name in ("val", "test"):
+        value = result[split_name]
+        if isinstance(value, bool) or not isinstance(value, Real) or not 0 < value < 1:
+            raise ValueError(f"split ratio {split_name!r} must be between 0 and 1.")
+        result[split_name] = float(value)
+    if result["val"] + result["test"] >= 1:
+        raise ValueError("validation and test split ratios must sum to less than 1.")
+    return result
+
+
+def _require_positive_integer(name: str, value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{name} must be a positive integer.")
+
 
 def load_process_MLC(
-    path="./data",
-    dataset_name="bibtex",
-    variant="undivided",
-    features_type="numpy",
-    print_mode="basic",
-):
+    path: str = "./data",
+    dataset_name: str = "bibtex",
+    variant: DatasetVariant = "undivided",
+    features_type: ArrayFormat = "numpy",
+    print_mode: PrintMode = "basic",
+) -> DatasetBundle:
     """Load multi-label classfication datasets from the mulan repository.
 
     Args:
@@ -115,12 +185,12 @@ def load_process_MLC(
 
 
 def process_dummy_MLC(
-    num_features=10,
-    num_instances=50,
-    num_targets=5,
-    interaction_matrix_format="numpy",
-    features_format="numpy",
-):  # pragma: no cover
+    num_features: int = 10,
+    num_instances: int = 50,
+    num_targets: int = 5,
+    interaction_matrix_format: ArrayFormat = "numpy",
+    features_format: ArrayFormat = "numpy",
+) -> DatasetBundle:  # pragma: no cover
     """Generates a dummy multi-label classification dataset
 
     Args:
@@ -136,6 +206,11 @@ def process_dummy_MLC(
             "Please use one of the valid interaction_matrix_format values: "
             + str(["numpy", "dataframe"])
         )
+    if features_format not in {"numpy", "dataframe"}:
+        raise ValueError("features_format must be either 'numpy' or 'dataframe'.")
+    _require_positive_integer("num_features", num_features)
+    _require_positive_integer("num_instances", num_instances)
+    _require_positive_integer("num_targets", num_targets)
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None
@@ -150,7 +225,7 @@ def process_dummy_MLC(
         temp_instance_features_df["features"] = [r for r in X_train_instance]
         X_train_instance = temp_instance_features_df
 
-    y_train = np.random.random((num_instances, num_targets)).astype(int)
+    y_train = np.random.randint(2, size=(num_instances, num_targets))
     if interaction_matrix_format == "dataframe":
         triplets = [
             (i, j, y_train[i, j])
@@ -172,8 +247,11 @@ def process_dummy_MLC(
 
 
 def load_process_MTR(
-    path="./data", dataset_name="enb", features_type="numpy", print_mode="basic"
-):
+    path: str = "./data",
+    dataset_name: str = "enb",
+    features_type: ArrayFormat = "numpy",
+    print_mode: PrintMode = "basic",
+) -> DatasetBundle:
     """Load multivariate regression datasets from the mulan repository.
 
     Args:
@@ -311,15 +389,15 @@ def load_process_MTR(
 
 
 def process_dummy_MTR(
-    num_features=10,
-    num_instances=50,
-    num_targets=5,
-    interaction_matrix_format="numpy",
-    features_format="numpy",
-    variant="undivided",
-    split_ratio=None,
-    random_state=42,
-):  # pragma: no cover
+    num_features: int = 10,
+    num_instances: int = 50,
+    num_targets: int = 5,
+    interaction_matrix_format: ArrayFormat = "numpy",
+    features_format: ArrayFormat = "numpy",
+    variant: DatasetVariant = "undivided",
+    split_ratio: Mapping[str, float] | None = None,
+    random_state: int = 42,
+) -> DatasetBundle:  # pragma: no cover
     """Generates a dummy multivariate regression dataset
 
     Args:
@@ -330,16 +408,19 @@ def process_dummy_MTR(
     Returns:
         dict: A dictionary with all the available data for the multivariate regression dataset.
     """
-    split_ratio = (
-        {"train": 0.7, "val": 0.1, "test": 0.2}
-        if split_ratio is None
-        else dict(split_ratio)
-    )
+    split_ratio = _split_ratio(split_ratio)
     if interaction_matrix_format not in ["numpy", "dataframe"]:
         raise AttributeError(
             "Please use one of the valid interaction_matrix_format values: "
             + str(["numpy", "dataframe"])
         )
+    if features_format not in {"numpy", "dataframe"}:
+        raise ValueError("features_format must be either 'numpy' or 'dataframe'.")
+    if variant not in {"undivided", "divided"}:
+        raise ValueError("variant must be either 'undivided' or 'divided'.")
+    _require_positive_integer("num_features", num_features)
+    _require_positive_integer("num_instances", num_instances)
+    _require_positive_integer("num_targets", num_targets)
 
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
@@ -372,7 +453,9 @@ def process_dummy_MTR(
             random_state=random_state,
         )
         train_ids, val_ids = train_test_split(
-            train_ids, test_size=split_ratio["val"], random_state=random_state
+            train_ids,
+            test_size=split_ratio["val"] / (1 - split_ratio["test"]),
+            random_state=random_state,
         )
 
         if interaction_matrix_format == "dataframe":
@@ -409,7 +492,7 @@ def process_dummy_MTR(
     }
 
 
-def print_MTR_datasets():  # pragma: no cover
+def print_MTR_datasets() -> None:  # pragma: no cover
     """Prints a table with the basic info for every multivariate regression dataset available in the Mulan repository"""
     table = PrettyTable(["name", "#instances", "#instance_features", "#targets"])
     table.add_row(["atp1d", "337", "411", "6"])
@@ -434,16 +517,16 @@ def print_MTR_datasets():  # pragma: no cover
 
 
 def load_process_DP(
-    path="./data",
-    dataset_name="ern",
-    variant="undivided",
-    random_state=42,
-    split_ratio=None,
-    split_instance_features=False,
-    split_target_features=False,
-    validation_setting="B",
-    print_mode="basic",
-):
+    path: str = "./data",
+    dataset_name: str = "ern",
+    variant: DatasetVariant = "undivided",
+    random_state: int = 42,
+    split_ratio: Mapping[str, float] | None = None,
+    split_instance_features: bool = False,
+    split_target_features: bool = False,
+    validation_setting: str = "B",
+    print_mode: PrintMode = "basic",
+) -> DatasetBundle:
     """Load dyadic prediction datasets from the following repository: https://people.montefiore.uliege.be.
 
     Args:
@@ -457,11 +540,7 @@ def load_process_DP(
     Returns:
         dict: A dictionary with all the available data for the dyadic prediction dataset.
     """
-    split_ratio = (
-        {"train": 0.7, "val": 0.1, "test": 0.2}
-        if split_ratio is None
-        else dict(split_ratio)
-    )
+    split_ratio = _split_ratio(split_ratio)
     if variant not in ["undivided", "divided"]:
         raise AttributeError(
             "Please use one of the valid variant values: "
@@ -585,7 +664,7 @@ def load_process_DP(
                     ) = train_test_split(
                         X_train_instance,
                         y_train,
-                        test_size=split_ratio["val"],
+                        test_size=split_ratio["val"] / (1 - split_ratio["test"]),
                         random_state=random_state,
                     )
 
@@ -602,7 +681,9 @@ def load_process_DP(
                         y_train,
                         y_val,
                     ) = train_test_split(
-                        y_train, test_size=split_ratio["val"], random_state=random_state
+                        y_train,
+                        test_size=split_ratio["val"] / (1 - split_ratio["test"]),
+                        random_state=random_state,
                     )
 
             elif validation_setting == "C":
@@ -619,7 +700,7 @@ def load_process_DP(
                     y_val_target_ids,
                 ) = train_test_split(
                     y_train_target_ids,
-                    test_size=split_ratio["val"],
+                    test_size=split_ratio["val"] / (1 - split_ratio["test"]),
                     random_state=random_state,
                 )
                 y_val = y_train[:, y_val_target_ids]
@@ -645,7 +726,7 @@ def load_process_DP(
                     y_val_instance_ids,
                 ) = train_test_split(
                     y_train_instance_ids,
-                    test_size=split_ratio["val"],
+                    test_size=split_ratio["val"] / (1 - split_ratio["test"]),
                     random_state=random_state,
                 )
                 (
@@ -661,7 +742,7 @@ def load_process_DP(
                     y_val_target_ids,
                 ) = train_test_split(
                     y_train_target_ids,
-                    test_size=split_ratio["val"],
+                    test_size=split_ratio["val"] / (1 - split_ratio["test"]),
                     random_state=random_state,
                 )
 
@@ -694,14 +775,14 @@ def load_process_DP(
 
 
 def process_dummy_DP(
-    num_instance_features=10,
-    num_target_features=3,
-    num_instances=50,
-    num_targets=5,
-    interaction_matrix_format="numpy",
-    instance_features_format="numpy",
-    target_features_format="numpy",
-):  # pragma: no cover
+    num_instance_features: int = 10,
+    num_target_features: int = 3,
+    num_instances: int = 50,
+    num_targets: int = 5,
+    interaction_matrix_format: ArrayFormat = "numpy",
+    instance_features_format: ArrayFormat = "numpy",
+    target_features_format: ArrayFormat = "numpy",
+) -> DatasetBundle:  # pragma: no cover
     """Generates a dummy multivariate regression dataset
 
     Args:
@@ -716,6 +797,17 @@ def process_dummy_DP(
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None
+    for name, value in {
+        "interaction_matrix_format": interaction_matrix_format,
+        "instance_features_format": instance_features_format,
+        "target_features_format": target_features_format,
+    }.items():
+        if value not in {"numpy", "dataframe"}:
+            raise ValueError(f"{name} must be either 'numpy' or 'dataframe'.")
+    _require_positive_integer("num_instance_features", num_instance_features)
+    _require_positive_integer("num_target_features", num_target_features)
+    _require_positive_integer("num_instances", num_instances)
+    _require_positive_integer("num_targets", num_targets)
 
     X_train_instance = np.random.random((num_instances, num_instance_features))
     for i in range(num_instances):
@@ -758,7 +850,11 @@ def process_dummy_DP(
     }
 
 
-def load_process_MC(path="./data", dataset_name="ml-100k", print_mode="basic"):
+def load_process_MC(
+    path: str = "./data",
+    dataset_name: str = "ml-100k",
+    print_mode: PrintMode = "basic",
+) -> DatasetBundle:
     """Load matrix completion datasets from the Movielens repository.
 
     Args:
@@ -851,7 +947,11 @@ def load_process_MC(path="./data", dataset_name="ml-100k", print_mode="basic"):
     }
 
 
-def load_process_MTL(path="./data", dataset_name="dog", print_mode="basic"):
+def load_process_MTL(
+    path: str = "./data",
+    dataset_name: str = "dog",
+    print_mode: PrintMode = "basic",
+) -> DatasetBundle:
     """Load multi-task learning datasets from my custom repository.
 
     Args:
@@ -946,7 +1046,10 @@ def load_process_MTL(path="./data", dataset_name="dog", print_mode="basic"):
     }
 
 
-def generate_interaction_matrix(input_path, output_path):  # pragma: no cover
+def generate_interaction_matrix(
+    input_path: str | os.PathLike[str],
+    output_path: str | os.PathLike[str],
+) -> None:  # pragma: no cover
     """Helper function that transforms the multi-task learning dataset into a basic interaction matrix
 
     Args:
@@ -975,31 +1078,35 @@ def generate_interaction_matrix(input_path, output_path):  # pragma: no cover
 
 
 def generate_dummy_dataset(
-    num_instances,
-    num_targets,
-    num_instance_features,
-    num_target_features,
-    error_mu,
-    error_sigma,
-    sklearn_version=False,
-    seed=42,
-    mode="u+logv",
-    split_ratio=None,
-):  # pragma: no cover
-
-    split_ratio = (
-        {"train": 0.7, "val": 0.1, "test": 0.2}
-        if split_ratio is None
-        else dict(split_ratio)
-    )
+    num_instances: int,
+    num_targets: int,
+    num_instance_features: int,
+    num_target_features: int,
+    error_mu: float,
+    error_sigma: float,
+    sklearn_version: bool = False,
+    seed: int = 42,
+    mode: str = "u+logv",
+    split_ratio: Mapping[str, float] | None = None,
+) -> DatasetBundle:  # pragma: no cover
+    split_ratio = _split_ratio(split_ratio)
+    _require_positive_integer("num_instances", num_instances)
+    _require_positive_integer("num_targets", num_targets)
+    _require_positive_integer("num_instance_features", num_instance_features)
+    _require_positive_integer("num_target_features", num_target_features)
+    if num_instance_features != num_target_features:
+        raise ValueError(
+            "num_instance_features and num_target_features must match for "
+            f"mode {mode!r}."
+        )
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None
 
     # generate the instance and target feature numpy arrays
+    generator = np.random.default_rng(seed)
     if sklearn_version:
         # inspired by sklearn
-        generator = np.random.RandomState(seed)
         X_train_instance = generator.standard_normal(
             size=(num_instances, num_instance_features)
         )
@@ -1007,8 +1114,8 @@ def generate_dummy_dataset(
             size=(num_targets, num_target_features)
         )
     else:
-        X_train_instance = np.random.random((num_instances, num_instance_features))
-        X_train_target = np.random.random((num_targets, num_target_features))
+        X_train_instance = generator.random((num_instances, num_instance_features))
+        X_train_target = generator.random((num_targets, num_target_features))
 
     # generate the score matrix using some kind of relationship between the instance and target features
     y_train = np.zeros((num_instances, num_targets))
@@ -1017,25 +1124,25 @@ def generate_dummy_dataset(
             for j in range(num_targets):
                 y_train[i, j] = np.sum(
                     X_train_instance[i] + np.log(X_train_target[j])
-                ) + np.random.normal(error_mu, error_sigma)
+                ) + generator.normal(error_mu, error_sigma)
     elif mode == "u*logv":
         for i in range(num_instances):
             for j in range(num_targets):
                 y_train[i, j] = np.sum(
                     X_train_instance[i] * np.log(X_train_target[j])
-                ) + np.random.normal(error_mu, error_sigma)
+                ) + generator.normal(error_mu, error_sigma)
     elif mode == "u^v":
         for i in range(num_instances):
             for j in range(num_targets):
                 y_train[i, j] = np.sum(
                     X_train_instance[i] ** X_train_target[j]
-                ) + np.random.normal(error_mu, error_sigma)
+                ) + generator.normal(error_mu, error_sigma)
     elif mode == "u^v_reversed":
         for i in range(num_instances):
             for j in range(num_targets):
                 y_train[i, j] = np.sum(
                     X_train_instance[i] ** X_train_target[j][::-1]
-                ) + np.random.normal(error_mu, error_sigma)
+                ) + generator.normal(error_mu, error_sigma)
     elif mode == "max(u,v)":
         for i in range(num_instances):
             for j in range(num_targets):
@@ -1071,7 +1178,10 @@ def generate_dummy_dataset(
         y_train,
         y_val,
     ) = train_test_split(
-        X_train_instance, y_train, test_size=split_ratio["val"], random_state=seed
+        X_train_instance,
+        y_train,
+        test_size=split_ratio["val"] / (1 - split_ratio["test"]),
+        random_state=seed,
     )
 
     return {
@@ -1086,20 +1196,37 @@ def generate_dummy_dataset(
 
 
 def generate_MTP_dataset(
-    num_instances,
-    num_targets,
-    num_instance_features=None,
-    num_target_features=None,
-    split_instances=None,
-    split_targets=None,
-    return_static_features_data=False,
-):  # pragma: no cover
+    num_instances: int,
+    num_targets: int,
+    num_instance_features: int | None = None,
+    num_target_features: int | None = None,
+    split_instances: Mapping[str, float] | None = None,
+    split_targets: Mapping[str, float] | None = None,
+    return_static_features_data: bool = False,
+) -> ProcessedDatasetBundle:  # pragma: no cover
+
+    _require_positive_integer("num_instances", num_instances)
+    _require_positive_integer("num_targets", num_targets)
+    if num_instance_features is not None and num_instance_features < 0:
+        raise ValueError("num_instance_features must be non-negative or None.")
+    if num_target_features is not None and num_target_features < 0:
+        raise ValueError("num_target_features must be non-negative or None.")
 
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None
     split_instances = None if split_instances is None else dict(split_instances)
     split_targets = None if split_targets is None else dict(split_targets)
+    for name, split_specification in {
+        "split_instances": split_instances,
+        "split_targets": split_targets,
+    }.items():
+        if (
+            split_specification is not None
+            and "val" in split_specification
+            and "test" not in split_specification
+        ):
+            raise ValueError(f"{name} requires a test ratio when val is provided.")
     train_instance_ids, val_instance_ids, test_instance_ids = None, None, None
     train_target_ids, val_target_ids, test_target_ids = None, None, None
 

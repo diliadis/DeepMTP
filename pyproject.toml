@@ -177,7 +177,9 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 module = [
     "DeepMTP.config",
+    "DeepMTP.branch_models",
     "DeepMTP.data_loading",
+    "DeepMTP.dataset",
     "DeepMTP.evaluation",
     "DeepMTP.hpo_progress",
     "DeepMTP.hpo_types",
