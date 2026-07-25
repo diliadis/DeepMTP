@@ -1,18 +1,20 @@
-from DeepMTP.utils.eval_utils import get_performance_results
-import numpy as np
-from sklearn.metrics import (
-    hamming_loss,
-    f1_score,
-    recall_score,
-    precision_score,
-    mean_squared_error,
-    mean_absolute_error,
-    r2_score,
-    accuracy_score,
-)
-import pytest
 import math
+
+import numpy as np
+import pytest
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    hamming_loss,
+    mean_absolute_error,
+    mean_squared_error,
+    precision_score,
+    r2_score,
+    recall_score,
+)
 from sklearn.preprocessing import StandardScaler
+
+from DeepMTP.utils.eval_utils import get_performance_results
 
 mode = [
     {
@@ -108,7 +110,6 @@ def test_get_performance_results(mode):
         recall_per_column = []
         precision_per_column = []
         for j in range(y_true.shape[1]):
-            result = y_true[:, j] == y_pred[:, j]
             accuracy_per_column.append(accuracy_score(y_true[:, j], y_pred[:, j]))
             hamming_loss_per_column.append(hamming_loss(y_true[:, j], y_pred[:, j]))
             f1_score_per_column.append(
@@ -129,12 +130,8 @@ def test_get_performance_results(mode):
 
         micro_accuracy = accuracy_score(y_true.flatten(), y_pred.flatten())
         micro_hamming_loss = hamming_loss(y_true.flatten(), y_pred.flatten())
-        micro_f1_score = f1_score(
-            y_true.flatten(), y_pred.flatten(), zero_division=0
-        )
-        micro_recall = recall_score(
-            y_true.flatten(), y_pred.flatten(), zero_division=0
-        )
+        micro_f1_score = f1_score(y_true.flatten(), y_pred.flatten(), zero_division=0)
+        micro_recall = recall_score(y_true.flatten(), y_pred.flatten(), zero_division=0)
         micro_precision = precision_score(
             y_true.flatten(), y_pred.flatten(), zero_division=0
         )
@@ -145,7 +142,6 @@ def test_get_performance_results(mode):
         recall_per_row = []
         precision_per_row = []
         for j in range(y_true.shape[0]):
-            result = y_true[j, :] == y_pred[j, :]
             accuracy_per_row.append(accuracy_score(y_true[j, :], y_pred[j, :]))
             hamming_loss_per_row.append(hamming_loss(y_true[j, :], y_pred[j, :]))
             f1_score_per_row.append(
@@ -286,9 +282,7 @@ def test_get_performance_results(mode):
         MAE_score_per_row = []
         R2_per_row = []
         for j in range(y_true.shape[0]):
-            RMSE_per_row.append(
-                np.sqrt(mean_squared_error(y_true[j, :], y_pred[j, :]))
-            )
+            RMSE_per_row.append(np.sqrt(mean_squared_error(y_true[j, :], y_pred[j, :])))
             MSE_per_row.append(mean_squared_error(y_true[j, :], y_pred[j, :]))
             MAE_score_per_row.append(mean_absolute_error(y_true[j, :], y_pred[j, :]))
             R2_per_row.append(r2_score(y_true[j, :], y_pred[j, :]))
@@ -322,17 +316,19 @@ def test_get_performance_results(mode):
         pred_values_arr_scaled = None
         scaler = None
 
-        if mode["scaler"] is not None:
-            if mode["scaler"].lower() == "standard":
-                if mode["validation_setting"] == "A":
-                    scaler = StandardScaler()
-                    scaler.fit(true_values_arr.flatten().reshape(-1, 1))
-                    true_values_arr_scaled = scaler.transform(
-                        true_values_arr.reshape(-1, 1)
-                    ).flatten()
-                    pred_values_arr_scaled = scaler.transform(
-                        pred_values_arr.reshape(-1, 1)
-                    ).flatten()
+        if (
+            mode["scaler"] is not None
+            and mode["scaler"].lower() == "standard"
+            and mode["validation_setting"] == "A"
+        ):
+            scaler = StandardScaler()
+            scaler.fit(true_values_arr.flatten().reshape(-1, 1))
+            true_values_arr_scaled = scaler.transform(
+                true_values_arr.reshape(-1, 1)
+            ).flatten()
+            pred_values_arr_scaled = scaler.transform(
+                pred_values_arr.reshape(-1, 1)
+            ).flatten()
 
         results = get_performance_results(
             "train",

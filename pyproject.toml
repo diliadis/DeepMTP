@@ -155,14 +155,21 @@ include = [
     "DeepMTP/tests/test_config.py",
     "DeepMTP/tests/test_data_loading.py",
     "DeepMTP/tests/test_dataset_offline.py",
+    "DeepMTP/tests/test_eval_utils.py",
     "DeepMTP/tests/test_evaluation.py",
     "DeepMTP/tests/test_hpo_progress.py",
+    "DeepMTP/tests/test_hpo_worker.py",
+    "DeepMTP/tests/test_main.py",
     "DeepMTP/tests/test_model_factory.py",
+    "DeepMTP/tests/test_model_utils.py",
     "DeepMTP/tests/test_persistence.py",
     "DeepMTP/tests/test_presentation.py",
+    "DeepMTP/tests/test_random_search.py",
     "DeepMTP/tests/test_reporting.py",
+    "DeepMTP/tests/test_simple_hyperband.py",
     "DeepMTP/tests/test_streamlit_adapter.py",
     "DeepMTP/tests/test_training.py",
+    "DeepMTP/tests/test_training_integration.py",
 ]
 
 [tool.ruff.lint]

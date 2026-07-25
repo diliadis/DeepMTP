@@ -1,6 +1,7 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
-from pathlib import Path
 
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.main import DeepMTP
@@ -39,9 +40,7 @@ class RecordingProgress:
         include_train,
         include_validation,
     ):
-        self.summary_calls.append(
-            (summaries, include_train, include_validation)
-        )
+        self.summary_calls.append((summaries, include_train, include_validation))
 
 
 @pytest.mark.integration
@@ -53,9 +52,7 @@ def test_tiny_cpu_training_and_prediction(tmp_path, problem_mode, metrics):
     rng = np.random.default_rng(42)
     instance_features = rng.normal(size=(24, 3))
     if problem_mode == "classification":
-        scores = (
-            np.arange(24)[:, np.newaxis] + np.arange(4)[np.newaxis, :]
-        ) % 2
+        scores = (np.arange(24)[:, np.newaxis] + np.arange(4)[np.newaxis, :]) % 2
     else:
         scores = rng.normal(size=(24, 4))
 
@@ -146,9 +143,7 @@ def test_tiny_cpu_training_and_prediction(tmp_path, problem_mode, metrics):
     model.configuration.num_epochs = 100
     model.configuration.evaluate_val = False
     results_only = model.predict(test, return_predictions=False)
-    results_with_predictions, predictions = model.predict(
-        test, return_predictions=True
-    )
+    results_with_predictions, predictions = model.predict(test, return_predictions=True)
     assert isinstance(results_only, dict)
     assert results_only == results_with_predictions
     assert len(predictions) == len(test["y"]["data"])
@@ -177,9 +172,7 @@ def test_tiny_cpu_training_and_prediction(tmp_path, problem_mode, metrics):
             restored_config,
             checkpoint_dir=checkpoint_path,
         )
-        _, restored_predictions = restored_model.predict(
-            test, return_predictions=True
-        )
+        _, restored_predictions = restored_model.predict(test, return_predictions=True)
 
         assert checkpoint_path.is_file()
         assert np.allclose(
