@@ -22,12 +22,37 @@ class EpochOutput:
     predicted_values: list[Any] = field(default_factory=list)
     instance_ids: list[Any] = field(default_factory=list)
     target_ids: list[Any] = field(default_factory=list)
+    loss_weights: list[int] = field(default_factory=list)
 
     @property
     def mean_loss(self) -> float:
+        if self.loss_weights and len(self.losses) != len(self.loss_weights):
+            raise ValueError("Each recorded loss must have one observation weight.")
         if not self.losses:
             return math.nan
+        if self.loss_weights:
+            total_weight = sum(self.loss_weights)
+            if total_weight <= 0:
+                raise ValueError("Recorded loss weights must sum to a positive value.")
+            return (
+                sum(
+                    loss * weight
+                    for loss, weight in zip(
+                        self.losses,
+                        self.loss_weights,
+                        strict=True,
+                    )
+                )
+                / total_weight
+            )
         return sum(self.losses) / len(self.losses)
+
+    def add_loss(self, loss: float, *, observations: int) -> None:
+        """Record a batch-mean loss and the observations it represents."""
+        if observations <= 0:
+            raise ValueError("observations must be a positive integer.")
+        self.losses.append(loss)
+        self.loss_weights.append(observations)
 
 
 class TrainingEngine:
@@ -72,7 +97,7 @@ class TrainingEngine:
             loss.backward()
             self.optimizer.step()
 
-            output.losses.append(loss.item())
+            output.add_loss(loss.item(), observations=true_values.numel())
             if collect_predictions:
                 self._collect_predictions(
                     output,
@@ -99,7 +124,10 @@ class TrainingEngine:
                     true_values, predictions = self._forward_batch(batch)
                     if calculate_loss:
                         loss = self.criterion(predictions, true_values)
-                        output.losses.append(loss.item())
+                        output.add_loss(
+                            loss.item(),
+                            observations=true_values.numel(),
+                        )
                     if collect_predictions:
                         self._collect_predictions(
                             output,

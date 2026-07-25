@@ -18,18 +18,57 @@ class TinyTwoInputModel(nn.Module):
 
 
 def make_batch(scores=(0.0, 1.0)):
+    batch_size = len(scores)
     return {
-        "instance_features": torch.tensor([[1.0], [2.0]]),
-        "target_features": torch.tensor([[0.5], [1.5]]),
+        "instance_features": torch.arange(
+            1,
+            batch_size + 1,
+            dtype=torch.float32,
+        ).reshape(-1, 1),
+        "target_features": torch.arange(
+            0.5,
+            batch_size + 0.5,
+            dtype=torch.float32,
+        ).reshape(-1, 1),
         "score": torch.tensor(scores),
-        "instance_id": torch.tensor([10, 11]),
-        "target_id": torch.tensor([20, 21]),
+        "instance_id": torch.arange(10, 10 + batch_size),
+        "target_id": torch.arange(20, 20 + batch_size),
     }
 
 
 def test_epoch_output_mean_loss():
     assert EpochOutput(losses=[1.0, 2.0, 3.0]).mean_loss == 2.0
+    assert EpochOutput(
+        losses=[1.0, 9.0],
+        loss_weights=[2, 1],
+    ).mean_loss == pytest.approx(11 / 3)
     assert math.isnan(EpochOutput().mean_loss)
+
+
+@pytest.mark.parametrize("epoch_method", ["train_epoch", "evaluate_epoch"])
+def test_epoch_loss_weights_uneven_batches_by_observation(epoch_method):
+    model = TinyTwoInputModel()
+    with torch.no_grad():
+        model.linear.weight.zero_()
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        optimizer=torch.optim.SGD(model.parameters(), lr=0.0),
+    )
+
+    output = getattr(engine, epoch_method)(
+        [
+            make_batch(scores=(1.0, 1.0)),
+            make_batch(scores=(3.0,)),
+        ],
+        collect_predictions=False,
+    )
+
+    assert output.losses == pytest.approx([1.0, 9.0])
+    assert output.loss_weights == [2, 1]
+    assert output.mean_loss == pytest.approx(11 / 3)
 
 
 def test_classification_train_epoch_updates_model_and_collects_probabilities():

@@ -38,6 +38,7 @@ two small end-to-end training runs.
 - [x] Make checkpoint/config serialization reliable for image transforms.
 - [x] Always calculate the metric used for best-epoch model selection.
 - [x] Make trainer run state explicit and checkpoint saves side-effect-free.
+- [x] Weight epoch losses by observations when batch sizes differ.
 - [x] Cover single-class and singleton evaluation groups.
 - [x] Validate identifiers used for generated one-hot features.
 
