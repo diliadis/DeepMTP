@@ -11,7 +11,6 @@ import pandas as pd
 from PIL import Image
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from sklearn.utils import resample, shuffle
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 
@@ -2409,33 +2408,49 @@ class BaseDataset(Dataset):
 
 
 class MTPSampler(Sampler):
-    """A sampler that can be used with pytorch dataloaders. The sampler can perform class balancing (binary and multi-class are currenty supported) at three different levels:
-    a) micro: balancing classes at the level of the entire score matrix
-    b) macro: balancing classes at the target level (basically balancing every column of the score matrix). WARNING: this can cause instances to be excluded from the final balanced dataset.
-    c) instance: balancing classes at the instance level (basically balancing every row of the score matrix). WARNING: this can cause targets to be excluded from the final balanced dataset.
+    """Undersample classes and provide a fresh order for every iteration.
+
+    ``micro`` balances classes globally, ``macro`` balances them independently
+    for each target, and ``instance`` balances them independently for each
+    instance. Grouped balancing can omit entities that are absent from the
+    retained observations.
     """
 
     def __init__(
         self,
         data: pd.DataFrame,
-        mode: str = "micro",
+        mode: SamplerMode = "micro",
         verbose: bool = False,
+        random_state: int | None = 42,
     ) -> None:
-        """
+        """Build a reproducible class-balancing sampler.
+
         Args:
-            data (DataFrame): The dataset that will be balanced
-            mode (str, optional): The mode of balancing that will be used by the sampler
-                            Default: micro
-            verbose (float, optional): If True, prints status updated while balancing. This can be helpful for "instance" or "target" modes that take time to complete
-                            Default: False
+            data: Interaction triplets to balance.
+            mode: Balance globally, per target, or per instance.
+            verbose: Retained for compatibility with the legacy sampler API.
+            random_state: Seed for isolated undersampling and iteration order,
+                or ``None`` for non-deterministic behavior.
+
+        Raises:
+            TypeError: If an input has the wrong type or contains unhashable values.
+            ValueError: If an option or the interaction data is invalid.
         """
         if not isinstance(data, pd.DataFrame):
             raise TypeError("data must be a pandas DataFrame.")
-        if mode not in {"micro", "macro", "instance"}:
+        if not isinstance(mode, str) or mode not in {"micro", "macro", "instance"}:
             raise ValueError(
                 "mode must be one of 'micro', 'macro', or 'instance'; "
                 f"received {mode!r}."
             )
+        if not isinstance(verbose, bool):
+            raise TypeError("verbose must be a boolean.")
+        if random_state is not None and (
+            isinstance(random_state, bool)
+            or not isinstance(random_state, int)
+            or random_state < 0
+        ):
+            raise ValueError("random_state must be a non-negative integer or None.")
         required_columns = {"instance_id", "target_id", "value"}
         missing_columns = required_columns.difference(data.columns)
         if missing_columns:
@@ -2448,59 +2463,66 @@ class MTPSampler(Sampler):
             raise ValueError("Sampler class values cannot be missing.")
         if data[["instance_id", "target_id"]].isna().any().any():
             raise ValueError("Sampler entity IDs cannot be missing.")
+        for column in ("instance_id", "target_id", "value"):
+            if not data[column].map(pd.api.types.is_hashable).all():
+                raise TypeError(f"Sampler {column!r} values must be hashable.")
 
-        sampler_mode = cast(SamplerMode, mode)
         self.data = data.copy(deep=True).reset_index(drop=True)
         self.verbose = verbose
-        if sampler_mode == "micro":
+        self.random_state = random_state
+        self._random_generator = np.random.default_rng(random_state)
+        if mode == "micro":
             self.data = self.get_balanced_df(self.data)
-        elif sampler_mode == "macro":
+        elif mode == "macro":
             self.data = pd.concat(
                 self.get_balanced_df(group)
-                for _, group in self.data.groupby("target_id")
+                for _, group in self.data.groupby(
+                    "target_id",
+                    sort=False,
+                    observed=True,
+                )
             )
         else:
             self.data = pd.concat(
                 self.get_balanced_df(group)
-                for _, group in self.data.groupby("instance_id")
-            )
-
-        # shuffle the dataframe so that you don't have the different classes in order
-        self.data = shuffle(self.data, random_state=0)
-
-    def get_balanced_df(self, data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Args:
-            data (DataFrame): The dataset that will be balanced
-        """
-        # isolate the minority class
-        class_counts = data["value"].value_counts()
-        if class_counts.empty:
-            raise ValueError("Cannot balance data without class values.")
-        minority_class = class_counts.idxmin()
-        minority_class_size = int(class_counts.loc[minority_class])
-        # gather remaining classes to be sampled
-        majority_classes = list(data["value"].unique())
-        majority_classes.remove(minority_class)
-
-        sampled_df_per_majority_class: list[pd.DataFrame] = []
-        # subsample from every non-minority class
-        for class_val in majority_classes:
-            sampled_df_per_majority_class.append(
-                resample(
-                    data[data["value"] == class_val],
-                    replace=False,
-                    n_samples=minority_class_size,
-                    random_state=42,
+                for _, group in self.data.groupby(
+                    "instance_id",
+                    sort=False,
+                    observed=True,
                 )
             )
-        sampled_df_per_majority_class.append(data[data["value"] == minority_class])
 
-        # concatenate all the sampled dataframes from every class
-        return pd.concat(sampled_df_per_majority_class)
+    def get_balanced_df(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Return one frame undersampled to its smallest class size."""
+        class_groups = [
+            group
+            for _, group in data.groupby(
+                "value",
+                sort=False,
+                observed=True,
+            )
+        ]
+        if not class_groups:
+            raise ValueError("Cannot balance data without class values.")
+
+        minority_class_size = min(len(group) for group in class_groups)
+        balanced_groups = []
+        for group in class_groups:
+            if len(group) == minority_class_size:
+                balanced_groups.append(group)
+                continue
+            selected_positions = self._random_generator.choice(
+                len(group),
+                size=minority_class_size,
+                replace=False,
+            )
+            balanced_groups.append(group.iloc[selected_positions])
+
+        return pd.concat(balanced_groups)
 
     def __iter__(self) -> Iterator[int]:
-        return iter(self.data.index.tolist())
+        indices = self.data.index.to_numpy(dtype=int, copy=True)
+        return iter(self._random_generator.permutation(indices).tolist())
 
     def __len__(self) -> int:
         return len(self.data)

@@ -3803,6 +3803,16 @@ def make_sampler_data():
     )
 
 
+def make_multiclass_sampler_data():
+    return pd.DataFrame(
+        {
+            "instance_id": range(14),
+            "target_id": [index % 4 for index in range(14)],
+            "value": [0] * 8 + [1] * 4 + [2] * 2,
+        }
+    )
+
+
 def test_mtp_sampler_balances_without_mutating_caller_data():
     data = make_sampler_data()
     original_data = data.copy(deep=True)
@@ -3811,20 +3821,81 @@ def test_mtp_sampler_balances_without_mutating_caller_data():
 
     assert_frame_equal(data, original_data)
     assert sampler.data["value"].value_counts().to_dict() == {0: 1, 1: 1}
-    assert set(sampler).issubset(range(len(data)))
+    sampled_indices = set(sampler)
+    assert sampled_indices == set(sampler.data.index)
+    assert sampled_indices.issubset(range(len(data)))
 
 
 def test_mtp_sampler_is_deterministic():
-    first = MTPSampler(make_sampler_data())
-    second = MTPSampler(make_sampler_data())
+    first = MTPSampler(make_multiclass_sampler_data(), random_state=7)
+    second = MTPSampler(make_multiclass_sampler_data(), random_state=7)
+    first_orders = [list(first), list(first)]
+    second_orders = [list(second), list(second)]
 
-    assert list(first) == list(second)
+    assert_frame_equal(first.data, second.data)
+    assert first_orders == second_orders
+    assert first_orders[0] != first_orders[1]
+    assert first.data["value"].value_counts().to_dict() == {0: 2, 1: 2, 2: 2}
+
+
+def test_mtp_sampler_seed_controls_membership_and_order():
+    first = MTPSampler(make_multiclass_sampler_data(), random_state=7)
+    second = MTPSampler(make_multiclass_sampler_data(), random_state=8)
+
+    assert set(first.data.index) != set(second.data.index)
+    assert list(first) != list(second)
+
+
+def test_mtp_sampler_advances_rng_between_balancing_groups():
+    data = pd.DataFrame(
+        [
+            (instance_id, target_id, 0 if instance_id < 6 else 1)
+            for target_id in range(4)
+            for instance_id in range(8)
+        ],
+        columns=["instance_id", "target_id", "value"],
+    )
+
+    sampler = MTPSampler(data, mode="macro", random_state=1)
+    selected_majorities = [
+        frozenset(group.loc[group["value"] == 0, "instance_id"])
+        for _, group in sampler.data.groupby("target_id")
+    ]
+
+    assert len(set(selected_majorities)) > 1
+
+
+def test_mtp_sampler_does_not_modify_numpy_global_random_state():
+    global_state = np.random.get_state()
+    try:
+        np.random.seed(17)
+        expected = np.random.random(4)
+        np.random.seed(17)
+
+        sampler = MTPSampler(make_multiclass_sampler_data(), random_state=7)
+        list(sampler)
+        actual = np.random.random(4)
+    finally:
+        np.random.set_state(global_state)
+
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_mtp_sampler_ignores_unobserved_categorical_classes():
+    data = make_multiclass_sampler_data()
+    data["value"] = pd.Categorical(data["value"], categories=[0, 1, 2, 3])
+
+    sampler = MTPSampler(data, random_state=7)
+
+    assert sampler.data["value"].value_counts().loc[[0, 1, 2]].tolist() == [2, 2, 2]
+    assert 3 not in set(sampler.data["value"])
 
 
 @pytest.mark.parametrize(
     ("data", "mode", "message"),
     [
         (make_sampler_data(), "unknown", "mode must be"),
+        (make_sampler_data(), [], "mode must be"),
         (
             pd.DataFrame(columns=["instance_id", "target_id", "value"]),
             "micro",
@@ -3851,3 +3922,31 @@ def test_mtp_sampler_is_deterministic():
 def test_mtp_sampler_rejects_invalid_inputs(data, mode, message):
     with pytest.raises(ValueError, match=message):
         MTPSampler(data, mode=mode)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "exception", "message"),
+    [
+        ({"data": []}, TypeError, "pandas DataFrame"),
+        ({"verbose": 1}, TypeError, "verbose"),
+        ({"random_state": True}, ValueError, "random_state"),
+        ({"random_state": -1}, ValueError, "random_state"),
+        ({"random_state": 1.5}, ValueError, "random_state"),
+    ],
+)
+def test_mtp_sampler_rejects_invalid_option_types(overrides, exception, message):
+    arguments = {"data": make_sampler_data()}
+    arguments.update(overrides)
+
+    with pytest.raises(exception, match=message):
+        MTPSampler(**arguments)
+
+
+@pytest.mark.parametrize("column", ["instance_id", "target_id", "value"])
+def test_mtp_sampler_rejects_unhashable_values(column):
+    data = make_sampler_data()
+    data[column] = data[column].astype(object)
+    data.at[data.index[0], column] = []
+
+    with pytest.raises(TypeError, match=f"{column!r} values must be hashable"):
+        MTPSampler(data)
