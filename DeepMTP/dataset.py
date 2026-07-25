@@ -127,8 +127,32 @@ class DatasetBundle(TypedDict):
     """Stable outer structure returned by legacy dataset helpers."""
 
     train: DatasetSplit
-    val: DatasetSplit
     test: DatasetSplit
+    val: DatasetSplit
+
+
+def _dataset_split(
+    *,
+    y: DatasetValue = None,
+    X_instance: DatasetValue = None,
+    X_target: DatasetValue = None,
+) -> DatasetSplit:
+    """Build one dataset split with the stable public keys."""
+    return {"y": y, "X_instance": X_instance, "X_target": X_target}
+
+
+def _dataset_bundle(
+    *,
+    train: DatasetSplit,
+    val: DatasetSplit | None = None,
+    test: DatasetSplit | None = None,
+) -> DatasetBundle:
+    """Build a dataset bundle with independent empty holdout splits."""
+    return {
+        "train": train,
+        "test": test if test is not None else _dataset_split(),
+        "val": val if val is not None else _dataset_split(),
+    }
 
 
 class ProcessedDatasetValue(TypedDict):
@@ -194,6 +218,50 @@ def _require_optional_non_negative_integer(
         isinstance(value, bool) or not isinstance(value, int) or value < 0
     ):
         raise ValueError(f"{name} must be a non-negative integer or None.")
+
+
+def _validate_array_format(name: str, value: object) -> None:
+    if not isinstance(value, str) or value not in {"numpy", "dataframe"}:
+        raise ValueError(f"{name} must be either 'numpy' or 'dataframe'.")
+
+
+def _format_feature_matrix(
+    features: np.ndarray,
+    features_format: ArrayFormat,
+) -> np.ndarray | pd.DataFrame:
+    if features_format == "numpy":
+        return features
+    feature_frame = pd.DataFrame({"id": np.arange(len(features))})
+    feature_frame["features"] = [row.copy() for row in features]
+    return feature_frame
+
+
+def _format_interaction_matrix(
+    interactions: np.ndarray,
+    interaction_matrix_format: ArrayFormat,
+) -> np.ndarray | pd.DataFrame:
+    if interaction_matrix_format == "numpy":
+        return interactions
+    instance_ids, target_ids = np.indices(interactions.shape)
+    return pd.DataFrame(
+        {
+            "instance_id": instance_ids.ravel(),
+            "target_id": target_ids.ravel(),
+            "value": interactions.ravel().copy(),
+        }
+    )
+
+
+def _generate_dummy_features(
+    generator: np.random.Generator,
+    *,
+    num_entities: int,
+    num_features: int,
+    features_format: ArrayFormat,
+) -> np.ndarray | pd.DataFrame:
+    features = generator.random((num_entities, num_features))
+    features[:, 0] = np.arange(num_entities)
+    return _format_feature_matrix(features, features_format)
 
 
 def _generate_static_feature_frame(
@@ -551,17 +619,6 @@ def _load_mlc_variant(dataset_path: Path) -> tuple[np.ndarray, np.ndarray]:
     return features, labels
 
 
-def _format_mlc_features(
-    features: np.ndarray,
-    features_type: ArrayFormat,
-) -> np.ndarray | pd.DataFrame:
-    if features_type == "numpy":
-        return features
-    feature_frame = pd.DataFrame({"id": np.arange(len(features))})
-    feature_frame["features"] = [row.copy() for row in features]
-    return feature_frame
-
-
 def load_process_MLC(
     path: str | os.PathLike[str] = "./data",
     dataset_name: str = "bibtex",
@@ -586,7 +643,7 @@ def load_process_MLC(
     """
     if dataset_name not in _MLC_DATASET_NAMES:
         raise ValueError(f"dataset_name must be one of {sorted(_MLC_DATASET_NAMES)}.")
-    if variant not in {"undivided", "divided"}:
+    if not isinstance(variant, str) or variant not in {"undivided", "divided"}:
         raise ValueError("variant must be either 'undivided' or 'divided'.")
     if features_type not in {"numpy", "dataframe"}:
         raise ValueError("features_type must be either 'numpy' or 'dataframe'.")
@@ -623,9 +680,9 @@ def load_process_MLC(
                 f"count; received {y_train.shape[1]} and {y_test.shape[1]}."
             )
 
-    X_train_instance = _format_mlc_features(X_train_array, features_type)
+    X_train_instance = _format_feature_matrix(X_train_array, features_type)
     X_test_instance = (
-        _format_mlc_features(X_test_array, features_type)
+        _format_feature_matrix(X_test_array, features_type)
         if X_test_array is not None
         else None
     )
@@ -652,63 +709,42 @@ def process_dummy_MLC(
     interaction_matrix_format: ArrayFormat = "numpy",
     features_format: ArrayFormat = "numpy",
     random_state: int | None = 42,
-) -> DatasetBundle:  # pragma: no cover
-    """Generates a dummy multi-label classification dataset
+) -> DatasetBundle:
+    """Generate a reproducible dummy multi-label classification dataset.
 
     Args:
-        num_features (int, optional): The number of instance features. Defaults to 10.
-        num_instances (int, optional): The number of instances. Defaults to 50.
-        num_targets (int, optional): The number of targets. Defaults to 5.
-        random_state (int, optional): Seed for an isolated NumPy generator. Use
-            None for non-deterministic data. Defaults to 42.
+        num_features: Number of features per instance.
+        num_instances: Number of instances.
+        num_targets: Number of binary labels.
+        interaction_matrix_format: Return labels as a dense matrix or triplets.
+        features_format: Return features as a dense matrix or feature DataFrame.
+        random_state: Seed for an isolated NumPy generator. Use ``None`` for
+            non-deterministic data.
 
     Returns:
-        dict: A dictionary with all the available data for the multi-label classification dataset.
+        A dataset bundle containing an undivided training split.
+
+    Raises:
+        ValueError: If a format, dimension, or random state is invalid.
     """
-    if interaction_matrix_format not in ["numpy", "dataframe"]:
-        raise AttributeError(
-            "Please use one of the valid interaction_matrix_format values: "
-            + str(["numpy", "dataframe"])
-        )
-    if features_format not in {"numpy", "dataframe"}:
-        raise ValueError("features_format must be either 'numpy' or 'dataframe'.")
+    _validate_array_format("interaction_matrix_format", interaction_matrix_format)
+    _validate_array_format("features_format", features_format)
     _require_positive_integer("num_features", num_features)
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
 
     generator = _random_generator(random_state)
-    X_train_instance = generator.random((num_instances, num_features))
-    for i in range(num_instances):
-        X_train_instance[i, 0] = i
-    if features_format == "dataframe":
-        temp_instance_features_df = pd.DataFrame(
-            np.arange(len(X_train_instance)), columns=["id"]
-        )
-        temp_instance_features_df["features"] = [r for r in X_train_instance]
-        X_train_instance = temp_instance_features_df
-
-    y_train = generator.integers(2, size=(num_instances, num_targets))
-    if interaction_matrix_format == "dataframe":
-        triplets = [
-            (i, j, y_train[i, j])
-            for i in range(y_train.shape[0])
-            for j in range(y_train.shape[1])
-        ]
-        y_train = pd.DataFrame(triplets, columns=["instance_id", "target_id", "value"])
-
-    # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": X_train_target,
-        },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
-    }
+    X_train_instance = _generate_dummy_features(
+        generator,
+        num_entities=num_instances,
+        num_features=num_features,
+        features_format=features_format,
+    )
+    y_train = _format_interaction_matrix(
+        generator.integers(2, size=(num_instances, num_targets)),
+        interaction_matrix_format,
+    )
+    return _dataset_bundle(train=_dataset_split(y=y_train, X_instance=X_train_instance))
 
 
 def load_process_MTR(
@@ -825,36 +861,42 @@ def process_dummy_MTR(
     variant: DatasetVariant = "undivided",
     split_ratio: Mapping[str, float] | None = None,
     random_state: int | None = 42,
-) -> DatasetBundle:  # pragma: no cover
-    """Generates a dummy multivariate regression dataset
+) -> DatasetBundle:
+    """Generate a reproducible dummy multivariate regression dataset.
 
     Args:
-        num_features (int, optional): The number of instance features. Defaults to 10.
-        num_instances (int, optional): The number of instances. Defaults to 50.
-        num_targets (int, optional): The number of targets. Defaults to 5.
-        random_state (int, optional): Seed used for both data generation and
-            splitting. Use None for non-deterministic data. Defaults to 42.
+        num_features: Number of features per instance.
+        num_instances: Number of instances.
+        num_targets: Number of regression targets.
+        interaction_matrix_format: Return scores as a dense matrix or triplets.
+        features_format: Return features as a dense matrix or feature DataFrame.
+        variant: Return an undivided dataset or train/validation/test splits.
+        split_ratio: Ratios used for the divided variant.
+        random_state: Seed used for both data generation and splitting. Use
+            ``None`` for non-deterministic data.
 
     Returns:
-        dict: A dictionary with all the available data for the multivariate regression dataset.
+        A dataset bundle containing the generated scores and features.
+
+    Raises:
+        TypeError: If ``split_ratio`` is not a mapping.
+        ValueError: If an option, dimension, ratio, or random state is invalid.
     """
     split_ratio = _split_ratio(split_ratio)
-    if interaction_matrix_format not in ["numpy", "dataframe"]:
-        raise AttributeError(
-            "Please use one of the valid interaction_matrix_format values: "
-            + str(["numpy", "dataframe"])
-        )
-    if features_format not in {"numpy", "dataframe"}:
-        raise ValueError("features_format must be either 'numpy' or 'dataframe'.")
-    if variant not in {"undivided", "divided"}:
+    _validate_array_format("interaction_matrix_format", interaction_matrix_format)
+    _validate_array_format("features_format", features_format)
+    if not isinstance(variant, str) or variant not in {"undivided", "divided"}:
         raise ValueError("variant must be either 'undivided' or 'divided'.")
     _require_positive_integer("num_features", num_features)
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
-
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
+    if variant == "divided":
+        _absolute_split_sizes(
+            num_instances,
+            split_ratio,
+            parameter_name="split ratio",
+            population_name="instance",
+        )
 
     generator = _random_generator(random_state)
     split_random_state = (
@@ -862,29 +904,24 @@ def process_dummy_MTR(
         if random_state is not None
         else int(generator.integers(0, np.iinfo(np.uint32).max))
     )
-    X_train_instance = generator.random((num_instances, num_features))
-    for i in range(num_instances):
-        X_train_instance[i, 0] = i
-
-    y_train = generator.integers(10, size=(num_instances, num_targets))
-
-    if features_format == "dataframe":
-        temp_instance_features_df = pd.DataFrame(
-            np.arange(len(X_train_instance)), columns=["id"]
-        )
-        temp_instance_features_df["features"] = [r for r in X_train_instance]
-        X_train_instance = temp_instance_features_df
-    if interaction_matrix_format == "dataframe":
-        triplets = [
-            (i, j, y_train[i, j])
-            for i in range(y_train.shape[0])
-            for j in range(y_train.shape[1])
-        ]
-        y_train = pd.DataFrame(triplets, columns=["instance_id", "target_id", "value"])
+    X_train_instance = _generate_dummy_features(
+        generator,
+        num_entities=num_instances,
+        num_features=num_features,
+        features_format=features_format,
+    )
+    y_train = _format_interaction_matrix(
+        generator.integers(10, size=(num_instances, num_targets)),
+        interaction_matrix_format,
+    )
+    X_val_instance: DatasetValue = None
+    X_test_instance: DatasetValue = None
+    y_val: DatasetValue = None
+    y_test: DatasetValue = None
 
     if variant == "divided":
         train_ids, test_ids = train_test_split(
-            range(num_instances),
+            np.arange(num_instances),
             test_size=split_ratio["test"],
             random_state=split_random_state,
         )
@@ -894,7 +931,7 @@ def process_dummy_MTR(
             random_state=split_random_state,
         )
 
-        if interaction_matrix_format == "dataframe":
+        if isinstance(y_train, pd.DataFrame):
             y_test = y_train.loc[y_train["instance_id"].isin(test_ids)]
             y_val = y_train.loc[y_train["instance_id"].isin(val_ids)]
             y_train = y_train.loc[y_train["instance_id"].isin(train_ids)]
@@ -903,7 +940,7 @@ def process_dummy_MTR(
             y_val = y_train[val_ids, :]
             y_train = y_train[train_ids, :]
 
-        if features_format == "dataframe":
+        if isinstance(X_train_instance, pd.DataFrame):
             X_test_instance = X_train_instance.loc[
                 X_train_instance["id"].isin(test_ids)
             ]
@@ -916,16 +953,11 @@ def process_dummy_MTR(
             X_val_instance = X_train_instance[val_ids, :]
             X_train_instance = X_train_instance[train_ids, :]
 
-    # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": X_train_target,
-        },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
-    }
+    return _dataset_bundle(
+        train=_dataset_split(y=y_train, X_instance=X_train_instance),
+        val=_dataset_split(y=y_val, X_instance=X_val_instance),
+        test=_dataset_split(y=y_test, X_instance=X_test_instance),
+    )
 
 
 def print_MTR_datasets() -> None:  # pragma: no cover
@@ -1273,75 +1305,61 @@ def process_dummy_DP(
     instance_features_format: ArrayFormat = "numpy",
     target_features_format: ArrayFormat = "numpy",
     random_state: int | None = 42,
-) -> DatasetBundle:  # pragma: no cover
-    """Generates a dummy multivariate regression dataset
+) -> DatasetBundle:
+    """Generate a reproducible dummy dyadic prediction dataset.
 
     Args:
-        num_instance_features (int, optional): The number of instance features. Defaults to 10.
-        num_target_features (int, optional): The number of target features. Defaults to 3.
-        num_instances (int, optional): The number of instances. Defaults to 50.
-        num_targets (int, optional): The number of targets. Defaults to 5.
-        random_state (int, optional): Seed for an isolated NumPy generator. Use
-            None for non-deterministic data. Defaults to 42.
+        num_instance_features: Number of features per instance.
+        num_target_features: Number of features per target.
+        num_instances: Number of instances.
+        num_targets: Number of targets.
+        interaction_matrix_format: Return scores as a dense matrix or triplets.
+        instance_features_format: Return instance features as an array or DataFrame.
+        target_features_format: Return target features as an array or DataFrame.
+        random_state: Seed for an isolated NumPy generator. Use ``None`` for
+            non-deterministic data.
 
     Returns:
-        dict: A dictionary with all the available data for the dyadic prediction dataset.
+        A dataset bundle containing an undivided training split.
+
+    Raises:
+        ValueError: If a format, dimension, or random state is invalid.
     """
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
     for name, value in {
         "interaction_matrix_format": interaction_matrix_format,
         "instance_features_format": instance_features_format,
         "target_features_format": target_features_format,
     }.items():
-        if value not in {"numpy", "dataframe"}:
-            raise ValueError(f"{name} must be either 'numpy' or 'dataframe'.")
+        _validate_array_format(name, value)
     _require_positive_integer("num_instance_features", num_instance_features)
     _require_positive_integer("num_target_features", num_target_features)
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
 
     generator = _random_generator(random_state)
-    X_train_instance = generator.random((num_instances, num_instance_features))
-    for i in range(num_instances):
-        X_train_instance[i, 0] = i
-    if instance_features_format == "dataframe":
-        temp_instance_features_df = pd.DataFrame(
-            np.arange(len(X_train_instance)), columns=["id"]
+    X_train_instance = _generate_dummy_features(
+        generator,
+        num_entities=num_instances,
+        num_features=num_instance_features,
+        features_format=instance_features_format,
+    )
+    X_train_target = _generate_dummy_features(
+        generator,
+        num_entities=num_targets,
+        num_features=num_target_features,
+        features_format=target_features_format,
+    )
+    y_train = _format_interaction_matrix(
+        generator.integers(10, size=(num_instances, num_targets)),
+        interaction_matrix_format,
+    )
+    return _dataset_bundle(
+        train=_dataset_split(
+            y=y_train,
+            X_instance=X_train_instance,
+            X_target=X_train_target,
         )
-        temp_instance_features_df["features"] = [r for r in X_train_instance]
-        X_train_instance = temp_instance_features_df
-
-    X_train_target = generator.random((num_targets, num_target_features))
-    for i in range(num_targets):
-        X_train_target[i, 0] = i
-    if target_features_format == "dataframe":
-        temp_target_features_df = pd.DataFrame(
-            np.arange(len(X_train_target)), columns=["id"]
-        )
-        temp_target_features_df["features"] = [r for r in X_train_target]
-        X_train_target = temp_target_features_df
-
-    y_train = generator.integers(10, size=(num_instances, num_targets))
-    if interaction_matrix_format == "dataframe":
-        triplets = [
-            (i, j, y_train[i, j])
-            for i in range(y_train.shape[0])
-            for j in range(y_train.shape[1])
-        ]
-        y_train = pd.DataFrame(triplets, columns=["instance_id", "target_id", "value"])
-
-    # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": X_train_target,
-        },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
-    }
+    )
 
 
 def _load_movielens_ratings(ratings_path: Path) -> pd.DataFrame:

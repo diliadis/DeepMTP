@@ -2,6 +2,7 @@ import hashlib
 import json
 import pickle
 import zipfile
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
@@ -193,6 +194,7 @@ def test_load_process_mlc_reads_cached_published_split(tmp_path):
     [
         ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
         ({"variant": "unknown"}, ValueError, "variant"),
+        ({"variant": []}, ValueError, "variant"),
         ({"features_type": "unknown"}, ValueError, "features_type"),
         ({"print_mode": "unknown"}, ValueError, "print_mode"),
         ({"path": object()}, TypeError, "path"),
@@ -1323,6 +1325,134 @@ def test_generate_interaction_matrix_reports_invalid_json(tmp_path):
 def test_dummy_datasets_reject_unknown_feature_formats(factory, keyword):
     with pytest.raises(ValueError, match=keyword):
         factory(**{keyword: "unknown"})
+
+
+@pytest.mark.parametrize(
+    "factory",
+    [process_dummy_MLC, process_dummy_MTR, process_dummy_DP],
+)
+@pytest.mark.parametrize("invalid_format", ["unknown", None, []])
+def test_dummy_datasets_reject_unknown_interaction_formats(
+    factory,
+    invalid_format,
+):
+    with pytest.raises(ValueError, match="interaction_matrix_format"):
+        factory(interaction_matrix_format=invalid_format)
+
+
+@pytest.mark.parametrize("interaction_format", ["numpy", "dataframe"])
+@pytest.mark.parametrize("features_format", ["numpy", "dataframe"])
+def test_dummy_mlc_has_stable_format_contract(
+    interaction_format,
+    features_format,
+):
+    data = process_dummy_MLC(
+        num_features=3,
+        num_instances=8,
+        num_targets=2,
+        interaction_matrix_format=interaction_format,
+        features_format=features_format,
+        random_state=17,
+    )
+
+    assert list(data) == ["train", "test", "val"]
+    assert data["train"]["X_target"] is None
+    assert data["val"] == {"y": None, "X_instance": None, "X_target": None}
+    assert data["test"] == {"y": None, "X_instance": None, "X_target": None}
+
+    features = data["train"]["X_instance"]
+    if features_format == "numpy":
+        assert isinstance(features, np.ndarray)
+        assert features.shape == (8, 3)
+        np.testing.assert_array_equal(features[:, 0], np.arange(8))
+    else:
+        assert isinstance(features, pd.DataFrame)
+        assert list(features.columns) == ["id", "features"]
+        assert list(features["id"]) == list(range(8))
+        feature_vectors = features["features"].tolist()
+        assert all(vector.shape == (3,) for vector in feature_vectors)
+        assert all(
+            not np.shares_memory(left, right)
+            for left, right in pairwise(feature_vectors)
+        )
+
+    interactions = data["train"]["y"]
+    if interaction_format == "numpy":
+        assert isinstance(interactions, np.ndarray)
+        assert interactions.shape == (8, 2)
+        assert set(np.unique(interactions)) <= {0, 1}
+    else:
+        assert isinstance(interactions, pd.DataFrame)
+        assert list(interactions.columns) == [
+            "instance_id",
+            "target_id",
+            "value",
+        ]
+        assert len(interactions) == 16
+        assert interactions.groupby("instance_id").size().eq(2).all()
+        assert set(interactions["value"].unique()) <= {0, 1}
+
+
+def test_dummy_dp_dataframe_contract():
+    data = process_dummy_DP(
+        num_instance_features=3,
+        num_target_features=2,
+        num_instances=6,
+        num_targets=4,
+        interaction_matrix_format="dataframe",
+        instance_features_format="dataframe",
+        target_features_format="dataframe",
+    )
+
+    assert list(data["train"]["X_instance"]["id"]) == list(range(6))
+    assert list(data["train"]["X_target"]["id"]) == list(range(4))
+    assert list(data["train"]["y"].columns) == [
+        "instance_id",
+        "target_id",
+        "value",
+    ]
+    assert len(data["train"]["y"]) == 24
+    assert data["val"] == {"y": None, "X_instance": None, "X_target": None}
+    assert data["test"] == {"y": None, "X_instance": None, "X_target": None}
+
+
+def test_dummy_mtr_dataframe_splits_keep_features_and_interactions_aligned():
+    data = process_dummy_MTR(
+        num_instances=20,
+        num_targets=3,
+        interaction_matrix_format="dataframe",
+        features_format="dataframe",
+        variant="divided",
+        split_ratio={"train": 0.7, "val": 0.1, "test": 0.2},
+        random_state=17,
+    )
+
+    for split_name, expected_instances in (
+        ("train", 14),
+        ("val", 2),
+        ("test", 4),
+    ):
+        features = data[split_name]["X_instance"]
+        interactions = data[split_name]["y"]
+        assert len(features) == expected_instances
+        assert len(interactions) == expected_instances * 3
+        assert set(features["id"]) == set(interactions["instance_id"])
+        assert interactions.groupby("instance_id").size().eq(3).all()
+        assert data[split_name]["X_target"] is None
+
+
+def test_dummy_mtr_rejects_split_that_cannot_leave_training_instances():
+    with pytest.raises(ValueError, match="leave at least one training instance"):
+        process_dummy_MTR(
+            num_instances=2,
+            variant="divided",
+        )
+
+
+@pytest.mark.parametrize("variant", ["unknown", None, []])
+def test_dummy_mtr_rejects_invalid_variant(variant):
+    with pytest.raises(ValueError, match="variant"):
+        process_dummy_MTR(variant=variant)
 
 
 def test_dummy_mtr_split_ratio_is_relative_to_original_dataset():
