@@ -98,8 +98,12 @@ Documentation = "https://deepmtp.readthedocs.io/"
 Issues = "https://github.com/diliadis/DeepMTP/issues"
 Repository = "https://github.com/diliadis/DeepMTP"
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 include = ["DeepMTP*"]
+exclude = ["DeepMTP.tests*"]
 
 [tool.setuptools_scm]
 fallback_version = "0.0.0"
