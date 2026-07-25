@@ -45,7 +45,7 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Metrics**
      -
    * - **metrics**
-     - The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']
+     - The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2']
    * - **metrics_average**
      - The averaging strategy used to calculate metrics. The available options
        are ['macro', 'micro', 'instance']; validation setting A supports only
@@ -122,6 +122,11 @@ In the code snippet above the function generate_config is shown without any spec
      - A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb
    * - **validation_setting**
      - The validation setting of the specific example
+
+RRMSE remains available through the low-level ``get_performance_results``
+utility for macro evaluation when a training mean is provided for every
+target. The trainer does not yet retain those baselines, so RRMSE is rejected
+in trainer configurations instead of returning silent ``NaN`` results.
 
 
 Instance and target branch hyperparameters

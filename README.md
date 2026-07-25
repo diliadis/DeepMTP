@@ -267,7 +267,7 @@ In the code snippet above the function generate_config is shown without any spec
 | `eval_every_n_epochs` | The interval that indicates when the performance metrics are computed |
 | `use_early_stopping` | Whether or not to use early stopping while training |
 | **Metrics** ||
-| `metrics` | The performance metrics that will be calculated. For classification tasks the available metrics are `['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision']` while for regression tasks the available metrics are `['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']` |
+| `metrics` | The performance metrics that will be calculated. For classification tasks the available metrics are `['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision']` while for regression tasks the available metrics are `['RMSE', 'MSE', 'MAE', 'R2']` |
 | `metrics_average` | The averaging strategy used to calculate metrics. Available options are `['macro', 'micro', 'instance']`; validation setting A supports only `['micro']`. |
 | `metric_to_optimize_early_stopping` | The metric that will be used for tracking by the early stopping routine. The value can be the `loss` or one of the available performance metrics. |
 | `metric_to_optimize_best_epoch_selection` | The validation metric that will be used to determine the best configuration. The value can be the `loss` or one of the available performance metrics. |
@@ -307,6 +307,12 @@ In the code snippet above the function generate_config is shown without any spec
 |  **Other**  ||
 | `additional_info` | A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb |
 | `validation_setting` | The validation setting of the specific example |
+
+RRMSE remains available through the low-level
+`get_performance_results` utility for macro evaluation when a training mean is
+provided for every target. The trainer does not yet retain those baselines, so
+RRMSE is rejected in trainer configurations instead of returning silent `NaN`
+results.
 
 
 ## Instance and target branch hyperparameters 

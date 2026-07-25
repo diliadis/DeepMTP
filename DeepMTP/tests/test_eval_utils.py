@@ -478,6 +478,47 @@ def test_macro_rrmse_uses_each_targets_training_mean():
     assert results["test_RRMSE_macro"] == pytest.approx(1.0)
 
 
+def test_rrmse_requires_complete_target_training_means():
+    arguments = {
+        "mode": "test",
+        "epoch_id": 0,
+        "instances_arr": np.array([0, 1, 0, 1]),
+        "targets_arr": np.array([0, 0, 1, 1]),
+        "true_values_arr": np.array([2.0, 4.0, 10.0, 14.0]),
+        "pred_values_arr": np.array([1.0, 5.0, 8.0, 16.0]),
+        "validation_setting": "B",
+        "problem_mode": "regression",
+        "metrics": ["RRMSE"],
+        "averaging": ["macro"],
+    }
+
+    with pytest.raises(ValueError, match="requires train_true_value"):
+        get_performance_results(**arguments)
+
+    with pytest.raises(ValueError, match="missing target IDs.*1"):
+        get_performance_results(
+            **arguments,
+            train_true_value={0: 3.0},
+        )
+
+
+def test_rrmse_rejects_averaging_without_matching_training_baselines():
+    with pytest.raises(ValueError, match="requires macro averaging"):
+        get_performance_results(
+            mode="test",
+            epoch_id=0,
+            instances_arr=np.array([0, 1]),
+            targets_arr=np.array([0, 0]),
+            true_values_arr=np.array([2.0, 4.0]),
+            pred_values_arr=np.array([1.0, 5.0]),
+            validation_setting="B",
+            problem_mode="regression",
+            metrics=["RRMSE"],
+            averaging=["micro"],
+            train_true_value={0: 3.0},
+        )
+
+
 def test_target_specific_scalers_restore_original_values():
     targets = np.array([0, 0, 1, 1])
     true_values = np.array([10.0, 12.0, 100.0, 104.0])
@@ -514,6 +555,61 @@ def test_target_specific_scalers_restore_original_values():
     )
 
     assert results["test_MSE_micro"] == pytest.approx(1.0)
+
+
+def test_target_specific_scalers_must_cover_every_target():
+    scaler = StandardScaler().fit(np.array([[10.0], [12.0]]))
+
+    with pytest.raises(ValueError, match="scaler_per_target.*missing target IDs.*1"):
+        get_performance_results(
+            mode="test",
+            epoch_id=0,
+            instances_arr=np.array([0, 1]),
+            targets_arr=np.array([0, 1]),
+            true_values_arr=np.array([0.0, 0.0]),
+            pred_values_arr=np.array([0.0, 0.0]),
+            validation_setting="B",
+            problem_mode="regression",
+            metrics=["MSE"],
+            averaging=["micro"],
+            scaler_per_target={0: scaler},
+        )
+
+
+def test_inverse_score_scaling_rejects_classification():
+    scaler = StandardScaler().fit(np.array([[0.0], [1.0]]))
+
+    with pytest.raises(ValueError, match="only for regression"):
+        get_performance_results(
+            mode="test",
+            epoch_id=0,
+            instances_arr=np.array([0, 1]),
+            targets_arr=np.array([0, 0]),
+            true_values_arr=np.array([0, 1]),
+            pred_values_arr=np.array([0.1, 0.9]),
+            validation_setting="A",
+            problem_mode="classification",
+            metrics=["accuracy"],
+            averaging=["micro"],
+            scaler_per_target=scaler,
+        )
+
+
+def test_inverse_score_scaling_requires_transformer_protocol():
+    with pytest.raises(TypeError, match=r"scaler_per_target must provide"):
+        get_performance_results(
+            mode="test",
+            epoch_id=0,
+            instances_arr=np.array([0, 1]),
+            targets_arr=np.array([0, 0]),
+            true_values_arr=np.array([1.0, 2.0]),
+            pred_values_arr=np.array([1.0, 2.0]),
+            validation_setting="A",
+            problem_mode="regression",
+            metrics=["MSE"],
+            averaging=["micro"],
+            scaler_per_target=object(),
+        )
 
 
 def test_verbose_evaluation_uses_modern_numpy_nan_api(capsys):

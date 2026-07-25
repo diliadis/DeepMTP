@@ -41,6 +41,7 @@ two small end-to-end training runs.
 - [x] Weight epoch losses by observations when batch sizes differ.
 - [x] Make evaluation metric results complete and repair ranking NDCG.
 - [x] Enforce micro-only metric averaging for validation setting A.
+- [x] Make RRMSE and inverse score-scaling requirements explicit.
 - [x] Cover single-class and singleton evaluation groups.
 - [x] Validate identifiers used for generated one-hot features.
 

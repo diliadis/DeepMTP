@@ -24,7 +24,7 @@ CLASSIFICATION_METRICS = frozenset(
         "precision",
     }
 )
-REGRESSION_METRICS = frozenset({"RMSE", "MSE", "MAE", "R2", "RRMSE"})
+REGRESSION_METRICS = frozenset({"RMSE", "MSE", "MAE", "R2"})
 METRIC_AVERAGING_SCHEMES = frozenset({"macro", "micro", "instance"})
 _DEVICE_PATTERN = re.compile(r"^(cpu|cuda(?::\d+)?)$")
 

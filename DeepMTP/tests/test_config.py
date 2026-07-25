@@ -139,6 +139,17 @@ def test_typed_config_rejects_non_micro_averaging_for_setting_a():
         DeepMTPConfig.from_mapping(config)
 
 
+def test_typed_config_rejects_rrmse_without_training_baseline_support():
+    config = make_valid_config(problem_mode="regression", metrics=["MSE"])
+    config["metrics"] = ["RRMSE"]
+
+    with pytest.raises(
+        ConfigValidationError,
+        match="Unsupported regression metrics.*RRMSE",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
 def test_generate_config_mutable_defaults_are_isolated():
     first = make_valid_config()
     first["metrics"].append("precision")

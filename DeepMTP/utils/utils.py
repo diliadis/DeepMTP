@@ -245,7 +245,7 @@ def generate_config(
         val_batchsize (int, optional): 	The number of samples that comprise a batch from the validation and test sets. Defaults to 512.
         num_epochs (int, optional): The max number of epochs allowed for training. Defaults to 100.
         random_seed (int, optional): The seed used for isolated model initialization and training-data shuffling. Use None for nondeterministic behavior. Defaults to 2.
-        metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
+        metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
         metrics_average (list, optional): The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
         top_k (float, optional): The number of top predictions used to calculate top_k versions of metrics (frequently used in collaborative filtering problems).
         patience (int, optional): The number of epochs that the network is allowed to continue training for while observing worse overall performance. Defaults to 10.

@@ -143,6 +143,8 @@ def _validate_evaluation_inputs(
     metrics: Sequence[str],
     averaging: Sequence[str],
     top_k: int | None,
+    train_true_value: TrainingMeans | None,
+    scaler_per_target: ScalerInput,
 ) -> None:
     lengths = {
         len(instances),
@@ -174,6 +176,44 @@ def _validate_evaluation_inputs(
         )
     if validation_setting == "A" and list(averaging) != ["micro"]:
         raise ValueError("averaging must be ['micro'] for validation setting A.")
+    if "RRMSE" in metrics:
+        if validation_setting == "A" or list(averaging) != ["macro"]:
+            raise ValueError(
+                "RRMSE requires macro averaging in validation settings B, C, or D."
+            )
+        if not isinstance(train_true_value, Mapping):
+            raise ValueError(
+                "RRMSE requires train_true_value with one training mean per target."
+            )
+        _validate_target_mapping(
+            train_true_value,
+            targets,
+            parameter_name="train_true_value",
+            require_finite_values=True,
+        )
+    if scaler_per_target is not None:
+        if problem_mode != "regression":
+            raise ValueError("Inverse score scaling is supported only for regression.")
+        if validation_setting == "A":
+            if isinstance(scaler_per_target, Mapping):
+                raise TypeError(
+                    "Setting A expects one scaler, not a mapping of target scalers."
+                )
+            _validate_inverse_transformer(
+                scaler_per_target,
+                parameter_name="scaler_per_target",
+            )
+        else:
+            if not isinstance(scaler_per_target, Mapping):
+                raise TypeError(
+                    f"Setting {validation_setting} expects a mapping of target scalers."
+                )
+            _validate_target_mapping(
+                scaler_per_target,
+                targets,
+                parameter_name="scaler_per_target",
+                require_inverse_transformers=True,
+            )
     if top_k is not None and (
         not isinstance(top_k, int) or isinstance(top_k, bool) or top_k <= 0
     ):
@@ -217,10 +257,10 @@ def get_performance_results(
         verbose (bool, optional): Whether or not to print useful info in the terminal. Defaults to False.
         per_target_verbose (bool, optional): Whether or not to print useful info per target in the terminal. Defaults to False.
         per_instance_verbose (bool, optional): Whether or not to print useful info per instance in the terminal. Defaults to False.
-        top_k (_type_, optional): The number of top performing instances or targets that are used to calculate metrics. This is used for ranking tasks. Not currently implemented. Defaults to None.
+        top_k (_type_, optional): The number of top performing instances or targets that are used to calculate metrics. Defaults to None.
         return_detailed_macro (bool, optional): Whether or not to return the per-target metrics. Defaults to False.
-        train_true_value (_type_, optional): The true values per target. This is used when calculating the RRMSE score. Not currently implemented. Defaults to None.
-        scaler_per_target (_type_, optional): The scaler of every target. This is used when the target values have been previously scaled. Not currently implemented. Defaults to None.
+        train_true_value (_type_, optional): The training mean for every target, required when calculating macro RRMSE. Defaults to None.
+        scaler_per_target (_type_, optional): One global scaler for setting A or a scaler for every target in settings B-D. Supported for regression scores only. Defaults to None.
 
     Raises:
         AttributeError: only when the problem setting is A, but a macro or instance wise averaging is requested
@@ -238,6 +278,8 @@ def get_performance_results(
         metrics,
         averaging,
         top_k,
+        train_true_value,
+        scaler_per_target,
     )
     final_result: MetricResults = {}
     if mode != "":
@@ -550,26 +592,25 @@ def base_evaluator(
             results["MAE"] = float(mean_absolute_error(true_values, pred_values))
         if "R2" in metrics:
             results["R2"] = float(r2_score(true_values, pred_values))
-        if "RRMSE" in metrics:  # pragma: no cover
+        if "RRMSE" in metrics:
             if training_mean is None:
-                results["RRMSE"] = float("nan")
-            else:
-                numerator = float(
-                    np.sqrt(np.mean(np.square(true_values - pred_values)))
+                raise ValueError(
+                    "RRMSE requires a training mean for each evaluated group."
                 )
-                denominator = float(
-                    np.sqrt(
-                        np.mean(
-                            np.square(
-                                true_values
-                                - [training_mean for _ in range(len(pred_values))]
-                            )
+            numerator = float(np.sqrt(np.mean(np.square(true_values - pred_values))))
+            denominator = float(
+                np.sqrt(
+                    np.mean(
+                        np.square(
+                            true_values
+                            - [training_mean for _ in range(len(pred_values))]
                         )
                     )
                 )
-                results["RRMSE"] = (
-                    float("nan") if denominator == 0 else numerator / denominator
-                )
+            )
+            results["RRMSE"] = (
+                float("nan") if denominator == 0 else numerator / denominator
+            )
 
     elif problem_mode == "classification":
         bin_values = (pred_values >= threshold).astype(int)
@@ -754,3 +795,45 @@ def _validate_metrics(problem_mode: str, metrics: Sequence[str]) -> None:
         raise ValueError(
             f"Unsupported {problem_mode} metrics: {sorted(unknown_metrics)}."
         )
+
+
+def _validate_target_mapping(
+    values: Mapping[Any, Any],
+    targets: ArrayValues,
+    *,
+    parameter_name: str,
+    require_finite_values: bool = False,
+    require_inverse_transformers: bool = False,
+) -> None:
+    target_ids = set(targets)
+    missing_targets = target_ids.difference(values)
+    if missing_targets:
+        raise ValueError(
+            f"{parameter_name} is missing target IDs: "
+            f"{sorted(missing_targets, key=str)!r}."
+        )
+    if require_finite_values:
+        for target_id in target_ids:
+            try:
+                value = float(values[target_id])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"{parameter_name}[{target_id!r}] must be numeric."
+                ) from exc
+            if not np.isfinite(value):
+                raise ValueError(f"{parameter_name}[{target_id!r}] must be finite.")
+    if require_inverse_transformers:
+        for target_id in target_ids:
+            _validate_inverse_transformer(
+                values[target_id],
+                parameter_name=f"{parameter_name}[{target_id!r}]",
+            )
+
+
+def _validate_inverse_transformer(
+    value: Any,
+    *,
+    parameter_name: str,
+) -> None:
+    if not callable(getattr(value, "inverse_transform", None)):
+        raise TypeError(f"{parameter_name} must provide inverse_transform().")
