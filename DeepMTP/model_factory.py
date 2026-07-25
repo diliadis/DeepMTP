@@ -17,12 +17,21 @@ from DeepMTP.config import DeepMTPConfig
 class TwoBranchDotProductModel(nn.Module):
     """Combine equal-sized branch embeddings with a dot product."""
 
-    def __init__(self, config, instance_branch_model, target_branch_model):
+    def __init__(
+        self,
+        config: Mapping[str, Any],
+        instance_branch_model: nn.Module,
+        target_branch_model: nn.Module,
+    ) -> None:
         super().__init__()
         self.instance_branch_model = instance_branch_model
         self.target_branch_model = target_branch_model
 
-    def forward(self, instance_features, target_features):
+    def forward(
+        self,
+        instance_features: torch.Tensor,
+        target_features: torch.Tensor,
+    ) -> torch.Tensor:
         instance_embedding = self.instance_branch_model(instance_features)
         target_embedding = self.target_branch_model(target_features)
         return torch.unsqueeze(
@@ -34,7 +43,12 @@ class TwoBranchDotProductModel(nn.Module):
 class TwoBranchMLPModel(nn.Module):
     """Combine branch embeddings using a multilayer perceptron."""
 
-    def __init__(self, config, instance_branch_model, target_branch_model):
+    def __init__(
+        self,
+        config: Mapping[str, Any],
+        instance_branch_model: nn.Module,
+        target_branch_model: nn.Module,
+    ) -> None:
         super().__init__()
         self.instance_branch_model = instance_branch_model
         self.target_branch_model = target_branch_model
@@ -53,7 +67,11 @@ class TwoBranchMLPModel(nn.Module):
             skip_last_act=True,
         )
 
-    def forward(self, instance_features, target_features):
+    def forward(
+        self,
+        instance_features: torch.Tensor,
+        target_features: torch.Tensor,
+    ) -> torch.Tensor:
         instance_embedding = self.instance_branch_model(instance_features)
         target_embedding = self.target_branch_model(target_features)
         combined_embedding = torch.cat(
@@ -66,7 +84,12 @@ class TwoBranchMLPModel(nn.Module):
 class TwoBranchKroneckerModel(nn.Module):
     """Combine branch embeddings using batched Kronecker products."""
 
-    def __init__(self, config, instance_branch_model, target_branch_model):
+    def __init__(
+        self,
+        config: Mapping[str, Any],
+        instance_branch_model: nn.Module,
+        target_branch_model: nn.Module,
+    ) -> None:
         super().__init__()
         self.instance_branch_model = instance_branch_model
         self.target_branch_model = target_branch_model
@@ -76,7 +99,11 @@ class TwoBranchKroneckerModel(nn.Module):
         )
         self.comb_branch = nn.Linear(combined_dimension, 1)
 
-    def forward(self, instance_features, target_features):
+    def forward(
+        self,
+        instance_features: torch.Tensor,
+        target_features: torch.Tensor,
+    ) -> torch.Tensor:
         instance_embedding = self.instance_branch_model(instance_features)
         target_embedding = self.target_branch_model(target_features)
         combined_embedding = torch.stack(

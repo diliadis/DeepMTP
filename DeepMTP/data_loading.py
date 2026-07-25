@@ -36,9 +36,9 @@ class DataLoaderFactory:
 
     def for_training(
         self,
-        train_data,
-        validation_data,
-        test_data,
+        train_data: Mapping[str, Any],
+        validation_data: Mapping[str, Any] | None,
+        test_data: Mapping[str, Any] | None,
     ) -> TrainingDataLoaders:
         """Build the train, validation, and test dataloaders."""
         if validation_data is None:
@@ -64,7 +64,7 @@ class DataLoaderFactory:
             ),
         )
 
-    def for_prediction(self, data) -> DataLoader:
+    def for_prediction(self, data: Mapping[str, Any]) -> DataLoader:
         """Build a deterministic inference dataloader."""
         return self._build(
             data,
@@ -72,7 +72,13 @@ class DataLoaderFactory:
             train=False,
         )
 
-    def _build(self, data, *, batch_size: int, train: bool) -> DataLoader:
+    def _build(
+        self,
+        data: Mapping[str, Any],
+        *,
+        batch_size: int,
+        train: bool,
+    ) -> DataLoader:
         dataset = BaseDataset(
             self.dataset_config,
             data["y"],

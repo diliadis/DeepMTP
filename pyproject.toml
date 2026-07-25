@@ -172,3 +172,20 @@ no_implicit_optional = true
 show_error_codes = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "DeepMTP.config",
+    "DeepMTP.data_loading",
+    "DeepMTP.evaluation",
+    "DeepMTP.hpo_progress",
+    "DeepMTP.model_factory",
+    "DeepMTP.persistence",
+    "DeepMTP.presentation",
+    "DeepMTP.reporting",
+    "DeepMTP.streamlit_adapter",
+    "DeepMTP.training",
+]
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+warn_return_any = true

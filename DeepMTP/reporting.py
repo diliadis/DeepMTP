@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Protocol
 
 
@@ -185,7 +186,11 @@ def build_reporter(
     return CompositeReporter(reporters)
 
 
-def _import_optional_module(module_name: str, *, integration_name: str):
+def _import_optional_module(
+    module_name: str,
+    *,
+    integration_name: str,
+) -> ModuleType:
     try:
         return importlib.import_module(module_name)
     except (ImportError, ModuleNotFoundError) as error:

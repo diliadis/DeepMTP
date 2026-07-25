@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, cast
 
 import pandas as pd
 
@@ -13,6 +13,16 @@ from DeepMTP.config import DeepMTPConfig
 from DeepMTP.hpo_progress import HPOProgressEvent
 from DeepMTP.presentation import ProgressEvent, RunSummaries
 from DeepMTP.reporting import OptionalIntegrationError
+
+
+class StreamlitAPI(Protocol):
+    """Small Streamlit surface used by the progress adapters."""
+
+    def empty(self) -> Any:
+        """Create an empty UI slot."""
+
+    def progress(self, value: int) -> Any:
+        """Create a progress indicator."""
 
 
 class StreamlitProgressObserver:
@@ -23,8 +33,8 @@ class StreamlitProgressObserver:
         config: DeepMTPConfig | Mapping[str, Any] | None = None,
         *,
         experiment_dir: str | Path | None = None,
-        streamlit_module=None,
-    ):
+        streamlit_module: StreamlitAPI | None = None,
+    ) -> None:
         self._st = streamlit_module or _import_streamlit()
         self._config: DeepMTPConfig | None = None
         self._experiment_dir = None if experiment_dir is None else Path(experiment_dir)
@@ -181,7 +191,7 @@ class StreamlitProgressObserver:
 class StreamlitHPOProgressObserver:
     """Render shared optimizer events in Streamlit."""
 
-    def __init__(self, *, streamlit_module=None):
+    def __init__(self, *, streamlit_module: StreamlitAPI | None = None) -> None:
         self._st = streamlit_module or _import_streamlit()
         self._status: Any = None
         self._overall_progress: Any = None
@@ -242,9 +252,9 @@ def _config_dictionary(config: Any) -> dict[str, Any]:
         return {"value": str(config)}
 
 
-def _import_streamlit():
+def _import_streamlit() -> StreamlitAPI:
     try:
-        return importlib.import_module("streamlit")
+        return cast(StreamlitAPI, importlib.import_module("streamlit"))
     except ModuleNotFoundError as error:
         raise OptionalIntegrationError(
             "Streamlit support requires the optional 'streamlit' dependency."

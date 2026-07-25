@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 import torch
 from torch import nn
+
+TensorBatch = Mapping[str, torch.Tensor]
 
 
 @dataclass
@@ -51,7 +54,7 @@ class TrainingEngine:
 
     def train_epoch(
         self,
-        dataloader,
+        dataloader: Iterable[TensorBatch],
         *,
         collect_predictions: bool = False,
     ) -> EpochOutput:
@@ -81,7 +84,7 @@ class TrainingEngine:
 
     def evaluate_epoch(
         self,
-        dataloader,
+        dataloader: Iterable[TensorBatch],
         *,
         calculate_loss: bool = True,
         collect_predictions: bool = True,
@@ -112,7 +115,10 @@ class TrainingEngine:
         """Update the model after best-epoch selection."""
         self.model = model
 
-    def _forward_batch(self, batch):
+    def _forward_batch(
+        self,
+        batch: TensorBatch,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         instance_features = batch["instance_features"].to(self.device)
         target_features = batch["target_features"].to(self.device)
         true_values = batch["score"].float().to(self.device)
@@ -128,9 +134,9 @@ class TrainingEngine:
     @staticmethod
     def _collect_predictions(
         output: EpochOutput,
-        batch,
-        true_values,
-        predictions,
+        batch: TensorBatch,
+        true_values: torch.Tensor,
+        predictions: torch.Tensor,
     ) -> None:
         output.true_values.extend(true_values.detach().cpu().numpy())
         output.predicted_values.extend(predictions.detach().cpu().numpy())
