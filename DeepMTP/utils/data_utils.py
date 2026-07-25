@@ -13,6 +13,13 @@ from sklearn.utils import resample, shuffle
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 
+from DeepMTP._split_utils import (
+    absolute_split_sizes as _absolute_split_sizes,
+)
+from DeepMTP._split_utils import (
+    validate_split_ratio as _validate_split_ratio,
+)
+
 pd.set_option("mode.chained_assignment", None)
 
 VariableType: TypeAlias = Literal["binary", "real-valued"]
@@ -88,33 +95,7 @@ def _validate_interaction_frame(frame: pd.DataFrame) -> None:
 
 def validate_split_ratio(ratio: object) -> dict[str, float]:
     """Validate and copy a train/validation/test split ratio mapping."""
-    if not isinstance(ratio, Mapping):
-        raise TypeError("ratio must be a mapping with train, val, and test keys.")
-
-    required_keys = {"train", "val", "test"}
-    missing_keys = required_keys.difference(ratio)
-    if missing_keys:
-        raise ValueError(f"ratio is missing required keys: {sorted(missing_keys)}.")
-
-    validated_ratio = {}
-    for split_name in required_keys:
-        value = ratio[split_name]
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, (int, float))
-            or not 0 < value < 1
-        ):
-            raise ValueError(
-                f"ratio[{split_name!r}] must be a number between 0 and 1; "
-                f"received {value!r}."
-            )
-        validated_ratio[split_name] = float(value)
-
-    if not np.isclose(sum(validated_ratio.values()), 1.0):
-        raise ValueError(
-            f"train, val, and test ratios must sum to 1; received {validated_ratio}."
-        )
-    return validated_ratio
+    return _validate_split_ratio(ratio)
 
 
 def normalize(row: Any, scaler: Transformer) -> Any:  # pragma: no cover
@@ -1193,22 +1174,6 @@ def _interaction_row_count(data: Mapping[str, Any]) -> int:
     )
 
 
-def _absolute_split_sizes(
-    population_size: int,
-    ratio: Mapping[str, float],
-    *,
-    population_name: str,
-) -> tuple[int, int]:
-    """Calculate validation and test counts against the original population."""
-    validation_size = int(np.ceil(population_size * ratio["val"]))
-    test_size = int(np.ceil(population_size * ratio["test"]))
-    if validation_size + test_size >= population_size:
-        raise ValueError(
-            f"The requested ratios must leave at least one training {population_name}."
-        )
-    return validation_size, test_size
-
-
 def _copy_feature_source(source: Mapping[str, Any]) -> dict[str, Any]:
     copied_source = copy.deepcopy(dict(source))
     source_frame = source.get("data")
@@ -1336,29 +1301,34 @@ def split_data(
         validation_size, test_size = _absolute_split_sizes(
             _interaction_row_count(data),
             ratio,
+            parameter_name="The requested ratios",
             population_name="interaction",
         )
     elif validation_setting == "B" and split_is_missing:
         validation_size, test_size = _absolute_split_sizes(
             _interaction_axis_size(data, "instance_id"),
             ratio,
+            parameter_name="The requested ratios",
             population_name="instance",
         )
     elif validation_setting == "C" and split_is_missing:
         validation_size, test_size = _absolute_split_sizes(
             _interaction_axis_size(data, "target_id"),
             ratio,
+            parameter_name="The requested ratios",
             population_name="target",
         )
     elif validation_setting == "D" and split_is_missing:
         validation_instance_size, test_instance_size = _absolute_split_sizes(
             _interaction_axis_size(data, "instance_id"),
             ratio,
+            parameter_name="The requested ratios",
             population_name="instance",
         )
         validation_target_size, test_target_size = _absolute_split_sizes(
             _interaction_axis_size(data, "target_id"),
             ratio,
+            parameter_name="The requested ratios",
             population_name="target",
         )
 

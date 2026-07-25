@@ -19,6 +19,13 @@ from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
 from skmultilearn.dataset import available_data_sets, load_dataset
 
+from DeepMTP._split_utils import (
+    partition_ordered_ids as _partition_ids,
+)
+from DeepMTP._split_utils import (
+    validate_split_ratio as _validate_split_ratio,
+)
+
 ArrayFormat: TypeAlias = Literal["numpy", "dataframe"]
 DatasetVariant: TypeAlias = Literal["undivided", "divided"]
 PrintMode: TypeAlias = Literal["basic", "dev"]
@@ -68,31 +75,11 @@ def _split_ratio(
 ) -> dict[str, float]:
     if ratio is None:
         return {"train": 0.7, "val": 0.1, "test": 0.2}
-    if not isinstance(ratio, Mapping):
-        raise TypeError("split ratio must be a mapping.")
-
-    result = dict(ratio)
-    unknown = set(result).difference({"train", "val", "test"})
-    if unknown:
-        raise ValueError(f"split ratio contains unknown keys: {sorted(unknown)}.")
-    missing = {"val", "test"}.difference(result)
-    if missing:
-        raise ValueError(f"split ratio is missing required keys: {sorted(missing)}.")
-    for split_name in ("train", "val", "test"):
-        if split_name not in result:
-            continue
-        value = result[split_name]
-        if isinstance(value, bool) or not isinstance(value, Real) or not 0 < value < 1:
-            raise ValueError(f"split ratio {split_name!r} must be between 0 and 1.")
-        result[split_name] = float(value)
-
-    train_ratio = 1 - result["val"] - result["test"]
-    if train_ratio <= 0:
-        raise ValueError("validation and test split ratios must sum to less than 1.")
-    if "train" in result and not np.isclose(result["train"], train_ratio):
-        raise ValueError("train, validation, and test split ratios must sum to 1.")
-
-    return {"train": train_ratio, "val": result["val"], "test": result["test"]}
+    return _validate_split_ratio(
+        ratio,
+        parameter_name="split ratio",
+        require_train=False,
+    )
 
 
 def _optional_split_ratio(
@@ -103,68 +90,11 @@ def _optional_split_ratio(
     """Validate an optional train/test or train/validation/test split."""
     if ratio is None:
         return None
-    if not isinstance(ratio, Mapping):
-        raise TypeError(f"{parameter_name} must be a mapping.")
-
-    result = dict(ratio)
-    unknown = set(result).difference({"train", "val", "test"})
-    if unknown:
-        unknown_names = sorted(repr(key) for key in unknown)
-        raise ValueError(f"{parameter_name} contains unknown keys: {unknown_names}.")
-    if "test" not in result:
-        if "val" in result:
-            raise ValueError(
-                f"{parameter_name} requires a test ratio when val is provided."
-            )
-        raise ValueError(f"{parameter_name} is missing the required test ratio.")
-
-    for split_name in ("train", "val", "test"):
-        if split_name not in result:
-            continue
-        value = result[split_name]
-        if isinstance(value, bool) or not isinstance(value, Real) or not 0 < value < 1:
-            raise ValueError(
-                f"{parameter_name}[{split_name!r}] must be between 0 and 1."
-            )
-        result[split_name] = float(value)
-
-    validation_ratio = result.get("val", 0.0)
-    train_ratio = 1 - validation_ratio - result["test"]
-    if train_ratio <= 0:
-        raise ValueError(
-            f"{parameter_name} validation and test ratios must sum to less than 1."
-        )
-    if "train" in result and not np.isclose(result["train"], train_ratio):
-        raise ValueError(f"{parameter_name} ratios must sum to 1.")
-
-    validated = {"train": train_ratio, "test": result["test"]}
-    if "val" in result:
-        validated["val"] = validation_ratio
-    return validated
-
-
-def _partition_ids(
-    ids: np.ndarray,
-    ratio: Mapping[str, float],
-    *,
-    parameter_name: str,
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray]:
-    """Partition ordered IDs using ratios relative to the original axis."""
-    num_validation = int(np.ceil(len(ids) * ratio.get("val", 0.0)))
-    num_test = int(np.ceil(len(ids) * ratio["test"]))
-    if num_validation + num_test >= len(ids):
-        raise ValueError(
-            f"{parameter_name} must leave at least one ID in the training split."
-        )
-
-    test_ids = ids[-num_test:]
-    remaining_ids = ids[:-num_test]
-    if num_validation == 0:
-        return remaining_ids, None, test_ids
-    return (
-        remaining_ids[:-num_validation],
-        remaining_ids[-num_validation:],
-        test_ids,
+    return _validate_split_ratio(
+        ratio,
+        parameter_name=parameter_name,
+        require_train=False,
+        require_validation=False,
     )
 
 

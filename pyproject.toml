@@ -138,6 +138,7 @@ docstring-code-format = true
 python_version = "3.10"
 files = [
     "DeepMTP/__init__.py",
+    "DeepMTP/_split_utils.py",
     "DeepMTP/branch_models.py",
     "DeepMTP/config.py",
     "DeepMTP/data_loading.py",
@@ -176,6 +177,7 @@ warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
 module = [
+    "DeepMTP._split_utils",
     "DeepMTP.config",
     "DeepMTP.branch_models",
     "DeepMTP.data_loading",
