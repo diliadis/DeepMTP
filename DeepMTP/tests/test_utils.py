@@ -73,7 +73,12 @@ def get_default_config_dict():
     }
 
 
-get_optimization_direction_data = [("max", "recall"), ("min", "MSE")]
+get_optimization_direction_data = [
+    ("max", "recall"),
+    ("max", "val_accuracy_macro"),
+    ("min", "MSE"),
+    ("min", "false_alarm_rate_per_hour"),
+]
 
 
 @pytest.mark.parametrize(
@@ -83,6 +88,11 @@ def test_get_optimization_direction(get_optimization_direction_data):
     min_max = get_optimization_direction_data[0]
     metric_name = get_optimization_direction_data[1]
     assert get_optimization_direction(metric_name) == min_max
+
+
+def test_get_optimization_direction_rejects_unknown_metric():
+    with pytest.raises(ValueError, match="Unknown optimization metric"):
+        get_optimization_direction("mystery_score")
 
 
 def test_default_image_transforms_explain_optional_dependency(monkeypatch):

@@ -198,6 +198,8 @@ module = [
     "DeepMTP.training",
     "DeepMTP.utils.eval_utils",
     "DeepMTP.utils.model_utils",
+    "DeepMTP.utils.tests",
+    "DeepMTP.utils.utils",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true

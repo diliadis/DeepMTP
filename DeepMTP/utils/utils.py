@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal
 
 from DeepMTP.config import DeepMTPConfig
 
 
-def _load_torchvision_transforms():
+def _load_torchvision_transforms() -> Any:
     try:
         return importlib.import_module("torchvision.transforms")
     except ImportError as exc:
@@ -16,7 +17,7 @@ def _load_torchvision_transforms():
         ) from exc
 
 
-def get_optimization_direction(metric_name: str) -> str:
+def get_optimization_direction(metric_name: str) -> Literal["max", "min"]:
     """Determines if the goal is to maximize or minimize based on the name of the metric
 
     Args:
@@ -25,7 +26,7 @@ def get_optimization_direction(metric_name: str) -> str:
     Returns:
         string: max if the goal is go maximize or min if the goal is to mimize
     """
-    metrics_to_max = [
+    metrics_to_max = (
         "sensitivity",
         "f1_score",
         "recall",
@@ -35,10 +36,21 @@ def get_optimization_direction(metric_name: str) -> str:
         "precision",
         "auroc",
         "aupr",
-    ]
-    if True in [n in metric_name for n in metrics_to_max]:
+    )
+    metrics_to_min = (
+        "false_alarm_rate_per_hour",
+        "hamming_loss",
+        "RRMSE",
+        "RMSE",
+        "MSE",
+        "MAE",
+        "loss",
+    )
+    if any(name in metric_name for name in metrics_to_max):
         return "max"
-    return "min"
+    if any(name in metric_name for name in metrics_to_min):
+        return "min"
+    raise ValueError(f"Unknown optimization metric: {metric_name!r}.")
 
 
 class BaseExperimentInfo:  # pragma: no cover
@@ -91,16 +103,16 @@ class BaseExperimentInfo:  # pragma: no cover
         )
 
 
-def get_default_dropout_rate():  # pragma: no cover
+def get_default_dropout_rate() -> float:  # pragma: no cover
     """To return the default dropout rate
 
     Returns:
         int: The value 0
     """
-    return 0
+    return 0.0
 
 
-def get_default_batch_norm():  # pragma: no cover
+def get_default_batch_norm() -> bool:  # pragma: no cover
     """To return the default batch_norm value
 
     Returns:
@@ -110,7 +122,7 @@ def get_default_batch_norm():  # pragma: no cover
 
 
 # dafault transofmations applied for resnet inputs
-def get_default_train_transform():  # pragma: no cover
+def get_default_train_transform() -> Any:  # pragma: no cover
     """To return the default transformation pipeline for a resnet during training
 
     Returns:
@@ -132,7 +144,7 @@ def get_default_train_transform():  # pragma: no cover
     )
 
 
-def get_default_inference_transform():  # pragma: no cover
+def get_default_inference_transform() -> Any:  # pragma: no cover
     """To return the default transformation pipeline for a resnet during inference
 
     Returns:
@@ -152,67 +164,67 @@ def get_default_inference_transform():  # pragma: no cover
 
 
 def generate_config(
-    validation_setting=None,
-    general_architecture_version="dot_product",
-    problem_mode=None,
-    learning_rate=0.001,
-    decay=0,
-    batch_norm=False,
-    dropout_rate=0,
-    dropout_rate_instance_branch=None,
-    dropout_rate_target_branch=None,
-    momentum=0.9,
-    weighted_loss=False,
-    compute_mode="cuda:0",
-    num_workers=1,
-    train_batchsize=512,
-    val_batchsize=512,
-    num_epochs=100,
-    random_seed=2,
-    metrics=None,
-    metrics_average=None,
-    top_k=None,
-    patience=10,
-    delta=0,
-    evaluate_train=False,
-    evaluate_val=False,
-    verbose=False,
-    results_verbose=False,
-    eval_instance_verbose=False,
-    eval_target_verbose=False,
-    return_results_per_target=False,
-    use_early_stopping=True,
-    use_tensorboard_logger=False,
-    wandb_project_name=None,
-    wandb_project_entity=None,
-    results_path="./results/",
-    experiment_name=None,
-    save_model=True,
-    metric_to_optimize_early_stopping="loss",
-    metric_to_optimize_best_epoch_selection="loss",
-    instance_branch_architecture=None,
-    use_instance_features=False,
-    instance_branch_input_dim=None,
-    instance_train_transforms=None,
-    instance_inference_transforms=None,
-    target_branch_architecture=None,
-    use_target_features=False,
-    target_branch_input_dim=None,
-    target_train_transforms=None,
-    target_inference_transforms=None,
-    comb_mlp_nodes_reducing_factor=2,
-    comb_mlp_nodes_per_layer=None,
-    comb_mlp_layers=None,
-    embedding_size=100,
-    eval_every_n_epochs=10,
-    load_pretrained_model=False,
-    pretrained_model_path="",
-    running_hpo=False,
-    additional_info=None,
-    instance_branch_params=None,
-    target_branch_params=None,
-    hpo_results_path="./",
-):
+    validation_setting: str | None = None,
+    general_architecture_version: str = "dot_product",
+    problem_mode: str | None = None,
+    learning_rate: float = 0.001,
+    decay: float = 0,
+    batch_norm: bool | str = False,
+    dropout_rate: float = 0,
+    dropout_rate_instance_branch: float | None = None,
+    dropout_rate_target_branch: float | None = None,
+    momentum: float = 0.9,
+    weighted_loss: bool = False,
+    compute_mode: str = "cuda:0",
+    num_workers: int = 1,
+    train_batchsize: int = 512,
+    val_batchsize: int = 512,
+    num_epochs: int = 100,
+    random_seed: int | None = 2,
+    metrics: Sequence[str] | None = None,
+    metrics_average: Sequence[str] | None = None,
+    top_k: int | None = None,
+    patience: int = 10,
+    delta: float = 0,
+    evaluate_train: bool = False,
+    evaluate_val: bool = False,
+    verbose: bool = False,
+    results_verbose: bool = False,
+    eval_instance_verbose: bool = False,
+    eval_target_verbose: bool = False,
+    return_results_per_target: bool = False,
+    use_early_stopping: bool = True,
+    use_tensorboard_logger: bool = False,
+    wandb_project_name: str | None = None,
+    wandb_project_entity: str | None = None,
+    results_path: str = "./results/",
+    experiment_name: str | None = None,
+    save_model: bool = True,
+    metric_to_optimize_early_stopping: str = "loss",
+    metric_to_optimize_best_epoch_selection: str = "loss",
+    instance_branch_architecture: str | None = None,
+    use_instance_features: bool = False,
+    instance_branch_input_dim: int | None = None,
+    instance_train_transforms: Any = None,
+    instance_inference_transforms: Any = None,
+    target_branch_architecture: str | None = None,
+    use_target_features: bool = False,
+    target_branch_input_dim: int | None = None,
+    target_train_transforms: Any = None,
+    target_inference_transforms: Any = None,
+    comb_mlp_nodes_reducing_factor: int = 2,
+    comb_mlp_nodes_per_layer: list[int] | int | None = None,
+    comb_mlp_layers: int | None = None,
+    embedding_size: int = 100,
+    eval_every_n_epochs: int = 10,
+    load_pretrained_model: bool = False,
+    pretrained_model_path: str = "",
+    running_hpo: bool = False,
+    additional_info: Mapping[str, Any] | None = None,
+    instance_branch_params: Mapping[str, Any] | None = None,
+    target_branch_params: Mapping[str, Any] | None = None,
+    hpo_results_path: str = "./",
+) -> dict[str, Any]:
     """Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
 
     Args:
@@ -409,7 +421,7 @@ def generate_config(
             metrics_average.append("micro")
     else:
         raise ValueError(
-            "Validation setting " + validation_setting + " is not recognized."
+            f"Validation setting {validation_setting!r} is not recognized."
         )
 
     base_config["metrics"] = metrics
@@ -434,7 +446,7 @@ def generate_config(
     elif general_architecture_version == "kronecker":
         pass
     else:
-        raise AttributeError(
+        raise ValueError(
             "Value: " + str(general_architecture_version) + " is not a valid option"
         )
 
@@ -500,9 +512,9 @@ def generate_config(
     ):  # this is still a work in progress but should do the trick, for now...
         base_config.update(instance_branch_params)
     elif instance_branch_architecture is None:
-        raise AttributeError("The instance branch has to be explicitly defined")
+        raise ValueError("The instance branch has to be explicitly defined")
     else:
-        raise AttributeError(
+        raise ValueError(
             str(instance_branch_architecture)
             + " is not a valid name for the architecture in the instance branch"
         )
@@ -569,11 +581,12 @@ def generate_config(
     ):  # this is still a work in progress but should do the trick, for now...
         base_config.update(target_branch_params)
     elif target_branch_architecture is None:
-        raise AttributeError("The target branch has to be explicitly defined")
+        raise ValueError("The target branch has to be explicitly defined")
     else:
-        raise AttributeError(
+        raise ValueError(
             str(target_branch_architecture)
             + " is not a valid name for the architecture in the target branch"
         )
 
-    return DeepMTPConfig.from_mapping(base_config).to_dict()
+    validated_config: dict[str, Any] = DeepMTPConfig.from_mapping(base_config).to_dict()
+    return validated_config
