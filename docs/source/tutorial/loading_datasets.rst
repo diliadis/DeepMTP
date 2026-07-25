@@ -19,7 +19,7 @@ The user can load the multi-label classification datasets available in the `MULA
 **load_process_MTR()**
 ======================
 
-The user can load the multivariate regression datasets available in the `MULAN repository <https://mulan.sourceforge.net/datasets-mtr.html>`_. The different datasets can be accessed by specifying a valid name in the dataset_name parameter.::
+The user can load the multivariate regression datasets available in the `MULAN multivariate regression repository <https://mulan.sourceforge.net/datasets-mtr.html>`_. The different datasets can be accessed by specifying a valid name in the dataset_name parameter.::
 
     mtr_data = load_process_MTR(dataset_name='enb', features_type='dataframe')
     train_mtr, val_mtr, test_mtr, data_info_mtr = data_process(mtr_data, validation_setting='B', verbose=True)

@@ -89,21 +89,21 @@ TensorBoard, and integrations can be tested independently.
 - [x] Reuse the same random-search and Hyperband implementations in Streamlit.
 - [ ] Create a canonical `streamlit_app.py` only if a maintained application is
   still a project goal.
-- [ ] Move W&B, TensorBoard, Streamlit, image models, and downloadable datasets
+- [x] Move W&B, TensorBoard, Streamlit, image models, and downloadable datasets
   behind optional dependency groups and lazy imports.
 
 Exit criterion: there is only one implementation of training and HPO logic.
 
 ## Phase 5 — Packaging, automation, and quality gates
 
-- [ ] Move package metadata to the PEP 621 `[project]` table in
+- [x] Move package metadata to the PEP 621 `[project]` table in
   `pyproject.toml`.
-- [ ] Define reproducible dependency groups for development, testing, docs, and
+- [x] Define dependency groups for development, testing, docs, and
   optional integrations.
-- [ ] Add Ruff formatting/linting and a pragmatic type-checking baseline.
-- [ ] Replace the legacy Travis configuration and old GitHub Actions workflow.
-- [ ] Test supported Python versions on Linux, macOS, and Windows where useful.
-- [ ] Build and inspect wheel/sdist artifacts in CI.
+- [x] Add Ruff formatting/linting and a pragmatic type-checking baseline.
+- [x] Replace the legacy Travis configuration and old GitHub Actions workflow.
+- [x] Test supported Python versions on Linux, macOS, and Windows where useful.
+- [x] Build and inspect wheel/sdist artifacts in CI.
 - [ ] Add pre-commit hooks after the initial formatting migration.
 
 Exit criterion: a clean checkout can be installed, tested, linted, built, and

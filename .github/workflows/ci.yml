@@ -82,6 +82,31 @@ jobs:
       - name: Run mypy
         run: mypy
 
+  docs:
+    name: Build documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package and documentation tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[docs]"
+
+      - name: Build documentation without warnings
+        run: sphinx-build -W --keep-going -b html docs/source docs/_build/html
+
   build:
     name: Build distributions
     runs-on: ubuntu-latest

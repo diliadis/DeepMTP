@@ -40,7 +40,7 @@ DeepMTP.main module
 -------------------
 
 .. automodule:: DeepMTP.main
-   :members:
+   :members: DeepMTP
    :undoc-members:
    :show-inheritance:
 

@@ -3,8 +3,7 @@
 <h3 align="center">
 <p> A Deep Learning Framework for Multi-target Prediction </h3>
 
-[![Build Status](https://app.travis-ci.com/diliadis/DeepMTP.svg?branch=main)](https://app.travis-ci.com/diliadis/DeepMTP)
-[![codecov](https://codecov.io/gh/diliadis/DeepMTP/branch/main/graph/badge.svg?token=P7DHO5KVWG)](https://codecov.io/gh/diliadis/DeepMTP)
+[![CI](https://github.com/diliadis/DeepMTP/actions/workflows/ci.yml/badge.svg)](https://github.com/diliadis/DeepMTP/actions/workflows/ci.yml)
 [![PyPi Version](https://img.shields.io/pypi/v/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/)
 [![PyPi Version Alt](https://badge.fury.io/py/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) [![PyPi Python Versions](https://img.shields.io/pypi/pyversions/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) 
 [![GitHub license](https://img.shields.io/github/license/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/blob/main/LICENSE.md)
@@ -31,35 +30,49 @@ This is the official repository of DeepMTP, a deep learning framework that can b
 [Documention](https://deepmtp.readthedocs.io/en/latest/#)
 
 # Installing DeepMTP
-The framework uses gpu acceleration, so the use of a GPU is strongly recommended. The local installation can be done using `pip`:
 
-## Installing from Pypi
+DeepMTP supports Python 3.10 and newer. CPU execution is fully supported; a
+CUDA-capable GPU is optional and is most useful for larger experiments.
+
+## Installing from PyPI
+
 ```bash
-# create and activate a conda environment
-conda create -n DeepMTP_env python=3.8
-conda activate DeepMTP_env
-
-# if a gpu is available
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu113
-
-# if a gpu is NOT available
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
-
-# install DeepMTP
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install DeepMTP
 ```
 
-## Installing from Source
-```bash
-# download from the github repository
-git clone https://github.com/diliadis/DeepMTP.git
-cd DeepMTP
-conda env create -f environment.yml
-conda activate DeepMTP_env
+For GPU acceleration, install the appropriate PyTorch build for your platform
+using the [official PyTorch selector](https://pytorch.org/get-started/locally/)
+before installing DeepMTP.
 
-# open one of the notebooks in the DEMO folder
+Optional integrations are installed explicitly:
+
+```bash
+pip install "DeepMTP[datasets]"   # downloadable benchmark datasets
+pip install "DeepMTP[hpo]"        # ConfigSpace-based optimization
+pip install "DeepMTP[image]"      # Torchvision image models/transforms
+pip install "DeepMTP[streamlit]"  # Streamlit progress adapters
+pip install "DeepMTP[tracking]"   # TensorBoard and Weights & Biases
+pip install "DeepMTP[all]"        # every runtime integration
 ```
 
+## Installing from Source
+
+```bash
+git clone https://github.com/diliadis/DeepMTP.git
+cd DeepMTP
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+Conda users can instead run `conda env create -f environment.yml`. Development
+commands and contribution expectations are documented in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 # Background
 
