@@ -162,6 +162,8 @@ docstring-code-format = true
 [tool.mypy]
 python_version = "3.10"
 files = [
+    "DeepMTP/__init__.py",
+    "DeepMTP/branch_models.py",
     "DeepMTP/config.py",
     "DeepMTP/data_loading.py",
     "DeepMTP/dataset.py",
