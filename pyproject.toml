@@ -152,6 +152,7 @@ include = [
     "DeepMTP/utils/tests.py",
     "DeepMTP/utils/utils.py",
     "DeepMTP/tests/__init__.py",
+    "DeepMTP/tests/test_branch_models.py",
     "DeepMTP/tests/test_config.py",
     "DeepMTP/tests/test_data_loading.py",
     "DeepMTP/tests/test_dataset_offline.py",
@@ -170,6 +171,7 @@ include = [
     "DeepMTP/tests/test_streamlit_adapter.py",
     "DeepMTP/tests/test_training.py",
     "DeepMTP/tests/test_training_integration.py",
+    "DeepMTP/tests/test_utils.py",
 ]
 
 [tool.ruff.lint]

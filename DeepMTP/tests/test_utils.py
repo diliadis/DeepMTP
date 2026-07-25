@@ -1,6 +1,7 @@
+import pytest
+
 import DeepMTP.utils.utils as utils
 from DeepMTP.utils.utils import generate_config, get_optimization_direction
-import pytest
 
 
 def get_default_config_dict():
@@ -281,7 +282,7 @@ def test_generate_config_fails(test_generate_config_fails_data):
     fail_pass = test_generate_config_fails_data["pass_fail"]
 
     if fail_pass == "fail":
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, ValueError)):
             original_config = get_default_config_dict()
             original_config.update(test_generate_config_fails_data["temp_config_data"])
             config = generate_config(
@@ -443,4 +444,4 @@ def test_generate_config_fails(test_generate_config_fails_data):
                     assert k in original_config
                     assert v == original_config[k]
         except Exception as exc:
-            assert False
+            raise AssertionError("valid configuration unexpectedly failed") from exc

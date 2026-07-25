@@ -406,7 +406,7 @@ def generate_config(
             )
             metrics_average.append("micro")
     else:
-        raise Exception(
+        raise ValueError(
             "Validation setting " + validation_setting + " is not recognized."
         )
 
