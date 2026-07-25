@@ -295,7 +295,13 @@ class DeepMTP:  # pragma: no cover
             results_to_log["train_loss"] = mean_loss
             self.reporter.log_metrics(results_to_log, step=epoch)
 
-            self.progress.on_event(ProgressEvent("epoch_completed", epoch=epoch))
+            self.progress.on_event(
+                ProgressEvent(
+                    "epoch_completed",
+                    epoch=epoch,
+                    metrics=results_to_log,
+                )
+            )
 
             # generate predictions for the validation set. This needs to be done in order to early stop and to select between configurations
             self.progress.on_event(
@@ -307,9 +313,6 @@ class DeepMTP:  # pragma: no cover
                 "val",
                 epoch,
                 verbose=self.config["verbose"],
-            )
-            self.progress.on_event(
-                ProgressEvent("validation_completed", epoch=epoch)
             )
             # update the loggers
             results_to_log = {"val_loss": val_results["val_loss"]}
@@ -336,6 +339,15 @@ class DeepMTP:  # pragma: no cover
                 val_results,
                 early_stopping_counter=self.early_stopping.counter,
                 early_stopping_patience=self.early_stopping.patience,
+            )
+            self.progress.on_event(
+                ProgressEvent(
+                    "validation_completed",
+                    epoch=epoch,
+                    metrics=val_results,
+                    early_stopping_counter=self.early_stopping.counter,
+                    early_stopping_patience=self.early_stopping.patience,
+                )
             )
             should_stop = (
                 self.early_stopping.early_stop_flag
@@ -374,8 +386,6 @@ class DeepMTP:  # pragma: no cover
             epoch,
             verbose=self.config["verbose"],
         )
-        self.progress.on_event(ProgressEvent("testing_completed"))
-
         run_history.add_test(
             self.early_stopping.get_best_epoch(),
             test_results,
@@ -387,6 +397,13 @@ class DeepMTP:  # pragma: no cover
             for av in self.config["metrics_average"]
         }
         self.reporter.log_metrics(results_to_log)
+        self.progress.on_event(
+            ProgressEvent(
+                "testing_completed",
+                metrics=test_results,
+                best_epoch=self.early_stopping.get_best_epoch(),
+            )
+        )
 
         summaries = run_history.render()
         self.progress.on_summary(

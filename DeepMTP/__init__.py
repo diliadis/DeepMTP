@@ -7,6 +7,12 @@ from DeepMTP.config import (
 )
 from DeepMTP.data_loading import DataLoaderFactory, TrainingDataLoaders
 from DeepMTP.evaluation import EvaluationPolicy, Evaluator
+from DeepMTP.hpo_progress import (
+    ConsoleHPOProgressObserver,
+    HPOProgressEvent,
+    HPOProgressObserver,
+    NullHPOProgressObserver,
+)
 from DeepMTP.model_factory import (
     ModelBundle,
     ModelFactory,
@@ -46,6 +52,10 @@ __all__ = [
     "TrainingDataLoaders",
     "EvaluationPolicy",
     "Evaluator",
+    "HPOProgressEvent",
+    "HPOProgressObserver",
+    "ConsoleHPOProgressObserver",
+    "NullHPOProgressObserver",
     "ModelBundle",
     "ModelFactory",
     "TwoBranchDotProductModel",

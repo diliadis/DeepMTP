@@ -1,12 +1,10 @@
-from pickletools import optimize
-import random
 import math
-import sys
-from typing import Optional
-from DeepMTP.utils.utils import BaseExperimentInfo, get_optimization_direction
 
-sys.path.insert(0, '../../../..')
-import random
+from DeepMTP.hpo_progress import (
+    HPOProgressEvent,
+    build_hpo_progress_observer,
+)
+from DeepMTP.utils.utils import BaseExperimentInfo
 
 class HyperBand:
     '''Implements a basic version of the Hyperband HPO method. One cool thing about it is that I reduced the training time by continuing to train later configurations instead of starting from scratch each time.
@@ -19,11 +17,17 @@ class HyperBand:
         max_budget=1,
         direction='min',
         verbose=False,
+        progress=None,
     ):
         self.base_worker = base_worker
         self.configspace = configspace
         self.verbose = verbose
         self.direction = direction
+        self.progress = (
+            progress
+            if progress is not None
+            else build_hpo_progress_observer(verbose)
+        )
 
         # Hyperband related stuff
         self.eta = eta
@@ -33,10 +37,6 @@ class HyperBand:
         self.budgets_per_bracket = self.calculate_hyperband_iters(
             R=self.max_budget, eta=eta, verbose=False
         )
-        if self.verbose:   # pragma: no cover
-            print('These are the pre-calculate brackets and successive halving runs:')
-            print(str(self.budgets_per_bracket))
-
         self.best_experiments_per_bracket = {}
         self.experiment_history = {}
         # self.starting_configs_per_bracket = {num_configs:[BaseExperimentInfo(config=configspace.sample_configuration(), budget=d['r_i'][0]) for c in range(num_configs)] for num_configs, d in self.budgets_per_bracket.items()}
@@ -46,9 +46,22 @@ class HyperBand:
 
     def run_optimizer(self):    # pragma: no cover
         # iterate over the calculated brackets
-        for bracket, d in self.budgets_per_bracket.items():
-            if self.verbose:
-                print('-- Running bracket with starting budget: ' + str(bracket))
+        total_brackets = len(self.budgets_per_bracket)
+        self.progress.on_event(
+            HPOProgressEvent("optimizer_started", total=total_brackets)
+        )
+        for bracket_index, (bracket, d) in enumerate(
+            self.budgets_per_bracket.items(),
+            start=1,
+        ):
+            self.progress.on_event(
+                HPOProgressEvent(
+                    "bracket_started",
+                    current=bracket_index,
+                    total=total_brackets,
+                    bracket=bracket,
+                )
+            )
             self.experiment_history[bracket] = {}
 
             # you first start with as many randomly selected configurations as the current bracket defines
@@ -60,24 +73,46 @@ class HyperBand:
             ]
             # this is basically the successive halving routine
             for iteration in range(d['num_iters']):
+                self.progress.on_event(
+                    HPOProgressEvent(
+                        "iteration_started",
+                        current=iteration + 1,
+                        total=d["num_iters"],
+                        bracket=bracket,
+                        iteration=iteration,
+                    )
+                )
                 self.configs_to_evaluate = self.configs_to_evaluate[
                     : d['n_i'][iteration]
                 ]
                 # pass every configuration to the worker and store its returned score. The scores will be used to determine which configurations graduate to the next round of the successive halving subroutine
                 for exp_idx, experiment in enumerate(self.configs_to_evaluate):
-                    # time.sleep(5)
-                    if self.verbose:
-                        print('---- Evaluating configuration... ')
+                    self.progress.on_event(
+                        HPOProgressEvent(
+                            "configuration_started",
+                            current=exp_idx + 1,
+                            total=len(self.configs_to_evaluate),
+                            bracket=bracket,
+                            iteration=iteration,
+                            config=experiment.config,
+                        )
+                    )
                     temp_result_dict = self.base_worker.compute(
                         d['r_i'][iteration], experiment.config
                     )
                     experiment.score = temp_result_dict['loss']
                     experiment.info = temp_result_dict['info']
-                    if self.verbose:
-                        print(
-                            '---- Finished evaluating configuration with score: '
-                            + str(experiment.score)
+                    self.progress.on_event(
+                        HPOProgressEvent(
+                            "configuration_completed",
+                            current=exp_idx + 1,
+                            total=len(self.configs_to_evaluate),
+                            bracket=bracket,
+                            iteration=iteration,
+                            config=experiment.config,
+                            score=experiment.score,
                         )
+                    )
                     experiment.budget = d['r_i'][iteration]
 
                 self.configs_to_evaluate = sorted(
@@ -96,9 +131,7 @@ class HyperBand:
             best_overall_config = max([experiment for bracket_id, bracket in self.experiment_history.items() for experiment in bracket[max(list(bracket.keys()))]])
         best_overall_config.info['config']['experiment_name'] = 'best_model'
 
-        if self.verbose:
-            print('Best overall configuration: ')
-            print(best_overall_config)
+        self.progress.on_event(HPOProgressEvent("optimizer_completed"))
         return best_overall_config
 
     def calculate_hyperband_iters(self, R, eta, verbose=False):

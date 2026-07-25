@@ -109,6 +109,10 @@ class ProgressEvent:
     kind: ProgressEventKind
     epoch: int | None = None
     mode: str | None = None
+    metrics: Mapping[str, float] | None = None
+    early_stopping_counter: int | None = None
+    early_stopping_patience: int | None = None
+    best_epoch: int | None = None
 
 
 class ProgressObserver(Protocol):

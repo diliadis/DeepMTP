@@ -84,9 +84,9 @@ TensorBoard, and integrations can be tested independently.
 
 ## Phase 4 — Streamlit and optional integrations
 
-- [ ] Replace `main_streamlit.py` with a thin progress/reporting adapter over
+- [x] Replace `main_streamlit.py` with a thin progress/reporting adapter over
   the core trainer.
-- [ ] Reuse the same random-search and Hyperband implementations in Streamlit.
+- [x] Reuse the same random-search and Hyperband implementations in Streamlit.
 - [ ] Create a canonical `streamlit_app.py` only if a maintained application is
   still a project goal.
 - [ ] Move W&B, TensorBoard, Streamlit, image models, and downloadable datasets

@@ -129,6 +129,15 @@ def test_tiny_cpu_training_and_prediction(tmp_path, problem_mode, metrics):
         "metrics_completed",
         "testing_completed",
     ]
+    event_by_kind = {
+        event.kind: event
+        for event in progress.events
+        if event.kind
+        in {"epoch_completed", "validation_completed", "testing_completed"}
+    }
+    assert "train_loss" in event_by_kind["epoch_completed"].metrics
+    assert "val_loss" in event_by_kind["validation_completed"].metrics
+    assert event_by_kind["testing_completed"].best_epoch == 0
     assert len(progress.summary_calls) == 1
     # Prediction output must be collected because it was requested, even when
     # the configured validation schedule would otherwise skip collection.

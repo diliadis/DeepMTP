@@ -1,11 +1,7 @@
-from pickletools import optimize
-import sys
-import sys
-sys.path.insert(0, '../../../..')
 import os
 from datetime import datetime
+
 from DeepMTP.main import DeepMTP
-from DeepMTP.main_streamlit import DeepMTP as DeepMTP_st
 from DeepMTP.utils.utils import generate_config
 
 
@@ -39,6 +35,12 @@ class BaseWorker:
             raise Exception('Invalid mode value for the BaseWorker (select between standard and streamlit)')
         else:
             self.mode = mode
+        if mode == "streamlit":
+            from DeepMTP.main_streamlit import DeepMTP as StreamlitDeepMTP
+
+            self.trainer_type = StreamlitDeepMTP
+        else:
+            self.trainer_type = DeepMTP
 
     def compute(self, budget, config):    # pragma: no cover
         '''The input parameter 'config' (dictionary) contains the sampled configurations passed by the bohb optimizer
@@ -85,17 +87,17 @@ class BaseWorker:
         current_config.update({'num_epochs': int(budget), 'actuall_budget': int(budget)})
 
         # initialize a new model or continue training from an older version with the same configuration
-        if len(self.config_to_model[model_config_key]['model_dir']) != 0:
-            if self.mode == 'standard':
-                model = DeepMTP(config=current_config, checkpoint_dir=self.older_model_dir)
-            else:
-                model = DeepMTP_st(config=current_config, checkpoint_dir=self.older_model_dir)
-        else:
-            if self.mode == 'standard':
-                model = DeepMTP(config=current_config)
-            else:
-                model = DeepMTP_st(config=current_config)
-        print('HPO worker used this final config: '+str(current_config))
+        checkpoint_dir = (
+            self.older_model_dir
+            if self.config_to_model[model_config_key]["model_dir"]
+            else None
+        )
+        model = self.trainer_type(
+            config=current_config,
+            checkpoint_dir=checkpoint_dir,
+        )
+        if current_config["verbose"]:
+            print("HPO worker used this final config: " + str(current_config))
 
         # train, validate and test all at once
         val_results = model.train(self.train, self.val, self.test)
