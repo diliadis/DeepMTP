@@ -102,7 +102,9 @@ class BaseWorker:
 
         # append all the latest relevant info for the given configuration
         self.config_to_model[model_config_key]['budget'].append(original_budget) 
-        self.config_to_model[model_config_key]['model_dir'].append(self.project_name+'/'+current_time+'/model.pt')
+        self.config_to_model[model_config_key]['model_dir'].append(
+            model.experiment_dir + '/model.pt'
+        )
         self.config_to_model[model_config_key]['run_name'].append(current_time)
 
         # output_file = open(self.project_name+'/'+current_time+ '/run_results.pkl', 'wb')

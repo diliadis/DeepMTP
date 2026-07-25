@@ -1,27 +1,29 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 
-import matplotlib.pyplot as plt
+from collections.abc import Mapping
 import numpy as np
-import pandas as pd
-from time import time
-import pickle
 
 torch.manual_seed(2)
 np.random.seed(3)
 import copy
-from prettytable import PrettyTable
-import os
-from datetime import datetime
-import json
-import wandb
 
 from DeepMTP.utils.data_utils import *
 from DeepMTP.branch_models import *
+from DeepMTP.config import DeepMTPConfig
+from DeepMTP.evaluation import Evaluator
+from DeepMTP.persistence import ExperimentStore
+from DeepMTP.presentation import (
+    ConsoleProgressObserver,
+    NullProgressObserver,
+    ProgressEvent,
+    RunHistory,
+    build_progress_observer,
+)
+from DeepMTP.reporting import build_reporter
+from DeepMTP.training import TrainingEngine
 from DeepMTP.utils.model_utils import EarlyStopping
-from DeepMTP.utils.eval_utils import get_performance_results
 
 
 class TwoBranchDotProductModel(nn.Sequential):
@@ -111,53 +113,74 @@ class DeepMTP:  # pragma: no cover
         instance_branch_model=None,
         target_branch_model=None,
         checkpoint_dir=None,
+        reporter=None,
+        progress=None,
     ):  # pragma: no cover
         self.checkpoint_dict = None
-        self.wandb_run = None
-        self.tensorboard_logger = None
+        self.reporter = reporter
+        self._progress_was_injected = progress is not None
+
+        if isinstance(config, DeepMTPConfig):
+            config_overrides = config.to_dict()
+        elif isinstance(config, Mapping):
+            config_overrides = dict(config)
+        else:
+            raise TypeError(
+                "config must be a mapping or DeepMTPConfig, "
+                f"not {type(config).__name__}."
+            )
 
         # Load a checkpoint file, if it exists
         if checkpoint_dir is not None:
-            checkpoint_dir = checkpoint_dir.replace("//", "/")
-            if not os.path.isfile(checkpoint_dir):
-                raise AttributeError(
-                    "The file directory: " + checkpoint_dir + " does not exist!!!"
-                )
-            else:
-                if config["verbose"]:
-                    print("Loading checkpoint from " + str(checkpoint_dir) + "... ", "")
-                self.checkpoint_dict = torch.load(checkpoint_dir)
-                if config["verbose"]:
-                    print("Done")
+            if config_overrides.get("verbose", False):
+                print("Loading checkpoint from " + str(checkpoint_dir) + "... ", "")
+            self.checkpoint_dict = ExperimentStore.load_checkpoint(
+                checkpoint_dir, map_location="cpu"
+            )
+            if config_overrides.get("verbose", False):
+                print("Done")
 
             # when a checkpoint is loaded, it's config can (or sometimes has to) be modified
-            self.config = self.checkpoint_dict["config"]
-            self.config.update(config)
+            checkpoint_config = self.checkpoint_dict["config"]
+            if isinstance(checkpoint_config, DeepMTPConfig):
+                checkpoint_config = checkpoint_config.to_dict()
+            merged_config = dict(checkpoint_config)
+            merged_config.update(config_overrides)
         else:
-            self.config = config
+            merged_config = config_overrides
+
+        self.configuration = DeepMTPConfig.from_mapping(merged_config)
+        # ``config`` remains a dictionary for public and checkpoint
+        # compatibility while new code can use the typed ``configuration``.
+        self.config = self.configuration.to_dict()
+        self.progress = (
+            progress
+            if progress is not None
+            else build_progress_observer(self.configuration.verbose)
+        )
 
         # initialize the device that will be used of training-inference
         self.device = torch.device(
-            self.config["compute_mode"]
-            if (torch.cuda.is_available() and "cuda" in self.config["compute_mode"])
+            self.configuration.compute_mode
+            if (
+                torch.cuda.is_available()
+                and "cuda" in self.configuration.compute_mode
+            )
             else "cpu"
         )
         if self.config["verbose"]:
             print("Selected device: " + str(self.device))
 
-        # setup the directory that will be used to save all relevant experiment info
-        if not os.path.exists(self.config["results_path"]):
-            os.mkdir(self.config["results_path"])
-        if self.config["experiment_name"] is None:
-            self.experiment_dir = self.config["results_path"] + datetime.now().strftime(
-                "%d_%m_%Y__%H_%M_%S"
-            )
-        else:
-            self.experiment_dir = (
-                self.config["results_path"] + self.config["experiment_name"]
-            )
-        os.mkdir(self.experiment_dir)
+        self.experiment_store = ExperimentStore.create(
+            self.config["results_path"],
+            self.config["experiment_name"],
+        )
+        # Keep the historical string attribute for downstream HPO code.
+        self.experiment_dir = str(self.experiment_store.experiment_dir)
         self.config["experiment_dir"] = self.experiment_dir
+        self.configuration.set_runtime_value(
+            "experiment_dir", self.experiment_dir
+        )
 
         """
             Two main variants of the two-branch neural network are currently supported:
@@ -270,13 +293,21 @@ class DeepMTP:  # pragma: no cover
         # initialize the loss function that will be used. BCE for classification tasks and MSE for regression tasks.
         if self.config["problem_mode"] == "classification":
             self.criterion = nn.BCELoss(reduction="mean")
-            self.act = torch.nn.Sigmoid()
         elif self.config["problem_mode"] == "regression":
             self.criterion = nn.MSELoss(reduction="mean")
         else:
             raise AttributeError(
                 "Invalid problem model: " + str(self.config["problem_mode"])
             )
+
+        self.training_engine = TrainingEngine(
+            model=self.deepMTP_model,
+            criterion=self.criterion,
+            device=self.device,
+            problem_mode=self.config["problem_mode"],
+            optimizer=self.optimizer,
+        )
+        self.evaluator = Evaluator(self.configuration)
 
         """
             the user can specify wether or not they want to use early stopping.
@@ -295,97 +326,61 @@ class DeepMTP:  # pragma: no cover
     def inference(
         self, model, dataloader, mode, epoch=0, return_predictions=False, verbose=False
     ):  # pragma: no cover
-        model.eval()
-        with torch.no_grad():
-            loss_arr = []
-            true_scores_arr = []
-            pred_scores_arr = []
-            instance_ids_arr = []
-            target_ids_arr = []
-            results = {}
+        should_evaluate = self.evaluator.policy.should_evaluate(mode, epoch)
+        progress = self._inference_progress(verbose)
 
-            # iterate over batches
-            for batch_id, batch in enumerate(dataloader):
-                instance_features = batch["instance_features"].to(self.device)
-                target_features = batch["target_features"].to(self.device)
-                true_score = batch["score"].float().to(self.device)
+        engine = self.training_engine
+        if model is not engine.model:
+            engine = TrainingEngine(
+                model=model,
+                criterion=self.criterion,
+                device=self.device,
+                problem_mode=self.config["problem_mode"],
+            )
+        epoch_output = engine.evaluate_epoch(
+            dataloader,
+            calculate_loss=mode != "test",
+            collect_predictions=should_evaluate or return_predictions,
+        )
+        results = {}
 
-                pred_score = self.deepMTP_model(instance_features, target_features)
-                # for the binary targets, pass the network's output through a sigmoid
-                if self.config["problem_mode"] == "classification":
-                    pred_score = torch.squeeze(self.act(pred_score), 1)
-                else:
-                    pred_score = torch.squeeze(pred_score, 1)
+        if should_evaluate and self.configuration.metrics:
+            progress.on_event(
+                ProgressEvent("metrics_started", epoch=epoch, mode=mode)
+            )
+            results = self.evaluator.evaluate(mode, epoch, epoch_output)
+            progress.on_event(
+                ProgressEvent("metrics_completed", epoch=epoch, mode=mode)
+            )
 
-                if mode != "test":  # calculating the loss on the test set is pointless
-                    loss = self.criterion(pred_score, true_score)
-                    loss_arr.append(loss.item())
+        if mode != "test":
+            results[mode + "_loss"] = epoch_output.mean_loss
+        if return_predictions:
+            return results, self.evaluator.predictions_frame(epoch_output)
+        return results
 
-                if (
-                    (mode == "test")
-                    or (
-                        (epoch % self.config["eval_every_n_epochs"] == 0)
-                        and (self.config["evaluate_val"])
-                    )
-                    or (self.config["metric_to_optimize_early_stopping"] != "loss")
-                    or (self.config["num_epochs"] - 1 == epoch)
-                ):
-                    true_scores_arr.extend(true_score.cpu().numpy())
-                    pred_scores_arr.extend(pred_score.detach().cpu().numpy())
-                    instance_ids_arr.extend(batch["instance_id"].numpy())
-                    target_ids_arr.extend(batch["target_id"].numpy())
-
-            # calculate the performance
-            if (
-                (mode == "test")
-                or (
-                    (epoch % self.config["eval_every_n_epochs"] == 0)
-                    and (self.config["evaluate_val"])
-                )
-                or (self.config["metric_to_optimize_early_stopping"] != "loss")
-                or (self.config["num_epochs"] - 1 == epoch)
-            ):
-                if self.config["metrics"]:
-                    if verbose:
-                        print("Calculating " + mode + " performance... ", end="")
-                    results = get_performance_results(
-                        mode,
-                        epoch,
-                        instance_ids_arr,
-                        target_ids_arr,
-                        true_scores_arr,
-                        pred_scores_arr,
-                        self.config["validation_setting"],
-                        self.config["problem_mode"],
-                        self.config["metrics"],
-                        self.config["metrics_average"],
-                        verbose=self.config["results_verbose"],
-                        per_target_verbose=self.config["eval_target_verbose"],
-                        per_instance_verbose=self.config["eval_instance_verbose"],
-                        train_true_value=None,
-                        scaler_per_target=None,
-                        top_k=self.config["top_k"],
-                    )
-                    if verbose:
-                        print("Done")
-
-            model.train()
-
-            if mode != "test":
-                results[mode + "_loss"] = np.mean(loss_arr)
-            if return_predictions:
-                return results, pd.DataFrame(
-                    {
-                        "instance_id": instance_ids_arr,
-                        "target_id": target_ids_arr,
-                        "true_values": true_scores_arr,
-                        "predicted_values": pred_scores_arr,
-                    }
-                )
-            else:
-                return results
+    def _inference_progress(self, verbose):
+        if (
+            verbose
+            and not self._progress_was_injected
+            and isinstance(self.progress, NullProgressObserver)
+        ):
+            return ConsoleProgressObserver()
+        return self.progress
 
     def train(self, train_data, val_data, test_data, verbose=False):  # pragma: no cover
+        if self.reporter is None:
+            self.reporter = build_reporter(
+                self.config,
+                self.experiment_dir,
+            )
+        self.reporter.start(self.config, self.deepMTP_model)
+        try:
+            return self._train(train_data, val_data, test_data, verbose=verbose)
+        finally:
+            self.reporter.close()
+
+    def _train(self, train_data, val_data, test_data, verbose=False):
         self.deepMTP_model.train()
 
         # train_dataset = BaseDataset(self.config, train_data['y'], train_data['X_instance'], train_data['X_target'])
@@ -405,7 +400,7 @@ class DeepMTP:  # pragma: no cover
             self.config["train_batchsize"],
             shuffle=True,
             num_workers=self.config["num_workers"],
-            pin_memory=True,
+            pin_memory=self.device.type == "cuda",
         )
         if val_data is not None:
             val_dataloader = DataLoader(
@@ -420,7 +415,7 @@ class DeepMTP:  # pragma: no cover
                 self.config["val_batchsize"],
                 shuffle=False,
                 num_workers=self.config["num_workers"],
-                pin_memory=True,
+                pin_memory=self.device.type == "cuda",
             )
         if test_data is not None:
             test_dataloader = DataLoader(
@@ -435,41 +430,14 @@ class DeepMTP:  # pragma: no cover
                 self.config["val_batchsize"],
                 shuffle=False,
                 num_workers=self.config["num_workers"],
-                pin_memory=True,
+                pin_memory=self.device.type == "cuda",
             )
 
-        if self.config["verbose"]:
-            print("Starting training...")
-
-        # initialize the tables used to show all the results
-        run_story_header = ["mode", "#epoch", "loss"] + [
-            m + "_" + av
-            for m in self.config["metrics"]
-            for av in self.config["metrics_average"]
-        ]
-        if self.config["evaluate_train"]:
-            train_run_story = []
-            train_run_story_table = PrettyTable(run_story_header)
-        val_run_story = []
-        val_run_story_table = PrettyTable(run_story_header + ["early_stopping"])
-        test_run_story_table = PrettyTable(run_story_header)
-
-        # update the possible data loggers. The currently supported loggers are wandb and tensorboard
-        if self.config["use_tensorboard_logger"]:
-            self.tensorboard_logger = SummaryWriter(self.experiment_dir)
-            for key in self.config.keys():
-                self.tensorboard_logger.add_text(key, str(self.config[key]))
-        if (
-            self.config["wandb_project_name"] is not None
-            and self.config["wandb_project_entity"] is not None
-        ):
-            self.wandb_run = wandb.init(
-                project=self.config["wandb_project_name"],
-                entity=self.config["wandb_project_entity"],
-                reinit=True,
-            )
-            self.wandb_run.watch(self.deepMTP_model)
-            self.wandb_run.config.update(self.config)
+        self.progress.on_event(ProgressEvent("training_started"))
+        run_history = RunHistory(
+            self.configuration.metrics,
+            self.configuration.metrics_average,
+        )
 
         #########################    Profiler    ############################
         """        
@@ -484,88 +452,30 @@ class DeepMTP:  # pragma: no cover
         # iterate over epochs
         for epoch in range(self.config["num_epochs"]):
             train_results = {}
-            train_run_story = []
-            loss_arr = []
-            true_scores_arr = []
-            pred_scores_arr = []
-            instance_ids_arr = []
-            target_ids_arr = []
 
-            if self.config["verbose"]:
-                print("Epoch:" + str(epoch) + "... ", end="")
-            # iterate over batches
-            for batch_id, batch in enumerate(train_dataloader):
-                instance_features = batch["instance_features"].to(self.device)
-                target_features = batch["target_features"].to(self.device)
-                true_score = batch["score"].float().to(self.device)
-
-                pred_score = self.deepMTP_model(instance_features, target_features)
-                # for the binary targets, pass the network's output through a sigmoid
-                if self.config["problem_mode"] == "classification":
-                    loss = self.criterion(
-                        torch.squeeze(self.act(pred_score), 1), true_score
-                    )
-                else:
-                    loss = self.criterion(torch.squeeze(pred_score, 1), true_score)
-
-                # back propagate
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-
-                #########################    Profiler    ############################
-                # prof.step()
-
-                # keep train of train loss, as well as all other info needed to compute performance metrics(if the user specifies it )
-                loss_arr.append(loss.item())
-                if self.config["evaluate_train"]:
-                    true_scores_arr.extend(true_score.cpu().numpy())
-                    pred_scores_arr.extend(pred_score.detach().cpu().numpy())
-                    instance_ids_arr.extend(batch["instance_id"].numpy())
-                    target_ids_arr.extend(batch["target_id"].numpy())
+            self.progress.on_event(ProgressEvent("epoch_started", epoch=epoch))
+            epoch_output = self.training_engine.train_epoch(
+                train_dataloader,
+                collect_predictions=self.config["evaluate_train"],
+            )
 
             # calculate performance metrics on the training set
             if (
-                (self.config["evaluate_train"])
-                and self.config["metrics"]
-                and (
-                    (epoch % self.config["eval_every_n_epochs"] == 0)
-                    or (self.config["num_epochs"] - 1 == epoch)
-                )
+                self.evaluator.policy.should_evaluate_training(epoch)
+                and self.configuration.metrics
             ):
-                train_results = get_performance_results(
-                    "train",
-                    epoch,
-                    instance_ids_arr,
-                    target_ids_arr,
-                    true_scores_arr,
-                    pred_scores_arr,
-                    self.config["validation_setting"],
-                    self.config["problem_mode"],
-                    self.config["metrics"],
-                    self.config["metrics_average"],
-                    verbose=self.config["results_verbose"],
-                    per_target_verbose=self.config["eval_target_verbose"],
-                    per_instance_verbose=self.config["eval_instance_verbose"],
-                    train_true_value=None,
-                    scaler_per_target=None,
-                    top_k=self.config["top_k"],
+                train_results = self.evaluator.evaluate(
+                    "train", epoch, epoch_output
                 )
 
             #########################    Profiler    ############################
             # prof.stop()
 
-            mean_loss = np.mean(loss_arr)
-            # update train_run_story_table
-            train_run_story.append(
-                ["train", str(epoch), round(mean_loss, 4)]
-                + [
-                    round(train_results["train_" + m + "_" + av], 4)
-                    if "train_" + m + "_" + av in train_results
-                    else "-"
-                    for m in self.config["metrics"]
-                    for av in self.config["metrics_average"]
-                ]
+            mean_loss = epoch_output.mean_loss
+            run_history.add_training(
+                epoch,
+                mean_loss,
+                train_results,
             )
             # update the loggers
             results_to_log = {
@@ -575,39 +485,23 @@ class DeepMTP:  # pragma: no cover
                 if "train_" + m + "_" + av in train_results
             }
             results_to_log["train_loss"] = mean_loss
-            if self.wandb_run is not None:
-                self.wandb_run.log(results_to_log, step=epoch)
-            if self.tensorboard_logger is not None:
-                for k, v in results_to_log.items():
-                    self.tensorboard_logger.add_scalar(k.replace("_", "/"), v, epoch)
+            self.reporter.log_metrics(results_to_log, step=epoch)
 
-            if self.config["verbose"]:
-                print("Done")
+            self.progress.on_event(ProgressEvent("epoch_completed", epoch=epoch))
 
             # generate predictions for the validation set. This needs to be done in order to early stop and to select between configurations
-            if self.config["verbose"]:
-                print("  Validating... ", end="")
-            with torch.set_grad_enabled(False):
-                val_results = self.inference(
-                    self.deepMTP_model,
-                    val_dataloader,
-                    "val",
-                    epoch,
-                    verbose=self.config["verbose"],
-                )
-            if self.config["verbose"]:
-                print("Done")
-
-            # update val_run_story_table
-            val_run_story.append(
-                ["val", str(epoch), round(val_results["val_loss"], 4)]
-                + [
-                    round(val_results["val_" + m + "_" + av], 4)
-                    if "val_" + m + "_" + av in val_results
-                    else "-"
-                    for m in self.config["metrics"]
-                    for av in self.config["metrics_average"]
-                ]
+            self.progress.on_event(
+                ProgressEvent("validation_started", epoch=epoch)
+            )
+            val_results = self.inference(
+                self.deepMTP_model,
+                val_dataloader,
+                "val",
+                epoch,
+                verbose=self.config["verbose"],
+            )
+            self.progress.on_event(
+                ProgressEvent("validation_completed", epoch=epoch)
             )
             # update the loggers
             results_to_log = {"val_loss": val_results["val_loss"]}
@@ -619,11 +513,7 @@ class DeepMTP:  # pragma: no cover
                     if "val_" + m + "_" + av in val_results
                 }
             )
-            if self.wandb_run is not None:
-                self.wandb_run.log(results_to_log, step=epoch)
-            if self.tensorboard_logger is not None:
-                for k, v in results_to_log.items():
-                    self.tensorboard_logger.add_scalar(k.replace("_", "/"), v, epoch)
+            self.reporter.log_metrics(results_to_log, step=epoch)
 
             # update early stopping and keep track of best model
             self.early_stopping(
@@ -632,24 +522,25 @@ class DeepMTP:  # pragma: no cover
                 epoch,
                 optimizer_state_dict=copy.deepcopy(self.optimizer.state_dict()),
             )
-            if (
+            run_history.add_validation(
+                epoch,
+                val_results["val_loss"],
+                val_results,
+                early_stopping_counter=self.early_stopping.counter,
+                early_stopping_patience=self.early_stopping.patience,
+            )
+            should_stop = (
                 self.early_stopping.early_stop_flag
                 and self.config["use_early_stopping"]
-            ):
-                print("Early stopping criterion met. Training stopped!!!")
-                break
-            else:
-                val_run_story[-1].append(
-                    str(self.early_stopping.counter)
-                    + "/"
-                    + str(self.early_stopping.patience)
+            )
+            if should_stop:
+                self.progress.on_event(
+                    ProgressEvent("early_stopping_triggered", epoch=epoch)
                 )
-
-            # update the result tables with the current epoch
-            train_run_story_table.add_row(train_run_story[-1])
-            val_run_story_table.add_row(val_run_story[-1])
+                break
 
         self.deepMTP_model = self.early_stopping.get_best_model()
+        self.training_engine.replace_model(self.deepMTP_model)
 
         # log the performance validation results of the best model
         val_best_performance_results = (
@@ -665,14 +556,9 @@ class DeepMTP:  # pragma: no cover
             if "val_" + m + "_" + av in val_best_performance_results
         }
         results_to_log["best_val_loss"] = val_best_performance_results["val_loss"]
-        if self.wandb_run is not None:
-            self.wandb_run.log(results_to_log)
-        if self.tensorboard_logger is not None:
-            for k, v in results_to_log.items():
-                self.tensorboard_logger.add_scalar(k.replace("_", "/"), v, epoch)
+        self.reporter.log_metrics(results_to_log)
         # training is done (either completed all epochs or early stopping kicked in). Now testing starts using the best model
-        if self.config["verbose"]:
-            print("Starting testing... ", end="")
+        self.progress.on_event(ProgressEvent("testing_started"))
         test_results = self.inference(
             self.deepMTP_model,
             test_dataloader,
@@ -680,17 +566,11 @@ class DeepMTP:  # pragma: no cover
             epoch,
             verbose=self.config["verbose"],
         )
-        if self.config["verbose"]:
-            print("Done")
+        self.progress.on_event(ProgressEvent("testing_completed"))
 
-        # update test_run_story_table
-        test_run_story_table.add_row(
-            ["test", self.early_stopping.get_best_epoch(), "-"]
-            + [
-                round(test_results["test_" + m + "_" + av], 4)
-                for m in self.config["metrics"]
-                for av in self.config["metrics_average"]
-            ]
+        run_history.add_test(
+            self.early_stopping.get_best_epoch(),
+            test_results,
         )
         # update the loggers
         results_to_log = {
@@ -698,49 +578,26 @@ class DeepMTP:  # pragma: no cover
             for m in self.config["metrics"]
             for av in self.config["metrics_average"]
         }
-        if self.wandb_run is not None:
-            self.wandb_run.log(results_to_log)
-        if self.tensorboard_logger is not None:
-            for k, v in results_to_log.items():
-                self.tensorboard_logger.add_scalar(k.replace("_", "/"), v, epoch)
+        self.reporter.log_metrics(results_to_log)
 
-        # terminate loggers
-        if self.wandb_run is not None:
-            self.wandb_run.finish()
-        if self.tensorboard_logger is not None:
-            self.tensorboard_logger.flush()
-            self.tensorboard_logger.close()
+        summaries = run_history.render()
+        self.progress.on_summary(
+            summaries,
+            include_train=self.configuration.evaluate_train,
+            include_validation=self.configuration.evaluate_val,
+        )
 
-        # print and save the train-val-test summaries to a single .txt file
-        if self.config["verbose"]:
-            if self.config["evaluate_train"]:
-                print(train_run_story_table.get_string())
-            print(20 * "=")
-            if self.config["evaluate_val"]:
-                print(val_run_story_table.get_string())
-            print(20 * "=")
-            print(test_run_story_table.get_string())
-
-        with open(self.experiment_dir + "/summary.txt", "w") as f:
-            f.write(train_run_story_table.get_string())
-            f.write("\n")
-            f.write(val_run_story_table.get_string())
-            f.write("\n")
-            f.write(test_run_story_table.get_string())
+        self.experiment_store.save_summary(
+            summaries.train,
+            summaries.validation,
+            summaries.test,
+        )
 
         # save the best model
         if self.config["save_model"]:
             self.save_model(verbose=self.config["verbose"])
 
-        # save the configuration in a json file
-        if (
-            self.config["instance_train_transforms"] is not None
-            and self.config["target_train_transforms"] is not None
-        ):
-            with open(self.experiment_dir + "/config.json", "w") as fp:
-                json.dump(self.config, fp, indent=4)
-        else:
-            pickle.dump(self.config, open(self.experiment_dir + "/config.pkl", "wb"))
+        self.experiment_store.save_config(self.config)
 
         return val_best_performance_results
 
@@ -760,29 +617,26 @@ class DeepMTP:  # pragma: no cover
             self.config["val_batchsize"],
             shuffle=False,
             num_workers=self.config["num_workers"],
-            pin_memory=True,
+            pin_memory=self.device.type == "cuda",
         )
         return self.inference(
             self.deepMTP_model,
             dataloader,
             "",
             0,
-            return_predictions=True,
+            return_predictions=return_predictions,
             verbose=verbose,
         )
 
     def save_model(self, verbose=False):  # pragma: no cover
         self.config["use_tensorboard_logger"] = False
+        self.configuration.set_runtime_value("use_tensorboard_logger", False)
         if verbose:
             print("Saving the best model... ", end="")
-        torch.save(
-            {
-                "model_state_dict": self.early_stopping.get_best_model().state_dict(),
-                "optimizer_state_dict": self.early_stopping.get_best_optimizer_state_dict(),
-                # 'optimizer_state_dict': self.optimizer.state_dict(),
-                "config": self.config,
-            },
-            self.experiment_dir + "/model.pt",
+        self.experiment_store.save_checkpoint(
+            model_state_dict=self.early_stopping.get_best_model().state_dict(),
+            optimizer_state_dict=self.early_stopping.get_best_optimizer_state_dict(),
+            config=self.config,
         )
         if verbose:
             print("Done")
