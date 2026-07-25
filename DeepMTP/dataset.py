@@ -113,6 +113,17 @@ _MLC_DATASET_NAMES = frozenset(
     }
 )
 _MLC_DATASET_VARIANTS = frozenset({"train", "test", "undivided"})
+_SYNTHETIC_RELATIONSHIP_MODES = frozenset(
+    {
+        "u+logv",
+        "u*logv",
+        "u^v",
+        "u^v_reversed",
+        "max(u,v)",
+        "u*v",
+    }
+)
+_SYNTHETIC_NOISE_MODES = frozenset({"u+logv", "u*logv", "u^v", "u^v_reversed"})
 
 
 class DatasetSplit(TypedDict):
@@ -175,6 +186,38 @@ class ProcessedDatasetBundle(TypedDict):
     train: ProcessedDatasetSplit
     val: ProcessedDatasetSplit
     test: ProcessedDatasetSplit
+
+
+def _processed_dataset_value(
+    data: pd.DataFrame | None,
+) -> ProcessedDatasetValue | None:
+    return {"data": data} if data is not None else None
+
+
+def _processed_dataset_split(
+    *,
+    y: pd.DataFrame | None = None,
+    X_instance: pd.DataFrame | None = None,
+    X_target: pd.DataFrame | None = None,
+) -> ProcessedDatasetSplit:
+    return {
+        "y": _processed_dataset_value(y),
+        "X_instance": _processed_dataset_value(X_instance),
+        "X_target": _processed_dataset_value(X_target),
+    }
+
+
+def _processed_dataset_bundle(
+    *,
+    train: ProcessedDatasetSplit,
+    val: ProcessedDatasetSplit | None = None,
+    test: ProcessedDatasetSplit | None = None,
+) -> ProcessedDatasetBundle:
+    return {
+        "train": train,
+        "val": val if val is not None else _processed_dataset_split(),
+        "test": test if test is not None else _processed_dataset_split(),
+    }
 
 
 def _split_ratio(
@@ -264,6 +307,48 @@ def _generate_dummy_features(
     return _format_feature_matrix(features, features_format)
 
 
+def _generate_synthetic_scores(
+    X_instance: np.ndarray,
+    X_target: np.ndarray,
+    *,
+    mode: str,
+    generator: np.random.Generator,
+    error_mu: float,
+    error_sigma: float,
+) -> np.ndarray:
+    instance_values = X_instance[:, np.newaxis, :]
+    target_values = X_target[np.newaxis, :, :]
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        if mode == "u+logv":
+            scores = np.sum(instance_values + np.log(target_values), axis=2)
+        elif mode == "u*logv":
+            scores = np.sum(instance_values * np.log(target_values), axis=2)
+        elif mode == "u^v":
+            scores = np.sum(instance_values**target_values, axis=2)
+        elif mode == "u^v_reversed":
+            scores = np.sum(
+                instance_values ** target_values[:, :, ::-1],
+                axis=2,
+            )
+        elif mode == "max(u,v)":
+            scores = np.sum(np.maximum(instance_values, target_values), axis=2)
+        else:  # mode == "u*v"
+            scores = np.sum(instance_values * target_values, axis=2)
+
+    if mode in _SYNTHETIC_NOISE_MODES:
+        scores = scores + generator.normal(
+            error_mu,
+            error_sigma,
+            size=scores.shape,
+        )
+    if not np.isfinite(scores).all():
+        raise ValueError(
+            "Synthetic score generation produced non-finite values; "
+            "use less extreme feature or noise parameters."
+        )
+    return scores
+
+
 def _generate_static_feature_frame(
     num_entities: int,
     num_features: int | None,
@@ -299,6 +384,57 @@ def _select_feature_ids(
     ids: np.ndarray,
 ) -> pd.DataFrame:
     return _copy_feature_frame(frame.loc[frame["id"].isin(ids)])
+
+
+def _partition_mtp_axis(
+    num_entities: int,
+    ratio: Mapping[str, float] | None,
+    *,
+    parameter_name: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, bool, bool]:
+    """Resolve IDs used by each split for one MTP axis.
+
+    An omitted validation partition reuses the training IDs. This keeps a
+    validation split created on the other axis aligned with its static axis.
+    """
+    all_ids = np.arange(num_entities)
+    if ratio is None:
+        return all_ids, all_ids, all_ids, False, False
+
+    train_ids, val_ids, test_ids = _partition_ids(
+        all_ids,
+        ratio,
+        parameter_name=parameter_name,
+    )
+    return (
+        train_ids,
+        val_ids if val_ids is not None else train_ids,
+        test_ids,
+        val_ids is not None,
+        True,
+    )
+
+
+def _select_mtp_interactions(
+    interactions: pd.DataFrame,
+    instance_ids: np.ndarray,
+    target_ids: np.ndarray,
+) -> pd.DataFrame:
+    return interactions.loc[
+        interactions["instance_id"].isin(instance_ids)
+        & interactions["target_id"].isin(target_ids)
+    ].copy()
+
+
+def _select_optional_feature_ids(
+    features: pd.DataFrame | None,
+    ids: np.ndarray,
+    *,
+    include: bool,
+) -> pd.DataFrame | None:
+    if features is None or not include:
+        return None
+    return _select_feature_ids(features, ids)
 
 
 def _random_generator(
@@ -1656,28 +1792,42 @@ def generate_dummy_dataset(
     seed: int = 42,
     mode: str = "u+logv",
     split_ratio: Mapping[str, float] | None = None,
-) -> DatasetBundle:  # pragma: no cover
+) -> DatasetBundle:
     """Generate a reproducible dyadic regression dataset.
 
     ``sklearn_version`` starts from normally distributed features. For modes
     involving logarithms or fractional powers, the relevant features are
     transformed to a positive domain so every generated score remains real.
+    The error distribution applies to the four legacy noisy relationship modes.
+
+    Args:
+        num_instances: Number of instances.
+        num_targets: Number of targets.
+        num_instance_features: Number of features per instance.
+        num_target_features: Number of features per target.
+        error_mu: Mean of the Gaussian error added by noisy modes.
+        error_sigma: Non-negative standard deviation of that Gaussian error.
+        sklearn_version: Generate normally distributed rather than uniform features.
+        seed: Non-negative 32-bit seed used for generation and splitting.
+        mode: Mathematical relationship used to generate scores.
+        split_ratio: Train, validation, and test ratios.
+
+    Returns:
+        A dataset bundle containing aligned train, validation, and test rows.
+
+    Raises:
+        TypeError: If a boolean or error parameter has the wrong type.
+        ValueError: If a dimension, mode, seed, ratio, or generated value is invalid.
     """
     split_ratio = _split_ratio(split_ratio)
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
     _require_positive_integer("num_instance_features", num_instance_features)
     _require_positive_integer("num_target_features", num_target_features)
-    valid_modes = {
-        "u+logv",
-        "u*logv",
-        "u^v",
-        "u^v_reversed",
-        "max(u,v)",
-        "u*v",
-    }
-    if not isinstance(mode, str) or mode not in valid_modes:
-        raise ValueError(f"mode must be one of {sorted(valid_modes)}.")
+    if not isinstance(mode, str) or mode not in _SYNTHETIC_RELATIONSHIP_MODES:
+        raise ValueError(
+            f"mode must be one of {sorted(_SYNTHETIC_RELATIONSHIP_MODES)}."
+        )
     if not isinstance(sklearn_version, bool):
         raise TypeError("sklearn_version must be a boolean.")
     for parameter_name, value in {
@@ -1697,14 +1847,17 @@ def generate_dummy_dataset(
             "num_instance_features and num_target_features must match for "
             f"mode {mode!r}."
         )
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
+    if seed is None:
+        raise ValueError("seed must be a non-negative 32-bit integer.")
+    num_validation, num_test = _absolute_split_sizes(
+        num_instances,
+        split_ratio,
+        parameter_name="split ratio",
+        population_name="instance",
+    )
 
-    # generate the instance and target feature numpy arrays
     generator = _random_generator(seed, parameter_name="seed")
     if sklearn_version:
-        # inspired by sklearn
         X_train_instance = generator.standard_normal(
             size=(num_instances, num_instance_features)
         )
@@ -1721,52 +1874,14 @@ def generate_dummy_dataset(
     if mode in {"u+logv", "u*logv"}:
         X_train_target = np.maximum(X_train_target, np.finfo(float).tiny)
 
-    # generate the score matrix using some kind of relationship between the instance and target features
-    y_train = np.zeros((num_instances, num_targets))
-    if mode == "u+logv":
-        for i in range(num_instances):
-            for j in range(num_targets):
-                y_train[i, j] = np.sum(
-                    X_train_instance[i] + np.log(X_train_target[j])
-                ) + generator.normal(error_mu, error_sigma)
-    elif mode == "u*logv":
-        for i in range(num_instances):
-            for j in range(num_targets):
-                y_train[i, j] = np.sum(
-                    X_train_instance[i] * np.log(X_train_target[j])
-                ) + generator.normal(error_mu, error_sigma)
-    elif mode == "u^v":
-        for i in range(num_instances):
-            for j in range(num_targets):
-                y_train[i, j] = np.sum(
-                    X_train_instance[i] ** X_train_target[j]
-                ) + generator.normal(error_mu, error_sigma)
-    elif mode == "u^v_reversed":
-        for i in range(num_instances):
-            for j in range(num_targets):
-                y_train[i, j] = np.sum(
-                    X_train_instance[i] ** X_train_target[j][::-1]
-                ) + generator.normal(error_mu, error_sigma)
-    elif mode == "max(u,v)":
-        for i in range(num_instances):
-            for j in range(num_targets):
-                y_train[i, j] = np.sum(
-                    [
-                        *map(
-                            max,
-                            zip(X_train_instance[i], X_train_target[j], strict=True),
-                        )
-                    ]
-                )
-    elif mode == "u*v":
-        for i in range(num_instances):
-            for j in range(num_targets):
-                y_train[i, j] = np.sum(X_train_instance[i] * X_train_target[j])
-    if not np.isfinite(y_train).all():
-        raise ValueError(
-            "Synthetic score generation produced non-finite values; "
-            "use less extreme feature or noise parameters."
-        )
+    y_train = _generate_synthetic_scores(
+        X_train_instance,
+        X_train_target,
+        mode=mode,
+        generator=generator,
+        error_mu=error_mu,
+        error_sigma=error_sigma,
+    )
 
     (
         X_train_instance,
@@ -1774,7 +1889,10 @@ def generate_dummy_dataset(
         y_train,
         y_test,
     ) = train_test_split(
-        X_train_instance, y_train, test_size=split_ratio["test"], random_state=seed
+        X_train_instance,
+        y_train,
+        test_size=num_test,
+        random_state=seed,
     )
     (
         X_train_instance,
@@ -1784,19 +1902,19 @@ def generate_dummy_dataset(
     ) = train_test_split(
         X_train_instance,
         y_train,
-        test_size=split_ratio["val"] / (1 - split_ratio["test"]),
+        test_size=num_validation,
         random_state=seed,
     )
 
-    return {
-        "train": {
-            "y": y_train,
-            "X_instance": X_train_instance,
-            "X_target": X_train_target,
-        },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
-    }
+    return _dataset_bundle(
+        train=_dataset_split(
+            y=y_train,
+            X_instance=X_train_instance,
+            X_target=X_train_target,
+        ),
+        test=_dataset_split(y=y_test, X_instance=X_test_instance),
+        val=_dataset_split(y=y_val, X_instance=X_val_instance),
+    )
 
 
 def generate_MTP_dataset(
@@ -1807,11 +1925,29 @@ def generate_MTP_dataset(
     split_instances: Mapping[str, float] | None = None,
     split_targets: Mapping[str, float] | None = None,
     return_static_features_data: bool = False,
-) -> ProcessedDatasetBundle:  # pragma: no cover
+) -> ProcessedDatasetBundle:
     """Generate deterministic triplet data with optional axis-level splits.
 
     Each split mapping requires a test ratio and may include a validation
     ratio. The train ratio is derived when omitted and verified when supplied.
+    A test-only axis reuses its training IDs in a validation split created on
+    the other axis.
+
+    Args:
+        num_instances: Number of instances.
+        num_targets: Number of targets.
+        num_instance_features: Number of generated instance features, or none.
+        num_target_features: Number of generated target features, or none.
+        split_instances: Optional instance-axis split ratios.
+        split_targets: Optional target-axis split ratios.
+        return_static_features_data: Repeat non-novel side features in holdouts.
+
+    Returns:
+        Processed triplet and feature frames for train, validation, and test.
+
+    Raises:
+        TypeError: If a split or boolean flag has the wrong type.
+        ValueError: If a dimension or split ratio is invalid.
     """
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
@@ -1826,20 +1962,6 @@ def generate_MTP_dataset(
     if not isinstance(return_static_features_data, bool):
         raise TypeError("return_static_features_data must be a boolean.")
 
-    X_train_instance = _generate_static_feature_frame(
-        num_instances,
-        num_instance_features,
-    )
-    X_val_instance: pd.DataFrame | None = None
-    X_test_instance: pd.DataFrame | None = None
-    X_train_target = _generate_static_feature_frame(
-        num_targets,
-        num_target_features,
-    )
-    X_val_target: pd.DataFrame | None = None
-    X_test_target: pd.DataFrame | None = None
-    y_val: pd.DataFrame | None = None
-    y_test: pd.DataFrame | None = None
     split_instances = _optional_split_ratio(
         split_instances,
         parameter_name="split_instances",
@@ -1848,12 +1970,40 @@ def generate_MTP_dataset(
         split_targets,
         parameter_name="split_targets",
     )
-    train_instance_ids, val_instance_ids, test_instance_ids = None, None, None
-    train_target_ids, val_target_ids, test_target_ids = None, None, None
+    (
+        train_instance_ids,
+        val_instance_ids,
+        test_instance_ids,
+        validation_instances_are_novel,
+        test_instances_are_novel,
+    ) = _partition_mtp_axis(
+        num_instances,
+        split_instances,
+        parameter_name="split_instances",
+    )
+    (
+        train_target_ids,
+        val_target_ids,
+        test_target_ids,
+        validation_targets_are_novel,
+        test_targets_are_novel,
+    ) = _partition_mtp_axis(
+        num_targets,
+        split_targets,
+        parameter_name="split_targets",
+    )
 
+    instance_features = _generate_static_feature_frame(
+        num_instances,
+        num_instance_features,
+    )
+    target_features = _generate_static_feature_frame(
+        num_targets,
+        num_target_features,
+    )
     instance_ids = np.repeat(np.arange(num_instances), num_targets)
     target_ids = np.tile(np.arange(num_targets), num_instances)
-    y_train = pd.DataFrame(
+    all_interactions = pd.DataFrame(
         {
             "instance_id": instance_ids,
             "target_id": target_ids,
@@ -1861,95 +2011,79 @@ def generate_MTP_dataset(
         }
     )
 
-    if split_instances is not None:
-        train_instance_ids, val_instance_ids, test_instance_ids = _partition_ids(
-            y_train["instance_id"].unique(),
-            split_instances,
-            parameter_name="split_instances",
+    y_train = _select_mtp_interactions(
+        all_interactions,
+        train_instance_ids,
+        train_target_ids,
+    )
+    has_validation_split = (
+        validation_instances_are_novel or validation_targets_are_novel
+    )
+    y_val = (
+        _select_mtp_interactions(
+            all_interactions,
+            val_instance_ids,
+            val_target_ids,
         )
-
-    if split_targets is not None:
-        train_target_ids, val_target_ids, test_target_ids = _partition_ids(
-            y_train["target_id"].unique(),
-            split_targets,
-            parameter_name="split_targets",
+        if has_validation_split
+        else None
+    )
+    has_test_split = test_instances_are_novel or test_targets_are_novel
+    y_test = (
+        _select_mtp_interactions(
+            all_interactions,
+            test_instance_ids,
+            test_target_ids,
         )
+        if has_test_split
+        else None
+    )
 
-    if val_instance_ids is not None:
-        if X_train_instance is not None:
-            X_val_instance = _select_feature_ids(
-                X_train_instance,
-                val_instance_ids,
-            )
-        y_val = y_train.loc[y_train["instance_id"].isin(val_instance_ids)].copy()
-    elif X_train_instance is not None and return_static_features_data:
-        X_val_instance = _copy_feature_frame(X_train_instance)
+    X_train_instance = _select_optional_feature_ids(
+        instance_features,
+        train_instance_ids,
+        include=True,
+    )
+    X_val_instance = _select_optional_feature_ids(
+        instance_features,
+        val_instance_ids,
+        include=validation_instances_are_novel or return_static_features_data,
+    )
+    X_test_instance = _select_optional_feature_ids(
+        instance_features,
+        test_instance_ids,
+        include=test_instances_are_novel or return_static_features_data,
+    )
+    X_train_target = _select_optional_feature_ids(
+        target_features,
+        train_target_ids,
+        include=True,
+    )
+    X_val_target = _select_optional_feature_ids(
+        target_features,
+        val_target_ids,
+        include=validation_targets_are_novel or return_static_features_data,
+    )
+    X_test_target = _select_optional_feature_ids(
+        target_features,
+        test_target_ids,
+        include=test_targets_are_novel or return_static_features_data,
+    )
 
-    if test_instance_ids is not None:
-        if X_train_instance is not None:
-            X_test_instance = _select_feature_ids(
-                X_train_instance,
-                test_instance_ids,
-            )
-        y_test = y_train.loc[y_train["instance_id"].isin(test_instance_ids)].copy()
-    elif X_train_instance is not None and return_static_features_data:
-        X_test_instance = _copy_feature_frame(X_train_instance)
-
-    if train_instance_ids is not None:
-        if X_train_instance is not None:
-            X_train_instance = _select_feature_ids(
-                X_train_instance,
-                train_instance_ids,
-            )
-        y_train = y_train.loc[y_train["instance_id"].isin(train_instance_ids)].copy()
-
-    if val_target_ids is not None:
-        if X_train_target is not None:
-            X_val_target = _select_feature_ids(X_train_target, val_target_ids)
-        if y_val is not None:
-            y_val = y_val.loc[y_val["target_id"].isin(val_target_ids)].copy()
-        else:
-            y_val = y_train.loc[y_train["target_id"].isin(val_target_ids)].copy()
-    elif X_train_target is not None and return_static_features_data:
-        X_val_target = _copy_feature_frame(X_train_target)
-
-    if test_target_ids is not None:
-        if X_train_target is not None:
-            X_test_target = _select_feature_ids(X_train_target, test_target_ids)
-        if y_test is not None:
-            y_test = y_test.loc[y_test["target_id"].isin(test_target_ids)].copy()
-        else:
-            y_test = y_train.loc[y_train["target_id"].isin(test_target_ids)].copy()
-    elif X_train_target is not None and return_static_features_data:
-        X_test_target = _copy_feature_frame(X_train_target)
-
-    if train_target_ids is not None:
-        if X_train_target is not None:
-            X_train_target = _select_feature_ids(X_train_target, train_target_ids)
-        y_train = y_train.loc[y_train["target_id"].isin(train_target_ids)].copy()
-
-    return {
-        "train": {
-            "y": {"data": y_train} if y_train is not None else None,
-            "X_instance": {"data": X_train_instance}
-            if X_train_instance is not None
-            else None,
-            "X_target": {"data": X_train_target}
-            if X_train_target is not None
-            else None,
-        },
-        "val": {
-            "y": {"data": y_val} if y_val is not None else None,
-            "X_instance": {"data": X_val_instance}
-            if X_val_instance is not None
-            else None,
-            "X_target": {"data": X_val_target} if X_val_target is not None else None,
-        },
-        "test": {
-            "y": {"data": y_test} if y_test is not None else None,
-            "X_instance": {"data": X_test_instance}
-            if X_test_instance is not None
-            else None,
-            "X_target": {"data": X_test_target} if X_test_target is not None else None,
-        },
-    }
+    return _processed_dataset_bundle(
+        train=_processed_dataset_split(
+            y=y_train,
+            X_instance=X_train_instance,
+            X_target=X_train_target,
+        ),
+        val=_processed_dataset_split(
+            y=y_val,
+            X_instance=X_val_instance,
+            X_target=X_val_target,
+        ),
+        test=_processed_dataset_split(
+            y=y_test,
+            X_instance=X_test_instance,
+            X_target=X_test_target,
+        ),
+    )

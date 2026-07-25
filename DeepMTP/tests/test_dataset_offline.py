@@ -1123,6 +1123,43 @@ def test_generate_mtp_dataset_splits_both_axes_consistently():
         assert set(interactions["target_id"]) == set(target_features["id"])
 
 
+@pytest.mark.parametrize(
+    ("split_instances", "split_targets"),
+    [
+        (
+            {"test": 0.2},
+            {"val": 0.2, "test": 0.2},
+        ),
+        (
+            {"val": 0.2, "test": 0.2},
+            {"test": 0.2},
+        ),
+    ],
+)
+def test_generate_mtp_dataset_keeps_mixed_axis_splits_aligned(
+    split_instances,
+    split_targets,
+):
+    data = generate_MTP_dataset(
+        10,
+        10,
+        num_instance_features=2,
+        num_target_features=2,
+        split_instances=split_instances,
+        split_targets=split_targets,
+        return_static_features_data=True,
+    )
+
+    for split_name in ("train", "val", "test"):
+        interactions = data[split_name]["y"]["data"]
+        instance_features = data[split_name]["X_instance"]["data"]
+        target_features = data[split_name]["X_target"]["data"]
+
+        assert set(interactions["instance_id"]) == set(instance_features["id"])
+        assert set(interactions["target_id"]) == set(target_features["id"])
+        assert len(interactions) == len(instance_features) * len(target_features)
+
+
 def test_generate_mtp_dataset_supports_test_only_split():
     data = generate_MTP_dataset(
         20,
@@ -1259,6 +1296,111 @@ def test_generate_dummy_dataset_default_mode_is_valid():
     assert data["val"]["y"].shape == (2, 5)
     assert data["test"]["y"].shape == (4, 5)
     assert np.isfinite(data["train"]["y"]).all()
+
+
+def test_generate_dummy_dataset_split_counts_use_original_population():
+    data = generate_dummy_dataset(
+        num_instances=11,
+        num_targets=4,
+        num_instance_features=3,
+        num_target_features=3,
+        error_mu=0,
+        error_sigma=0,
+        split_ratio={"train": 0.7, "val": 0.1, "test": 0.2},
+    )
+
+    assert data["train"]["y"].shape[0] == 6
+    assert data["val"]["y"].shape[0] == 2
+    assert data["test"]["y"].shape[0] == 3
+
+
+@pytest.mark.parametrize("sklearn_version", [False, True])
+@pytest.mark.parametrize(
+    "mode",
+    ["u+logv", "u*logv", "u^v", "u^v_reversed", "max(u,v)", "u*v"],
+)
+def test_generate_dummy_dataset_scores_match_selected_relationship(
+    mode,
+    sklearn_version,
+):
+    data = generate_dummy_dataset(
+        num_instances=20,
+        num_targets=4,
+        num_instance_features=3,
+        num_target_features=3,
+        error_mu=0,
+        error_sigma=0,
+        mode=mode,
+        sklearn_version=sklearn_version,
+        seed=17,
+    )
+    target_features = data["train"]["X_target"]
+
+    for split_name in ("train", "val", "test"):
+        instance_features = data[split_name]["X_instance"]
+        instance_values = instance_features[:, np.newaxis, :]
+        target_values = target_features[np.newaxis, :, :]
+        if mode == "u+logv":
+            expected = np.sum(instance_values + np.log(target_values), axis=2)
+        elif mode == "u*logv":
+            expected = np.sum(instance_values * np.log(target_values), axis=2)
+        elif mode == "u^v":
+            expected = np.sum(instance_values**target_values, axis=2)
+        elif mode == "u^v_reversed":
+            expected = np.sum(
+                instance_values ** target_values[:, :, ::-1],
+                axis=2,
+            )
+        elif mode == "max(u,v)":
+            expected = np.sum(np.maximum(instance_values, target_values), axis=2)
+        else:
+            expected = np.sum(instance_values * target_values, axis=2)
+
+        np.testing.assert_allclose(
+            data[split_name]["y"],
+            expected,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_offset"),
+    [
+        ("u+logv", 2.5),
+        ("max(u,v)", 0.0),
+    ],
+)
+def test_generate_dummy_dataset_preserves_legacy_noise_modes(
+    mode,
+    expected_offset,
+):
+    without_error = generate_dummy_dataset(
+        num_instances=20,
+        num_targets=4,
+        num_instance_features=3,
+        num_target_features=3,
+        error_mu=0,
+        error_sigma=0,
+        mode=mode,
+        seed=17,
+    )
+    with_error = generate_dummy_dataset(
+        num_instances=20,
+        num_targets=4,
+        num_instance_features=3,
+        num_target_features=3,
+        error_mu=2.5,
+        error_sigma=0,
+        mode=mode,
+        seed=17,
+    )
+
+    for split_name in ("train", "val", "test"):
+        np.testing.assert_allclose(
+            with_error[split_name]["y"] - without_error[split_name]["y"],
+            expected_offset,
+        )
 
 
 def test_generate_interaction_matrix_writes_expected_scores(tmp_path):
@@ -1491,6 +1633,18 @@ def test_generated_dummy_dataset_requires_matching_feature_dimensions():
         )
 
 
+def test_generated_dummy_dataset_rejects_split_without_training_instances():
+    with pytest.raises(ValueError, match="leave at least one training instance"):
+        generate_dummy_dataset(
+            num_instances=2,
+            num_targets=5,
+            num_instance_features=3,
+            num_target_features=3,
+            error_mu=0,
+            error_sigma=0,
+        )
+
+
 @pytest.mark.parametrize("split_name", ["split_instances", "split_targets"])
 def test_generate_mtp_dataset_requires_test_ratio_for_validation(split_name):
     arguments = {split_name: {"val": 0.1}}
@@ -1677,6 +1831,18 @@ def test_dummy_dataset_factories_are_reproducible(factory, arguments):
         (process_dummy_MLC, {"random_state": 17}),
         (process_dummy_MTR, {"random_state": None}),
         (process_dummy_DP, {"random_state": 17}),
+        (
+            generate_dummy_dataset,
+            {
+                "num_instances": 20,
+                "num_targets": 5,
+                "num_instance_features": 3,
+                "num_target_features": 3,
+                "error_mu": 0,
+                "error_sigma": 0,
+                "seed": 17,
+            },
+        ),
     ],
 )
 def test_dummy_dataset_factories_do_not_mutate_global_rng(factory, arguments):
@@ -1721,6 +1887,19 @@ def test_dummy_dataset_random_state_changes_generated_values():
                 "error_mu": 0,
                 "error_sigma": 0,
                 "seed": True,
+            },
+            "seed",
+        ),
+        (
+            generate_dummy_dataset,
+            {
+                "num_instances": 20,
+                "num_targets": 5,
+                "num_instance_features": 3,
+                "num_target_features": 3,
+                "error_mu": 0,
+                "error_sigma": 0,
+                "seed": None,
             },
             "seed",
         ),
