@@ -220,7 +220,7 @@ test_generate_config_fails_data = [
     {
         "pass_fail": "pass",
         "temp_config_data": {"validation_setting": "A", "metrics_average": ["macro"]},
-        "data_to_be_added": {"metrics_average": ["macro", "micro"]},
+        "data_to_be_added": {"metrics_average": ["micro"]},
     },
     {
         "pass_fail": "pass",

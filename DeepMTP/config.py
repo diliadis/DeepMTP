@@ -332,6 +332,14 @@ class DeepMTPConfig:
             raise ConfigValidationError(
                 f"Unsupported metric averaging schemes: {sorted(unknown_averaging)}."
             )
+        if (
+            self.validation_setting == "A"
+            and self.metrics
+            and self.metrics_average != ["micro"]
+        ):
+            raise ConfigValidationError(
+                "metrics_average must be ['micro'] for validation setting A."
+            )
 
         selectable_metrics = {
             f"{metric}_{averaging}"

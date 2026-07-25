@@ -127,6 +127,18 @@ def test_typed_config_rejects_invalid_core_values(field_name, invalid_value):
         DeepMTPConfig.from_mapping(config)
 
 
+def test_typed_config_rejects_non_micro_averaging_for_setting_a():
+    config = make_valid_config()
+    config["validation_setting"] = "A"
+    config["metrics_average"] = ["macro", "micro"]
+
+    with pytest.raises(
+        ConfigValidationError,
+        match=r"metrics_average must be \['micro'\]",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
 def test_generate_config_mutable_defaults_are_isolated():
     first = make_valid_config()
     first["metrics"].append("precision")

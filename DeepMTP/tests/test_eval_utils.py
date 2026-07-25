@@ -541,6 +541,7 @@ def test_verbose_evaluation_uses_modern_numpy_nan_api(capsys):
         ({"validation_setting": "Z"}, "validation_setting"),
         ({"problem_mode": "forecasting"}, "problem_mode"),
         ({"averaging": ["weighted"]}, "averaging"),
+        ({"averaging": ["macro"]}, "validation setting A"),
         ({"top_k": 0}, "top_k"),
         ({"metrics": ["BOGUS"]}, "Unsupported regression metrics"),
     ],

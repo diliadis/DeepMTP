@@ -45,10 +45,19 @@ class RecordingProgress:
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("problem_mode", "metrics"),
-    [("classification", ["accuracy"]), ("regression", ["MSE"])],
+    ("problem_mode", "metrics", "validation_setting"),
+    [
+        ("classification", ["accuracy"], "B"),
+        ("regression", ["MSE"], "B"),
+        ("classification", ["accuracy"], "A"),
+    ],
 )
-def test_tiny_cpu_training_and_prediction(tmp_path, problem_mode, metrics):
+def test_tiny_cpu_training_and_prediction(
+    tmp_path,
+    problem_mode,
+    metrics,
+    validation_setting,
+):
     rng = np.random.default_rng(42)
     instance_features = rng.normal(size=(24, 3))
     if problem_mode == "classification":
@@ -63,7 +72,10 @@ def test_tiny_cpu_training_and_prediction(tmp_path, problem_mode, metrics):
             "X_target": None,
         }
     }
-    train, val, test, data_info = data_process(data, validation_setting="B")
+    train, val, test, data_info = data_process(
+        data,
+        validation_setting=validation_setting,
+    )
 
     config = generate_config(
         validation_setting=data_info["detected_validation_setting"],
@@ -98,6 +110,8 @@ def test_tiny_cpu_training_and_prediction(tmp_path, problem_mode, metrics):
         },
         embedding_size=4,
     )
+    if validation_setting == "A":
+        assert config["metrics_average"] == ["micro"]
 
     model_config = (
         DeepMTPConfig.from_mapping(config)
@@ -164,7 +178,9 @@ def test_tiny_cpu_training_and_prediction(tmp_path, problem_mode, metrics):
             "train_loss",
             "val_loss",
             "best_val_loss",
-            "test_accuracy_macro",
+            "test_accuracy_micro"
+            if validation_setting == "A"
+            else "test_accuracy_macro",
         }.issubset(reported_metrics)
 
         model.save_model()

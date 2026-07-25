@@ -398,11 +398,12 @@ def generate_config(
     metrics_average = [m.lower() for m in metrics_average]
 
     if validation_setting == "A":
-        if "micro" not in metrics_average:
+        if metrics_average != ["micro"]:
             print(
-                "The macro and instance-wise averaging schemes are not recommended while on validation setting A. The experiments will calculate the micro averaged version of the selected metrics"
+                "Validation setting A supports only micro-averaged metrics; "
+                "metrics_average has been normalized to ['micro']."
             )
-            metrics_average.append("micro")
+            metrics_average = ["micro"]
     elif validation_setting in ["B", "C"]:
         if "macro" not in metrics_average:
             print(

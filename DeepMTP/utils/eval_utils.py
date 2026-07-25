@@ -172,6 +172,8 @@ def _validate_evaluation_inputs(
         raise ValueError(
             f"Unsupported metric averaging schemes: {sorted(unknown_averaging)}."
         )
+    if validation_setting == "A" and list(averaging) != ["micro"]:
+        raise ValueError("averaging must be ['micro'] for validation setting A.")
     if top_k is not None and (
         not isinstance(top_k, int) or isinstance(top_k, bool) or top_k <= 0
     ):
@@ -289,18 +291,12 @@ def get_performance_results(
                     + str(df[["true_values", "pred_values"]].head())
                 )
 
-        if "micro" in averaging:
-            results = base_evaluator(df, problem_mode, metrics, -1, verbose=verbose)
-            # iterate the metric_name, metric_value pairs
-            for metric_name, metric_val in results.items():
-                final_result.update({mode + metric_name + "_micro": metric_val})
-                if verbose:  # pragma: no cover
-                    print(metric_name + "_micro: " + str(metric_val))
-
-        else:
-            raise AttributeError(
-                "Only the micro-averaging option is compatible with setting A"
-            )
+        results = base_evaluator(df, problem_mode, metrics, -1, verbose=verbose)
+        # iterate the metric_name, metric_value pairs
+        for metric_name, metric_val in results.items():
+            final_result.update({mode + metric_name + "_micro": metric_val})
+            if verbose:  # pragma: no cover
+                print(metric_name + "_micro: " + str(metric_val))
 
     # for Setting B, micro, macro and instance-wise averaging version should be available. In settings B,C and probably D, you have a scaler per target.
     elif validation_setting in ["B", "C", "D"]:

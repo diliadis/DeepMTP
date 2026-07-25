@@ -40,6 +40,7 @@ two small end-to-end training runs.
 - [x] Make trainer run state explicit and checkpoint saves side-effect-free.
 - [x] Weight epoch losses by observations when batch sizes differ.
 - [x] Make evaluation metric results complete and repair ranking NDCG.
+- [x] Enforce micro-only metric averaging for validation setting A.
 - [x] Cover single-class and singleton evaluation groups.
 - [x] Validate identifiers used for generated one-hot features.
 
