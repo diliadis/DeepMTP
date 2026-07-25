@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 import torch
 
+import DeepMTP.data_loading as data_loading_module
 from DeepMTP import DataLoaderFactory, DeepMTPConfig
 
 
@@ -67,6 +68,32 @@ def test_training_loaders_use_configured_batches_and_device_settings():
     assert len(dataloaders.train.dataset) == 6
 
 
+@pytest.mark.parametrize(
+    ("device", "pin_memory"),
+    [("cpu", False), ("cuda:2", True)],
+)
+def test_factory_normalizes_device_strings(device, pin_memory):
+    factory = DataLoaderFactory(make_config(), device)
+
+    dataloader = factory.for_prediction(make_data())
+
+    assert factory.device == torch.device(device)
+    assert dataloader.pin_memory is pin_memory
+
+
+@pytest.mark.parametrize(
+    ("device", "exception"),
+    [
+        (object(), TypeError),
+        ("", ValueError),
+        ("not-a-device", ValueError),
+    ],
+)
+def test_factory_rejects_invalid_devices(device, exception):
+    with pytest.raises(exception, match="device"):
+        DataLoaderFactory(make_config(), device)
+
+
 def test_training_shuffle_is_repeatable_without_global_rng_configuration():
     data = make_data()
     config = make_config(random_seed=29)
@@ -101,6 +128,81 @@ def test_prediction_loader_preserves_input_order():
             strict=True,
         )
     )
+
+
+def test_training_loaders_select_transforms_by_phase():
+    instance_train_transform = object()
+    instance_inference_transform = object()
+    target_train_transform = object()
+    target_inference_transform = object()
+    config = make_config(
+        instance_train_transforms=instance_train_transform,
+        instance_inference_transforms=instance_inference_transform,
+        target_train_transforms=target_train_transform,
+        target_inference_transforms=target_inference_transform,
+    )
+    data = make_data()
+
+    dataloaders = DataLoaderFactory(config, "cpu").for_training(data, data, data)
+
+    assert dataloaders.train.dataset.instance_transform is instance_train_transform
+    assert dataloaders.train.dataset.target_transform is target_train_transform
+    for dataloader in (dataloaders.validation, dataloaders.test):
+        assert dataloader.dataset.instance_transform is instance_inference_transform
+        assert dataloader.dataset.target_transform is target_inference_transform
+
+
+@pytest.mark.parametrize(
+    ("data", "exception", "message"),
+    [
+        ([], TypeError, "data must be a mapping"),
+        ({}, ValueError, "missing required keys"),
+        (
+            {"y": None, "X_instance": None, "X_target": None},
+            TypeError,
+            r"data\['y'\]",
+        ),
+        (
+            {**make_data(), "X_instance": []},
+            TypeError,
+            "X_instance",
+        ),
+        (
+            {**make_data(), "X_target": "features"},
+            TypeError,
+            "X_target",
+        ),
+    ],
+)
+def test_prediction_validates_split_contract(data, exception, message):
+    factory = DataLoaderFactory(make_config(), "cpu")
+
+    with pytest.raises(exception, match=message):
+        factory.for_prediction(data)
+
+
+def test_training_validates_every_split_before_constructing_datasets(
+    monkeypatch,
+):
+    constructor_calls = []
+    original_dataset = data_loading_module.BaseDataset
+
+    def tracking_dataset(*args, **kwargs):
+        constructor_calls.append((args, kwargs))
+        return original_dataset(*args, **kwargs)
+
+    monkeypatch.setattr(data_loading_module, "BaseDataset", tracking_dataset)
+    invalid_validation_data = {"y": make_data()["y"]}
+    factory = DataLoaderFactory(make_config(), "cpu")
+
+    with pytest.raises(ValueError, match="validation_data.*missing required keys"):
+        factory.for_training(
+            make_data(),
+            invalid_validation_data,
+            make_data(),
+        )
+
+    assert constructor_calls == []
 
 
 @pytest.mark.parametrize(
