@@ -140,9 +140,7 @@ def test_streamlit_progress_renders_core_lifecycle_events(tmp_path):
     assert validation_frame.iloc[0]["accuracy_macro"] == 0.8
     assert validation_frame.iloc[0]["early_stopping"] == "1/3"
     assert test_frame.iloc[0]["accuracy_macro"] == 0.75
-    assert any(
-        call[0] == "line_chart" for call in streamlit.slots[0].calls
-    )
+    assert any(call[0] == "line_chart" for call in streamlit.slots[0].calls)
     assert str(tmp_path) in streamlit.slots[7].calls[-1][1]
 
 

@@ -54,9 +54,7 @@ def test_checkpoint_round_trip_maps_tensors_to_cpu(tmp_path):
         config={"compute_mode": "cuda:0"},
     )
 
-    checkpoint = ExperimentStore.load_checkpoint(
-        checkpoint_path, map_location="cpu"
-    )
+    checkpoint = ExperimentStore.load_checkpoint(checkpoint_path, map_location="cpu")
 
     assert set(checkpoint) == {
         "model_state_dict",
@@ -65,8 +63,7 @@ def test_checkpoint_round_trip_maps_tensors_to_cpu(tmp_path):
     }
     assert checkpoint["model_state_dict"]["weight"].device.type == "cpu"
     assert (
-        checkpoint["optimizer_state_dict"]["state"][0]["momentum"].device.type
-        == "cpu"
+        checkpoint["optimizer_state_dict"]["state"][0]["momentum"].device.type == "cpu"
     )
 
 

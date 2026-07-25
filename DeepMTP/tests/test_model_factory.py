@@ -69,6 +69,7 @@ def test_seeded_model_creation_is_repeatable_and_restores_global_rng():
     for first_parameter, second_parameter in zip(
         first.model.parameters(),
         second.model.parameters(),
+        strict=True,
     ):
         assert torch.equal(first_parameter, second_parameter)
 

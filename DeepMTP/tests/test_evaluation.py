@@ -61,9 +61,7 @@ def test_evaluator_calculates_metrics_from_epoch_output():
 
 
 def test_evaluator_returns_no_metrics_when_none_are_configured():
-    evaluator = Evaluator(
-        make_config(metrics=[], metrics_average=[])
-    )
+    evaluator = Evaluator(make_config(metrics=[], metrics_average=[]))
 
     assert evaluator.evaluate("test", 0, EpochOutput()) == {}
 

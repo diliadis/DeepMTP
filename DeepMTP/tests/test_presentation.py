@@ -33,9 +33,7 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
     observer.on_event(ProgressEvent("training_started"))
     observer.on_event(ProgressEvent("epoch_started", epoch=2))
     observer.on_event(ProgressEvent("epoch_completed", epoch=2))
-    observer.on_event(
-        ProgressEvent("early_stopping_triggered", epoch=2)
-    )
+    observer.on_event(ProgressEvent("early_stopping_triggered", epoch=2))
     observer.on_summary(
         RunSummaries("train table", "validation table", "test table"),
         include_train=True,

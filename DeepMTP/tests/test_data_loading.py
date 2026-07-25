@@ -48,6 +48,7 @@ def pair_order(dataloader):
         for instance_id, target_id in zip(
             batch["instance_id"],
             batch["target_id"],
+            strict=True,
         )
     ]
 
@@ -97,6 +98,7 @@ def test_prediction_loader_preserves_input_order():
         zip(
             data["y"]["data"]["instance_id"],
             data["y"]["data"]["target_id"],
+            strict=True,
         )
     )
 

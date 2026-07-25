@@ -81,9 +81,7 @@ def test_trainer_closes_reporter_when_training_fails():
     assert events == [("reporter", "start"), ("reporter", "close")]
 
 
-def test_disabled_integrations_do_not_import_optional_modules(
-    monkeypatch, tmp_path
-):
+def test_disabled_integrations_do_not_import_optional_modules(monkeypatch, tmp_path):
     def fail_import(module_name):
         raise AssertionError(f"unexpected import: {module_name}")
 
@@ -96,9 +94,7 @@ def test_disabled_integrations_do_not_import_optional_modules(
     reporter.close()
 
 
-def test_tensorboard_reporter_preserves_legacy_metric_names(
-    monkeypatch, tmp_path
-):
+def test_tensorboard_reporter_preserves_legacy_metric_names(monkeypatch, tmp_path):
     writer_events = []
 
     class FakeWriter:
@@ -184,9 +180,7 @@ def test_wandb_reporter_uses_run_lifecycle(monkeypatch):
     ]
 
 
-def test_requested_missing_integration_has_actionable_error(
-    monkeypatch, tmp_path
-):
+def test_requested_missing_integration_has_actionable_error(monkeypatch, tmp_path):
     def missing_import(module_name):
         raise ModuleNotFoundError(module_name)
 
