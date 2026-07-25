@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import warnings
 from collections.abc import Callable, Iterator, Mapping, MutableMapping

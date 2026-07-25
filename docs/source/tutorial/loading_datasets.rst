@@ -39,8 +39,8 @@ The user can load the multi-task learning dataset dog, a crowdsourcing dataset f
 
 The user can load the matrix completion dataset MovieLens 100K, a movie rating prediction dataset available by the the `GroupLens lab <https://grouplens.org/datasets/movielens/>`_ that contains 100k ratings from 1000 users on 1700 movies. In a future version of the software larger versions of the movielens dataset will be added::
     
-    dp_data = load_process_DP(dataset_name='ern')
-    train_dp, val_dp, test_dp, data_info_dp = data_process(dp_data, validation_setting='D', verbose=True)
+    mc_data = load_process_MC(dataset_name='ml-100k')
+    train_mc, val_mc, test_mc, data_info_mc = data_process(mc_data, validation_setting='A', verbose=True)
 
 
 **load_process_DP()**
@@ -48,8 +48,8 @@ The user can load the matrix completion dataset MovieLens 100K, a movie rating p
 
 The user can load dyadic prediction datasets available `here <https://people.montefiore.uliege.be/schrynemackers/datasets>`_. These are four different biological network datasets (ern, srn, dpie, dpii) which can be accessed by specifying one of the four keywords in the dataset_name parameter.::
 
-    mc_data = load_process_MC(dataset_name='ml-100k')
-    train_mc, val_mc, test_mc, data_info_mc = data_process(mc_data, validation_setting='A', verbose=True)
+    dp_data = load_process_DP(dataset_name='ern')
+    train_dp, val_dp, test_dp, data_info_dp = data_process(dp_data, validation_setting='D', verbose=True)
 
 
 Loading a custom dataset
