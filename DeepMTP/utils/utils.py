@@ -1,5 +1,7 @@
 import torchvision.transforms as transforms
 
+from DeepMTP.config import DeepMTPConfig
+
 
 def get_optimization_direction(metric_name: str) -> str:
     """Determines if the goal is to maximize or minimize based on the name of the metric
@@ -152,16 +154,8 @@ def generate_config(
     train_batchsize=512,
     val_batchsize=512,
     num_epochs=100,
-    metrics=[
-        "hamming_loss",
-        "auroc",
-        "f1_score",
-        "aupr",
-        "accuracy",
-        "recall",
-        "precision",
-    ],
-    metrics_average=["macro", "micro"],
+    metrics=None,
+    metrics_average=None,
     top_k=None,
     patience=10,
     delta=0,
@@ -192,16 +186,16 @@ def generate_config(
     target_train_transforms=None,
     target_inference_transforms=None,
     comb_mlp_nodes_reducing_factor=2,
-    comb_mlp_nodes_per_layer=[10, 10, 10],
+    comb_mlp_nodes_per_layer=None,
     comb_mlp_layers=None,
     embedding_size=100,
     eval_every_n_epochs=10,
     load_pretrained_model=False,
     pretrained_model_path="",
     running_hpo=False,
-    additional_info={},
-    instance_branch_params={},
-    target_branch_params={},
+    additional_info=None,
+    instance_branch_params=None,
+    target_branch_params=None,
     hpo_results_path="./",
 ):
     """Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
@@ -281,18 +275,36 @@ def generate_config(
     Returns:
         dict: A dictionary with the config that will be used by the model to adjust the architecture and all other training-related information
     """
-
-    if metric_to_optimize_early_stopping not in [
-        m + "_" + m_a for m in metrics for m_a in metrics_average
-    ] + ["loss"]:
-        raise AttributeError(
-            "The metric requested to track during early stopping ("
-            + metric_to_optimize_early_stopping
-            + ") is should be also defined in the metrics field of the configuration object "
-            + str(
-                [m + "_" + m_a for m in metrics + ["loss"] for m_a in metrics_average]
-            )
-        )
+    metrics = (
+        [
+            "hamming_loss",
+            "auroc",
+            "f1_score",
+            "aupr",
+            "accuracy",
+            "recall",
+            "precision",
+        ]
+        if metrics is None
+        else list(metrics)
+    )
+    metrics_average = (
+        ["macro", "micro"]
+        if metrics_average is None
+        else list(metrics_average)
+    )
+    comb_mlp_nodes_per_layer = (
+        [10, 10, 10]
+        if comb_mlp_nodes_per_layer is None
+        else comb_mlp_nodes_per_layer
+    )
+    additional_info = {} if additional_info is None else dict(additional_info)
+    instance_branch_params = (
+        {} if instance_branch_params is None else dict(instance_branch_params)
+    )
+    target_branch_params = (
+        {} if target_branch_params is None else dict(target_branch_params)
+    )
 
     base_config = {
         "validation_setting": validation_setting,
@@ -348,49 +360,17 @@ def generate_config(
         "target_inference_transforms": target_inference_transforms,
         "running_hpo": running_hpo,
         "hpo_results_path": hpo_results_path,
+        "additional_info": additional_info,
         "top_k": top_k,
     }
 
-    # various sanity checks for the metrics and averaging options that are provided by the user
-    classification_metrics = [
-        "hamming_loss",
-        "auroc",
-        "f1_score",
-        "aupr",
-        "accuracy",
-        "recall",
-        "precision",
-    ]
-    regression_metrics = ["RMSE", "MSE", "MAE", "R2", "RRMSE"]
+    # Normalize user-facing names before centralized typed validation.
     if problem_mode == "classification":
         metrics = [m.lower() for m in metrics]
-        unknown_metrics = set(metrics).difference(set(classification_metrics))
-        if unknown_metrics != set():
-            raise Exception(
-                "Detected unknown metrics for the current classification task: "
-                + str(unknown_metrics)
-            )
-    else:
+    elif problem_mode == "regression":
         metrics = [m.upper() for m in metrics]
-        unknown_metrics = set(metrics).difference(set(regression_metrics))
-        if unknown_metrics != set():
-            raise Exception(
-                "Detected unknown metrics for the current regression task: "
-                + str(unknown_metrics)
-            )
 
-    metric_averaging_schemes = ["macro", "micro", "instance"]
     metrics_average = [m.lower() for m in metrics_average]
-    unknown_metric_averaging_schemes = set(metrics_average).difference(
-        set(metric_averaging_schemes)
-    )
-    if unknown_metric_averaging_schemes != set():
-        raise Exception(
-            "Detected unknown metric averaging scheme for the current "
-            + problem_mode
-            + " task: "
-            + str(unknown_metric_averaging_schemes)
-        )
 
     if validation_setting == "A":
         if "micro" not in metrics_average:
@@ -583,4 +563,4 @@ def generate_config(
             + " is not a valid name for the architecture in the target branch"
         )
 
-    return base_config
+    return DeepMTPConfig.from_mapping(base_config).to_dict()
