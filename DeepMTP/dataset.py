@@ -6,7 +6,7 @@ import pickle
 from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
-from typing import Literal, TypeAlias, TypedDict
+from typing import Any, Literal, TypeAlias, TypedDict, cast
 
 import arff
 import numpy as np
@@ -14,7 +14,7 @@ import pandas as pd
 import scipy
 from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
-from skmultilearn.dataset import available_data_sets, load_dataset
+from skmultilearn.dataset import load_dataset_dump
 
 from DeepMTP._download_utils import (
     DatasetDownloadError,
@@ -90,6 +90,29 @@ _DP_DATASET_SOURCES: dict[str, tuple[str, str | None]] = {
     ),
 }
 _DP_FILE_STEMS = ("Y", "X1", "X2")
+_MLC_DATASET_BASE_URL = "https://scikit.ml/datasets/"
+_MLC_DATASET_NAMES = frozenset(
+    {
+        "Corel5k",
+        "bibtex",
+        "birds",
+        "delicious",
+        "emotions",
+        "enron",
+        "genbase",
+        "mediamill",
+        "medical",
+        "rcv1subset1",
+        "rcv1subset2",
+        "rcv1subset3",
+        "rcv1subset4",
+        "rcv1subset5",
+        "scene",
+        "tmc2007_500",
+        "yeast",
+    }
+)
+_MLC_DATASET_VARIANTS = frozenset({"train", "test", "undivided"})
 
 
 class DatasetSplit(TypedDict):
@@ -303,102 +326,322 @@ def _load_mtl_interaction_matrix(input_path: str | os.PathLike[str]) -> np.ndarr
     return _validate_mtl_scores(score_matrix, source=source)
 
 
+def _parse_mlc_manifest(
+    manifest_path: Path,
+) -> dict[tuple[str, str], tuple[str, str]]:
+    """Parse the scikit-multilearn checksum manifest."""
+    try:
+        rows = manifest_path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise ValueError(
+            f"Multi-label dataset manifest is not valid UTF-8: {manifest_path}."
+        ) from exc
+
+    manifest: dict[tuple[str, str], tuple[str, str]] = {}
+    for line_number, raw_row in enumerate(rows, start=1):
+        row = raw_row.strip()
+        if not row:
+            continue
+        parts = row.split(";")
+        if len(parts) != 2:
+            raise ValueError(
+                f"Invalid multi-label manifest row {line_number}: {raw_row!r}."
+            )
+        checksum, filename = (part.strip() for part in parts)
+        if len(checksum) != 32 or any(
+            character not in "0123456789abcdefABCDEF" for character in checksum
+        ):
+            raise ValueError(
+                f"Invalid MD5 checksum on multi-label manifest row {line_number}."
+            )
+        if (
+            "/" in filename
+            or "\\" in filename
+            or Path(filename).name != filename
+            or not filename.endswith(".bz2")
+        ):
+            raise ValueError(
+                f"Unsafe multi-label filename on manifest row {line_number}: "
+                f"{filename!r}."
+            )
+        try:
+            dataset_name, variant = filename.removesuffix(".bz2").rsplit("-", 1)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid multi-label filename on manifest row {line_number}: "
+                f"{filename!r}."
+            ) from exc
+        if not dataset_name or variant not in _MLC_DATASET_VARIANTS:
+            raise ValueError(
+                f"Invalid multi-label filename on manifest row {line_number}: "
+                f"{filename!r}."
+            )
+        key = (dataset_name, variant)
+        if key in manifest:
+            raise ValueError(
+                f"Duplicate multi-label manifest entry for {dataset_name}-{variant}."
+            )
+        manifest[key] = (checksum.lower(), filename)
+
+    if not manifest:
+        raise ValueError(f"Multi-label dataset manifest is empty: {manifest_path}.")
+    return manifest
+
+
+def _download_mlc_manifest(
+    manifest_path: Path,
+    required_paths: list[Path],
+) -> None:
+    try:
+        download_file(f"{_MLC_DATASET_BASE_URL}data.list", manifest_path)
+    except DatasetDownloadError as exc:
+        raise DatasetDownloadError(
+            "The multi-label dataset is not cached and the upstream catalog "
+            "could not be retrieved. Place the trusted scikit-multilearn dump "
+            f"files at {[str(path) for path in required_paths]}."
+        ) from exc
+
+
+def _ensure_mlc_cache(
+    dataset_dir: Path,
+    dataset_name: str,
+    variants: tuple[str, ...],
+) -> tuple[dict[str, Path], bool]:
+    dataset_files = {
+        variant: dataset_dir / f"{dataset_name}-{variant}.bz2" for variant in variants
+    }
+    invalid_cache_paths = [
+        dataset_file
+        for dataset_file in dataset_files.values()
+        if dataset_file.exists() and not dataset_file.is_file()
+    ]
+    if invalid_cache_paths:
+        raise IsADirectoryError(
+            "Expected multi-label cache paths to be files: "
+            f"{[str(path) for path in invalid_cache_paths]}."
+        )
+
+    missing_variants = [
+        variant
+        for variant, dataset_file in dataset_files.items()
+        if not dataset_file.is_file()
+    ]
+    if not missing_variants:
+        return dataset_files, False
+
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    required_paths = [dataset_files[variant] for variant in missing_variants]
+    manifest_path = dataset_dir / "data.list"
+    if manifest_path.exists() and not manifest_path.is_file():
+        raise IsADirectoryError(
+            f"Expected multi-label manifest path to be a file: {manifest_path}."
+        )
+    manifest_was_cached = manifest_path.is_file()
+    if not manifest_was_cached:
+        _download_mlc_manifest(manifest_path, required_paths)
+
+    try:
+        manifest = _parse_mlc_manifest(manifest_path)
+    except ValueError as exc:
+        if not manifest_was_cached:
+            raise DatasetDownloadError(
+                f"The downloaded multi-label dataset manifest is invalid: "
+                f"{manifest_path}."
+            ) from exc
+        _download_mlc_manifest(manifest_path, required_paths)
+        try:
+            manifest = _parse_mlc_manifest(manifest_path)
+        except ValueError as refresh_exc:
+            raise DatasetDownloadError(
+                f"The refreshed multi-label dataset manifest is invalid: "
+                f"{manifest_path}."
+            ) from refresh_exc
+
+    for variant in missing_variants:
+        key = (dataset_name, variant)
+        if key not in manifest:
+            raise DatasetDownloadError(
+                f"The multi-label dataset catalog has no entry for "
+                f"{dataset_name}-{variant}."
+            )
+        checksum, filename = manifest[key]
+        destination = dataset_files[variant]
+        if filename != destination.name:
+            raise DatasetDownloadError(
+                f"Unexpected cache filename for {dataset_name}-{variant}: {filename!r}."
+            )
+        try:
+            download_file(
+                f"{_MLC_DATASET_BASE_URL}{filename}",
+                destination,
+                expected_md5=checksum,
+            )
+        except DatasetDownloadError as exc:
+            raise DatasetDownloadError(
+                f"Failed to download multi-label dataset {dataset_name}-{variant}."
+            ) from exc
+    return dataset_files, True
+
+
+def _load_mlc_dump(dataset_path: Path) -> tuple[object, object]:
+    try:
+        loaded = load_dataset_dump(str(dataset_path))
+        X, y, _, _ = loaded
+    except (
+        AttributeError,
+        EOFError,
+        KeyError,
+        OSError,
+        pickle.PickleError,
+        TypeError,
+        ValueError,
+    ) as exc:
+        raise ValueError(
+            f"Multi-label dataset cache could not be loaded: {dataset_path}."
+        ) from exc
+    return X, y
+
+
+def _coerce_mlc_matrix(
+    matrix: object,
+    *,
+    matrix_name: str,
+    source: Path,
+) -> np.ndarray:
+    try:
+        if scipy.sparse.issparse(matrix):
+            matrix = cast(Any, matrix).toarray()
+        dense_matrix = np.asarray(matrix)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{matrix_name} in {source} could not be converted to a matrix."
+        ) from exc
+    if dense_matrix.ndim != 2 or dense_matrix.shape[0] < 1 or dense_matrix.shape[1] < 1:
+        raise ValueError(
+            f"{matrix_name} in {source} must be a non-empty two-dimensional matrix."
+        )
+    if not np.issubdtype(dense_matrix.dtype, np.number) or np.iscomplexobj(
+        dense_matrix
+    ):
+        raise TypeError(f"{matrix_name} in {source} must contain real numeric values.")
+    if not np.isfinite(dense_matrix).all():
+        raise ValueError(f"{matrix_name} in {source} must contain finite values.")
+    return dense_matrix.copy()
+
+
+def _load_mlc_variant(dataset_path: Path) -> tuple[np.ndarray, np.ndarray]:
+    raw_features, raw_labels = _load_mlc_dump(dataset_path)
+    features = _coerce_mlc_matrix(
+        raw_features,
+        matrix_name="Instance features",
+        source=dataset_path,
+    )
+    labels = _coerce_mlc_matrix(
+        raw_labels,
+        matrix_name="Labels",
+        source=dataset_path,
+    )
+    if features.shape[0] != labels.shape[0]:
+        raise ValueError(
+            f"Instance features and labels in {dataset_path} must have the same "
+            f"number of rows; received {features.shape[0]} and {labels.shape[0]}."
+        )
+    if not np.isin(labels, (0, 1)).all():
+        raise ValueError(f"Labels in {dataset_path} must be binary values.")
+    return features, labels
+
+
+def _format_mlc_features(
+    features: np.ndarray,
+    features_type: ArrayFormat,
+) -> np.ndarray | pd.DataFrame:
+    if features_type == "numpy":
+        return features
+    feature_frame = pd.DataFrame({"id": np.arange(len(features))})
+    feature_frame["features"] = [row.copy() for row in features]
+    return feature_frame
+
+
 def load_process_MLC(
-    path: str = "./data",
+    path: str | os.PathLike[str] = "./data",
     dataset_name: str = "bibtex",
     variant: DatasetVariant = "undivided",
     features_type: ArrayFormat = "numpy",
     print_mode: PrintMode = "basic",
 ) -> DatasetBundle:
-    """Load multi-label classfication datasets from the mulan repository.
+    """Load a cached or downloadable scikit-multilearn benchmark dataset.
 
     Args:
-        path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
-        dataset_name (str, optional): The name of the multi-label classification dataset. Defaults to 'bibtex'.
-        variant (str, optional): The version of the dataset. If value set to 'undivided' the whole dataset is returned as a training set. Defaults to 'undivided'.
-        features_type (str, optional): The format of the instance features. There are two possible values, numpy and dataframe. This is intended to test the functionality of the data_process function. Defaults to 'numpy'.
-        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        path: Directory used for the local dataset cache.
+        dataset_name: Supported multi-label benchmark name.
+        variant: Return the complete dataset or its published train/test split.
+        features_type: Return instance features as an array or feature DataFrame.
+        print_mode: ``"basic"`` for ordinary messages or ``"dev"`` for
+            messages prefixed for the development application.
 
     Raises:
-        AttributeError: if the dataset_name doesn't exist in the mulan repository
-
-    Returns:
-        dict: A dictionary with all the available data for the multi-label classification dataset.
+        ValueError: If an option or cached dataset is invalid.
+        DatasetDownloadError: If required cache files cannot be downloaded safely.
+        IsADirectoryError: If an expected cache file path is a directory.
     """
-    if features_type not in ["numpy", "dataframe"]:
-        raise AttributeError(
-            "Please use one of the valid features_type values: "
-            + str(["numpy", "dataframe"])
-        )
-    if variant not in ["undivided", "divided"]:
-        raise AttributeError(
-            "Please use one of the valid variant values: "
-            + str(["undivided", "divided"])
-        )
+    if dataset_name not in _MLC_DATASET_NAMES:
+        raise ValueError(f"dataset_name must be one of {sorted(_MLC_DATASET_NAMES)}.")
+    if variant not in {"undivided", "divided"}:
+        raise ValueError("variant must be either 'undivided' or 'divided'.")
+    if features_type not in {"numpy", "dataframe"}:
+        raise ValueError("features_type must be either 'numpy' or 'dataframe'.")
+    if print_mode not in {"basic", "dev"}:
+        raise ValueError("print_mode must be either 'basic' or 'dev'.")
 
-    # The current version just uses the datasets from the skmultilearn library. In the future I will be hosting everything from the university server
-    X_train_instance, X_val_instance, X_test_instance = None, None, None
-    X_train_target, X_val_target, X_test_target = None, None, None
-    y_train, y_val, y_test = None, None, None
+    data_root = _prepare_dataset_root(path)
+    dataset_dir = data_root / "multi-label_classification"
+    variants = ("undivided",) if variant == "undivided" else ("train", "test")
+    prefix = "info: " if print_mode == "dev" else ""
+    print(f"{prefix}Processing...")
+    dataset_files, downloaded = _ensure_mlc_cache(
+        dataset_dir,
+        dataset_name,
+        variants,
+    )
+    if downloaded:
+        print(f"{prefix}Downloaded missing dataset files")
 
-    path += "/multi-label_classification"
-
-    print(("info: " if print_mode == "dev" else "") + "Processing...")
-    available_datasets = {x[0] for x in available_data_sets()}
-
-    if not os.path.exists(path):  # pragma: no cover
-        os.makedirs(path)
-
-    if dataset_name not in available_datasets:
-        raise AttributeError(
-            "Please use one of the valid dataset names: "
-            + str(list(available_data_sets().keys()))
-        )
-    else:
-        if variant == "undivided":
-            X_train_instance, y_train, _, _ = load_dataset(
-                dataset_name, variant, data_home=path
+    X_train_array, y_train = _load_mlc_variant(dataset_files[variants[0]])
+    X_test_array: np.ndarray | None = None
+    y_test: np.ndarray | None = None
+    if variant == "divided":
+        X_test_array, y_test = _load_mlc_variant(dataset_files["test"])
+        if X_train_array.shape[1] != X_test_array.shape[1]:
+            raise ValueError(
+                "Multi-label train and test instance features must have the same "
+                f"column count; received {X_train_array.shape[1]} and "
+                f"{X_test_array.shape[1]}."
             )
-        else:
-            X_train_instance, y_train, _, _ = load_dataset(dataset_name, "train")
-            X_test_instance, y_test, _, _ = load_dataset(dataset_name, "test")
+        if y_train.shape[1] != y_test.shape[1]:
+            raise ValueError(
+                "Multi-label train and test labels must have the same column "
+                f"count; received {y_train.shape[1]} and {y_test.shape[1]}."
+            )
 
-    if X_train_instance is not None and scipy.sparse.issparse(
-        X_train_instance
-    ):  # pragma: no cover
-        X_train_instance = X_train_instance.toarray()
-    if X_test_instance is not None and scipy.sparse.issparse(
-        X_test_instance
-    ):  # pragma: no cover
-        X_test_instance = X_test_instance.toarray()
-
-    if features_type == "dataframe":
-        temp_df_train = pd.DataFrame(np.arange(len(X_train_instance)), columns=["id"])
-        temp_df_train["features"] = [r for r in X_train_instance]
-        X_train_instance = temp_df_train
-
-        if X_test_instance is not None:
-            temp_df_test = pd.DataFrame(np.arange(len(X_test_instance)), columns=["id"])
-            temp_df_test["features"] = [r for r in X_test_instance]
-            X_test_instance = temp_df_test
-
-    if y_train is not None and scipy.sparse.issparse(y_train):  # pragma: no cover
-        y_train = y_train.toarray()
-
-    if y_test is not None and scipy.sparse.issparse(y_test):  # pragma: no cover
-        y_test = y_test.toarray()
-
-    print(("info: " if print_mode == "dev" else "") + "Done")
-
-    # return {'X_train_instance': X_train_instance, 'X_train_target' :X_train_target, 'y_train' :y_train, 'X_test_instance' :X_test_instance, 'X_test_target' :X_test_target, 'y_test' :y_test, 'X_val_instance' :X_val_instance, 'X_val_target' :X_val_target, 'y_val' :y_val}
+    X_train_instance = _format_mlc_features(X_train_array, features_type)
+    X_test_instance = (
+        _format_mlc_features(X_test_array, features_type)
+        if X_test_array is not None
+        else None
+    )
+    print(f"{prefix}Done")
     return {
         "train": {
             "y": y_train,
             "X_instance": X_train_instance,
-            "X_target": X_train_target,
+            "X_target": None,
         },
-        "test": {"y": y_test, "X_instance": X_test_instance, "X_target": X_test_target},
-        "val": {"y": y_val, "X_instance": X_val_instance, "X_target": X_val_target},
+        "test": {
+            "y": y_test,
+            "X_instance": X_test_instance,
+            "X_target": None,
+        },
+        "val": {"y": None, "X_instance": None, "X_target": None},
     }
 
 

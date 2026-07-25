@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 import stat
@@ -59,11 +60,20 @@ def download_file(
     destination: str | os.PathLike[str],
     *,
     timeout: float = DEFAULT_DOWNLOAD_TIMEOUT_SECONDS,
+    expected_md5: str | None = None,
 ) -> None:
-    """Stream a URL to a file without exposing a partial destination."""
+    """Stream a URL to a file without exposing a partial or corrupt destination."""
+    normalized_md5 = expected_md5.lower() if expected_md5 is not None else None
+    if normalized_md5 is not None and (
+        len(normalized_md5) != 32
+        or any(character not in "0123456789abcdef" for character in normalized_md5)
+    ):
+        raise ValueError("expected_md5 must be a 32-character hexadecimal digest.")
+
     destination_path = Path(destination)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: Path | None = None
+    digest = hashlib.md5(usedforsecurity=False) if normalized_md5 is not None else None
 
     try:
         with requests.get(url, stream=True, timeout=timeout) as response:
@@ -81,6 +91,16 @@ def download_file(
                 ):
                     if chunk:
                         temporary_file.write(chunk)
+                        if digest is not None:
+                            digest.update(chunk)
+        if (
+            digest is not None
+            and normalized_md5 is not None
+            and digest.hexdigest() != normalized_md5
+        ):
+            raise DatasetDownloadError(
+                f"Downloaded file from {url!r} failed its MD5 checksum."
+            )
         temporary_path.replace(destination_path)
     except requests.RequestException as exc:
         raise DatasetDownloadError(f"Failed to download file from {url!r}.") from exc

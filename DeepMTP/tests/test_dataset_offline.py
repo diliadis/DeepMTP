@@ -1,3 +1,4 @@
+import hashlib
 import json
 import pickle
 import zipfile
@@ -6,14 +7,18 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from scipy import sparse
+from skmultilearn.dataset import save_dataset_dump
 
 import DeepMTP.dataset as dataset_module
+from DeepMTP._download_utils import DatasetDownloadError
 from DeepMTP.dataset import (
     generate_dummy_dataset,
     generate_interaction_matrix,
     generate_MTP_dataset,
     load_process_DP,
     load_process_MC,
+    load_process_MLC,
     load_process_MTL,
     load_process_MTR,
     process_dummy_DP,
@@ -74,6 +79,369 @@ def write_mtl_dataset(
         for index in range(1, 5):
             (image_dir / f"{index}.jpg").touch()
     return dataset_dir
+
+
+def write_mlc_dump(
+    root,
+    *,
+    dataset_name="emotions",
+    variant="undivided",
+    X=None,
+    y=None,
+    sparse_matrices=True,
+):
+    X = np.arange(24, dtype=float).reshape(8, 3) if X is None else X
+    y = (
+        np.array(
+            [
+                [1, 0],
+                [0, 1],
+                [1, 1],
+                [0, 0],
+                [1, 0],
+                [0, 1],
+                [1, 1],
+                [0, 0],
+            ]
+        )
+        if y is None
+        else y
+    )
+    dataset_dir = root / "multi-label_classification"
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    dataset_path = dataset_dir / f"{dataset_name}-{variant}.bz2"
+    saved_features = sparse.csr_matrix(X) if sparse_matrices else X
+    saved_labels = sparse.csr_matrix(y) if sparse_matrices else y
+    save_dataset_dump(
+        saved_features,
+        saved_labels,
+        [f"feature_{index}" for index in range(np.asarray(X).shape[1])],
+        [f"label_{index}" for index in range(np.asarray(y).shape[1])],
+        filename=str(dataset_path),
+    )
+    return dataset_path
+
+
+@pytest.mark.parametrize("features_type", ["numpy", "dataframe"])
+def test_load_process_mlc_reads_cached_dump_without_network(
+    monkeypatch,
+    tmp_path,
+    features_type,
+):
+    write_mlc_dump(tmp_path)
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda *args, **kwargs: pytest.fail("complete cache should not be downloaded"),
+    )
+
+    data = load_process_MLC(
+        tmp_path,
+        dataset_name="emotions",
+        features_type=features_type,
+    )
+
+    np.testing.assert_array_equal(
+        data["train"]["y"],
+        np.array(
+            [
+                [1, 0],
+                [0, 1],
+                [1, 1],
+                [0, 0],
+                [1, 0],
+                [0, 1],
+                [1, 1],
+                [0, 0],
+            ]
+        ),
+    )
+    if features_type == "numpy":
+        assert data["train"]["X_instance"].shape == (8, 3)
+    else:
+        assert list(data["train"]["X_instance"]["id"]) == list(range(8))
+        assert all(
+            feature.shape == (3,) for feature in data["train"]["X_instance"]["features"]
+        )
+    assert data["train"]["X_target"] is None
+    assert data["val"] == {"y": None, "X_instance": None, "X_target": None}
+    assert data["test"] == {"y": None, "X_instance": None, "X_target": None}
+
+
+def test_load_process_mlc_reads_cached_published_split(tmp_path):
+    train_X = np.arange(18, dtype=float).reshape(6, 3)
+    train_y = np.array([[1, 0], [0, 1], [1, 1], [0, 0], [1, 0], [0, 1]])
+    test_X = np.arange(12, dtype=float).reshape(4, 3)
+    test_y = np.array([[1, 1], [0, 0], [1, 0], [0, 1]])
+    write_mlc_dump(tmp_path, variant="train", X=train_X, y=train_y)
+    write_mlc_dump(tmp_path, variant="test", X=test_X, y=test_y)
+
+    data = load_process_MLC(
+        tmp_path,
+        dataset_name="emotions",
+        variant="divided",
+    )
+
+    np.testing.assert_array_equal(data["train"]["X_instance"], train_X)
+    np.testing.assert_array_equal(data["train"]["y"], train_y)
+    np.testing.assert_array_equal(data["test"]["X_instance"], test_X)
+    np.testing.assert_array_equal(data["test"]["y"], test_y)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "exception", "message"),
+    [
+        ({"dataset_name": "unknown"}, ValueError, "dataset_name"),
+        ({"variant": "unknown"}, ValueError, "variant"),
+        ({"features_type": "unknown"}, ValueError, "features_type"),
+        ({"print_mode": "unknown"}, ValueError, "print_mode"),
+        ({"path": object()}, TypeError, "path"),
+    ],
+)
+def test_load_process_mlc_validates_arguments_before_download(
+    monkeypatch,
+    tmp_path,
+    overrides,
+    exception,
+    message,
+):
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda *args, **kwargs: pytest.fail(
+            "invalid arguments must not trigger a download"
+        ),
+    )
+    arguments = {"path": tmp_path, "dataset_name": "emotions"}
+    arguments.update(overrides)
+
+    with pytest.raises(exception, match=message):
+        load_process_MLC(**arguments)
+
+
+def test_load_process_mlc_downloads_missing_dump_from_manifest(
+    monkeypatch,
+    tmp_path,
+):
+    source_path = write_mlc_dump(tmp_path / "source")
+    payload = source_path.read_bytes()
+    checksum = hashlib.md5(payload, usedforsecurity=False).hexdigest()
+    calls = []
+
+    def download(url, destination, **kwargs):
+        calls.append((url, destination, kwargs))
+        if url.endswith("data.list"):
+            destination.write_text(
+                f"{checksum};emotions-undivided.bz2\n",
+                encoding="utf-8",
+            )
+        else:
+            destination.write_bytes(payload)
+
+    monkeypatch.setattr(dataset_module, "download_file", download)
+
+    data = load_process_MLC(tmp_path, dataset_name="emotions")
+
+    dataset_dir = tmp_path / "multi-label_classification"
+    assert calls == [
+        (
+            "https://scikit.ml/datasets/data.list",
+            dataset_dir / "data.list",
+            {},
+        ),
+        (
+            "https://scikit.ml/datasets/emotions-undivided.bz2",
+            dataset_dir / "emotions-undivided.bz2",
+            {"expected_md5": checksum},
+        ),
+    ]
+    assert data["train"]["y"].shape == (8, 2)
+
+
+def test_load_process_mlc_downloads_only_missing_split_dump(
+    monkeypatch,
+    tmp_path,
+):
+    train_X = np.arange(18, dtype=float).reshape(6, 3)
+    train_y = np.array([[1, 0], [0, 1], [1, 1], [0, 0], [1, 0], [0, 1]])
+    write_mlc_dump(tmp_path, variant="train", X=train_X, y=train_y)
+    source_path = write_mlc_dump(
+        tmp_path / "source",
+        variant="test",
+        X=np.arange(12, dtype=float).reshape(4, 3),
+        y=np.array([[1, 1], [0, 0], [1, 0], [0, 1]]),
+    )
+    payload = source_path.read_bytes()
+    checksum = hashlib.md5(payload, usedforsecurity=False).hexdigest()
+    dataset_dir = tmp_path / "multi-label_classification"
+    (dataset_dir / "data.list").write_text(
+        f"{checksum};emotions-test.bz2\n",
+        encoding="utf-8",
+    )
+    calls = []
+
+    def download(url, destination, **kwargs):
+        calls.append((url, destination, kwargs))
+        destination.write_bytes(payload)
+
+    monkeypatch.setattr(dataset_module, "download_file", download)
+
+    data = load_process_MLC(
+        tmp_path,
+        dataset_name="emotions",
+        variant="divided",
+    )
+
+    assert calls == [
+        (
+            "https://scikit.ml/datasets/emotions-test.bz2",
+            dataset_dir / "emotions-test.bz2",
+            {"expected_md5": checksum},
+        )
+    ]
+    assert data["test"]["y"].shape == (4, 2)
+
+
+def test_load_process_mlc_reports_unavailable_upstream_catalog(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            DatasetDownloadError("upstream unavailable")
+        ),
+    )
+
+    with pytest.raises(DatasetDownloadError, match="not cached.*upstream"):
+        load_process_MLC(tmp_path, dataset_name="emotions")
+
+
+def test_load_process_mlc_rejects_directory_at_cache_file_path(
+    monkeypatch,
+    tmp_path,
+):
+    cache_path = tmp_path / "multi-label_classification" / "emotions-undivided.bz2"
+    cache_path.mkdir(parents=True)
+    monkeypatch.setattr(
+        dataset_module,
+        "download_file",
+        lambda *args, **kwargs: pytest.fail("invalid cache must not be downloaded"),
+    )
+
+    with pytest.raises(IsADirectoryError, match="cache paths"):
+        load_process_MLC(tmp_path, dataset_name="emotions")
+
+
+def test_load_process_mlc_reports_corrupt_cached_dump(tmp_path):
+    dataset_dir = tmp_path / "multi-label_classification"
+    dataset_dir.mkdir()
+    (dataset_dir / "emotions-undivided.bz2").write_bytes(b"not a dataset dump")
+
+    with pytest.raises(ValueError, match="cache could not be loaded"):
+        load_process_MLC(tmp_path, dataset_name="emotions")
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "invalid;emotions-undivided.bz2",
+        "d41d8cd98f00b204e9800998ecf8427e;../emotions-undivided.bz2",
+        "d41d8cd98f00b204e9800998ecf8427e;..\\emotions-undivided.bz2",
+        "d41d8cd98f00b204e9800998ecf8427e;emotions-unknown.bz2",
+    ],
+)
+def test_parse_mlc_manifest_rejects_invalid_rows(tmp_path, row):
+    manifest_path = tmp_path / "data.list"
+    manifest_path.write_text(f"{row}\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        dataset_module._parse_mlc_manifest(manifest_path)
+
+
+@pytest.mark.parametrize(
+    ("X", "y", "message"),
+    [
+        (
+            np.array([[1.0], [np.inf]]),
+            np.array([[1], [0]]),
+            "finite values",
+        ),
+        (
+            np.array([[1.0], [2.0]]),
+            np.array([[1], [2]]),
+            "binary values",
+        ),
+        (
+            np.array([[1.0], [2.0]]),
+            np.array([[1]]),
+            "same number of rows",
+        ),
+        (
+            np.empty((0, 1)),
+            np.empty((0, 1)),
+            "non-empty two-dimensional",
+        ),
+    ],
+)
+def test_load_process_mlc_rejects_invalid_cached_matrices(
+    tmp_path,
+    X,
+    y,
+    message,
+):
+    write_mlc_dump(
+        tmp_path,
+        X=X,
+        y=y,
+        sparse_matrices=False,
+    )
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        load_process_MLC(tmp_path, dataset_name="emotions")
+
+
+@pytest.mark.parametrize(
+    ("test_X", "test_y", "message"),
+    [
+        (
+            np.arange(16, dtype=float).reshape(4, 4),
+            np.array([[1, 0], [0, 1], [1, 1], [0, 0]]),
+            "instance features.*column count",
+        ),
+        (
+            np.arange(12, dtype=float).reshape(4, 3),
+            np.array([[1], [0], [1], [0]]),
+            "labels.*column count",
+        ),
+    ],
+)
+def test_load_process_mlc_rejects_inconsistent_published_split(
+    tmp_path,
+    test_X,
+    test_y,
+    message,
+):
+    write_mlc_dump(
+        tmp_path,
+        variant="train",
+        X=np.arange(18, dtype=float).reshape(6, 3),
+        y=np.array([[1, 0], [0, 1], [1, 1], [0, 0], [1, 0], [0, 1]]),
+    )
+    write_mlc_dump(
+        tmp_path,
+        variant="test",
+        X=test_X,
+        y=test_y,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        load_process_MLC(
+            tmp_path,
+            dataset_name="emotions",
+            variant="divided",
+        )
 
 
 def write_dp_dataset(

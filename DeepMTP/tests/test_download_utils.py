@@ -1,3 +1,4 @@
+import hashlib
 import io
 import zipfile
 
@@ -126,6 +127,12 @@ def test_download_file_streams_and_atomically_replaces(monkeypatch, tmp_path):
         "https://example.test/dataset.zip",
         destination,
         timeout=7.5,
+        expected_md5=hashlib.md5(
+            b"new content",
+            usedforsecurity=False,
+        )
+        .hexdigest()
+        .upper(),
     )
 
     assert calls == [
@@ -158,6 +165,47 @@ def test_download_file_preserves_destination_on_stream_failure(
 
     assert destination.read_bytes() == b"old content"
     assert list(tmp_path.glob(".dataset.zip.*.tmp")) == []
+
+
+def test_download_file_validates_checksum_before_replacing(monkeypatch, tmp_path):
+    destination = tmp_path / "dataset.zip"
+    destination.write_bytes(b"old content")
+    monkeypatch.setattr(
+        _download_utils.requests,
+        "get",
+        lambda url, **kwargs: StubResponse(b"new content"),
+    )
+
+    with pytest.raises(DatasetDownloadError, match="checksum"):
+        download_file(
+            "https://example.test/dataset.zip",
+            destination,
+            expected_md5=hashlib.md5(
+                b"different content",
+                usedforsecurity=False,
+            ).hexdigest(),
+        )
+
+    assert destination.read_bytes() == b"old content"
+    assert list(tmp_path.glob(".dataset.zip.*.tmp")) == []
+
+
+def test_download_file_rejects_invalid_checksum_before_request(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(
+        _download_utils.requests,
+        "get",
+        lambda *args, **kwargs: pytest.fail("invalid checksum must fail first"),
+    )
+
+    with pytest.raises(ValueError, match="expected_md5"):
+        download_file(
+            "https://example.test/dataset.zip",
+            tmp_path / "dataset.zip",
+            expected_md5="invalid",
+        )
 
 
 def test_extract_zip_file_extracts_valid_archive(tmp_path):

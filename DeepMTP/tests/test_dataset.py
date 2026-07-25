@@ -58,7 +58,7 @@ def test_load_process_MLC(test_load_process_MLC_data):
     dataset_name = test_load_process_MLC_data["dataset_name"]
 
     if pass_fail == "fail":
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValueError):
             data = load_process_MLC(
                 path="./data",
                 dataset_name=dataset_name,

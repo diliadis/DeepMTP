@@ -15,6 +15,11 @@ The user can load the multi-label classification datasets available in the `MULA
     data_mlc = load_process_MLC(dataset_name='bibtex', variant='undivided', features_type='dataframe')
     train_mlc, val_mlc, test_mlc, data_info_mlc = data_process(data_mlc, validation_setting='B', verbose=True)
 
+The loader checks ``path/multi-label_classification`` before making any network
+request. Cached scikit-multilearn ``.bz2`` dumps therefore remain usable
+offline. If the upstream catalog is unavailable, the raised error lists the
+exact ``<dataset>-<variant>.bz2`` cache files that are required.
+
 
 **load_process_MTR()**
 ======================
