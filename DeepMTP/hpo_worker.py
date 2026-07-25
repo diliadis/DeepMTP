@@ -6,16 +6,27 @@ from DeepMTP.utils.utils import generate_config
 
 
 class BaseWorker:
-    ''' Implements a basic worker that can be used by HPO methods. The basic idea is that an HPO methods just has to pass a config and then it gets back the performance of the best epoch on the validation set
-    '''    
-    def __init__(
-        self, train, val, test, data_info, base_config, metric_to_optimize, mode='standard'
-    ):
-        if not os.path.exists(base_config['hpo_results_path']):   # pragma: no cover
-            os.mkdir(base_config['hpo_results_path'])
+    """Implements a basic worker that can be used by HPO methods. The basic idea is that an HPO methods just has to pass a config and then it gets back the performance of the best epoch on the validation set"""
 
-        self.project_name = base_config['hpo_results_path']+datetime.now().strftime('%d_%m_%Y__%H_%M_%S')+'/'
-        if not os.path.exists(self.project_name):   # pragma: no cover
+    def __init__(
+        self,
+        train,
+        val,
+        test,
+        data_info,
+        base_config,
+        metric_to_optimize,
+        mode="standard",
+    ):
+        if not os.path.exists(base_config["hpo_results_path"]):  # pragma: no cover
+            os.mkdir(base_config["hpo_results_path"])
+
+        self.project_name = (
+            base_config["hpo_results_path"]
+            + datetime.now().strftime("%d_%m_%Y__%H_%M_%S")
+            + "/"
+        )
+        if not os.path.exists(self.project_name):  # pragma: no cover
             os.mkdir(self.project_name)
 
         self.config_to_model = {}
@@ -31,10 +42,13 @@ class BaseWorker:
 
         self.base_config = base_config
 
-        if mode not in ['standard', 'streamlit']:   # pragma: no cover
-            raise Exception('Invalid mode value for the BaseWorker (select between standard and streamlit)')
+        if mode not in ["standard", "streamlit"]:  # pragma: no cover
+            raise Exception(
+                "Invalid mode value for the BaseWorker (select between standard and streamlit)"
+            )
         else:
             self.mode = mode
+        self.trainer_type: type[DeepMTP]
         if mode == "streamlit":
             from DeepMTP.main_streamlit import DeepMTP as StreamlitDeepMTP
 
@@ -42,49 +56,76 @@ class BaseWorker:
         else:
             self.trainer_type = DeepMTP
 
-    def compute(self, budget, config):    # pragma: no cover
-        '''The input parameter 'config' (dictionary) contains the sampled configurations passed by the bohb optimizer
-        '''
+    def compute(self, budget, config):  # pragma: no cover
+        """The input parameter 'config' (dictionary) contains the sampled configurations passed by the bohb optimizer"""
         current_config = self.base_config.copy()
         temp_config = dict(config)
         original_budget = int(budget)
-        current_time = datetime.now().strftime('%d_%m_%Y__%H_%M_%S')
+        current_time = datetime.now().strftime("%d_%m_%Y__%H_%M_%S")
 
         # isolate the instance and target specific parameters that are stored in specific instance_branch_params and target_branch_params nested directories
-        instance_specific_param_keys = [p_name for p_name in temp_config.keys() if p_name.startswith('instance_') and p_name not in ['instance_branch_input_dim', 'instance_branch_architecture']]
-        target_specific_param_keys = [p_name for p_name in temp_config.keys() if p_name.startswith('target_') and p_name not in ['target_branch_input_dim', 'target_branch_architecture']]
+        instance_specific_param_keys = [
+            p_name
+            for p_name in temp_config
+            if p_name.startswith("instance_")
+            and p_name
+            not in ["instance_branch_input_dim", "instance_branch_architecture"]
+        ]
+        target_specific_param_keys = [
+            p_name
+            for p_name in temp_config
+            if p_name.startswith("target_")
+            and p_name not in ["target_branch_input_dim", "target_branch_architecture"]
+        ]
 
-        current_config['instance_branch_params'] = {p_name: temp_config[p_name] for p_name in instance_specific_param_keys} # updating the dictionary with the instance specific hyperparameters
-        current_config['target_branch_params'] = {p_name: temp_config[p_name] for p_name in target_specific_param_keys} # updating the dictionary with the target specific hyperparameters
-        current_config.update({p_name: temp_config[p_name] for p_name in temp_config.keys() if p_name not in instance_specific_param_keys+target_specific_param_keys}) # updating all other parameters that are not included in the instance or target branch hyperparameters
-        current_config['results_path'] = self.project_name
-        current_config['experiment_name'] = current_time
-        current_config = generate_config(**current_config) # generating the final configuration dictionary that blends the static parameters with the hyperparameters provided by the given optimizer
+        current_config["instance_branch_params"] = {
+            p_name: temp_config[p_name] for p_name in instance_specific_param_keys
+        }  # updating the dictionary with the instance specific hyperparameters
+        current_config["target_branch_params"] = {
+            p_name: temp_config[p_name] for p_name in target_specific_param_keys
+        }  # updating the dictionary with the target specific hyperparameters
+        current_config.update(
+            {
+                p_name: temp_config[p_name]
+                for p_name in temp_config
+                if p_name
+                not in instance_specific_param_keys + target_specific_param_keys
+            }
+        )  # updating all other parameters that are not included in the instance or target branch hyperparameters
+        current_config["results_path"] = self.project_name
+        current_config["experiment_name"] = current_time
+        current_config = generate_config(
+            **current_config
+        )  # generating the final configuration dictionary that blends the static parameters with the hyperparameters provided by the given optimizer
 
         self.older_model_dir = None
         self.older_model_budget = None
 
-        current_config.update(
-            {'budget': budget, 'budget_int': int(budget)}
-        )
+        current_config.update({"budget": budget, "budget_int": int(budget)})
 
         # create a key from the given configuration
         model_config_key = tuple(sorted(temp_config.items()))
         # check if the configuration has already been seeen. If so extract relevant info from the last experiment with that configuration
         if model_config_key in self.config_to_model:
-            self.older_model_dir = self.config_to_model[model_config_key]['model_dir'][-1]
-            self.older_model_budget = self.config_to_model[model_config_key]['budget'][-1]
+            self.older_model_dir = self.config_to_model[model_config_key]["model_dir"][
+                -1
+            ]
+            self.older_model_budget = self.config_to_model[model_config_key]["budget"][
+                -1
+            ]
             budget = budget - self.older_model_budget
         else:
             self.config_to_model[model_config_key] = {
-                'budget': [],
-                'model_dir': [],
-                'run_name': [],
-                'config': current_config,
+                "budget": [],
+                "model_dir": [],
+                "run_name": [],
+                "config": current_config,
             }
 
         # update the actual budget that will be used to train the model
-        current_config.update({'num_epochs': int(budget), 'actuall_budget': int(budget)})
+        current_config.update(
+            {"num_epochs": int(budget), "actuall_budget": int(budget)}
+        )
 
         # initialize a new model or continue training from an older version with the same configuration
         checkpoint_dir = (
@@ -103,11 +144,11 @@ class BaseWorker:
         val_results = model.train(self.train, self.val, self.test)
 
         # append all the latest relevant info for the given configuration
-        self.config_to_model[model_config_key]['budget'].append(original_budget) 
-        self.config_to_model[model_config_key]['model_dir'].append(
-            model.experiment_dir + '/model.pt'
+        self.config_to_model[model_config_key]["budget"].append(original_budget)
+        self.config_to_model[model_config_key]["model_dir"].append(
+            model.experiment_dir + "/model.pt"
         )
-        self.config_to_model[model_config_key]['run_name'].append(current_time)
+        self.config_to_model[model_config_key]["run_name"].append(current_time)
 
         # output_file = open(self.project_name+'/'+current_time+ '/run_results.pkl', 'wb')
         # pickle.dump(self.config_to_model, output_file)
@@ -118,6 +159,11 @@ class BaseWorker:
         # output_file.close()
 
         return {
-            'loss': val_results['val_'+self.optimize if 'val' not in self.optimize else self.optimize],  # remember: always minimizes!
-            'info': {'model_dir': self.config_to_model[model_config_key]['model_dir'][-1], 'config': current_config},
+            "loss": val_results[
+                "val_" + self.optimize if "val" not in self.optimize else self.optimize
+            ],  # remember: always minimizes!
+            "info": {
+                "model_dir": self.config_to_model[model_config_key]["model_dir"][-1],
+                "config": current_config,
+            },
         }

@@ -1,10 +1,15 @@
-import numpy as np
-
 class EarlyStopping:
-    '''Early stops the training if validation loss doesn't improve after a given patience.'''
+    """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, use_early_stopping, patience=7, delta=0.0, metric_to_track='loss', verbose=False):
-        '''
+    def __init__(
+        self,
+        use_early_stopping,
+        patience=7,
+        delta=0.0,
+        metric_to_track="loss",
+        verbose=False,
+    ):
+        """
         Args:
             patience (int): How long to wait after last time validation loss improved.
                             Default: 7
@@ -12,7 +17,7 @@ class EarlyStopping:
                             Default: False
             delta (float): Minimum change in the monitored quantity to qualify as an improvement.
                             Default: 0
-        '''
+        """
         self.use_early_stopping = use_early_stopping
         self.patience = patience
         self.delta = delta
@@ -27,7 +32,7 @@ class EarlyStopping:
         self.best_model = None
         self.best_optimizer_state_dict = None
         self.best_performance_results = None
-        
+
         self.delta_best_score = None
         self.delta_best_epoch = None
         self.delta_best_model = None
@@ -37,37 +42,30 @@ class EarlyStopping:
         if True in [
             m in self.metric_to_track
             for m in [
-                'auroc',
-                'aupr',
-                'recall',
-                'f1_score',
-                'precision',
-                'accuracy',
-                'R2',
+                "auroc",
+                "aupr",
+                "recall",
+                "f1_score",
+                "precision",
+                "accuracy",
+                "R2",
             ]
         ]:
             self.fac = 1
         elif True in [
             m in self.metric_to_track
-            for m in ['hamming_loss', 'RMSE', 'MSE', 'MAE', 'RRMSE', 'loss']
+            for m in ["hamming_loss", "RMSE", "MSE", "MAE", "RRMSE", "loss"]
         ]:
             self.fac = -1
         else:
             raise AttributeError(
-                'Invalid metric name used for early stopping: '
+                "Invalid metric name used for early stopping: "
                 + str(self.metric_to_track)
             )
 
+    def __call__(self, performance_results, model, epoch, optimizer_state_dict=None):
 
-    def __call__(
-        self,
-        performance_results,
-        model,
-        epoch,
-        optimizer_state_dict = None
-    ):
-
-        score = performance_results['val_' + self.metric_to_track] * self.fac
+        score = performance_results["val_" + self.metric_to_track] * self.fac
         if self.best_score is None:
             self.best_score = score
             self.best_epoch = epoch
@@ -80,11 +78,11 @@ class EarlyStopping:
             self.counter += 1
             if self.verbose:
                 print(
-                    f'-----------------------------EarlyStopping counter: {self.counter} out of {self.patience}---------------------- best epoch currently {self.best_epoch}'
+                    f"-----------------------------EarlyStopping counter: {self.counter} out of {self.patience}---------------------- best epoch currently {self.best_epoch}"
                 )
             if self.counter >= self.patience:
                 self.early_stop_flag = True
-                
+
             if not (score <= self.best_score):
                 self.delta_best_score = score
                 self.delta_best_epoch = epoch
@@ -98,38 +96,37 @@ class EarlyStopping:
             self.best_performance_results = performance_results
             self.best_optimizer_state_dict = optimizer_state_dict
             self.counter = 0
-            
+
             self.delta_best_score = None
             self.delta_best_epoch = None
             self.delta_best_model = None
             self.delta_best_performance_results = None
             self.delta_best_optimizer_state_dict = None
-            
-            
+
     def get_best_score(self):
         if self.delta_best_score is None:
             return self.best_score
         else:
             return self.delta_best_score
-        
+
     def get_best_epoch(self):
         if self.delta_best_epoch is None:
             return self.best_epoch
         else:
             return self.delta_best_epoch
-        
+
     def get_best_model(self):
         if self.delta_best_model is None:
             return self.best_model
         else:
             return self.delta_best_model
-        
+
     def get_best_performance_results(self):
         if self.delta_best_performance_results is None:
             return self.best_performance_results
         else:
             return self.delta_best_performance_results
-        
+
     def get_best_optimizer_state_dict(self):
         if self.delta_best_optimizer_state_dict is None:
             return self.best_optimizer_state_dict

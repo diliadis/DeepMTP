@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 from DeepMTP.hpo_progress import (
     HPOProgressEvent,
@@ -146,7 +147,7 @@ class HyperBand:
         return best_overall_config
 
     def calculate_hyperband_iters(self, R, eta, verbose=False):
-        result_dict = {}
+        result_dict: dict[int, dict[str, Any]] = {}
         smax = math.floor(math.log(R, eta))
         B = (smax + 1) * R
         if verbose:  # pragma: no cover

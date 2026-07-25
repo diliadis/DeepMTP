@@ -13,6 +13,7 @@ python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
+pre-commit install
 ```
 
 Install additional runtime integrations with `.[all]`, or select only the
@@ -26,9 +27,7 @@ Run the same default checks enforced by CI:
 
 ```bash
 python -m pytest
-ruff check .
-ruff format --check .
-mypy
+pre-commit run --all-files
 python -m build
 python -m twine check --strict dist/*
 ```

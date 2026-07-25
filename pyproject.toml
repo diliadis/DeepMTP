@@ -59,6 +59,7 @@ test = [
 ]
 quality = [
     "mypy>=1.16",
+    "pre-commit>=4.6",
     "ruff>=0.12",
 ]
 docs = [
@@ -70,6 +71,7 @@ dev = [
     "build>=1.2",
     "liac-arff>=2.5",
     "mypy>=1.16",
+    "pre-commit>=4.6",
     "pytest>=8,<10",
     "requests>=2.28",
     "ruff>=0.12",
@@ -119,14 +121,17 @@ markers = [
 ]
 
 [tool.ruff]
+force-exclude = true
 line-length = 88
 include = [
     "pyproject.toml",
     "DeepMTP/__init__.py",
+    "DeepMTP/branch_models.py",
     "DeepMTP/config.py",
     "DeepMTP/data_loading.py",
     "DeepMTP/evaluation.py",
     "DeepMTP/hpo_progress.py",
+    "DeepMTP/hpo_worker.py",
     "DeepMTP/main.py",
     "DeepMTP/main_streamlit.py",
     "DeepMTP/model_factory.py",
@@ -139,6 +144,9 @@ include = [
     "DeepMTP/simple_hyperband_streamlit.py",
     "DeepMTP/streamlit_adapter.py",
     "DeepMTP/training.py",
+    "DeepMTP/utils/model_utils.py",
+    "DeepMTP/utils/tests.py",
+    "DeepMTP/utils/utils.py",
 ]
 
 [tool.ruff.lint]
@@ -154,16 +162,27 @@ files = [
     "DeepMTP/data_loading.py",
     "DeepMTP/evaluation.py",
     "DeepMTP/hpo_progress.py",
+    "DeepMTP/hpo_worker.py",
+    "DeepMTP/main.py",
+    "DeepMTP/main_streamlit.py",
     "DeepMTP/model_factory.py",
     "DeepMTP/persistence.py",
     "DeepMTP/presentation.py",
+    "DeepMTP/random_search.py",
+    "DeepMTP/random_search_streamlit.py",
     "DeepMTP/reporting.py",
+    "DeepMTP/simple_hyperband.py",
+    "DeepMTP/simple_hyperband_streamlit.py",
     "DeepMTP/streamlit_adapter.py",
     "DeepMTP/training.py",
+    "DeepMTP/utils/model_utils.py",
+    "DeepMTP/utils/tests.py",
+    "DeepMTP/utils/utils.py",
 ]
 check_untyped_defs = true
 follow_imports = "skip"
 ignore_missing_imports = true
+no_site_packages = true
 no_implicit_optional = true
 show_error_codes = true
 warn_redundant_casts = true

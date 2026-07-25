@@ -74,13 +74,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[quality]"
 
-      - name: Run Ruff
-        run: |
-          ruff check .
-          ruff format --check .
-
-      - name: Run mypy
-        run: mypy
+      - name: Run pre-commit quality hooks
+        run: pre-commit run --all-files --show-diff-on-failure
 
   docs:
     name: Build documentation

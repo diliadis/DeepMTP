@@ -104,7 +104,7 @@ Exit criterion: there is only one implementation of training and HPO logic.
 - [x] Replace the legacy Travis configuration and old GitHub Actions workflow.
 - [x] Test supported Python versions on Linux, macOS, and Windows where useful.
 - [x] Build and inspect wheel/sdist artifacts in CI.
-- [ ] Add pre-commit hooks after the initial formatting migration.
+- [x] Add pre-commit hooks after the initial formatting migration.
 
 Exit criterion: a clean checkout can be installed, tested, linted, built, and
 documented using repository commands.

@@ -303,14 +303,10 @@ def generate_config(
         else list(metrics)
     )
     metrics_average = (
-        ["macro", "micro"]
-        if metrics_average is None
-        else list(metrics_average)
+        ["macro", "micro"] if metrics_average is None else list(metrics_average)
     )
     comb_mlp_nodes_per_layer = (
-        [10, 10, 10]
-        if comb_mlp_nodes_per_layer is None
-        else comb_mlp_nodes_per_layer
+        [10, 10, 10] if comb_mlp_nodes_per_layer is None else comb_mlp_nodes_per_layer
     )
     additional_info = {} if additional_info is None else dict(additional_info)
     instance_branch_params = (

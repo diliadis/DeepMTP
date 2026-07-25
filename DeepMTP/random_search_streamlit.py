@@ -11,8 +11,5 @@ class RandomSearch(CoreRandomSearch):  # pragma: no cover
         streamlit_progress = (
             progress if progress is not None else StreamlitHPOProgressObserver()
         )
-        super().__init__(
-            *args,
-            progress=streamlit_progress,
-            **kwargs,
-        )
+        kwargs["progress"] = streamlit_progress
+        super().__init__(*args, **kwargs)
