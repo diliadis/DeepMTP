@@ -3241,6 +3241,119 @@ def test_validation_setting_flags_require_booleans():
 
 
 @pytest.mark.parametrize(
+    "processor",
+    [process_instance_features, process_target_features],
+)
+@pytest.mark.parametrize(
+    "features",
+    [
+        np.array([1.0, 2.0]),
+        pd.DataFrame(
+            {
+                "id": [0, 0],
+                "features": [np.array([1.0]), np.array([2.0])],
+            }
+        ),
+        pd.DataFrame(
+            {
+                "id": [0, 1],
+                "features": [np.array([1.0]), np.array([2.0, 3.0])],
+            }
+        ),
+    ],
+)
+def test_feature_processors_reject_ambiguous_boundaries(processor, features):
+    with pytest.raises(ValueError):
+        processor(features)
+
+
+def test_feature_processor_does_not_mutate_or_share_caller_data():
+    source_vector = np.array([1.0, 2.0])
+    source = pd.DataFrame(
+        {
+            "id": [10],
+            "features": [source_vector],
+        }
+    )
+
+    processed = process_instance_features(source)
+    source_vector[0] = 99.0
+
+    assert source.index.tolist() == [0]
+    assert processed["data"].index.tolist() == [10]
+    assert processed["data"].iloc[0]["features"].tolist() == [1.0, 2.0]
+
+
+def test_target_feature_logging_uses_target_label(capsys):
+    process_target_features(np.array([[1.0, 2.0]]), verbose=True)
+
+    assert "Target features file" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("checker", "feature_key"),
+    [
+        (cross_input_consistency_check_instances, "X_instance"),
+        (cross_input_consistency_check_targets, "X_target"),
+    ],
+)
+def test_cross_input_checks_reject_feature_files_on_wrong_splits(
+    checker,
+    feature_key,
+):
+    interaction = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [0],
+                "target_id": [0],
+                "value": [1],
+            }
+        ),
+        "original_format": "triplets",
+    }
+    feature_data = {"data": pd.DataFrame({"id": [0]})}
+    data = {
+        "train": {
+            "y": interaction,
+            "X_instance": None,
+            "X_target": None,
+        },
+        "val": {
+            "y": interaction,
+            "X_instance": None,
+            "X_target": None,
+        },
+        "test": {
+            "y": None,
+            "X_instance": None,
+            "X_target": None,
+        },
+    }
+    data["train"][feature_key] = feature_data
+    data["test"][feature_key] = feature_data
+
+    with pytest.raises(ValueError, match="interaction splits"):
+        checker(data, "D", verbose=False)
+
+
+@pytest.mark.parametrize(
+    "checker",
+    [
+        cross_input_consistency_check_instances,
+        cross_input_consistency_check_targets,
+    ],
+)
+def test_cross_input_checks_reject_unknown_validation_setting(checker):
+    data = {
+        mode: {"y": None, "X_instance": None, "X_target": None}
+        for mode in ("train", "val", "test")
+    }
+
+    with pytest.raises(ValueError, match="validation setting"):
+        checker(data, "Z", verbose=False)
+
+
+@pytest.mark.parametrize(
     ("mode", "group_column"),
     [("macro", "target_id"), ("instance", "instance_id")],
 )

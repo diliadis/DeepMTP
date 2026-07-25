@@ -29,6 +29,14 @@ class InteractionInfo(TypedDict):
     missing_values: bool
 
 
+class FeatureInfo(TypedDict):
+    """Normalized entity features and their detected representation."""
+
+    data: pd.DataFrame
+    num_features: int | None
+    info: Literal["numpy", "dataframe", "images"]
+
+
 class Transformer(Protocol):
     """Minimal interface implemented by supported feature scalers."""
 
@@ -474,143 +482,165 @@ def get_estimated_validation_setting(
     return validation_setting_detected
 
 
-def process_instance_features(instance_features, verbose=False, print_mode="basic"):
-    """A function that processes the instance features data. It is called separately for the train, val and test interaction data.
-    There are two main types of interaction data formats that are supported:
-    * numpy format: This is a 2d numpy array that represents the instance features. The first dimension represents the samples and the second dimension the features.
-    * triplet format: This is a dataframe with two columns.
-
-        - The first column stores the instance id (that will be mapped to the instance ids in the interaction data).
-        - The second column stores the features that can have two different names:
-
-            - 'features': stores the actuall features array
-            - 'dir': stores the directory that the features are stored. (In the current implementation this is designed for image datasets but it can be generalized in future versions)
-
-    Args:
-        instance_features (_type_): The instance features
-        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
-        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
-
-    Returns:
-        dict: A dictionary with the instance features and other related information that could be detected
-    """
-    if instance_features is not None:
-        if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Instance features file: processing features... ",
-                end="",
+def _feature_vector_size(features: pd.Series, entity_name: str) -> int:
+    dimensions: set[int] = set()
+    for feature_vector in features:
+        vector = np.asarray(feature_vector)
+        if vector.ndim != 1 or vector.size == 0:
+            raise ValueError(
+                f"Each {entity_name} feature value must be a non-empty "
+                "one-dimensional vector."
             )
-        if isinstance(instance_features, np.ndarray):
-            temp_instance_features_df = pd.DataFrame(
-                np.arange(len(instance_features)), columns=["id"]
+        if not np.issubdtype(vector.dtype, np.number):
+            raise TypeError(f"{entity_name.title()} feature vectors must be numeric.")
+        dimensions.add(int(vector.size))
+    if len(dimensions) != 1:
+        raise ValueError(
+            f"All {entity_name} feature vectors must have the same dimension."
+        )
+    return dimensions.pop()
+
+
+def _process_entity_features(
+    features: pd.DataFrame | np.ndarray | None,
+    entity_name: Literal["instance", "target"],
+    verbose: bool,
+    print_mode: str,
+) -> FeatureInfo | None:
+    if features is None:
+        return None
+    if verbose:
+        print(
+            ("info: " if print_mode == "dev" else "")
+            + f"{entity_name.title()} features file: processing features... ",
+            end="",
+        )
+
+    if isinstance(features, np.ndarray):
+        if features.ndim != 2:
+            raise ValueError(
+                f"{entity_name.title()} feature arrays must be two-dimensional."
             )
-            temp_instance_features_df["features"] = [r for r in instance_features]
-            instance_features = temp_instance_features_df
-            instance_features = {
-                "data": instance_features,
-                "num_features": len(instance_features.iloc[0]["features"]),
-                "info": "numpy",
+        if 0 in features.shape:
+            raise ValueError(
+                f"{entity_name.title()} feature arrays cannot have an empty dimension."
+            )
+        if not np.issubdtype(features.dtype, np.number):
+            raise TypeError(f"{entity_name.title()} feature arrays must be numeric.")
+        feature_frame = pd.DataFrame({"id": np.arange(len(features))})
+        feature_frame["features"] = [row.copy() for row in features]
+        feature_info: FeatureInfo = {
+            "data": feature_frame,
+            "num_features": int(features.shape[1]),
+            "info": "numpy",
+        }
+    elif isinstance(features, pd.DataFrame):
+        feature_frame = features.copy()
+        if feature_frame.empty:
+            raise ValueError(
+                f"{entity_name.title()} features must contain at least one row."
+            )
+        if set(feature_frame.columns) not in ({"id", "features"}, {"id", "dir"}):
+            raise ValueError(
+                f"Columns {list(feature_frame.columns)!r} in the {entity_name} "
+                "features dataframe are not recognized."
+            )
+        if feature_frame["id"].isna().any():
+            raise ValueError(f"{entity_name.title()} feature IDs cannot be missing.")
+        if feature_frame["id"].duplicated().any():
+            raise ValueError(f"{entity_name.title()} feature IDs must be unique.")
+        feature_frame = feature_frame.set_index("id", drop=False)
+        if "features" in feature_frame:
+            feature_dimension = _feature_vector_size(
+                feature_frame["features"],
+                entity_name,
+            )
+            feature_frame["features"] = [
+                np.asarray(feature_vector).copy()
+                for feature_vector in feature_frame["features"]
+            ]
+            feature_info = {
+                "data": feature_frame,
+                "num_features": feature_dimension,
+                "info": "dataframe",
             }
-        elif isinstance(instance_features, pd.DataFrame):
-            instance_features.set_index("id", inplace=True, drop=False)
-            if set(instance_features.columns) == set({"id", "features"}):
-                instance_features = {
-                    "data": instance_features,
-                    "num_features": len(instance_features.iloc[0]["features"]),
-                    "info": "dataframe",
-                }
-            elif set(instance_features.columns) == set({"id", "dir"}):
-                instance_features = {
-                    "data": instance_features,
-                    "num_features": None,
-                    "info": "images",
-                }
-            else:
-                raise AttributeError(
-                    "Column names: "
-                    + str(instance_features.columns)
-                    + " in the instance features dataframe are not recognized"
-                )
         else:
-            raise AttributeError(
-                "Could not recognize the format of the Instance features data. A 2d numpy array or a dataframe(<id, features>) is currently supported"
-            )
-        if verbose:
-            print(("info: " if print_mode == "dev" else "") + "Done")
-    return instance_features
-
-
-def process_target_features(target_features, verbose=False, print_mode="basic"):
-    """A function that processes the target features data. It is called separately for the train, val and test interaction data.
-    There are two main types of interaction data formats that are supported:
-    * numpy format: This is a 2d numpy array that represents the target features. The first dimension represents the samples and the second dimension the features.
-    * triplet format: This is a dataframe with two columns.
-
-        * The first column stores the target id (that will be mapped to the target ids in the interaction data).
-        * The second column stores the features that can have two different names:
-
-            * 'features': stores the actuall features array
-            * 'dir': stores the directory that the features are stored. (In the current implementation this is designed for image datasets but it can be generalized in future versions)
-
-    Args:
-        target_features (_type_): The target features
-        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
-        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
-
-    Returns:
-        dict: A dictionary with the target features and other related information that could be detected
-    """
-    if target_features is not None:
-        if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Instance features file: processing features... ",
-                end="",
-            )
-        if isinstance(target_features, np.ndarray):
-            temp_target_features_df = pd.DataFrame(
-                np.arange(len(target_features)), columns=["id"]
-            )
-            temp_target_features_df["features"] = [r for r in target_features]
-            target_features = temp_target_features_df
-            target_features = {
-                "data": target_features,
-                "num_features": len(target_features.iloc[0]["features"]),
-                "info": "numpy",
+            if feature_frame["dir"].isna().any():
+                raise ValueError(
+                    f"{entity_name.title()} feature directories cannot be missing."
+                )
+            feature_info = {
+                "data": feature_frame,
+                "num_features": None,
+                "info": "images",
             }
-        elif isinstance(target_features, pd.DataFrame):
-            target_features.set_index("id", inplace=True, drop=False)
-            if set(target_features.columns) == set({"id", "features"}):
-                target_features = {
-                    "data": target_features,
-                    "num_features": len(target_features.iloc[0]["features"]),
-                    "info": "dataframe",
-                }
-            elif set(target_features.columns) == set({"id", "dir"}):
-                target_features = {
-                    "data": target_features,
-                    "num_features": None,
-                    "info": "images",
-                }
-            else:
-                raise AttributeError(
-                    "Column names: "
-                    + str(target_features.columns)
-                    + " in the target features dataframe are not recognized"
-                )
-        else:
-            raise AttributeError(
-                "Could not recognize the format of the Target features data. A 2d numpy array or a dataframe(<id, features>) is currently supported"
-            )
-        if verbose:
-            print(("info: " if print_mode == "dev" else "") + "Done")
-    return target_features
+    else:
+        raise TypeError(
+            f"Could not recognize the {entity_name} feature data. Expected a "
+            "two-dimensional NumPy array or a DataFrame with <id, features> "
+            "or <id, dir> columns."
+        )
+
+    if verbose:
+        print(("info: " if print_mode == "dev" else "") + "Done")
+    return feature_info
+
+
+def process_instance_features(
+    instance_features: pd.DataFrame | np.ndarray | None,
+    verbose: bool = False,
+    print_mode: str = "basic",
+) -> FeatureInfo | None:
+    """Normalize instance features without mutating caller-owned inputs."""
+    return _process_entity_features(
+        instance_features,
+        "instance",
+        verbose,
+        print_mode,
+    )
+
+
+def process_target_features(
+    target_features: pd.DataFrame | np.ndarray | None,
+    verbose: bool = False,
+    print_mode: str = "basic",
+) -> FeatureInfo | None:
+    """Normalize target features without mutating caller-owned inputs."""
+    return _process_entity_features(
+        target_features,
+        "target",
+        verbose,
+        print_mode,
+    )
+
+
+def _cross_input_source_layout(
+    data: DatasetMapping,
+    feature_key: Literal["X_instance", "X_target"],
+) -> tuple[int, int, list[str]]:
+    interaction_modes = [
+        mode for mode in ("train", "test", "val") if data[mode]["y"] is not None
+    ]
+    feature_modes = [
+        mode for mode in ("train", "test", "val") if data[mode][feature_key] is not None
+    ]
+    if len(feature_modes) == len(interaction_modes) and set(feature_modes) != set(
+        interaction_modes
+    ):
+        raise ValueError(
+            f"{feature_key} files must correspond to the supplied interaction splits."
+        )
+    if len(feature_modes) == 1 and feature_modes[0] != "train":
+        raise ValueError(f"A shared {feature_key} file must be supplied on train.")
+    return len(interaction_modes), len(feature_modes), interaction_modes
 
 
 def cross_input_consistency_check_instances(
-    data, validation_setting, verbose, print_mode="basic"
-):
+    data: DatasetMapping,
+    validation_setting: ValidationSetting,
+    verbose: bool,
+    print_mode: str = "basic",
+) -> None:
     """Checks the consistency of instance ids in the interaction data and instance features. The requirements to pass this check change depending on the format of the interaction data and instance features
 
     Args:
@@ -620,15 +650,18 @@ def cross_input_consistency_check_instances(
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     """
-    num_interaction_data_sources = sum(
-        [data[mode]["y"] is not None for mode in ["train", "test", "val"]]
+    if validation_setting not in {"A", "B", "C", "D"}:
+        raise ValueError(
+            f"Unknown validation setting {validation_setting!r} for instance checks."
+        )
+    (
+        num_interaction_data_sources,
+        num_instance_features_sources,
+        valid_modes,
+    ) = _cross_input_source_layout(
+        data,
+        "X_instance",
     )
-    num_instance_features_sources = sum(
-        [data[mode]["X_instance"] is not None for mode in ["train", "test", "val"]]
-    )
-    valid_modes = [
-        mode for mode in ["train", "test", "val"] if data[mode]["y"] is not None
-    ]
 
     if num_instance_features_sources != 0:
         # if the interaction files have a numpy format, the only case currently allowed is the following: There are as many interaction files as there are feature files
@@ -846,8 +879,11 @@ def cross_input_consistency_check_instances(
 
 
 def cross_input_consistency_check_targets(
-    data, validation_setting, verbose, print_mode="basic"
-):
+    data: DatasetMapping,
+    validation_setting: ValidationSetting,
+    verbose: bool,
+    print_mode: str = "basic",
+) -> None:
     """Checks the consistency of target ids in the interaction data and target features. The requirements to pass this check change depending on the format of the interaction data and target features
 
     Args:
@@ -857,15 +893,18 @@ def cross_input_consistency_check_targets(
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     """
-    num_interaction_data_sources = sum(
-        [data[mode]["y"] is not None for mode in ["train", "test", "val"]]
+    if validation_setting not in {"A", "B", "C", "D"}:
+        raise ValueError(
+            f"Unknown validation setting {validation_setting!r} for target checks."
+        )
+    (
+        num_interaction_data_sources,
+        num_target_features_sources,
+        valid_modes,
+    ) = _cross_input_source_layout(
+        data,
+        "X_target",
     )
-    num_target_features_sources = sum(
-        [data[mode]["X_target"] is not None for mode in ["train", "test", "val"]]
-    )
-    valid_modes = [
-        mode for mode in ["train", "test", "val"] if data[mode]["y"] is not None
-    ]
 
     if num_target_features_sources != 0:
         # if the interaction files have a numpy format, the only case currently allowed is the following: There are as many interaction files as there are feature files
