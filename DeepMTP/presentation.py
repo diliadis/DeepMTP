@@ -92,6 +92,8 @@ class RunHistory:
 
 ProgressEventKind = Literal[
     "training_started",
+    "training_completed",
+    "training_failed",
     "epoch_started",
     "epoch_completed",
     "validation_started",
@@ -115,6 +117,7 @@ class ProgressEvent:
     early_stopping_counter: int | None = None
     early_stopping_patience: int | None = None
     best_epoch: int | None = None
+    message: str | None = None
 
 
 class ProgressObserver(Protocol):
@@ -155,6 +158,11 @@ class ConsoleProgressObserver:
     def on_event(self, event: ProgressEvent) -> None:
         if event.kind == "training_started":
             print("Starting training...")
+        elif event.kind == "training_completed":
+            print("Training completed.")
+        elif event.kind == "training_failed":
+            detail = f": {event.message}" if event.message else ""
+            print(f"Training failed{detail}")
         elif event.kind == "epoch_started":
             print(f"Epoch:{event.epoch}... ", end="")
         elif event.kind == "epoch_completed":

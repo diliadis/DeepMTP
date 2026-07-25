@@ -46,6 +46,22 @@ def test_evaluation_policy_covers_test_interval_metric_and_last_epoch():
     assert not metric_policy.should_evaluate_training(epoch=0)
 
 
+def test_evaluation_policy_uses_best_epoch_metric_without_early_stopping():
+    policy = EvaluationPolicy.from_config(
+        make_config(
+            evaluate_val=False,
+            eval_every_n_epochs=10,
+            num_epochs=100,
+            use_early_stopping=False,
+            metric_to_optimize_early_stopping="loss",
+            metric_to_optimize_best_epoch_selection="accuracy_micro",
+        )
+    )
+
+    assert policy.metric_to_track == "accuracy_micro"
+    assert policy.should_evaluate("val", epoch=7)
+
+
 def test_evaluator_calculates_metrics_from_epoch_output():
     evaluator = Evaluator(make_config())
     output = EpochOutput(

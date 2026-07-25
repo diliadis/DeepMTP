@@ -44,9 +44,10 @@ DatasetInput: TypeAlias = Mapping[str, Any]
 CheckpointPath: TypeAlias = str | PathLike[str]
 MetricResults: TypeAlias = dict[str, float]
 PredictionResults: TypeAlias = tuple[MetricResults, pd.DataFrame]
+TrainingState: TypeAlias = Literal["ready", "running", "completed", "failed"]
 
 
-class DeepMTP:  # pragma: no cover
+class DeepMTP:
     """Implements the training and inference logic of the DeepMTP framework."""
 
     def __init__(
@@ -57,10 +58,11 @@ class DeepMTP:  # pragma: no cover
         checkpoint_dir: CheckpointPath | None = None,
         reporter: ExperimentReporter | None = None,
         progress: ProgressObserver | None = None,
-    ) -> None:  # pragma: no cover
+    ) -> None:
         self.checkpoint_dict: dict[str, Any] | None = None
         self.reporter: ExperimentReporter | None = reporter
         self._progress_was_injected = progress is not None
+        self._training_state: TrainingState = "ready"
 
         if isinstance(config, DeepMTPConfig):
             config_overrides = config.to_dict(include_defaults=True)
@@ -221,7 +223,7 @@ class DeepMTP:  # pragma: no cover
         epoch: int = 0,
         return_predictions: bool = False,
         verbose: bool = False,
-    ) -> MetricResults | PredictionResults:  # pragma: no cover
+    ) -> MetricResults | PredictionResults:
         should_evaluate = self.evaluator.policy.should_evaluate(mode, epoch)
         progress = self._inference_progress(verbose)
 
@@ -268,7 +270,14 @@ class DeepMTP:  # pragma: no cover
         val_data: DatasetInput,
         test_data: DatasetInput,
         verbose: bool = False,
-    ) -> MetricResults:  # pragma: no cover
+    ) -> MetricResults:
+        training_state = getattr(self, "_training_state", "ready")
+        if training_state != "ready":
+            raise RuntimeError(
+                "A DeepMTP instance supports one training run. "
+                "Create a new instance to train again."
+            )
+
         reporter = self.reporter
         if reporter is None:
             reporter = build_reporter(
@@ -278,13 +287,32 @@ class DeepMTP:  # pragma: no cover
             self.reporter = reporter
         try:
             reporter.start(self.config, self.deepMTP_model)
-            return self._train(
-                train_data,
-                val_data,
-                test_data,
-                reporter=reporter,
-                verbose=verbose,
+            self._training_state = "running"
+            try:
+                self.progress.on_event(ProgressEvent("training_started"))
+                results = self._train(
+                    train_data,
+                    val_data,
+                    test_data,
+                    reporter=reporter,
+                    verbose=verbose,
+                )
+            except Exception as exc:
+                self._training_state = "failed"
+                self.progress.on_event(
+                    ProgressEvent("training_failed", message=str(exc))
+                )
+                raise
+
+            self._training_state = "completed"
+            self.progress.on_event(
+                ProgressEvent(
+                    "training_completed",
+                    metrics=results,
+                    best_epoch=self.early_stopping.get_best_epoch(),
+                )
             )
+            return results
         finally:
             reporter.close()
 
@@ -309,21 +337,10 @@ class DeepMTP:  # pragma: no cover
         val_dataloader = dataloaders.validation
         test_dataloader = dataloaders.test
 
-        self.progress.on_event(ProgressEvent("training_started"))
         run_history = RunHistory(
             self.configuration.metrics,
             self.configuration.metrics_average,
         )
-
-        #########################    Profiler    ############################
-        """        
-        prof = torch.profiler.profile(
-                schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
-                on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/profiler'),
-                record_shapes=True,
-                with_stack=True)
-        prof.start()
-        """
 
         # iterate over epochs
         for epoch in range(self.config["num_epochs"]):
@@ -341,9 +358,6 @@ class DeepMTP:  # pragma: no cover
                 and self.configuration.metrics
             ):
                 train_results = self.evaluator.evaluate("train", epoch, epoch_output)
-
-            #########################    Profiler    ############################
-            # prof.stop()
 
             mean_loss = epoch_output.mean_loss
             run_history.add_training(
@@ -522,7 +536,7 @@ class DeepMTP:  # pragma: no cover
         data: DatasetInput,
         return_predictions: bool = False,
         verbose: bool = False,
-    ) -> MetricResults | PredictionResults:  # pragma: no cover
+    ) -> MetricResults | PredictionResults:
         self.deepMTP_model.to(self.device)
         dataloader = self.data_loader_factory.for_prediction(data)
         if return_predictions:
@@ -543,9 +557,7 @@ class DeepMTP:  # pragma: no cover
             verbose=verbose,
         )
 
-    def save_model(self, verbose: bool = False) -> None:  # pragma: no cover
-        self.config["use_tensorboard_logger"] = False
-        self.configuration.set_runtime_value("use_tensorboard_logger", False)
+    def save_model(self, verbose: bool = False) -> None:
         best_model = self.early_stopping.get_best_model()
         best_optimizer_state = self.early_stopping.get_best_optimizer_state_dict()
         if not isinstance(best_model, nn.Module) or not isinstance(
@@ -555,10 +567,12 @@ class DeepMTP:  # pragma: no cover
             raise RuntimeError("Cannot save a model before training has completed.")
         if verbose:
             print("Saving the best model... ", end="")
+        checkpoint_config = dict(self.config)
+        checkpoint_config["use_tensorboard_logger"] = False
         self.experiment_store.save_checkpoint(
             model_state_dict=best_model.state_dict(),
             optimizer_state_dict=best_optimizer_state,
-            config=self.config,
+            config=checkpoint_config,
         )
         if verbose:
             print("Done")

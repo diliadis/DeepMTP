@@ -34,6 +34,8 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
     observer.on_event(ProgressEvent("epoch_started", epoch=2))
     observer.on_event(ProgressEvent("epoch_completed", epoch=2))
     observer.on_event(ProgressEvent("early_stopping_triggered", epoch=2))
+    observer.on_event(ProgressEvent("training_completed"))
+    observer.on_event(ProgressEvent("training_failed", message="bad data"))
     observer.on_summary(
         RunSummaries("train table", "validation table", "test table"),
         include_train=True,
@@ -44,6 +46,8 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
     assert "Starting training..." in output
     assert "Epoch:2... Done" in output
     assert "Early stopping criterion met" in output
+    assert "Training completed." in output
+    assert "Training failed: bad data" in output
     assert "train table" in output
     assert "validation table" not in output
     assert "test table" in output

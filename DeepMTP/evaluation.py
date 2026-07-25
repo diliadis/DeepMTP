@@ -22,6 +22,8 @@ class EvaluationPolicy:
     eval_every_n_epochs: int
     num_epochs: int
     metric_to_optimize_early_stopping: str
+    use_early_stopping: bool = True
+    metric_to_optimize_best_epoch_selection: str = "loss"
 
     @classmethod
     def from_config(cls, config: DeepMTPConfig) -> EvaluationPolicy:
@@ -33,14 +35,25 @@ class EvaluationPolicy:
             metric_to_optimize_early_stopping=(
                 config.metric_to_optimize_early_stopping
             ),
+            use_early_stopping=config.use_early_stopping,
+            metric_to_optimize_best_epoch_selection=(
+                config.metric_to_optimize_best_epoch_selection
+            ),
         )
+
+    @property
+    def metric_to_track(self) -> str:
+        """Return the metric used to select the model retained after training."""
+        if self.use_early_stopping:
+            return self.metric_to_optimize_early_stopping
+        return self.metric_to_optimize_best_epoch_selection
 
     def should_evaluate(self, mode: str, epoch: int) -> bool:
         """Return whether inference metrics are required for this epoch."""
         return (
             mode == "test"
             or (epoch % self.eval_every_n_epochs == 0 and self.evaluate_val)
-            or self.metric_to_optimize_early_stopping != "loss"
+            or self.metric_to_track != "loss"
             or epoch == self.num_epochs - 1
         )
 

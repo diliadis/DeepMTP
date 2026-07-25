@@ -36,6 +36,8 @@ two small end-to-end training runs.
 - [x] Make `predict(return_predictions=...)` honour its argument.
 - [x] Correct macro and instance undersampling.
 - [x] Make checkpoint/config serialization reliable for image transforms.
+- [x] Always calculate the metric used for best-epoch model selection.
+- [x] Make trainer run state explicit and checkpoint saves side-effect-free.
 - [x] Cover single-class and singleton evaluation groups.
 - [x] Validate identifiers used for generated one-hot features.
 

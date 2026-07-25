@@ -69,6 +69,10 @@ def test_trainer_closes_reporter_when_training_fails():
     trainer.reporter = reporter
     trainer.config = {}
     trainer.deepMTP_model = object()
+    progress_events = []
+    trainer.progress = SimpleNamespace(
+        on_event=lambda event: progress_events.append(event)
+    )
 
     def fail_training(*args, **kwargs):
         raise RuntimeError("training failed")
@@ -79,6 +83,12 @@ def test_trainer_closes_reporter_when_training_fails():
         trainer.train(None, None, None)
 
     assert events == [("reporter", "start"), ("reporter", "close")]
+    assert trainer._training_state == "failed"
+    assert [event.kind for event in progress_events] == [
+        "training_started",
+        "training_failed",
+    ]
+    assert progress_events[-1].message == "training failed"
 
 
 def test_disabled_integrations_do_not_import_optional_modules(monkeypatch, tmp_path):
