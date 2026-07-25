@@ -3160,6 +3160,87 @@ def test_validate_split_ratio_returns_an_independent_copy():
 
 
 @pytest.mark.parametrize(
+    "interaction_data",
+    [
+        np.array([0, 1]),
+        pd.DataFrame(columns=["instance_id", "target_id", "value"]),
+        pd.DataFrame(
+            {
+                "instance_id": [0, 0],
+                "target_id": [0, 0],
+                "value": [0, 1],
+            }
+        ),
+    ],
+)
+def test_process_interaction_data_rejects_ambiguous_boundaries(interaction_data):
+    with pytest.raises(ValueError):
+        process_interaction_data(interaction_data)
+
+
+def test_process_interaction_data_keeps_an_independent_frame():
+    source = pd.DataFrame(
+        {
+            "instance_id": [0, 1],
+            "target_id": [0, 0],
+            "value": [0, 1],
+        }
+    )
+
+    processed = process_interaction_data(source)
+    source.loc[0, "value"] = 99
+
+    assert processed["data"]["value"].tolist() == [0, 1]
+
+
+def test_interaction_format_check_is_silent_when_not_verbose(capsys):
+    data = {
+        split: {"y": {"original_format": "triplets"}}
+        for split in ("train", "val", "test")
+    }
+
+    check_interaction_files_format(data, verbose=False)
+
+    assert capsys.readouterr().out == ""
+
+
+def test_variable_type_rejects_empty_values():
+    with pytest.raises(ValueError, match="empty"):
+        check_variable_type(pd.DataFrame(columns=["instance_id", "target_id", "value"]))
+
+
+def test_triplet_novelty_detects_partially_new_ids():
+    train = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [0, 1],
+                "target_id": [0, 1],
+                "value": [0, 1],
+            }
+        ),
+        "original_format": "triplets",
+    }
+    test = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [1, 2],
+                "target_id": [1, 2],
+                "value": [1, 0],
+            }
+        ),
+        "original_format": "triplets",
+    }
+
+    assert check_novel_instances(train, test) is True
+    assert check_novel_targets(train, test) is True
+
+
+def test_validation_setting_flags_require_booleans():
+    with pytest.raises(TypeError, match="novel_instances_flag"):
+        get_estimated_validation_setting(1, False, verbose=False)
+
+
+@pytest.mark.parametrize(
     ("mode", "group_column"),
     [("macro", "target_id"), ("instance", "instance_id")],
 )

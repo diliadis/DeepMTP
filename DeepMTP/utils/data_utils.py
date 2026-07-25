@@ -1,6 +1,7 @@
 import copy
 import warnings
 from collections.abc import Mapping
+from typing import Any, Literal, Protocol, TypeAlias, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -13,8 +14,44 @@ from torch.utils.data.sampler import Sampler
 
 pd.set_option("mode.chained_assignment", None)
 
+VariableType: TypeAlias = Literal["binary", "real-valued"]
+ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
+DatasetMapping: TypeAlias = Mapping[str, Any]
 
-def validate_split_ratio(ratio):
+
+class InteractionInfo(TypedDict):
+    """Normalized interaction data and its detected schema."""
+
+    data: pd.DataFrame
+    original_format: Literal["triplets", "numpy"]
+    instance_id_type: Literal["int"]
+    target_id_type: Literal["int"]
+    missing_values: bool
+
+
+class Transformer(Protocol):
+    """Minimal interface implemented by supported feature scalers."""
+
+    def transform(self, values: Any) -> Any:
+        """Transform values using a previously fitted scaler."""
+
+
+def _validate_interaction_frame(frame: pd.DataFrame) -> None:
+    if frame.empty:
+        raise ValueError("Interaction data must contain at least one observation.")
+    if frame[["instance_id", "target_id"]].isna().any().any():
+        raise ValueError("Interaction IDs cannot contain missing values.")
+    if not pd.api.types.is_numeric_dtype(frame["value"]):
+        raise TypeError("The interaction 'value' column must be numeric.")
+    if frame["value"].isna().any():
+        raise ValueError(
+            "The interaction 'value' column cannot contain missing values."
+        )
+    if frame.duplicated(subset=["instance_id", "target_id"]).any():
+        raise ValueError("Interaction data contains duplicate instance-target pairs.")
+
+
+def validate_split_ratio(ratio: object) -> dict[str, float]:
     """Validate and copy a train/validation/test split ratio mapping."""
     if not isinstance(ratio, Mapping):
         raise TypeError("ratio must be a mapping with train, val, and test keys.")
@@ -45,7 +82,7 @@ def validate_split_ratio(ratio):
     return validated_ratio
 
 
-def normalize(row, scaler):  # pragma: no cover
+def normalize(row: Any, scaler: Transformer) -> Any:  # pragma: no cover
     """Just normalizes a row or features
 
     Args:
@@ -58,7 +95,11 @@ def normalize(row, scaler):  # pragma: no cover
     return scaler.transform([row])[0]
 
 
-def process_interaction_data(interaction_data, verbose=False, print_mode="basic"):
+def process_interaction_data(
+    interaction_data: pd.DataFrame | np.ndarray,
+    verbose: bool = False,
+    print_mode: str = "basic",
+) -> InteractionInfo:
     """A function that processes the interaction data. It is called separately for the train, val and test interaction data.
     There are two main types of interaction data formats that are supported:
     -> numpy format: This is a 2d numpy array that represents the interaction (also called score) matrix usually found in problems settings with fully observed matrices (multi-label classification, multivariate regression)
@@ -72,48 +113,24 @@ def process_interaction_data(interaction_data, verbose=False, print_mode="basic"
     Returns:
         dict: a dictionary with the interaction data and additional information that could be detected (format, type of instance and target ids, etc.)
     """
-    info = None
     if isinstance(interaction_data, pd.DataFrame):
-        if len(interaction_data.columns) == 3:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Interaction file: triplet format detected"
-                )
-
-            # check if the interaction file has the correct header format
-            if set(interaction_data.columns) != set(
-                {"instance_id", "target_id", "value"}
-            ):
-                raise ValueError(
-                    "Interaction file: The dataset has no header. Please supply an interaction file with a header of the following format <instance_id, target_id, score>"
-                )
-            info = {"data": interaction_data, "original_format": "triplets"}
-            if pd.api.types.is_string_dtype(interaction_data.dtypes["value"]):
-                raise AttributeError(
-                    "The 'value' column in the dataframe with the interaction triplets should contain integers or floats, not strings."
-                )
-
-            # check the type of the instance_id values (int for normal ids, string for image directories)
-            if pd.api.types.is_integer_dtype(interaction_data.dtypes["instance_id"]):
-                info["instance_id_type"] = "int"
-            # elif pd.api.types.is_string_dtype(interaction_data.dtypes['instance_id']):
-            #     info['instance_id_type'] = 'string'
-            else:
-                raise TypeError("Instance_id type is not detected")
-
-            # check the type of the target_id values (int for normal ids, string for image directories)
-            if pd.api.types.is_integer_dtype(interaction_data.dtypes["target_id"]):
-                info["target_id_type"] = "int"
-            # elif pd.api.types.is_string_dtype(interaction_data.dtypes['target_id']):
-            #     info['target_id_type'] = 'string'
-            else:
-                raise TypeError("Target_id type is not detected")
-        else:
+        if set(interaction_data.columns) != {
+            "instance_id",
+            "target_id",
+            "value",
+        }:
             raise ValueError(
                 "Interaction file with invalid header detected. Please use the following header <instance_id, target_id, value>"
             )
+        interaction_frame = interaction_data.copy()
+        original_format: Literal["triplets", "numpy"] = "triplets"
     elif isinstance(interaction_data, np.ndarray):
+        if interaction_data.ndim != 2:
+            raise ValueError(
+                "Interaction arrays must be two-dimensional score matrices."
+            )
+        if 0 in interaction_data.shape:
+            raise ValueError("Interaction arrays cannot have an empty dimension.")
         if verbose:
             print(
                 ("info: " if print_mode == "dev" else "")
@@ -121,28 +138,48 @@ def process_interaction_data(interaction_data, verbose=False, print_mode="basic"
             )
 
         # converting the 2d numpy array format to the more flexible triplet format
-        interaction_data = pd.DataFrame(interaction_data).reset_index().melt("index")
-        interaction_data.columns = ["instance_id", "target_id", "value"]
+        interaction_frame = pd.DataFrame(interaction_data).reset_index().melt("index")
+        interaction_frame.columns = ["instance_id", "target_id", "value"]
+        interaction_frame["instance_id"] = interaction_frame["instance_id"].astype(int)
+        interaction_frame["target_id"] = interaction_frame["target_id"].astype(int)
         # remove nans
-        interaction_data = interaction_data.dropna(subset=["value"])
-
-        info = {
-            "data": interaction_data,
-            "original_format": "numpy",
-            "instance_id_type": "int",
-            "target_id_type": "int",
-        }
+        interaction_frame = interaction_frame.dropna(subset=["value"])
+        original_format = "numpy"
     else:
-        raise ValueError(
+        raise TypeError(
             "Could not recognize the format of the interaction data. A 2d numpy array or a dataframe(<instance_id, target_id, value>) is currently supported"
         )
-    info["missing_values"] = len(info["data"]) != (
-        info["data"]["instance_id"].nunique() * info["data"]["target_id"].nunique()
+
+    _validate_interaction_frame(interaction_frame)
+    if not pd.api.types.is_integer_dtype(interaction_frame["instance_id"]):
+        raise TypeError("The interaction 'instance_id' column must contain integers.")
+    if not pd.api.types.is_integer_dtype(interaction_frame["target_id"]):
+        raise TypeError("The interaction 'target_id' column must contain integers.")
+
+    if verbose and original_format == "triplets":
+        print(
+            ("info: " if print_mode == "dev" else "")
+            + "Interaction file: triplet format detected"
+        )
+
+    possible_pair_count = (
+        interaction_frame["instance_id"].nunique()
+        * interaction_frame["target_id"].nunique()
     )
-    return info
+    return {
+        "data": interaction_frame,
+        "original_format": original_format,
+        "instance_id_type": "int",
+        "target_id_type": "int",
+        "missing_values": len(interaction_frame) != possible_pair_count,
+    }
 
 
-def check_interaction_files_format(data, verbose=False, print_mode="basic"):
+def check_interaction_files_format(
+    data: DatasetMapping,
+    verbose: bool = False,
+    print_mode: str = "basic",
+) -> None:
     """Checks the format of the interaction data. If any inconsistencies are detected (like different formats between train and test interaction data), an exception is raised
 
     Args:
@@ -151,13 +188,11 @@ def check_interaction_files_format(data, verbose=False, print_mode="basic"):
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     """
-    distinct_formats = set(
-        [
-            data[mode]["y"]["original_format"]
-            for mode in ["train", "test", "val"]
-            if data[mode]["y"] is not None
-        ]
-    )
+    distinct_formats = {
+        data[mode]["y"]["original_format"]
+        for mode in ["train", "test", "val"]
+        if data[mode]["y"] is not None
+    }
     if len(distinct_formats) != 0:
         if verbose:
             print(
@@ -166,7 +201,8 @@ def check_interaction_files_format(data, verbose=False, print_mode="basic"):
                 end="",
             )
         if len(distinct_formats) == 1:
-            print(("info: " if print_mode == "dev" else "") + "Passed")
+            if verbose:
+                print(("info: " if print_mode == "dev" else "") + "Passed")
         else:
             raise ValueError(
                 ("error: " if print_mode == "dev" else "")
@@ -174,7 +210,11 @@ def check_interaction_files_format(data, verbose=False, print_mode="basic"):
             )
 
 
-def check_interaction_files_column_type_format(data, verbose=False, print_mode="basic"):
+def check_interaction_files_column_type_format(
+    data: DatasetMapping,
+    verbose: bool = False,
+    print_mode: str = "basic",
+) -> None:
     """Checks the type of the instance and target ids in the interaction data. If any inconsistencies are detected (like different id types between train and test interaction data), an exception is raised
 
     Args:
@@ -184,13 +224,11 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode="
 
     """
     # check for instance id type concistency across the interaction data sources
-    distinct_instance_id_format = set(
-        [
-            data[mode]["y"]["instance_id_type"]
-            for mode in ["train", "test", "val"]
-            if data[mode]["y"] is not None
-        ]
-    )
+    distinct_instance_id_format = {
+        data[mode]["y"]["instance_id_type"]
+        for mode in ["train", "test", "val"]
+        if data[mode]["y"] is not None
+    }
     if len(distinct_instance_id_format) != 0:
         if verbose:
             print(
@@ -208,13 +246,11 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode="
             )
 
     # check for target id type concistency across the interaction data sources
-    distinct_target_id_format = set(
-        [
-            data[mode]["y"]["target_id_type"]
-            for mode in ["train", "test", "val"]
-            if data[mode]["y"] is not None
-        ]
-    )
+    distinct_target_id_format = {
+        data[mode]["y"]["target_id_type"]
+        for mode in ["train", "test", "val"]
+        if data[mode]["y"] is not None
+    }
     if len(distinct_target_id_format) != 0:
         if verbose:
             print(
@@ -232,7 +268,7 @@ def check_interaction_files_column_type_format(data, verbose=False, print_mode="
             )
 
 
-def check_variable_type(samples_arr):
+def check_variable_type(samples_arr: pd.DataFrame) -> VariableType:
     """Checks the type of the target variable. This implementation is currently very simple. It has to be updated!!
 
     Args:
@@ -241,13 +277,23 @@ def check_variable_type(samples_arr):
     Returns:
         str: The type of the target variable. Possible values are 'real-valued' and 'binary'
     """
-    variable_type = "real-valued"
-    if set(samples_arr["value"]).difference(set([0, 1])) == set():
-        variable_type = "binary"
-    return variable_type
+    if "value" not in samples_arr:
+        raise ValueError("Interaction data must contain a 'value' column.")
+    values = samples_arr["value"]
+    if values.empty:
+        raise ValueError("Cannot detect a target variable type from empty data.")
+    if not pd.api.types.is_numeric_dtype(values):
+        raise TypeError("Target values must be numeric.")
+    if values.isna().any():
+        raise ValueError("Target values cannot contain missing values.")
+    return "binary" if set(values).issubset({0, 1}) else "real-valued"
 
 
-def check_target_variable_type(data, verbose=False, print_mode="basic"):
+def check_target_variable_type(
+    data: DatasetMapping,
+    verbose: bool = False,
+    print_mode: str = "basic",
+) -> VariableType:
     """Checks the type of the target variable in the interaction data. If any inconsistencies are detected (like different id types between train and test interaction data), an exception is raised
 
     Args:
@@ -256,13 +302,11 @@ def check_target_variable_type(data, verbose=False, print_mode="basic"):
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     """
-    distinct_target_variable_type = set(
-        [
-            check_variable_type(data[mode]["y"]["data"])
-            for mode in ["train", "test", "val"]
-            if data[mode]["y"] is not None
-        ]
-    )
+    distinct_target_variable_type = {
+        check_variable_type(data[mode]["y"]["data"])
+        for mode in ["train", "test", "val"]
+        if data[mode]["y"] is not None
+    }
     if len(distinct_target_variable_type) != 0:
         if verbose:
             print(
@@ -284,10 +328,15 @@ def check_target_variable_type(data, verbose=False, print_mode="basic"):
             + "Could not detect the type of target variables"
         )
     # return the detected type of target variable
-    return list(distinct_target_variable_type)[0]
+    return distinct_target_variable_type.pop()
 
 
-def check_novel_instances(train, test, verbose=False, print_mode="basic"):
+def check_novel_instances(
+    train: DatasetMapping | None,
+    test: DatasetMapping | None,
+    verbose: bool = False,
+    print_mode: str = "basic",
+) -> bool | None:
     """Checks if the test set contains novel instance ids that are not present in the training set
 
     Args:
@@ -297,35 +346,45 @@ def check_novel_instances(train, test, verbose=False, print_mode="basic"):
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     """
-    novel_instances_detected = None
-    if test is not None:
-        if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Interaction file: Checking for novel instances... ",
-                end="",
-            )
-        novel_instances_detected = False
-        train_unique_instances = set(train["data"]["instance_id"])
-        test_unique_instances = set(test["data"]["instance_id"])
-        if train["original_format"] == "triplets":
-            if train_unique_instances.intersection(test_unique_instances) == set():
-                novel_instances_detected = True
-        else:
-            warnings.warn(
-                "Assuming that novelty of instances in test set based on the number of rows between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!",
-                stacklevel=2,
-            )
-            # this is a not so clever way to infer novel instances when your interaction data had a 2d numpy format...
-            if len(train_unique_instances) != len(test_unique_instances):
-                novel_instances_detected = True
-        if verbose:
-            print(("info: " if print_mode == "dev" else "") + "Done")
-
+    if test is None:
+        return None
+    if train is None:
+        raise ValueError(
+            "Training interactions are required to detect novel instances."
+        )
+    if verbose:
+        print(
+            ("info: " if print_mode == "dev" else "")
+            + "Interaction file: Checking for novel instances... ",
+            end="",
+        )
+    train_unique_instances = set(train["data"]["instance_id"])
+    test_unique_instances = set(test["data"]["instance_id"])
+    if train["original_format"] == "triplets":
+        novel_instances_detected = bool(
+            test_unique_instances.difference(train_unique_instances)
+        )
+    else:
+        warnings.warn(
+            "Assuming that novelty of instances in test set based on the number of rows between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!",
+            stacklevel=2,
+        )
+        # The original score matrix does not preserve IDs, so only shape
+        # differences can provide a weak novelty signal.
+        novel_instances_detected = len(train_unique_instances) != len(
+            test_unique_instances
+        )
+    if verbose:
+        print(("info: " if print_mode == "dev" else "") + "Done")
     return novel_instances_detected
 
 
-def check_novel_targets(train, test, verbose=False, print_mode="basic"):
+def check_novel_targets(
+    train: DatasetMapping | None,
+    test: DatasetMapping | None,
+    verbose: bool = False,
+    print_mode: str = "basic",
+) -> bool | None:
     """Checks if the test set contains novel target ids that are not present in the training set
 
     Args:
@@ -335,36 +394,41 @@ def check_novel_targets(train, test, verbose=False, print_mode="basic"):
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
 
     """
-    novel_targets_detected = None
-    if test is not None:
-        if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Interaction file: Checking for novel targets... ",
-                end="",
-            )
-        novel_targets_detected = False
-        train_unique_targets = set(train["data"]["target_id"])
-        test_unique_targets = set(test["data"]["target_id"])
-        if train["original_format"] == "triplets":
-            if train_unique_targets.intersection(test_unique_targets) == set():
-                novel_targets_detected = True
-        else:
-            warnings.warn(
-                "Assuming that novelty of targets in test set based on the number of columns between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!",
-                stacklevel=2,
-            )
-            # this is a not so clever way to infer novel instances when your interaction data had a 2d numpy format...
-            if len(train_unique_targets) != len(test_unique_targets):
-                novel_targets_detected = True
-        if verbose:
-            print(("info: " if print_mode == "dev" else "") + "Done")
+    if test is None:
+        return None
+    if train is None:
+        raise ValueError("Training interactions are required to detect novel targets.")
+    if verbose:
+        print(
+            ("info: " if print_mode == "dev" else "")
+            + "Interaction file: Checking for novel targets... ",
+            end="",
+        )
+    train_unique_targets = set(train["data"]["target_id"])
+    test_unique_targets = set(test["data"]["target_id"])
+    if train["original_format"] == "triplets":
+        novel_targets_detected = bool(
+            test_unique_targets.difference(train_unique_targets)
+        )
+    else:
+        warnings.warn(
+            "Assuming that novelty of targets in test set based on the number of columns between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!",
+            stacklevel=2,
+        )
+        # The original score matrix does not preserve IDs, so only shape
+        # differences can provide a weak novelty signal.
+        novel_targets_detected = len(train_unique_targets) != len(test_unique_targets)
+    if verbose:
+        print(("info: " if print_mode == "dev" else "") + "Done")
     return novel_targets_detected
 
 
 def get_estimated_validation_setting(
-    novel_instances_flag, novel_targets_flag, verbose, print_mode="basic"
-):
+    novel_instances_flag: bool | None,
+    novel_targets_flag: bool | None,
+    verbose: bool,
+    print_mode: str = "basic",
+) -> ValidationSetting | None:
     """Uses the combination of infrmation about novel instances and novel targets to determine the validation setting that is possible.
 
     Args:
@@ -376,7 +440,14 @@ def get_estimated_validation_setting(
     Returns:
         str: The validation setting. Possible values are A, B, C, D
     """
-    validation_setting_detected = None
+    for flag_name, flag in (
+        ("novel_instances_flag", novel_instances_flag),
+        ("novel_targets_flag", novel_targets_flag),
+    ):
+        if flag is not None and not isinstance(flag, bool):
+            raise TypeError(f"{flag_name} must be a boolean or None.")
+
+    validation_setting_detected: ValidationSetting | None = None
     if novel_instances_flag is not None and novel_targets_flag is not None:
         if verbose:
             print(
