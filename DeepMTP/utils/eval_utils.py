@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import Any, Protocol, TypeAlias
+
 import more_itertools as mit
 import numpy as np
 import pandas as pd
@@ -17,45 +22,156 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+ArrayValues: TypeAlias = Sequence[Any]
+MetricResults: TypeAlias = dict[str, float]
+TrainingMeans: TypeAlias = Mapping[Any, float]
+
+
+class InverseTransformer(Protocol):
+    """Minimal scaler interface needed by the evaluation utilities."""
+
+    def inverse_transform(self, values: Any) -> Any:
+        """Return values transformed back to their original scale."""
+
+
+ScalerInput: TypeAlias = InverseTransformer | Mapping[Any, InverseTransformer] | None
+
+
+def _inverse_transform_scalar(
+    scaler: InverseTransformer,
+    value: Any,
+) -> float:
+    transformed = np.asarray(
+        scaler.inverse_transform([[float(value)]]),
+        dtype=float,
+    ).reshape(-1)
+    if transformed.size != 1:
+        raise ValueError("A scalar inverse transformation must return one value.")
+    return float(transformed[0])
+
+
+def _inverse_transform_values(
+    scaler: InverseTransformer,
+    values: pd.Series,
+) -> list[float]:
+    transformed = np.asarray(
+        scaler.inverse_transform(values.to_numpy().reshape(-1, 1)),
+        dtype=float,
+    ).reshape(-1)
+    if transformed.size != len(values):
+        raise ValueError(
+            "The inverse transformer returned a different number of values."
+        )
+    return [float(value) for value in transformed]
+
 
 def instance_wise_true_inverse_transformation(
-    row, scaler_per_instance
-):  # add check for cases where there is only one unique value true value or predicted value
-    return scaler_per_instance[row["instance_id"]].inverse_transform(row["true_value"])
+    row: pd.Series,
+    scaler_per_instance: Mapping[Any, InverseTransformer],
+) -> float:
+    """Inverse-transform one true value with its instance-specific scaler."""
+    return _inverse_transform_scalar(
+        scaler_per_instance[row["instance_id"]],
+        row["true_values"],
+    )
 
 
-def instance_wise_pred_inverse_transformation(row, scaler_per_instance):
-    return scaler_per_instance[row["instance_id"]].inverse_transform(row["pred_value"])
+def instance_wise_pred_inverse_transformation(
+    row: pd.Series,
+    scaler_per_instance: Mapping[Any, InverseTransformer],
+) -> float:
+    """Inverse-transform one prediction with its instance-specific scaler."""
+    return _inverse_transform_scalar(
+        scaler_per_instance[row["instance_id"]],
+        row["pred_values"],
+    )
 
 
-def target_wise_true_inverse_transformation(row, scaler_per_target):
-    return scaler_per_target[row["target_id"]].inverse_transform(row["true_value"])
+def target_wise_true_inverse_transformation(
+    row: pd.Series,
+    scaler_per_target: Mapping[Any, InverseTransformer],
+) -> float:
+    """Inverse-transform one true value with its target-specific scaler."""
+    return _inverse_transform_scalar(
+        scaler_per_target[row["target_id"]],
+        row["true_values"],
+    )
 
 
-def target_wise_pred_inverse_transformation(row, scaler_per_target):
-    return scaler_per_target[row["target_id"]].inverse_transform(row["pred_value"])
+def target_wise_pred_inverse_transformation(
+    row: pd.Series,
+    scaler_per_target: Mapping[Any, InverseTransformer],
+) -> float:
+    """Inverse-transform one prediction with its target-specific scaler."""
+    return _inverse_transform_scalar(
+        scaler_per_target[row["target_id"]],
+        row["pred_values"],
+    )
+
+
+def _validate_evaluation_inputs(
+    instances: ArrayValues,
+    targets: ArrayValues,
+    true_values: ArrayValues,
+    predicted_values: ArrayValues,
+    validation_setting: str,
+    problem_mode: str,
+    averaging: Sequence[str],
+    top_k: int | None,
+) -> None:
+    lengths = {
+        len(instances),
+        len(targets),
+        len(true_values),
+        len(predicted_values),
+    }
+    if len(lengths) != 1:
+        raise ValueError(
+            "instances, targets, true values, and predictions must have equal length."
+        )
+    if len(true_values) == 0:
+        raise ValueError("Evaluation requires at least one prediction.")
+    if validation_setting not in {"A", "B", "C", "D"}:
+        raise ValueError(
+            "validation_setting must be one of 'A', 'B', 'C', or 'D'; "
+            f"received {validation_setting!r}."
+        )
+    if problem_mode not in {"classification", "regression", "ranking"}:
+        raise ValueError(
+            "problem_mode must be 'classification', 'regression', or 'ranking'; "
+            f"received {problem_mode!r}."
+        )
+    unknown_averaging = set(averaging).difference({"micro", "macro", "instance"})
+    if unknown_averaging:
+        raise ValueError(
+            f"Unsupported metric averaging schemes: {sorted(unknown_averaging)}."
+        )
+    if top_k is not None and (
+        not isinstance(top_k, int) or isinstance(top_k, bool) or top_k <= 0
+    ):
+        raise ValueError("top_k must be a positive integer when provided.")
 
 
 def get_performance_results(
-    mode,
-    epoch_id,
-    instances_arr,
-    targets_arr,
-    true_values_arr,
-    pred_values_arr,
-    validation_setting,
-    problem_mode,
-    metrics,
-    averaging,
-    slices_arr=None,
-    verbose=False,
-    per_target_verbose=False,
-    per_instance_verbose=False,
-    top_k=None,
-    return_detailed_macro=False,
-    train_true_value=None,
-    scaler_per_target=None,
-):
+    mode: str,
+    epoch_id: int,
+    instances_arr: ArrayValues,
+    targets_arr: ArrayValues,
+    true_values_arr: ArrayValues,
+    pred_values_arr: ArrayValues,
+    validation_setting: str,
+    problem_mode: str,
+    metrics: Sequence[str],
+    averaging: Sequence[str],
+    slices_arr: ArrayValues | None = None,
+    verbose: bool = False,
+    per_target_verbose: bool = False,
+    per_instance_verbose: bool = False,
+    top_k: int | None = None,
+    return_detailed_macro: bool = False,
+    train_true_value: TrainingMeans | None = None,
+    scaler_per_target: ScalerInput = None,
+) -> MetricResults:
     """Calculates all the metrics using different averaging schemes
 
     Args:
@@ -84,7 +200,17 @@ def get_performance_results(
     Returns:
         dict: A dictionary with key:value pairs of metric_name: metric_value
     """
-    final_result = {}
+    _validate_evaluation_inputs(
+        instances_arr,
+        targets_arr,
+        true_values_arr,
+        pred_values_arr,
+        validation_setting,
+        problem_mode,
+        averaging,
+        top_k,
+    )
+    final_result: MetricResults = {}
     if mode != "":
         mode += "_"
 
@@ -94,9 +220,9 @@ def get_performance_results(
             + str(np.count_nonzero(np.array(pred_values_arr)))
             + " non zero predictions"
         )
-        if np.NaN in true_values_arr:
+        if np.isnan(np.asarray(true_values_arr, dtype=float)).any():
             print("NaN value in true_values_arr")
-        if np.NaN in pred_values_arr:
+        if np.isnan(np.asarray(pred_values_arr, dtype=float)).any():
             print("NaN value in pred_values_arr")
 
     # package all arrays into a dataframe (will have to check if this implementation is faster than the numpy version)
@@ -114,13 +240,20 @@ def get_performance_results(
 
     # for Setting A, the only averating option that makes sense is the micro version.
     if validation_setting == "A":
-        # check if values are scaled and if so, inverse_transform them. In setting A you have a single scaler for the entire score matrix.
+        # In setting A one scaler covers the entire score matrix.
         if scaler_per_target is not None:
-            df["true_values"] = scaler_per_target.inverse_transform(
-                df["true_values"].values.reshape(-1, 1)
+            if isinstance(scaler_per_target, Mapping):
+                raise TypeError(
+                    "Setting A expects one scaler, not a mapping of target scalers."
+                )
+            scaler = scaler_per_target
+            df["true_values"] = _inverse_transform_values(
+                scaler,
+                df["true_values"],
             )
-            df["pred_values"] = scaler_per_target.inverse_transform(
-                df["pred_values"].values.reshape(-1, 1)
+            df["pred_values"] = _inverse_transform_values(
+                scaler,
+                df["pred_values"],
             )
             if verbose:  # pragma: no cover
                 print("These are the unscaled values: ")
@@ -145,7 +278,10 @@ def get_performance_results(
     # for Setting B, micro, macro and instance-wise averaging version should be available. In settings B,C and probably D, you have a scaler per target.
     elif validation_setting in ["B", "C", "D"]:
         if scaler_per_target is not None:
-            # check if values are scaled and if so, inverse_transform them
+            if not isinstance(scaler_per_target, Mapping):
+                raise TypeError(
+                    f"Setting {validation_setting} expects a mapping of target scalers."
+                )
             df["true_values"] = df.apply(
                 target_wise_true_inverse_transformation,
                 scaler_per_target=scaler_per_target,
@@ -336,14 +472,14 @@ def get_performance_results(
 
 # with micro-averaging you loose the notion of multiple-targets. You just simplify the problem and assume you are working with just one target. The train_true_value variable is only used for the calculation of the relative root mean squared error RRMSE.
 def base_evaluator(  # pragma: no cover
-    rows,
-    problem_mode,
-    metrics,
-    idx,
-    train_true_value=None,
-    verbose=False,
-    threshold=0.5,
-):
+    rows: pd.DataFrame,
+    problem_mode: str,
+    metrics: Sequence[str],
+    idx: Any,
+    train_true_value: TrainingMeans | None = None,
+    verbose: bool = False,
+    threshold: float = 0.5,
+) -> MetricResults:
     """The function that actually calculates the different metrics
 
     Args:
@@ -357,46 +493,58 @@ def base_evaluator(  # pragma: no cover
     Returns:
         dict: a dictionary with the results per metric
     """
-    results = {}
+    if not 0 <= threshold <= 1:
+        raise ValueError("threshold must be between 0 and 1.")
+    if problem_mode not in {"classification", "regression", "ranking"}:
+        raise ValueError(
+            "problem_mode must be 'classification', 'regression', or 'ranking'; "
+            f"received {problem_mode!r}."
+        )
+
+    results: MetricResults = {}
 
     true_values, pred_values = rows["true_values"], rows["pred_values"]
 
     if idx is None:
         idx = getattr(rows, "name", None)
 
+    training_mean: float | None = None
     if train_true_value is not None and idx not in (None, -1):
-        train_true_value = train_true_value[idx]
+        training_mean = float(train_true_value[idx])
 
     if problem_mode == "regression":
         if "RMSE" in metrics:
             # ``squared`` was removed from mean_squared_error in newer
             # scikit-learn releases. The explicit square root works across the
             # old and modern APIs.
-            results["RMSE"] = np.sqrt(mean_squared_error(true_values, pred_values))
+            results["RMSE"] = float(
+                np.sqrt(mean_squared_error(true_values, pred_values))
+            )
         if "MSE" in metrics:
-            # results["MSE"] = np.mean(np.square(true_values - pred_values))
-            results["MSE"] = mean_squared_error(true_values, pred_values)
+            results["MSE"] = float(mean_squared_error(true_values, pred_values))
         if "MAE" in metrics:
-            # results["MAE"] = np.mean(np.abs(true_values - pred_values))
-            results["MAE"] = mean_absolute_error(true_values, pred_values)
+            results["MAE"] = float(mean_absolute_error(true_values, pred_values))
         if "R2" in metrics:
-            results["R2"] = r2_score(true_values, pred_values)
+            results["R2"] = float(r2_score(true_values, pred_values))
         if "RRMSE" in metrics:  # pragma: no cover
-            if train_true_value is None:
-                results["RRMSE"] = np.nan
-                # raise Exception(
-                #     'Requested RRMSE without suplying the average target values from the training set'
-                # )
+            if training_mean is None:
+                results["RRMSE"] = float("nan")
             else:
-                results["RRMSE"] = np.sqrt(
-                    np.mean(np.square(true_values - pred_values))
-                ) / np.sqrt(
-                    np.mean(
-                        np.square(
-                            true_values
-                            - [train_true_value for i in range(len(pred_values))]
+                numerator = float(
+                    np.sqrt(np.mean(np.square(true_values - pred_values)))
+                )
+                denominator = float(
+                    np.sqrt(
+                        np.mean(
+                            np.square(
+                                true_values
+                                - [training_mean for _ in range(len(pred_values))]
+                            )
                         )
                     )
+                )
+                results["RRMSE"] = (
+                    float("nan") if denominator == 0 else numerator / denominator
                 )
 
     elif problem_mode == "classification":
@@ -408,29 +556,40 @@ def base_evaluator(  # pragma: no cover
                 results["fp"],
                 results["fn"],
                 results["tp"],
-            ) = confusion_matrix(true_values, bin_values, labels=[0, 1]).ravel()
+            ) = [
+                float(value)
+                for value in confusion_matrix(
+                    true_values,
+                    bin_values,
+                    labels=[0, 1],
+                ).ravel()
+            ]
 
         if "accuracy" in metrics:
-            results["accuracy"] = accuracy_score(true_values, bin_values)
+            results["accuracy"] = float(accuracy_score(true_values, bin_values))
         if "recall" in metrics:
-            results["recall"] = recall_score(true_values, bin_values, zero_division=0)
+            results["recall"] = float(
+                recall_score(true_values, bin_values, zero_division=0)
+            )
         if "precision" in metrics:
-            results["precision"] = precision_score(
-                true_values, bin_values, zero_division=0
+            results["precision"] = float(
+                precision_score(true_values, bin_values, zero_division=0)
             )
         if "f1_score" in metrics:
-            results["f1_score"] = f1_score(true_values, bin_values, zero_division=0)
+            results["f1_score"] = float(
+                f1_score(true_values, bin_values, zero_division=0)
+            )
         if "hamming_loss" in metrics:
-            results["hamming_loss"] = hamming_loss(true_values, bin_values)
+            results["hamming_loss"] = float(hamming_loss(true_values, bin_values))
 
         if true_values.nunique() > 1:
             if "auroc" in metrics:
-                results["auroc"] = roc_auc_score(true_values, pred_values)
+                results["auroc"] = float(roc_auc_score(true_values, pred_values))
             if "aupr" in metrics:
-                precision, recall, thresholds = precision_recall_curve(
+                precision, recall, _thresholds = precision_recall_curve(
                     true_values, pred_values
                 )
-                results["aupr"] = auc(recall, precision)
+                results["aupr"] = float(auc(recall, precision))
         else:
             if verbose:  # pragma: no cover
                 print(
@@ -471,16 +630,16 @@ def base_evaluator(  # pragma: no cover
 
     elif problem_mode == "ranking":
         if "ndcg" in metrics:
-            results["ndcg"] = ndcg_score(true_values, pred_values)
+            results["ndcg"] = float(ndcg_score(true_values, pred_values))
 
     return results
 
 
 def get_epilepsy_specific_metrics(
-    y_true,
-    y_pred,
-    metrics=None,
-):  # pragma: no cover
+    y_true: Sequence[int],
+    y_pred: Sequence[int],
+    metrics: Sequence[str] | None = None,
+) -> MetricResults:  # pragma: no cover
     """Function that calculates specific metrics used in Epilepsy prediction tasks
 
     Args:
@@ -491,7 +650,7 @@ def get_epilepsy_specific_metrics(
     Returns:
         dict: a dictionary with the results per metric
     """
-    metrics = (
+    selected_metrics = (
         [
             "sensitivity",
             "false_alarm_rate_per_hour",
@@ -501,16 +660,37 @@ def get_epilepsy_specific_metrics(
         if metrics is None
         else list(metrics)
     )
-    results = {}
+    supported_metrics = {
+        "sensitivity",
+        "false_alarm_rate_per_hour",
+        "positive_predictive_value",
+        "f1_score_epilepsy_version",
+    }
+    unknown_metrics = set(selected_metrics).difference(supported_metrics)
+    if unknown_metrics:
+        raise ValueError(f"Unsupported epilepsy metrics: {sorted(unknown_metrics)}.")
+
+    true_array = np.asarray(y_true)
+    predicted_array = np.asarray(y_pred)
+    if true_array.ndim != 1 or predicted_array.ndim != 1:
+        raise ValueError("Epilepsy metrics require one-dimensional inputs.")
+    if len(true_array) != len(predicted_array):
+        raise ValueError("y_true and y_pred must have equal length.")
+    if len(true_array) == 0:
+        raise ValueError("Epilepsy metrics require at least one observation.")
+
+    results: MetricResults = {}
     # define consecutive epileptic moments
     true_episodes = [
-        list(group) for group in mit.consecutive_groups(np.where(y_true == 1)[0])
+        list(group) for group in mit.consecutive_groups(np.where(true_array == 1)[0])
     ]
 
     TP_OVLP = 0
     FN_OVLP = 0
     for i in range(len(true_episodes)):
-        if np.sum(y_pred[true_episodes[i][0] : true_episodes[i][-1]]) > 0:
+        episode_start = true_episodes[i][0]
+        episode_end = true_episodes[i][-1] + 1
+        if np.sum(predicted_array[episode_start:episode_end]) > 0:
             TP_OVLP += 1
         else:
             FN_OVLP += 1
@@ -522,7 +702,10 @@ def get_epilepsy_specific_metrics(
 
         # calculate FPs per sample (stored as True, False values in an arry)
         FPs = np.array(
-            [((y_true[i] == 0) and (y_pred[i] == 1)) for i in range(len(y_pred))]
+            [
+                (true_array[i] == 0) and (predicted_array[i] == 1)
+                for i in range(len(predicted_array))
+            ]
         )
 
         # create chunks for consequtive observations using a user-defined window size
@@ -533,18 +716,20 @@ def get_epilepsy_specific_metrics(
 
         # print('FP: '+str(FP))
 
-        if "sensitivity" in metrics:
-            results["sensitivity" + suffix] = (
+        if "sensitivity" in selected_metrics:
+            results["sensitivity" + suffix] = float(
                 TP_OVLP / (TP_OVLP + FN_OVLP) if (TP_OVLP + FN_OVLP) != 0 else 0
             )
-        if "false_alarm_rate_per_hour" in metrics:
-            results["false_alarm_rate_per_hour" + suffix] = FP / (len(y_true) / 3600)
-        if "positive_predictive_value" in metrics:
-            results["positive_predictive_value" + suffix] = (
+        if "false_alarm_rate_per_hour" in selected_metrics:
+            results["false_alarm_rate_per_hour" + suffix] = float(
+                FP / (len(true_array) / 3600)
+            )
+        if "positive_predictive_value" in selected_metrics:
+            results["positive_predictive_value" + suffix] = float(
                 TP_OVLP / (TP_OVLP + FP) if (TP_OVLP + FP) != 0 else 0
             )
-        if "f1_score_epilepsy_version" in metrics:
-            results["f1_score" + suffix] = (
+        if "f1_score_epilepsy_version" in selected_metrics:
+            results["f1_score" + suffix] = float(
                 (2 * TP_OVLP / (2 * TP_OVLP + FN_OVLP + FP))
                 if (2 * TP_OVLP + FN_OVLP + FP)
                 else 0

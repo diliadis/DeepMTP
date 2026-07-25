@@ -117,3 +117,37 @@ def test_early_stopping():
 def test_early_stopping_rejects_unknown_metric():
     with pytest.raises(AttributeError, match="Invalid metric name"):
         EarlyStopping(True, metric_to_track="not_a_metric")
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        ({"patience": -1}, "patience"),
+        ({"patience": True}, "patience"),
+        ({"delta": -0.1}, "delta"),
+        ({"delta": float("nan")}, "delta"),
+    ],
+)
+def test_early_stopping_rejects_invalid_configuration(arguments, message):
+    with pytest.raises(ValueError, match=message):
+        EarlyStopping(True, **arguments)
+
+
+def test_early_stopping_rejects_missing_or_non_finite_metric():
+    early = EarlyStopping(True)
+
+    with pytest.raises(KeyError, match="val_loss"):
+        early({}, None, 0)
+
+    with pytest.raises(ValueError, match="finite"):
+        early({"val_loss": float("nan")}, None, 0)
+
+
+def test_early_stopping_keeps_a_metric_snapshot():
+    early = EarlyStopping(True)
+    performance = {"val_loss": 0.5}
+
+    early(performance, None, 0)
+    performance["val_loss"] = 1.0
+
+    assert early.get_best_performance_results() == {"val_loss": 0.5}

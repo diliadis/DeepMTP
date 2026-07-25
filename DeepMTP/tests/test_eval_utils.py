@@ -14,7 +14,10 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import StandardScaler
 
-from DeepMTP.utils.eval_utils import get_performance_results
+from DeepMTP.utils.eval_utils import (
+    get_epilepsy_specific_metrics,
+    get_performance_results,
+)
 
 mode = [
     {
@@ -451,3 +454,100 @@ def test_macro_rrmse_uses_each_targets_training_mean():
     assert results["test_RRMSE_target_0"] == pytest.approx(1.0)
     assert results["test_RRMSE_target_1"] == pytest.approx(1.0)
     assert results["test_RRMSE_macro"] == pytest.approx(1.0)
+
+
+def test_target_specific_scalers_restore_original_values():
+    targets = np.array([0, 0, 1, 1])
+    true_values = np.array([10.0, 12.0, 100.0, 104.0])
+    predicted_values = true_values + 1.0
+    scalers = {
+        0: StandardScaler().fit(true_values[targets == 0].reshape(-1, 1)),
+        1: StandardScaler().fit(true_values[targets == 1].reshape(-1, 1)),
+    }
+    scaled_true_values = np.array(
+        [
+            scalers[target].transform([[value]])[0, 0]
+            for target, value in zip(targets, true_values, strict=True)
+        ]
+    )
+    scaled_predicted_values = np.array(
+        [
+            scalers[target].transform([[value]])[0, 0]
+            for target, value in zip(targets, predicted_values, strict=True)
+        ]
+    )
+
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=np.array([0, 1, 0, 1]),
+        targets_arr=targets,
+        true_values_arr=scaled_true_values,
+        pred_values_arr=scaled_predicted_values,
+        validation_setting="B",
+        problem_mode="regression",
+        metrics=["MSE"],
+        averaging=["micro"],
+        scaler_per_target=scalers,
+    )
+
+    assert results["test_MSE_micro"] == pytest.approx(1.0)
+
+
+def test_verbose_evaluation_uses_modern_numpy_nan_api(capsys):
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=[0, 1],
+        targets_arr=[0, 0],
+        true_values_arr=[1.0, 2.0],
+        pred_values_arr=[1.0, 2.0],
+        validation_setting="A",
+        problem_mode="regression",
+        metrics=["MSE"],
+        averaging=["micro"],
+        verbose=True,
+    )
+
+    assert results["test_MSE_micro"] == 0.0
+    assert "non zero predictions" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"validation_setting": "Z"}, "validation_setting"),
+        ({"problem_mode": "forecasting"}, "problem_mode"),
+        ({"averaging": ["weighted"]}, "averaging"),
+        ({"top_k": 0}, "top_k"),
+    ],
+)
+def test_evaluation_rejects_invalid_boundary_values(override, message):
+    arguments = {
+        "mode": "test",
+        "epoch_id": 0,
+        "instances_arr": [0],
+        "targets_arr": [0],
+        "true_values_arr": [1.0],
+        "pred_values_arr": [1.0],
+        "validation_setting": "A",
+        "problem_mode": "regression",
+        "metrics": ["MSE"],
+        "averaging": ["micro"],
+    }
+    arguments.update(override)
+
+    with pytest.raises(ValueError, match=message):
+        get_performance_results(**arguments)
+
+
+def test_epilepsy_metrics_count_single_sample_episode_overlap():
+    results = get_epilepsy_specific_metrics(
+        y_true=[0, 1, 0],
+        y_pred=[0, 1, 0],
+        metrics=["sensitivity"],
+    )
+
+    assert results["sensitivity_1"] == 1.0
+    assert results["sensitivity_10"] == 1.0
+    assert results["sensitivity_60"] == 1.0

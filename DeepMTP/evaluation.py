@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 
@@ -74,26 +74,27 @@ class Evaluator:
         """Calculate configured performance metrics."""
         if not self.config.metrics:
             return {}
-        return cast(
-            dict[str, float],
-            get_performance_results(
-                mode,
-                epoch,
-                output.instance_ids,
-                output.target_ids,
-                output.true_values,
-                output.predicted_values,
-                self.config.validation_setting,
-                self.config.problem_mode,
-                self.config.metrics,
-                self.config.metrics_average,
-                verbose=self.config.results_verbose,
-                per_target_verbose=self.config.eval_target_verbose,
-                per_instance_verbose=self.config.eval_instance_verbose,
-                train_true_value=None,
-                scaler_per_target=None,
-                top_k=self.config.top_k,
-            ),
+        validation_setting = self.config.validation_setting
+        problem_mode = self.config.problem_mode
+        if validation_setting is None or problem_mode is None:
+            raise RuntimeError("Evaluator received an incomplete validated config.")
+        return get_performance_results(
+            mode,
+            epoch,
+            output.instance_ids,
+            output.target_ids,
+            output.true_values,
+            output.predicted_values,
+            validation_setting,
+            problem_mode,
+            self.config.metrics,
+            self.config.metrics_average,
+            verbose=self.config.results_verbose,
+            per_target_verbose=self.config.eval_target_verbose,
+            per_instance_verbose=self.config.eval_instance_verbose,
+            train_true_value=None,
+            scaler_per_target=None,
+            top_k=self.config.top_k,
         )
 
     @staticmethod

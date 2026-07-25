@@ -196,6 +196,8 @@ module = [
     "DeepMTP.simple_hyperband_streamlit",
     "DeepMTP.streamlit_adapter",
     "DeepMTP.training",
+    "DeepMTP.utils.eval_utils",
+    "DeepMTP.utils.model_utils",
 ]
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
