@@ -28,6 +28,58 @@ def test_generate_mtp_dataset_splits_without_side_features():
         assert data[split_name]["X_target"] is None
 
 
+def test_generate_mtp_dataset_splits_both_axes_consistently():
+    data = generate_MTP_dataset(
+        20,
+        10,
+        num_instance_features=3,
+        num_target_features=2,
+        split_instances={"val": 0.2, "test": 0.2},
+        split_targets={"train": 0.5, "val": 0.2, "test": 0.3},
+    )
+    expected_sizes = {
+        "train": (12, 5),
+        "val": (4, 2),
+        "test": (4, 3),
+    }
+
+    for split_name, (num_split_instances, num_split_targets) in expected_sizes.items():
+        interactions = data[split_name]["y"]["data"]
+        instance_features = data[split_name]["X_instance"]["data"]
+        target_features = data[split_name]["X_target"]["data"]
+
+        assert len(interactions) == num_split_instances * num_split_targets
+        assert len(instance_features) == num_split_instances
+        assert len(target_features) == num_split_targets
+        assert set(interactions["instance_id"]) == set(instance_features["id"])
+        assert set(interactions["target_id"]) == set(target_features["id"])
+
+
+def test_generate_mtp_dataset_supports_test_only_split():
+    data = generate_MTP_dataset(
+        20,
+        10,
+        num_instance_features=3,
+        split_instances={"test": 0.2},
+    )
+
+    assert len(data["train"]["y"]["data"]) == 160
+    assert len(data["train"]["X_instance"]["data"]) == 16
+    assert data["val"]["y"] is None
+    assert data["val"]["X_instance"] is None
+    assert len(data["test"]["y"]["data"]) == 40
+    assert len(data["test"]["X_instance"]["data"]) == 4
+
+
+def test_generate_mtp_dataset_rejects_splits_without_training_ids():
+    with pytest.raises(ValueError, match="split_instances.*training"):
+        generate_MTP_dataset(
+            2,
+            10,
+            split_instances={"val": 0.2, "test": 0.2},
+        )
+
+
 def test_generate_dummy_dataset_default_mode_is_valid():
     data = generate_dummy_dataset(
         num_instances=20,
@@ -124,6 +176,27 @@ def test_generate_mtp_dataset_requires_test_ratio_for_validation(split_name):
 
     with pytest.raises(ValueError, match="requires a test ratio"):
         generate_MTP_dataset(20, 10, **arguments)
+
+
+@pytest.mark.parametrize("split_name", ["split_instances", "split_targets"])
+@pytest.mark.parametrize(
+    ("ratio", "exception"),
+    [
+        ({"train": 0.7}, ValueError),
+        ({"train": 0.8, "test": 0.3}, ValueError),
+        ({"val": 0.8, "test": 0.3}, ValueError),
+        ({"test": True}, ValueError),
+        ({"test": 0.2, "holdout": 0.1}, ValueError),
+        ([("test", 0.2)], TypeError),
+    ],
+)
+def test_generate_mtp_dataset_rejects_invalid_split_ratios(
+    split_name,
+    ratio,
+    exception,
+):
+    with pytest.raises(exception, match=split_name):
+        generate_MTP_dataset(20, 10, **{split_name: ratio})
 
 
 def test_dummy_mlc_generates_both_binary_classes():

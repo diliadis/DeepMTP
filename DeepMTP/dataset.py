@@ -95,6 +95,79 @@ def _split_ratio(
     return {"train": train_ratio, "val": result["val"], "test": result["test"]}
 
 
+def _optional_split_ratio(
+    ratio: Mapping[str, float] | None,
+    *,
+    parameter_name: str,
+) -> dict[str, float] | None:
+    """Validate an optional train/test or train/validation/test split."""
+    if ratio is None:
+        return None
+    if not isinstance(ratio, Mapping):
+        raise TypeError(f"{parameter_name} must be a mapping.")
+
+    result = dict(ratio)
+    unknown = set(result).difference({"train", "val", "test"})
+    if unknown:
+        unknown_names = sorted(repr(key) for key in unknown)
+        raise ValueError(f"{parameter_name} contains unknown keys: {unknown_names}.")
+    if "test" not in result:
+        if "val" in result:
+            raise ValueError(
+                f"{parameter_name} requires a test ratio when val is provided."
+            )
+        raise ValueError(f"{parameter_name} is missing the required test ratio.")
+
+    for split_name in ("train", "val", "test"):
+        if split_name not in result:
+            continue
+        value = result[split_name]
+        if isinstance(value, bool) or not isinstance(value, Real) or not 0 < value < 1:
+            raise ValueError(
+                f"{parameter_name}[{split_name!r}] must be between 0 and 1."
+            )
+        result[split_name] = float(value)
+
+    validation_ratio = result.get("val", 0.0)
+    train_ratio = 1 - validation_ratio - result["test"]
+    if train_ratio <= 0:
+        raise ValueError(
+            f"{parameter_name} validation and test ratios must sum to less than 1."
+        )
+    if "train" in result and not np.isclose(result["train"], train_ratio):
+        raise ValueError(f"{parameter_name} ratios must sum to 1.")
+
+    validated = {"train": train_ratio, "test": result["test"]}
+    if "val" in result:
+        validated["val"] = validation_ratio
+    return validated
+
+
+def _partition_ids(
+    ids: np.ndarray,
+    ratio: Mapping[str, float],
+    *,
+    parameter_name: str,
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray]:
+    """Partition ordered IDs using ratios relative to the original axis."""
+    num_validation = int(np.ceil(len(ids) * ratio.get("val", 0.0)))
+    num_test = int(np.ceil(len(ids) * ratio["test"]))
+    if num_validation + num_test >= len(ids):
+        raise ValueError(
+            f"{parameter_name} must leave at least one ID in the training split."
+        )
+
+    test_ids = ids[-num_test:]
+    remaining_ids = ids[:-num_test]
+    if num_validation == 0:
+        return remaining_ids, None, test_ids
+    return (
+        remaining_ids[:-num_validation],
+        remaining_ids[-num_validation:],
+        test_ids,
+    )
+
+
 def _require_positive_integer(name: str, value: int) -> None:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError(f"{name} must be a positive integer.")
@@ -1287,7 +1360,11 @@ def generate_MTP_dataset(
     split_targets: Mapping[str, float] | None = None,
     return_static_features_data: bool = False,
 ) -> ProcessedDatasetBundle:  # pragma: no cover
+    """Generate deterministic triplet data with optional axis-level splits.
 
+    Each split mapping requires a test ratio and may include a validation
+    ratio. The train ratio is derived when omitted and verified when supplied.
+    """
     _require_positive_integer("num_instances", num_instances)
     _require_positive_integer("num_targets", num_targets)
     if num_instance_features is not None and num_instance_features < 0:
@@ -1298,18 +1375,14 @@ def generate_MTP_dataset(
     X_train_instance, X_val_instance, X_test_instance = None, None, None
     X_train_target, X_val_target, X_test_target = None, None, None
     y_train, y_val, y_test = None, None, None
-    split_instances = None if split_instances is None else dict(split_instances)
-    split_targets = None if split_targets is None else dict(split_targets)
-    for name, split_specification in {
-        "split_instances": split_instances,
-        "split_targets": split_targets,
-    }.items():
-        if (
-            split_specification is not None
-            and "val" in split_specification
-            and "test" not in split_specification
-        ):
-            raise ValueError(f"{name} requires a test ratio when val is provided.")
+    split_instances = _optional_split_ratio(
+        split_instances,
+        parameter_name="split_instances",
+    )
+    split_targets = _optional_split_ratio(
+        split_targets,
+        parameter_name="split_targets",
+    )
     train_instance_ids, val_instance_ids, test_instance_ids = None, None, None
     train_target_ids, val_target_ids, test_target_ids = None, None, None
 
@@ -1343,33 +1416,18 @@ def generate_MTP_dataset(
     y_train = pd.DataFrame(triplets, columns=["instance_id", "target_id", "value"])
 
     if split_instances is not None:
-        if "test" in split_instances:
-            train_instance_ids, test_instance_ids = train_test_split(
-                y_train["instance_id"].unique(),
-                test_size=split_instances["test"],
-                shuffle=False,
-            )
-        if "val" in split_instances:
-            split_instances["val"] = split_instances["val"] / (
-                1 - split_instances["test"]
-            )
-            train_instance_ids, val_instance_ids = train_test_split(
-                train_instance_ids, test_size=split_instances["val"], shuffle=False
-            )
+        train_instance_ids, val_instance_ids, test_instance_ids = _partition_ids(
+            y_train["instance_id"].unique(),
+            split_instances,
+            parameter_name="split_instances",
+        )
 
     if split_targets is not None:
-        if "test" in split_targets:
-            train_target_ids, test_target_ids = train_test_split(
-                y_train["target_id"].unique(),
-                test_size=split_targets["test"],
-                shuffle=False,
-            )
-
-        if "val" in split_targets:
-            split_targets["val"] = split_targets["val"] / (1 - split_targets["test"])
-            train_target_ids, val_target_ids = train_test_split(
-                train_target_ids, test_size=split_targets["val"], shuffle=False
-            )
+        train_target_ids, val_target_ids, test_target_ids = _partition_ids(
+            y_train["target_id"].unique(),
+            split_targets,
+            parameter_name="split_targets",
+        )
 
     if val_instance_ids is not None:
         if X_train_instance is not None:

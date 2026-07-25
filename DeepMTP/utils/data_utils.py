@@ -1157,7 +1157,7 @@ def cross_input_consistency_check_targets(
 
 def _split_frame_rows(
     frame: pd.DataFrame,
-    test_size: float,
+    test_size: int | float,
     *,
     shuffle_rows: bool,
     seed: int | None,
@@ -1169,6 +1169,44 @@ def _split_frame_rows(
         shuffle=shuffle_rows,
     )
     return train_frame.copy(), held_out_frame.copy()
+
+
+def _interaction_axis_size(
+    data: Mapping[str, Any],
+    id_column: Literal["instance_id", "target_id"],
+) -> int:
+    """Count unique IDs across every supplied interaction split."""
+    identifiers: set[Any] = set()
+    for mode in ("train", "val", "test"):
+        source = data[mode]["y"]
+        if source is not None:
+            identifiers.update(source["data"][id_column].unique())
+    return len(identifiers)
+
+
+def _interaction_row_count(data: Mapping[str, Any]) -> int:
+    """Count interaction rows across every supplied split."""
+    return sum(
+        len(source["data"])
+        for mode in ("train", "val", "test")
+        if (source := data[mode]["y"]) is not None
+    )
+
+
+def _absolute_split_sizes(
+    population_size: int,
+    ratio: Mapping[str, float],
+    *,
+    population_name: str,
+) -> tuple[int, int]:
+    """Calculate validation and test counts against the original population."""
+    validation_size = int(np.ceil(population_size * ratio["val"]))
+    test_size = int(np.ceil(population_size * ratio["test"]))
+    if validation_size + test_size >= population_size:
+        raise ValueError(
+            f"The requested ratios must leave at least one training {population_name}."
+        )
+    return validation_size, test_size
 
 
 def _copy_feature_source(source: Mapping[str, Any]) -> dict[str, Any]:
@@ -1289,10 +1327,40 @@ def split_data(
     if seed is not None and (not isinstance(seed, int) or isinstance(seed, bool)):
         raise TypeError("seed must be an integer or None.")
 
-    # Work on a private copy so callers can safely reuse their split
-    # configuration across experiments.
     ratio = validate_split_ratio(ratio)
-    ratio["val"] = ratio["val"] / (1 - ratio["test"])
+    validation_size = test_size = 0
+    validation_instance_size = test_instance_size = 0
+    validation_target_size = test_target_size = 0
+    split_is_missing = data["test"]["y"] is None or data["val"]["y"] is None
+    if validation_setting == "A" and split_is_missing:
+        validation_size, test_size = _absolute_split_sizes(
+            _interaction_row_count(data),
+            ratio,
+            population_name="interaction",
+        )
+    elif validation_setting == "B" and split_is_missing:
+        validation_size, test_size = _absolute_split_sizes(
+            _interaction_axis_size(data, "instance_id"),
+            ratio,
+            population_name="instance",
+        )
+    elif validation_setting == "C" and split_is_missing:
+        validation_size, test_size = _absolute_split_sizes(
+            _interaction_axis_size(data, "target_id"),
+            ratio,
+            population_name="target",
+        )
+    elif validation_setting == "D" and split_is_missing:
+        validation_instance_size, test_instance_size = _absolute_split_sizes(
+            _interaction_axis_size(data, "instance_id"),
+            ratio,
+            population_name="instance",
+        )
+        validation_target_size, test_target_size = _absolute_split_sizes(
+            _interaction_axis_size(data, "target_id"),
+            ratio,
+            population_name="target",
+        )
 
     if validation_setting == "B":
         if data["test"]["y"] is None:
@@ -1306,7 +1374,7 @@ def split_data(
                 )
             train_ids, test_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
-                test_size=ratio["test"],
+                test_size=test_size,
                 random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
@@ -1342,7 +1410,7 @@ def split_data(
                 )
             train_ids, val_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
-                test_size=round(ratio["val"], 4),
+                test_size=validation_size,
                 random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
@@ -1413,7 +1481,7 @@ def split_data(
                 )
             train_ids, test_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
-                test_size=ratio["test"],
+                test_size=test_size,
                 random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
@@ -1449,7 +1517,7 @@ def split_data(
                 )
             train_ids, val_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
-                test_size=ratio["val"],
+                test_size=validation_size,
                 random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
@@ -1520,7 +1588,7 @@ def split_data(
                 )
             train_y_data, test_y_data = _split_frame_rows(
                 data["train"]["y"]["data"],
-                ratio["test"],
+                test_size,
                 shuffle_rows=shuffle,
                 seed=seed,
             )
@@ -1544,7 +1612,7 @@ def split_data(
                 )
             train_y_data, val_y_data = _split_frame_rows(
                 data["train"]["y"]["data"],
-                ratio["val"],
+                validation_size,
                 shuffle_rows=shuffle,
                 seed=seed,
             )
@@ -1575,7 +1643,7 @@ def split_data(
                 )
             train_instance_ids, test_instance_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
-                test_size=ratio["test"],
+                test_size=test_instance_size,
                 random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
@@ -1583,7 +1651,7 @@ def split_data(
             test_instance_ids.sort()
             train_target_ids, test_target_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
-                test_size=ratio["test"],
+                test_size=test_target_size,
                 random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
@@ -1630,7 +1698,7 @@ def split_data(
                 )
             train_instance_ids, val_instance_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
-                test_size=ratio["val"],
+                test_size=validation_instance_size,
                 random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
@@ -1638,7 +1706,7 @@ def split_data(
             val_instance_ids.sort()
             train_target_ids, val_target_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
-                test_size=ratio["val"],
+                test_size=validation_target_size,
                 random_state=seed if shuffle else None,
                 shuffle=shuffle,
             )
