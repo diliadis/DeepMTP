@@ -2725,6 +2725,64 @@ def test_split_data(test_split_data_data):
             )
 
 
+@pytest.mark.parametrize("validation_setting", ["B", "C", "D"])
+def test_split_data_recovers_missing_test_side_features(validation_setting):
+    split_instances = (
+        {"train": 0.7, "test": 0.3} if validation_setting in {"B", "D"} else None
+    )
+    split_targets = (
+        {"train": 0.7, "test": 0.3} if validation_setting in {"C", "D"} else None
+    )
+    data = generate_MTP_dataset(
+        20,
+        10,
+        num_instance_features=3,
+        num_target_features=2,
+        split_instances=split_instances,
+        split_targets=split_targets,
+        return_static_features_data=True,
+    )
+
+    feature_axes = []
+    if split_instances is not None:
+        feature_axes.append(("X_instance", "instance_id"))
+    if split_targets is not None:
+        feature_axes.append(("X_target", "target_id"))
+
+    for feature_key, _ in feature_axes:
+        data["train"][feature_key]["data"] = (
+            pd.concat(
+                [
+                    data["train"][feature_key]["data"],
+                    data["test"][feature_key]["data"],
+                ],
+                ignore_index=True,
+            )
+            .drop_duplicates(subset="id")
+            .sort_values("id")
+        )
+        data["test"][feature_key] = None
+        data["val"][feature_key] = None
+
+    split_data(
+        data,
+        validation_setting,
+        split_method="random",
+        ratio={"train": 0.6, "val": 0.1, "test": 0.3},
+        shuffle=False,
+        seed=42,
+        verbose=False,
+    )
+
+    for feature_key, interaction_id in feature_axes:
+        for split_name in ("train", "val", "test"):
+            feature_ids = set(data[split_name][feature_key]["data"]["id"])
+            interaction_ids = set(
+                data[split_name]["y"]["data"][interaction_id].unique()
+            )
+            assert feature_ids == interaction_ids
+
+
 test_data_process_data = [
     {
         "pass_fail": "pass",

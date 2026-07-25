@@ -1,18 +1,17 @@
+import copy
+import warnings
 from collections.abc import Mapping
 
-import pandas as pd
-
-pd.set_option("mode.chained_assignment", None)
 import numpy as np
-import os
+import pandas as pd
+from PIL import Image
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.utils import resample, shuffle
-import warnings
-from PIL import Image
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
-import copy
+
+pd.set_option("mode.chained_assignment", None)
 
 
 def validate_split_ratio(ratio):
@@ -23,9 +22,7 @@ def validate_split_ratio(ratio):
     required_keys = {"train", "val", "test"}
     missing_keys = required_keys.difference(ratio)
     if missing_keys:
-        raise ValueError(
-            f"ratio is missing required keys: {sorted(missing_keys)}."
-        )
+        raise ValueError(f"ratio is missing required keys: {sorted(missing_keys)}.")
 
     validated_ratio = {}
     for split_name in required_keys:
@@ -43,8 +40,7 @@ def validate_split_ratio(ratio):
 
     if not np.isclose(sum(validated_ratio.values()), 1.0):
         raise ValueError(
-            "train, val, and test ratios must sum to 1; received "
-            f"{validated_ratio}."
+            f"train, val, and test ratios must sum to 1; received {validated_ratio}."
         )
     return validated_ratio
 
@@ -140,11 +136,8 @@ def process_interaction_data(interaction_data, verbose=False, print_mode="basic"
         raise Exception(
             "Could not recognize the format of the interaction data. A 2d numpy array or a dataframe(<instance_id, target_id, value>) is currently supported"
         )
-    info["missing_values"] = (
-        False
-        if len(info["data"])
-        == (info["data"]["instance_id"].nunique() * info["data"]["target_id"].nunique())
-        else True
+    info["missing_values"] = len(info["data"]) != (
+        info["data"]["instance_id"].nunique() * info["data"]["target_id"].nunique()
     )
     return info
 
@@ -320,7 +313,8 @@ def check_novel_instances(train, test, verbose=False, print_mode="basic"):
                 novel_instances_detected = True
         else:
             warnings.warn(
-                "Assuming that novelty of instances in test set based on the number of rows between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!"
+                "Assuming that novelty of instances in test set based on the number of rows between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!",
+                stacklevel=2,
             )
             # this is a not so clever way to infer novel instances when your interaction data had a 2d numpy format...
             if len(train_unique_instances) != len(test_unique_instances):
@@ -357,7 +351,8 @@ def check_novel_targets(train, test, verbose=False, print_mode="basic"):
                 novel_targets_detected = True
         else:
             warnings.warn(
-                "Assuming that novelty of targets in test set based on the number of columns between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!"
+                "Assuming that novelty of targets in test set based on the number of columns between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!",
+                stacklevel=2,
             )
             # this is a not so clever way to infer novel instances when your interaction data had a 2d numpy format...
             if len(train_unique_targets) != len(test_unique_targets):
@@ -1106,29 +1101,20 @@ def split_data(
             data["train"]["y"]["data"] = data["train"]["y"]["data"].loc[
                 data["train"]["y"]["data"]["instance_id"].isin(train_ids)
             ]
+            instance_data = data["train"]["X_instance"]["data"]
             data["val"]["X_instance"] = {
-                "data": data["train"]["X_instance"]["data"].loc[
-                    data["train"]["X_instance"]["data"]["id"].isin(val_ids)
-                ]
+                "data": instance_data.loc[instance_data["id"].isin(val_ids)]
             }
-            data["train"]["X_instance"]["data"] = data["train"]["X_instance"][
-                "data"
-            ].loc[data["train"]["X_instance"]["data"]["id"].isin(train_ids)]
             if data["test"]["X_instance"] is None:
-                data["test"]["X_instance"]["data"] = data["train"]["X_instance"][
-                    "data"
-                ].loc[
-                    data["train"]["X_instance"]["data"]["id"].isin(
+                test_instance_data = instance_data.loc[
+                    instance_data["id"].isin(
                         data["test"]["y"]["data"]["instance_id"].unique()
                     )
                 ]
-                data["train"]["X_instance"]["data"] = data["train"]["X_instance"][
-                    "data"
-                ].loc[
-                    ~data["train"]["X_instance"]["data"]["id"].isin(
-                        data["test"]["X_instance"]["id"].unique()
-                    )
-                ]
+                data["test"]["X_instance"] = {"data": test_instance_data}
+            data["train"]["X_instance"]["data"] = instance_data.loc[
+                instance_data["id"].isin(train_ids)
+            ]
             if verbose:
                 print(("info: " if print_mode == "dev" else "") + "Done")
 
@@ -1222,29 +1208,20 @@ def split_data(
             data["train"]["y"]["data"] = data["train"]["y"]["data"].loc[
                 data["train"]["y"]["data"]["target_id"].isin(train_ids)
             ]
+            target_data = data["train"]["X_target"]["data"]
             data["val"]["X_target"] = {
-                "data": data["train"]["X_target"]["data"].loc[
-                    data["train"]["X_target"]["data"]["id"].isin(val_ids)
-                ]
+                "data": target_data.loc[target_data["id"].isin(val_ids)]
             }
-            data["train"]["X_target"]["data"] = data["train"]["X_target"]["data"].loc[
-                data["train"]["X_target"]["data"]["id"].isin(train_ids)
-            ]
             if data["test"]["X_target"] is None:
-                data["test"]["X_target"]["data"] = data["train"]["X_target"][
-                    "data"
-                ].loc[
-                    data["train"]["X_target"]["data"]["id"].isin(
+                test_target_data = target_data.loc[
+                    target_data["id"].isin(
                         data["test"]["y"]["data"]["target_id"].unique()
                     )
                 ]
-                data["train"]["X_target"]["data"] = data["train"]["X_target"][
-                    "data"
-                ].loc[
-                    ~data["train"]["X_target"]["data"]["id"].isin(
-                        data["test"]["X_target"]["id"].unique()
-                    )
-                ]
+                data["test"]["X_target"] = {"data": test_target_data}
+            data["train"]["X_target"]["data"] = target_data.loc[
+                target_data["id"].isin(train_ids)
+            ]
             if verbose:
                 print(("info: " if print_mode == "dev" else "") + "Done")
 
@@ -1286,14 +1263,13 @@ def split_data(
                     + "... ",
                     end="",
                 )
-            data["test"]["y"] = {
-                "data": data["train"]["y"]["data"].sample(
-                    frac=ratio["test"], replace=False, random_state=seed
-                )
-            }
+            test_y_data = data["train"]["y"]["data"].sample(
+                frac=ratio["test"], replace=False, random_state=seed
+            )
+            data["test"]["y"] = {"data": test_y_data}
             # data['test']['y'].update({k:v for k,v in data['train']['y'].items() if k!=data})
             data["train"]["y"]["data"] = data["train"]["y"]["data"].drop(
-                data["test"]["y"]["data"].index
+                test_y_data.index
             )
             if data["train"]["X_instance"] is not None:
                 data["test"]["X_instance"] = data["train"]["X_instance"]
@@ -1311,14 +1287,13 @@ def split_data(
                     + "... ",
                     end="",
                 )
-            data["val"]["y"] = {
-                "data": data["train"]["y"]["data"].sample(
-                    frac=ratio["val"], replace=False, random_state=seed
-                )
-            }
+            val_y_data = data["train"]["y"]["data"].sample(
+                frac=ratio["val"], replace=False, random_state=seed
+            )
+            data["val"]["y"] = {"data": val_y_data}
             # data['val']['y'].update({k:v for k,v in data['train']['y'].items() if k!=data})
             data["train"]["y"]["data"] = data["train"]["y"]["data"].drop(
-                data["val"]["y"]["data"].index
+                val_y_data.index
             )
             if data["train"]["X_instance"] is not None:
                 if data["test"]["X_instance"] is None:
@@ -1426,53 +1401,35 @@ def split_data(
                 & (data["train"]["y"]["data"]["target_id"].isin(train_target_ids))
             ]
 
+            instance_data = data["train"]["X_instance"]["data"]
             data["val"]["X_instance"] = {
-                "data": data["train"]["X_instance"]["data"].loc[
-                    data["train"]["X_instance"]["data"]["id"].isin(val_instance_ids)
-                ]
+                "data": instance_data.loc[instance_data["id"].isin(val_instance_ids)]
             }
-            data["train"]["X_instance"]["data"] = data["train"]["X_instance"][
-                "data"
-            ].loc[data["train"]["X_instance"]["data"]["id"].isin(train_instance_ids)]
             if data["test"]["X_instance"] is None:
-                data["test"]["X_instance"]["data"] = data["train"]["X_instance"][
-                    "data"
-                ].loc[
-                    data["train"]["X_instance"]["data"]["id"].isin(
+                test_instance_data = instance_data.loc[
+                    instance_data["id"].isin(
                         data["test"]["y"]["data"]["instance_id"].unique()
                     )
                 ]
-                data["train"]["X_instance"]["data"] = data["train"]["X_instance"][
-                    "data"
-                ].loc[
-                    ~data["train"]["X_instance"]["data"]["id"].isin(
-                        data["test"]["X_instance"]["id"].unique()
-                    )
-                ]
-
-            data["val"]["X_target"] = {
-                "data": data["train"]["X_target"]["data"].loc[
-                    data["train"]["X_target"]["data"]["id"].isin(val_target_ids)
-                ]
-            }
-            data["train"]["X_target"]["data"] = data["train"]["X_target"]["data"].loc[
-                data["train"]["X_target"]["data"]["id"].isin(train_target_ids)
+                data["test"]["X_instance"] = {"data": test_instance_data}
+            data["train"]["X_instance"]["data"] = instance_data.loc[
+                instance_data["id"].isin(train_instance_ids)
             ]
+
+            target_data = data["train"]["X_target"]["data"]
+            data["val"]["X_target"] = {
+                "data": target_data.loc[target_data["id"].isin(val_target_ids)]
+            }
             if data["test"]["X_target"] is None:
-                data["test"]["X_target"]["data"] = data["train"]["X_target"][
-                    "data"
-                ].loc[
-                    data["train"]["X_target"]["data"]["id"].isin(
+                test_target_data = target_data.loc[
+                    target_data["id"].isin(
                         data["test"]["y"]["data"]["target_id"].unique()
                     )
                 ]
-                data["train"]["X_target"]["data"] = data["train"]["X_target"][
-                    "data"
-                ].loc[
-                    ~data["train"]["X_target"]["data"]["id"].isin(
-                        data["test"]["X_target"]["id"].unique()
-                    )
-                ]
+                data["test"]["X_target"] = {"data": test_target_data}
+            data["train"]["X_target"]["data"] = target_data.loc[
+                target_data["id"].isin(train_target_ids)
+            ]
 
         if data["test"]["X_instance"] is None or data["val"]["X_instance"] is None:
             if data["test"]["X_instance"] is None:
@@ -1556,19 +1513,7 @@ def data_process(
             * general information about the datasets
     """
     data = copy.deepcopy(data)
-    ratio = (
-        {"train": 0.7, "test": 0.2, "val": 0.1}
-        if ratio is None
-        else dict(ratio)
-    )
-    train_flag, test_flag, val_flag = False, False, False
-    setting_A_flag, setting_B_flag, setting_C_flag, setting_D_flag = (
-        None,
-        None,
-        None,
-        None,
-    )
-
+    ratio = {"train": 0.7, "test": 0.2, "val": 0.1} if ratio is None else dict(ratio)
     if validation_setting is not None:
         validation_setting = validation_setting.upper()
 
@@ -1624,12 +1569,11 @@ def data_process(
 
     Also instance or target side information without the corresponding score matrices doesn't make sense
     """
-    if data["test"]["y"] is None:
-        if validation_setting is None:
-            raise AttributeError(
-                ("error: " if print_mode == "dev" else "")
-                + "The validation setting must be specified manually. To automatically infer it you must pass the test set as well!!"
-            )
+    if data["test"]["y"] is None and validation_setting is None:
+        raise AttributeError(
+            ("error: " if print_mode == "dev" else "")
+            + "The validation setting must be specified manually. To automatically infer it you must pass the test set as well!!"
+        )
     """
     else:
         if data['train']['X_instance'] is not None and data['test']['X_instance'] is None:
@@ -1638,12 +1582,14 @@ def data_process(
             raise AttributeError(('error: ' if print_mode=='dev' else '')+'Target features are available for the train set  but not the test set')
     """
 
-    if data["val"]["y"] is None:
-        if data["val"]["X_instance"] is not None or data["val"]["X_target"] is not None:
-            warnings.warn(
-                ("warning: " if print_mode == "dev" else "")
-                + "Warning: You provided side information for the validation set without the interaction matrix. This info won't be used"
-            )
+    if data["val"]["y"] is None and (
+        data["val"]["X_instance"] is not None or data["val"]["X_target"] is not None
+    ):
+        warnings.warn(
+            ("warning: " if print_mode == "dev" else "")
+            + "Warning: You provided side information for the validation set without the interaction matrix. This info won't be used",
+            stacklevel=2,
+        )
     """
     else:
         if data['train']['X_instance'] is not None and data['val']['X_instance'] is None:
