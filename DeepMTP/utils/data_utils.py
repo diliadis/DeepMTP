@@ -42,6 +42,10 @@ class DatasetItem(TypedDict):
     score: Any
 
 
+class NoveltyInferenceWarning(UserWarning):
+    """Warning emitted when entity identity was lost in matrix input."""
+
+
 class InteractionInfo(TypedDict):
     """Normalized interaction data and its detected schema."""
 
@@ -362,52 +366,87 @@ def check_target_variable_type(
     return distinct_target_variable_type.pop()
 
 
+def _check_novel_entities(
+    train: DatasetMapping | None,
+    test: DatasetMapping | None,
+    *,
+    id_column: Literal["instance_id", "target_id"],
+    entity_name: Literal["instances", "targets"],
+    verbose: bool,
+    print_mode: str,
+) -> bool | None:
+    if test is None:
+        return None
+    if train is None:
+        raise ValueError(
+            f"Training interactions are required to detect novel {entity_name}."
+        )
+
+    train_format = train.get("original_format")
+    test_format = test.get("original_format")
+    supported_formats = {"triplets", "numpy"}
+    if train_format not in supported_formats or test_format not in supported_formats:
+        raise ValueError(
+            "Interaction sources must declare original_format as 'triplets' or 'numpy'."
+        )
+    if train_format != test_format:
+        raise ValueError(
+            "Training and test interaction formats must match for novelty detection."
+        )
+
+    train_frame = train.get("data")
+    test_frame = test.get("data")
+    if not isinstance(train_frame, pd.DataFrame) or not isinstance(
+        test_frame, pd.DataFrame
+    ):
+        raise TypeError("Processed interaction data must be pandas DataFrames.")
+    if id_column not in train_frame or id_column not in test_frame:
+        raise ValueError(
+            f"Processed interaction data must contain an {id_column!r} column."
+        )
+
+    if verbose:
+        print(
+            ("info: " if print_mode == "dev" else "")
+            + f"Interaction file: Checking for novel {entity_name}... ",
+            end="",
+        )
+
+    if train_format == "numpy":
+        warnings.warn(
+            f"Cannot determine whether NumPy score matrices contain novel "
+            f"{entity_name} because positional axes do not preserve entity "
+            "identity; returning None. Use triplet interaction data or provide "
+            "validation_setting explicitly.",
+            NoveltyInferenceWarning,
+            stacklevel=2,
+        )
+        novelty_detected = None
+    else:
+        train_ids = set(train_frame[id_column])
+        test_ids = set(test_frame[id_column])
+        novelty_detected = bool(test_ids.difference(train_ids))
+
+    if verbose:
+        print(("info: " if print_mode == "dev" else "") + "Done")
+    return novelty_detected
+
+
 def check_novel_instances(
     train: DatasetMapping | None,
     test: DatasetMapping | None,
     verbose: bool = False,
     print_mode: str = "basic",
 ) -> bool | None:
-    """Checks if the test set contains novel instance ids that are not present in the training set
-
-    Args:
-        train (dict): The actual train interaction data.
-        test (dict): The actual train interaction data.
-        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
-        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
-
-    """
-    if test is None:
-        return None
-    if train is None:
-        raise ValueError(
-            "Training interactions are required to detect novel instances."
-        )
-    if verbose:
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + "Interaction file: Checking for novel instances... ",
-            end="",
-        )
-    train_unique_instances = set(train["data"]["instance_id"])
-    test_unique_instances = set(test["data"]["instance_id"])
-    if train["original_format"] == "triplets":
-        novel_instances_detected = bool(
-            test_unique_instances.difference(train_unique_instances)
-        )
-    else:
-        warnings.warn(
-            "Assuming that novelty of instances in test set based on the number of rows between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!",
-            stacklevel=2,
-        )
-        # The original score matrix does not preserve IDs, so only shape
-        # differences can provide a weak novelty signal.
-        novel_instances_detected = len(train_unique_instances) != len(
-            test_unique_instances
-        )
-    if verbose:
-        print(("info: " if print_mode == "dev" else "") + "Done")
-    return novel_instances_detected
+    """Return whether test interactions contain previously unseen instances."""
+    return _check_novel_entities(
+        train,
+        test,
+        id_column="instance_id",
+        entity_name="instances",
+        verbose=verbose,
+        print_mode=print_mode,
+    )
 
 
 def check_novel_targets(
@@ -416,42 +455,15 @@ def check_novel_targets(
     verbose: bool = False,
     print_mode: str = "basic",
 ) -> bool | None:
-    """Checks if the test set contains novel target ids that are not present in the training set
-
-    Args:
-        train (dict): The actual train interaction data.
-        test (dict): The actual train interaction data.
-        verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
-        print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
-
-    """
-    if test is None:
-        return None
-    if train is None:
-        raise ValueError("Training interactions are required to detect novel targets.")
-    if verbose:
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + "Interaction file: Checking for novel targets... ",
-            end="",
-        )
-    train_unique_targets = set(train["data"]["target_id"])
-    test_unique_targets = set(test["data"]["target_id"])
-    if train["original_format"] == "triplets":
-        novel_targets_detected = bool(
-            test_unique_targets.difference(train_unique_targets)
-        )
-    else:
-        warnings.warn(
-            "Assuming that novelty of targets in test set based on the number of columns between the train and test sets, which can easily be a wrong. Please consider providing the score matrix in the triplet form!",
-            stacklevel=2,
-        )
-        # The original score matrix does not preserve IDs, so only shape
-        # differences can provide a weak novelty signal.
-        novel_targets_detected = len(train_unique_targets) != len(test_unique_targets)
-    if verbose:
-        print(("info: " if print_mode == "dev" else "") + "Done")
-    return novel_targets_detected
+    """Return whether test interactions contain previously unseen targets."""
+    return _check_novel_entities(
+        train,
+        test,
+        id_column="target_id",
+        entity_name="targets",
+        verbose=verbose,
+        print_mode=print_mode,
+    )
 
 
 def get_estimated_validation_setting(
@@ -1993,54 +2005,70 @@ def data_process(
             + "\n"
         )
 
-    # check for novel instances
-    novel_instances = check_novel_instances(
-        data["train"]["y"], data["test"]["y"], verbose=verbose, print_mode=print_mode
-    )
-    if verbose:  # pragma: no cover
-        if novel_instances is None:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "-- Test set was not provided, could not detect if novel instances exist or not "
-            )
-        elif novel_instances:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "-- Novel instances detected in the test set"
-            )
-        else:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "-- no Novel instances detected in the test set"
-            )
+    validation_setting_detected: ValidationSetting | None = None
+    if validation_setting is None:
+        novel_instances = check_novel_instances(
+            data["train"]["y"],
+            data["test"]["y"],
+            verbose=verbose,
+            print_mode=print_mode,
+        )
+        if verbose:  # pragma: no cover
+            if novel_instances is None:
+                print(
+                    ("info: " if print_mode == "dev" else "")
+                    + "-- Could not determine whether novel instances exist"
+                )
+            elif novel_instances:
+                print(
+                    ("info: " if print_mode == "dev" else "")
+                    + "-- Novel instances detected in the test set"
+                )
+            else:
+                print(
+                    ("info: " if print_mode == "dev" else "")
+                    + "-- No novel instances detected in the test set"
+                )
 
-    # check for novel targets
-    novel_targets = check_novel_targets(
-        data["train"]["y"], data["test"]["y"], verbose=verbose, print_mode=print_mode
-    )
-    if verbose:  # pragma: no cover
-        if novel_targets is None:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "-- Test set was not provided, could not detect if novel targets exist or not "
-            )
-        elif novel_targets:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "-- Novel targets detected in the test set"
-            )
-        else:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "-- no Novel targets detected in the test set"
-            )
+        novel_targets = check_novel_targets(
+            data["train"]["y"],
+            data["test"]["y"],
+            verbose=verbose,
+            print_mode=print_mode,
+        )
+        if verbose:  # pragma: no cover
+            if novel_targets is None:
+                print(
+                    ("info: " if print_mode == "dev" else "")
+                    + "-- Could not determine whether novel targets exist"
+                )
+            elif novel_targets:
+                print(
+                    ("info: " if print_mode == "dev" else "")
+                    + "-- Novel targets detected in the test set"
+                )
+            else:
+                print(
+                    ("info: " if print_mode == "dev" else "")
+                    + "-- No novel targets detected in the test set"
+                )
 
-    # use the information about the existence of novel instances and targets to infer the validation setting
-    validation_setting_detected = get_estimated_validation_setting(
-        novel_instances, novel_targets, verbose, print_mode=print_mode
-    )
-    if verbose:
-        print()
+        validation_setting_detected = get_estimated_validation_setting(
+            novel_instances,
+            novel_targets,
+            verbose,
+            print_mode=print_mode,
+        )
+        if verbose:
+            print()
+        if validation_setting_detected is None:
+            raise ValueError(
+                ("error: " if print_mode == "dev" else "")
+                + "Validation setting could not be inferred. Provide "
+                "validation_setting explicitly or use triplet interaction data "
+                "with explicit entity IDs."
+            )
+        validation_setting = validation_setting_detected
 
     # process the instance features
     data["train"]["X_instance"] = process_instance_features(
@@ -2065,24 +2093,6 @@ def data_process(
 
     if verbose:
         print()
-    if validation_setting is None:
-        if validation_setting_detected is not None:
-            validation_setting = validation_setting_detected
-        else:
-            raise ValueError(
-                ("error: " if print_mode == "dev" else "")
-                + "Validation setting was both not provided and not detected"
-            )
-    else:
-        if verbose and validation_setting_detected == "D":
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Detected validation setting D as a possibility but will use the one defined by the user: setting "
-                + validation_setting
-            )
-        # elif validation_setting_detected != validation_setting:
-        #     raise ValueError('Mismatch between the auto-detected validation setting and the one defined by the user --> User: '+validation_setting+' != Auto-detected: '+validation_setting_detected)
-
     if data["train"]["X_instance"] is not None:
         instance_branch_input_dim = data["train"]["X_instance"]["num_features"]
     else:

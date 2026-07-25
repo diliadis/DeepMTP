@@ -12,6 +12,7 @@ from DeepMTP.dataset import (
 from DeepMTP.utils.data_utils import (
     BaseDataset,
     MTPSampler,
+    NoveltyInferenceWarning,
     check_interaction_files_column_type_format,
     check_interaction_files_format,
     check_novel_instances,
@@ -435,7 +436,7 @@ check_novel_instances_data = [
         },
     ),
     (
-        True,
+        None,
         {
             "train": {
                 "data": pd.DataFrame(
@@ -460,7 +461,7 @@ check_novel_instances_data = [
         },
     ),
     (
-        False,
+        None,
         {
             "train": {
                 "data": pd.DataFrame(
@@ -490,7 +491,12 @@ check_novel_instances_data = [
 @pytest.mark.parametrize("check_novel_instances_data", check_novel_instances_data)
 def test_check_novel_instances(check_novel_instances_data):
     true_false, data = check_novel_instances_data
-    assert true_false == check_novel_instances(data["train"], data["test"])
+    if data["train"] is not None and data["train"]["original_format"] == "numpy":
+        with pytest.warns(NoveltyInferenceWarning, match="entity identity"):
+            result = check_novel_instances(data["train"], data["test"])
+    else:
+        result = check_novel_instances(data["train"], data["test"])
+    assert true_false == result
 
 
 check_novel_target_data = [
@@ -546,7 +552,7 @@ check_novel_target_data = [
         },
     ),
     (
-        True,
+        None,
         {
             "train": {
                 "data": pd.DataFrame(
@@ -571,7 +577,7 @@ check_novel_target_data = [
         },
     ),
     (
-        False,
+        None,
         {
             "train": {
                 "data": pd.DataFrame(
@@ -601,7 +607,12 @@ check_novel_target_data = [
 @pytest.mark.parametrize("check_novel_target_data", check_novel_target_data)
 def test_check_novel_targets(check_novel_target_data):
     true_false, data = check_novel_target_data
-    assert true_false == check_novel_targets(data["train"], data["test"])
+    if data["train"] is not None and data["train"]["original_format"] == "numpy":
+        with pytest.warns(NoveltyInferenceWarning, match="entity identity"):
+            result = check_novel_targets(data["train"], data["test"])
+    else:
+        result = check_novel_targets(data["train"], data["test"])
+    assert true_false == result
 
 
 get_estimated_validation_setting_data = [
@@ -610,6 +621,8 @@ get_estimated_validation_setting_data = [
     ((False, True), "C"),
     ((False, False), "A"),
     ((None, None), None),
+    ((None, False), None),
+    ((True, None), None),
 ]
 
 
@@ -3321,6 +3334,42 @@ def test_triplet_novelty_detects_partially_new_ids():
 
     assert check_novel_instances(train, test) is True
     assert check_novel_targets(train, test) is True
+
+
+@pytest.mark.parametrize("checker", [check_novel_instances, check_novel_targets])
+def test_novelty_detection_rejects_mixed_interaction_formats(checker):
+    train = {
+        "data": pd.DataFrame(
+            {
+                "instance_id": [0],
+                "target_id": [0],
+                "value": [1],
+            }
+        ),
+        "original_format": "triplets",
+    }
+    test = {
+        "data": train["data"].copy(),
+        "original_format": "numpy",
+    }
+
+    with pytest.raises(ValueError, match="formats must match"):
+        checker(train, test)
+
+
+def test_data_process_requires_explicit_setting_for_matrix_splits():
+    data = {
+        "train": {"y": np.array([[0, 1], [1, 0]])},
+        "test": {"y": np.array([[1, 0], [0, 1]])},
+    }
+
+    with (
+        pytest.warns(NoveltyInferenceWarning, match="entity identity") as records,
+        pytest.raises(ValueError, match="could not be inferred"),
+    ):
+        data_process(data)
+
+    assert len(records) == 2
 
 
 def test_validation_setting_flags_require_booleans():
