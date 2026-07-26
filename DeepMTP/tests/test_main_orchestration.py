@@ -133,6 +133,19 @@ def test_core_trainer_does_not_read_legacy_config_snapshot():
     assert legacy_reads == []
 
 
+def test_core_trainer_delegates_output_to_progress_observer():
+    tree = ast.parse(inspect.getsource(DeepMTP))
+    direct_prints = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "print"
+    ]
+
+    assert direct_prints == []
+
+
 def test_trainer_builds_reporter_from_typed_configuration(monkeypatch, tmp_path):
     captured_configs = []
     reporter = RecordingReporter()
@@ -192,6 +205,7 @@ def test_training_lifecycle_is_single_run(monkeypatch, tmp_path):
     assert reporter.start_calls == 1
     assert reporter.closed
     assert [event.kind for event in progress.events] == [
+        "device_selected",
         "training_started",
         "training_completed",
     ]
@@ -235,6 +249,54 @@ def test_save_model_does_not_mutate_live_logging_config(tmp_path):
     assert trainer.config["use_tensorboard_logger"] is True
     assert trainer.configuration.use_tensorboard_logger is True
     assert checkpoint["config"]["use_tensorboard_logger"] is False
+
+
+def test_checkpoint_lifecycle_uses_injected_progress_without_stdout(
+    tmp_path,
+    capsys,
+):
+    source_progress = RecordingProgress()
+    source = DeepMTP(
+        make_config(tmp_path, experiment_name="checkpoint_source"),
+        progress=source_progress,
+    )
+    source.early_stopping(
+        {"val_loss": 0.25},
+        source.deepMTP_model,
+        0,
+        optimizer_state_dict=source.optimizer.state_dict(),
+    )
+    source_progress.events.clear()
+
+    source.save_model()
+
+    checkpoint_path = Path(source.experiment_dir) / "model.pt"
+    assert [event.kind for event in source_progress.events] == [
+        "checkpoint_saving_started",
+        "checkpoint_saving_completed",
+    ]
+    assert source_progress.events[-1].message == str(checkpoint_path)
+
+    restored_progress = RecordingProgress()
+    restored_config = make_config(tmp_path, experiment_name="checkpoint_restored")
+    restored_config["verbose"] = True
+    restored = DeepMTP(
+        restored_config,
+        checkpoint_dir=checkpoint_path,
+        progress=restored_progress,
+    )
+
+    assert restored.checkpoint_dict is not None
+    assert [event.kind for event in restored_progress.events] == [
+        "checkpoint_loading_started",
+        "checkpoint_loading_completed",
+        "device_selected",
+        "checkpoint_weights_started",
+        "checkpoint_weights_completed",
+    ]
+    assert restored_progress.events[0].message == str(checkpoint_path)
+    assert restored_progress.events[2].message == "cpu"
+    assert capsys.readouterr().out == ""
 
 
 def test_checkpoint_config_must_be_a_mapping(monkeypatch, tmp_path):

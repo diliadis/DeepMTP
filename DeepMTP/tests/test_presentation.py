@@ -30,6 +30,15 @@ def test_run_history_formats_all_phases_and_missing_metrics():
 
 def test_console_progress_observer_renders_events_and_summaries(capsys):
     observer = ConsoleProgressObserver()
+    observer.on_event(
+        ProgressEvent("checkpoint_loading_started", message="checkpoint.pt")
+    )
+    observer.on_event(ProgressEvent("checkpoint_loading_completed"))
+    observer.on_event(ProgressEvent("device_selected", message="cpu"))
+    observer.on_event(ProgressEvent("checkpoint_weights_started"))
+    observer.on_event(ProgressEvent("checkpoint_weights_completed"))
+    observer.on_event(ProgressEvent("checkpoint_saving_started"))
+    observer.on_event(ProgressEvent("checkpoint_saving_completed"))
     observer.on_event(ProgressEvent("training_started"))
     observer.on_event(ProgressEvent("epoch_started", epoch=2))
     observer.on_event(ProgressEvent("epoch_completed", epoch=2))
@@ -43,6 +52,10 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
     )
 
     output = capsys.readouterr().out
+    assert "Loading checkpoint from checkpoint.pt... Done" in output
+    assert "Selected device: cpu" in output
+    assert "Applying saved weights... Done" in output
+    assert "Saving the best model... Done" in output
     assert "Starting training..." in output
     assert "Epoch:2... Done" in output
     assert "Early stopping criterion met" in output
@@ -56,6 +69,11 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
 def test_null_progress_observer_has_no_output(capsys):
     observer = NullProgressObserver()
 
+    observer.on_event(
+        ProgressEvent("checkpoint_loading_started", message="checkpoint.pt")
+    )
+    observer.on_event(ProgressEvent("device_selected", message="cpu"))
+    observer.on_event(ProgressEvent("checkpoint_saving_started"))
     observer.on_event(ProgressEvent("training_started"))
     observer.on_summary(
         RunSummaries("train", "validation", "test"),

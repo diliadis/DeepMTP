@@ -73,16 +73,29 @@ class DeepMTP:
                 "config must be a mapping or DeepMTPConfig, "
                 f"not {type(config).__name__}."
             )
+        setup_progress = (
+            progress
+            if progress is not None
+            else build_progress_observer(bool(config_overrides.get("verbose", False)))
+        )
 
         # Load a checkpoint file, if it exists
         if checkpoint_dir is not None:
-            if config_overrides.get("verbose", False):
-                print("Loading checkpoint from " + str(checkpoint_dir) + "... ", "")
+            setup_progress.on_event(
+                ProgressEvent(
+                    "checkpoint_loading_started",
+                    message=str(checkpoint_dir),
+                )
+            )
             self.checkpoint_dict = ExperimentStore.load_checkpoint(
                 checkpoint_dir, map_location="cpu"
             )
-            if config_overrides.get("verbose", False):
-                print("Done")
+            setup_progress.on_event(
+                ProgressEvent(
+                    "checkpoint_loading_completed",
+                    message=str(checkpoint_dir),
+                )
+            )
 
             # when a checkpoint is loaded, it's config can (or sometimes has to) be modified
             checkpoint_config = self.checkpoint_dict["config"]
@@ -110,8 +123,9 @@ class DeepMTP:
             if (torch.cuda.is_available() and "cuda" in self.configuration.compute_mode)
             else "cpu"
         )
-        if self.configuration.verbose:
-            print("Selected device: " + str(self.device))
+        self.progress.on_event(
+            ProgressEvent("device_selected", message=str(self.device))
+        )
         self.data_loader_factory = DataLoaderFactory(
             self.configuration,
             self.device,
@@ -147,8 +161,7 @@ class DeepMTP:
 
         if self.checkpoint_dict is not None:
             # apply the loaded checkpoint
-            if self.configuration.verbose:
-                print("Applying saved weights... ", end="")
+            self.progress.on_event(ProgressEvent("checkpoint_weights_started"))
             self.deepMTP_model.load_state_dict(self.checkpoint_dict["model_state_dict"])
             # update the device of the optimizer
             self.optimizer.load_state_dict(self.checkpoint_dict["optimizer_state_dict"])
@@ -156,8 +169,7 @@ class DeepMTP:
                 for k, v in state.items():
                     if isinstance(v, torch.Tensor):
                         state[k] = v.to(self.device)
-            if self.configuration.verbose:
-                print("Done")
+            self.progress.on_event(ProgressEvent("checkpoint_weights_completed"))
 
         # initialize the loss function that will be used. BCE for classification tasks and MSE for regression tasks.
         problem_mode = self.configuration.problem_mode
@@ -572,17 +584,25 @@ class DeepMTP:
             Mapping,
         ):
             raise RuntimeError("Cannot save a model before training has completed.")
-        if verbose:
-            print("Saving the best model... ", end="")
+        progress = (
+            self.progress
+            if self._progress_was_injected
+            else build_progress_observer(verbose)
+        )
+        progress.on_event(ProgressEvent("checkpoint_saving_started"))
         checkpoint_config = dict(self.config)
         checkpoint_config["use_tensorboard_logger"] = False
-        self.experiment_store.save_checkpoint(
+        checkpoint_path = self.experiment_store.save_checkpoint(
             model_state_dict=best_model.state_dict(),
             optimizer_state_dict=best_optimizer_state,
             config=checkpoint_config,
         )
-        if verbose:
-            print("Done")
+        progress.on_event(
+            ProgressEvent(
+                "checkpoint_saving_completed",
+                message=str(checkpoint_path),
+            )
+        )
 
 
 def initialize_mode(config: ConfigInput) -> DeepMTP:  # pragma: no cover

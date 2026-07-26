@@ -89,6 +89,8 @@ all supported options have tests.
 - [ ] Replace wildcard imports and module-level global state.
 - [x] Replace configuration-boundary prints with structured normalization
   warnings and silent documented defaults.
+- [x] Route trainer setup and checkpoint lifecycle messages through progress
+  observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

@@ -91,6 +91,13 @@ class RunHistory:
 
 
 ProgressEventKind = Literal[
+    "checkpoint_loading_started",
+    "checkpoint_loading_completed",
+    "device_selected",
+    "checkpoint_weights_started",
+    "checkpoint_weights_completed",
+    "checkpoint_saving_started",
+    "checkpoint_saving_completed",
     "training_started",
     "training_completed",
     "training_failed",
@@ -156,7 +163,21 @@ class ConsoleProgressObserver:
     """Renders progress events using the historical console messages."""
 
     def on_event(self, event: ProgressEvent) -> None:
-        if event.kind == "training_started":
+        if event.kind == "checkpoint_loading_started":
+            print(f"Loading checkpoint from {event.message}... ", end="")
+        elif event.kind == "checkpoint_loading_completed":
+            print("Done")
+        elif event.kind == "device_selected":
+            print(f"Selected device: {event.message}")
+        elif event.kind == "checkpoint_weights_started":
+            print("Applying saved weights... ", end="")
+        elif event.kind == "checkpoint_weights_completed":
+            print("Done")
+        elif event.kind == "checkpoint_saving_started":
+            print("Saving the best model... ", end="")
+        elif event.kind == "checkpoint_saving_completed":
+            print("Done")
+        elif event.kind == "training_started":
             print("Starting training...")
         elif event.kind == "training_completed":
             print("Training completed.")

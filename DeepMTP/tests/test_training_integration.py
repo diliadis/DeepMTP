@@ -44,6 +44,9 @@ class RecordingProgress:
 
 
 @pytest.mark.integration
+@pytest.mark.filterwarnings(
+    "ignore::DeepMTP.config.ConfigNormalizationWarning",
+)
 @pytest.mark.parametrize(
     ("problem_mode", "metrics", "validation_setting"),
     [
@@ -128,6 +131,7 @@ def test_tiny_cpu_training_and_prediction(
     assert "val_loss" in validation_results
     assert (Path(model.experiment_dir) / "config.json").is_file()
     assert [event.kind for event in progress.events] == [
+        "device_selected",
         "training_started",
         "epoch_started",
         "epoch_completed",
