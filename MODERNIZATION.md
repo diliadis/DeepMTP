@@ -105,6 +105,8 @@ all supported options have tests.
   observers.
 - [x] Route instance and target feature-ingestion messages through data
   progress observers.
+- [x] Route instance and target cross-input consistency messages through data
+  progress observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

@@ -3559,6 +3559,8 @@ def test_failed_interaction_validation_does_not_emit_completion(capsys):
         data_utils_module._process_entity_features,
         data_utils_module.process_instance_features,
         data_utils_module.process_target_features,
+        data_utils_module.cross_input_consistency_check_instances,
+        data_utils_module.cross_input_consistency_check_targets,
     ],
 )
 def test_data_progress_functions_do_not_print_directly(target):
@@ -3812,6 +3814,191 @@ def test_failed_feature_processing_does_not_emit_completion(capsys):
     assert [(event.kind, event.subject) for event in progress.events] == [
         ("operation_started", "target_features")
     ]
+
+
+def make_cross_input_progress_data(original_format="numpy"):
+    identifiers = {
+        "train": (0, 10),
+        "val": (1, 11),
+        "test": (2, 12),
+    }
+    data = {}
+    for split, (instance_id, target_id) in identifiers.items():
+        data[split] = {
+            "y": {
+                "data": pd.DataFrame(
+                    {
+                        "instance_id": [instance_id],
+                        "target_id": [target_id],
+                        "value": [1],
+                    }
+                ),
+                "original_format": original_format,
+            },
+            "X_instance": {"data": pd.DataFrame({"id": [instance_id]})},
+            "X_target": {"data": pd.DataFrame({"id": [target_id]})},
+        }
+    return data
+
+
+def make_shared_cross_input_progress_data():
+    data = make_cross_input_progress_data("triplets")
+    data["train"]["X_instance"] = {"data": pd.DataFrame({"id": [0, 1, 2]})}
+    data["train"]["X_target"] = {"data": pd.DataFrame({"id": [10, 11, 12]})}
+    for split in ("val", "test"):
+        data[split]["X_instance"] = None
+        data[split]["X_target"] = None
+    return data
+
+
+@pytest.mark.parametrize(
+    ("checker", "entity_name"),
+    [
+        (cross_input_consistency_check_instances, "instance"),
+        (cross_input_consistency_check_targets, "target"),
+    ],
+)
+def test_cross_input_consistency_preserves_developer_console_output(
+    checker,
+    entity_name,
+    capsys,
+):
+    checker(
+        make_cross_input_progress_data(),
+        "D",
+        verbose=True,
+        print_mode="dev",
+    )
+
+    assert capsys.readouterr().out == (
+        "info: Cross input consistency for (numpy) interaction data and "
+        f"{entity_name} features checks out\n"
+        f"info: -- Same {entity_name} ids in the interaction and features "
+        "files for the train set\n"
+        f"info: -- Same {entity_name} ids in the interaction and features "
+        "files for the test set\n"
+        f"info: -- Same {entity_name} ids in the interaction and features "
+        "files for the val set\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("checker", "subject"),
+    [
+        (
+            cross_input_consistency_check_instances,
+            "instance_feature_consistency",
+        ),
+        (
+            cross_input_consistency_check_targets,
+            "target_feature_consistency",
+        ),
+    ],
+)
+def test_cross_input_consistency_emits_split_progress(
+    checker,
+    subject,
+    capsys,
+):
+    progress = RecordingDataProgress()
+
+    checker(
+        make_cross_input_progress_data(),
+        "D",
+        verbose=True,
+        print_mode="dev",
+        progress=progress,
+    )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.kind, event.subject, event.value) for event in progress.events] == [
+        ("message", subject, "numpy"),
+        ("message", subject, "train"),
+        ("message", subject, "test"),
+        ("message", subject, "val"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("checker", "validation_setting", "subject"),
+    [
+        (
+            cross_input_consistency_check_instances,
+            "C",
+            "instance_feature_consistency",
+        ),
+        (
+            cross_input_consistency_check_targets,
+            "B",
+            "target_feature_consistency",
+        ),
+    ],
+)
+def test_cross_input_consistency_emits_shared_triplet_progress(
+    checker,
+    validation_setting,
+    subject,
+    capsys,
+):
+    progress = RecordingDataProgress()
+
+    checker(
+        make_shared_cross_input_progress_data(),
+        validation_setting,
+        verbose=True,
+        progress=progress,
+    )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.subject, event.value) for event in progress.events] == [
+        (subject, "triplets"),
+        (subject, "shared"),
+    ]
+
+
+def test_cross_input_consistency_respects_null_progress(capsys):
+    cross_input_consistency_check_targets(
+        make_cross_input_progress_data(),
+        "D",
+        verbose=True,
+        progress=NullDataProgressObserver(),
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+def test_cross_input_consistency_without_features_is_silent(capsys):
+    data = make_cross_input_progress_data()
+    for split in data.values():
+        split["X_instance"] = None
+        split["X_target"] = None
+
+    cross_input_consistency_check_instances(
+        data,
+        "D",
+        verbose=True,
+        print_mode="unknown",
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+def test_failed_cross_input_consistency_emits_only_completed_split_messages(capsys):
+    progress = RecordingDataProgress()
+    data = make_cross_input_progress_data()
+    data["test"]["X_target"]["data"]["id"] = [999]
+
+    with pytest.raises(ValueError, match="Different target ids"):
+        cross_input_consistency_check_targets(
+            data,
+            "D",
+            verbose=True,
+            print_mode="dev",
+            progress=progress,
+        )
+
+    assert capsys.readouterr().out == ""
+    assert [event.value for event in progress.events] == ["numpy", "train"]
 
 
 @pytest.mark.parametrize(

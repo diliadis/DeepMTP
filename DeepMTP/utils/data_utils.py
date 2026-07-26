@@ -133,6 +133,26 @@ def _emit_data_operation_completed(
     )
 
 
+def _emit_data_message(
+    verbose: bool,
+    print_mode: str,
+    progress: DataProgressObserver | None,
+    *,
+    subject: str,
+    message: str,
+    value: object | None = None,
+) -> None:
+    if not verbose:
+        return
+    _resolve_data_progress(verbose, print_mode, progress).on_event(
+        DataProgressEvent(
+            message,
+            subject=subject,
+            value=value,
+        )
+    )
+
+
 def _validate_interaction_frame(frame: pd.DataFrame) -> None:
     if frame.empty:
         raise ValueError("Interaction data must contain at least one observation.")
@@ -803,6 +823,8 @@ def cross_input_consistency_check_instances(
     validation_setting: ValidationSetting,
     verbose: bool,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Checks the consistency of instance ids in the interaction data and instance features. The requirements to pass this check change depending on the format of the interaction data and instance features
 
@@ -811,6 +833,7 @@ def cross_input_consistency_check_instances(
         validation_setting (str): The validation setting of the current problem.
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives verbose instance-consistency messages. Defaults to None.
 
     """
     if validation_setting not in {"A", "B", "C", "D"}:
@@ -842,11 +865,17 @@ def cross_input_consistency_check_instances(
                         + "Different number of (numpy) interaction files and instance feature files is not currently supported"
                     )
                 else:
-                    if verbose:
-                        print(
-                            ("info: " if print_mode == "dev" else "")
-                            + "Cross input consistency for (numpy) interaction data and instance features checks out"
-                        )
+                    _emit_data_message(
+                        verbose,
+                        print_mode,
+                        progress,
+                        subject="instance_feature_consistency",
+                        message=(
+                            "Cross input consistency for (numpy) interaction "
+                            "data and instance features checks out"
+                        ),
+                        value="numpy",
+                    )
                     # if validation_setting == 'B':
                     for mode in valid_modes:
                         unique_entities_in_interactions_file = set(
@@ -861,13 +890,17 @@ def cross_input_consistency_check_instances(
                             )
                             == set()
                         ):
-                            if verbose:
-                                print(
-                                    ("info: " if print_mode == "dev" else "")
-                                    + "-- Same instance ids in the interaction and features files for the "
-                                    + mode
-                                    + " set"
-                                )
+                            _emit_data_message(
+                                verbose,
+                                print_mode,
+                                progress,
+                                subject="instance_feature_consistency",
+                                message=(
+                                    "-- Same instance ids in the interaction and "
+                                    f"features files for the {mode} set"
+                                ),
+                                value=mode,
+                            )
                         else:
                             raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
@@ -885,11 +918,17 @@ def cross_input_consistency_check_instances(
                         + " needs only one instance feature file"
                     )
                 else:
-                    if verbose:
-                        print(
-                            ("info: " if print_mode == "dev" else "")
-                            + "Cross input consistency for (numpy) interaction data and instance features checks out"
-                        )
+                    _emit_data_message(
+                        verbose,
+                        print_mode,
+                        progress,
+                        subject="instance_feature_consistency",
+                        message=(
+                            "Cross input consistency for (numpy) interaction "
+                            "data and instance features checks out"
+                        ),
+                        value="numpy",
+                    )
                     unique_entities_in_interactions_file = set()
                     for mode in valid_modes:
                         unique_entities_in_interactions_file = (
@@ -906,11 +945,17 @@ def cross_input_consistency_check_instances(
                         )
                         == set()
                     ):
-                        if verbose:
-                            print(
-                                ("info: " if print_mode == "dev" else "")
-                                + "-- Same instance ids in the interaction and features file"
-                            )
+                        _emit_data_message(
+                            verbose,
+                            print_mode,
+                            progress,
+                            subject="instance_feature_consistency",
+                            message=(
+                                "-- Same instance ids in the interaction and "
+                                "features file"
+                            ),
+                            value="shared",
+                        )
                     else:
                         raise ValueError(
                             ("error: " if print_mode == "dev" else "")
@@ -945,13 +990,17 @@ def cross_input_consistency_check_instances(
                             )
                             == set()
                         ):
-                            if verbose:
-                                print(
-                                    ("info: " if print_mode == "dev" else "")
-                                    + "-- Same instance ids in the interaction and features files for the "
-                                    + mode
-                                    + " set"
-                                )
+                            _emit_data_message(
+                                verbose,
+                                print_mode,
+                                progress,
+                                subject="instance_feature_consistency",
+                                message=(
+                                    "-- Same instance ids in the interaction and "
+                                    f"features files for the {mode} set"
+                                ),
+                                value=mode,
+                            )
                         else:
                             raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
@@ -985,11 +1034,17 @@ def cross_input_consistency_check_instances(
                             )
                             == set()
                         ):
-                            if verbose:
-                                print(
-                                    ("info: " if print_mode == "dev" else "")
-                                    + "-- Same instance ids in the interaction and features file"
-                                )
+                            _emit_data_message(
+                                verbose,
+                                print_mode,
+                                progress,
+                                subject="instance_feature_consistency",
+                                message=(
+                                    "-- Same instance ids in the interaction and "
+                                    "features file"
+                                ),
+                                value="shared",
+                            )
                         else:
                             raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
@@ -1006,11 +1061,17 @@ def cross_input_consistency_check_instances(
                         + ", only one instance features file is allowed"
                     )
                 else:
-                    if verbose:
-                        print(
-                            ("info: " if print_mode == "dev" else "")
-                            + "-- Cross input consistency for (triplet) interaction data and instance features checks out"
-                        )
+                    _emit_data_message(
+                        verbose,
+                        print_mode,
+                        progress,
+                        subject="instance_feature_consistency",
+                        message=(
+                            "-- Cross input consistency for (triplet) interaction "
+                            "data and instance features checks out"
+                        ),
+                        value="triplets",
+                    )
                     unique_entities_in_interactions_file = set()
                     for mode in valid_modes:
                         unique_entities_in_interactions_file = (
@@ -1027,11 +1088,17 @@ def cross_input_consistency_check_instances(
                         )
                         == set()
                     ):
-                        if verbose:
-                            print(
-                                ("info: " if print_mode == "dev" else "")
-                                + "-- Same instance ids in the interaction and features file"
-                            )
+                        _emit_data_message(
+                            verbose,
+                            print_mode,
+                            progress,
+                            subject="instance_feature_consistency",
+                            message=(
+                                "-- Same instance ids in the interaction and "
+                                "features file"
+                            ),
+                            value="shared",
+                        )
                     else:
                         raise ValueError(
                             ("error: " if print_mode == "dev" else "")
@@ -1046,6 +1113,8 @@ def cross_input_consistency_check_targets(
     validation_setting: ValidationSetting,
     verbose: bool,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Checks the consistency of target ids in the interaction data and target features. The requirements to pass this check change depending on the format of the interaction data and target features
 
@@ -1054,6 +1123,7 @@ def cross_input_consistency_check_targets(
         validation_setting (str): The validation setting of the current problem.
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives verbose target-consistency messages. Defaults to None.
 
     """
     if validation_setting not in {"A", "B", "C", "D"}:
@@ -1085,11 +1155,17 @@ def cross_input_consistency_check_targets(
                         + "Different number of (numpy) interaction files and target feature files is not currently supported"
                     )
                 else:
-                    if verbose:
-                        print(
-                            ("info: " if print_mode == "dev" else "")
-                            + "Cross input consistency for (numpy) interaction data and target features checks out"
-                        )
+                    _emit_data_message(
+                        verbose,
+                        print_mode,
+                        progress,
+                        subject="target_feature_consistency",
+                        message=(
+                            "Cross input consistency for (numpy) interaction "
+                            "data and target features checks out"
+                        ),
+                        value="numpy",
+                    )
                     # if validation_setting == 'C':
                     for mode in valid_modes:
                         unique_entities_in_interactions_file = set(
@@ -1104,13 +1180,17 @@ def cross_input_consistency_check_targets(
                             )
                             == set()
                         ):
-                            if verbose:
-                                print(
-                                    ("info: " if print_mode == "dev" else "")
-                                    + "-- Same target ids in the interaction and features files for the "
-                                    + mode
-                                    + " set"
-                                )
+                            _emit_data_message(
+                                verbose,
+                                print_mode,
+                                progress,
+                                subject="target_feature_consistency",
+                                message=(
+                                    "-- Same target ids in the interaction and "
+                                    f"features files for the {mode} set"
+                                ),
+                                value=mode,
+                            )
                         else:
                             raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
@@ -1127,11 +1207,17 @@ def cross_input_consistency_check_targets(
                         + " needs only one target feature file"
                     )
                 else:
-                    if verbose:
-                        print(
-                            ("info: " if print_mode == "dev" else "")
-                            + "Cross input consistency for (numpy) interaction data and target features checks out"
-                        )
+                    _emit_data_message(
+                        verbose,
+                        print_mode,
+                        progress,
+                        subject="target_feature_consistency",
+                        message=(
+                            "Cross input consistency for (numpy) interaction "
+                            "data and target features checks out"
+                        ),
+                        value="numpy",
+                    )
                     unique_entities_in_interactions_file = set()
                     for mode in valid_modes:
                         unique_entities_in_interactions_file = (
@@ -1148,11 +1234,16 @@ def cross_input_consistency_check_targets(
                         )
                         == set()
                     ):
-                        if verbose:
-                            print(
-                                ("info: " if print_mode == "dev" else "")
-                                + "-- Same target ids in the interaction and features file"
-                            )
+                        _emit_data_message(
+                            verbose,
+                            print_mode,
+                            progress,
+                            subject="target_feature_consistency",
+                            message=(
+                                "-- Same target ids in the interaction and features file"
+                            ),
+                            value="shared",
+                        )
                     else:
                         raise ValueError(
                             ("error: " if print_mode == "dev" else "")
@@ -1187,13 +1278,17 @@ def cross_input_consistency_check_targets(
                             )
                             == set()
                         ):
-                            if verbose:
-                                print(
-                                    ("info: " if print_mode == "dev" else "")
-                                    + "-- Same target ids in the interaction and features files for the "
-                                    + mode
-                                    + " set"
-                                )
+                            _emit_data_message(
+                                verbose,
+                                print_mode,
+                                progress,
+                                subject="target_feature_consistency",
+                                message=(
+                                    "-- Same target ids in the interaction and "
+                                    f"features files for the {mode} set"
+                                ),
+                                value=mode,
+                            )
                         else:
                             raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
@@ -1227,11 +1322,17 @@ def cross_input_consistency_check_targets(
                             )
                             == set()
                         ):
-                            if verbose:
-                                print(
-                                    ("info: " if print_mode == "dev" else "")
-                                    + "-- Same target ids in the interaction and features file"
-                                )
+                            _emit_data_message(
+                                verbose,
+                                print_mode,
+                                progress,
+                                subject="target_feature_consistency",
+                                message=(
+                                    "-- Same target ids in the interaction and "
+                                    "features file"
+                                ),
+                                value="shared",
+                            )
                         else:
                             raise ValueError(
                                 ("error: " if print_mode == "dev" else "")
@@ -1248,11 +1349,17 @@ def cross_input_consistency_check_targets(
                         + ", only one target features file is allowed"
                     )
                 else:
-                    if verbose:
-                        print(
-                            ("info: " if print_mode == "dev" else "")
-                            + "-- Cross input consistency for (triplet) interaction data and target features checks out"
-                        )
+                    _emit_data_message(
+                        verbose,
+                        print_mode,
+                        progress,
+                        subject="target_feature_consistency",
+                        message=(
+                            "-- Cross input consistency for (triplet) interaction "
+                            "data and target features checks out"
+                        ),
+                        value="triplets",
+                    )
                     unique_entities_in_interactions_file = set()
                     for mode in valid_modes:
                         unique_entities_in_interactions_file = (
@@ -1269,11 +1376,16 @@ def cross_input_consistency_check_targets(
                         )
                         == set()
                     ):
-                        if verbose:
-                            print(
-                                ("info: " if print_mode == "dev" else "")
-                                + "-- Same target ids in the interaction and features file"
-                            )
+                        _emit_data_message(
+                            verbose,
+                            print_mode,
+                            progress,
+                            subject="target_feature_consistency",
+                            message=(
+                                "-- Same target ids in the interaction and features file"
+                            ),
+                            value="shared",
+                        )
                     else:
                         raise ValueError(
                             ("error: " if print_mode == "dev" else "")
