@@ -7,6 +7,12 @@ from DeepMTP.config import (
     DeepMTPConfig,
 )
 from DeepMTP.data_loading import DataLoaderFactory, TrainingDataLoaders
+from DeepMTP.data_progress import (
+    ConsoleDataProgressObserver,
+    DataProgressEvent,
+    DataProgressObserver,
+    NullDataProgressObserver,
+)
 from DeepMTP.evaluation import EvaluationPolicy, Evaluator
 from DeepMTP.evaluation_progress import (
     ConsoleEvaluationProgressObserver,
@@ -58,6 +64,10 @@ __all__ = [
     "DeepMTPConfig",
     "DataLoaderFactory",
     "TrainingDataLoaders",
+    "DataProgressEvent",
+    "DataProgressObserver",
+    "ConsoleDataProgressObserver",
+    "NullDataProgressObserver",
     "EvaluationPolicy",
     "Evaluator",
     "EvaluationProgressEvent",

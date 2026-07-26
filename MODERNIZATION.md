@@ -97,6 +97,8 @@ all supported options have tests.
   observers.
 - [x] Route detailed metric results and evaluation diagnostics through
   injectable progress observers.
+- [x] Establish a reusable data progress observer and route split-validation
+  messages through it.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

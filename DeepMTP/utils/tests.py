@@ -10,11 +10,50 @@ from collections.abc import Mapping
 from itertools import combinations
 from typing import Any, TypeAlias
 
+from DeepMTP.data_progress import (
+    DataProgressEvent,
+    DataProgressObserver,
+    build_data_progress_observer,
+)
+
 DatasetSplit: TypeAlias = Mapping[str, Any]
 
 
 class SplitValidationError(ValueError):
     """Raised when generated train, validation, and test splits are inconsistent."""
+
+
+def _resolve_progress(
+    progress: DataProgressObserver | None,
+) -> DataProgressObserver:
+    return progress if progress is not None else build_data_progress_observer(True)
+
+
+def _emit_validation_started(
+    label: str,
+    progress: DataProgressObserver,
+) -> None:
+    progress.on_event(
+        DataProgressEvent(
+            f"Checking if {label} splitting results are valid... ",
+            kind="operation_started",
+            subject=label,
+            end="",
+        )
+    )
+
+
+def _emit_validation_completed(
+    label: str,
+    progress: DataProgressObserver,
+) -> None:
+    progress.on_event(
+        DataProgressEvent(
+            "Done",
+            kind="operation_completed",
+            subject=label,
+        )
+    )
 
 
 def _feature_ids(split: DatasetSplit, feature_name: str) -> set[Any]:
@@ -75,8 +114,9 @@ def _check_instance_partition(
     train: DatasetSplit,
     val: DatasetSplit,
     test: DatasetSplit,
+    progress: DataProgressObserver,
 ) -> None:
-    print(f"Checking if {label} splitting results are valid... ", end="")
+    _emit_validation_started(label, progress)
     instance_ids = {
         split_name: _ensure_feature_ids_match(
             split_name,
@@ -91,34 +131,53 @@ def _check_instance_partition(
         )
     }
     _ensure_pairwise_disjoint(instance_ids, "Instance IDs")
-    print("Done")
+    _emit_validation_completed(label, progress)
 
 
 def check_mlc_results(
     train: DatasetSplit,
     val: DatasetSplit,
     test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Validate a multi-label classification split."""
-    _check_instance_partition("MLC", train, val, test)
+    _check_instance_partition(
+        "MLC",
+        train,
+        val,
+        test,
+        _resolve_progress(progress),
+    )
 
 
 def check_mtr_results(
     train: DatasetSplit,
     val: DatasetSplit,
     test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Validate a multi-target regression split."""
-    _check_instance_partition("MTR", train, val, test)
+    _check_instance_partition(
+        "MTR",
+        train,
+        val,
+        test,
+        _resolve_progress(progress),
+    )
 
 
 def check_dp_results(
     train: DatasetSplit,
     val: DatasetSplit,
     test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Validate feature coverage for a dyadic-prediction split."""
-    print("Checking if DP splitting results are valid... ", end="")
+    progress_observer = _resolve_progress(progress)
+    _emit_validation_started("DP", progress_observer)
     for split_name, split in (
         ("train", train),
         ("validation", val),
@@ -136,16 +195,19 @@ def check_dp_results(
             "X_target",
             "target_id",
         )
-    print("Done")
+    _emit_validation_completed("DP", progress_observer)
 
 
 def check_mc_results(
     train: DatasetSplit,
     val: DatasetSplit,
     test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Validate that matrix-completion splits do not share interaction pairs."""
-    print("Checking if MC splitting results are valid... ", end="")
+    progress_observer = _resolve_progress(progress)
+    _emit_validation_started("MC", progress_observer)
     split_pairs = {
         split_name: _interaction_pairs(split)
         for split_name, split in (
@@ -155,13 +217,21 @@ def check_mc_results(
         )
     }
     _ensure_pairwise_disjoint(split_pairs, "Instance-target pairs")
-    print("Done")
+    _emit_validation_completed("MC", progress_observer)
 
 
 def check_mtl_results(
     train: DatasetSplit,
     val: DatasetSplit,
     test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Validate a multi-task learning split."""
-    _check_instance_partition("MTL", train, val, test)
+    _check_instance_partition(
+        "MTL",
+        train,
+        val,
+        test,
+        _resolve_progress(progress),
+    )
