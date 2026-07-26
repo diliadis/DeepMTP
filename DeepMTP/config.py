@@ -41,6 +41,10 @@ class ConfigDeprecationWarning(FutureWarning):
     """Warns that a legacy configuration option has no runtime effect."""
 
 
+class ConfigNormalizationWarning(UserWarning):
+    """Warns that compatibility configuration input was normalized."""
+
+
 @dataclass
 class DeepMTPConfig:
     """Typed representation of a fully materialized DeepMTP configuration.

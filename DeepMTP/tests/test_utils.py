@@ -1,6 +1,9 @@
+import warnings
+
 import pytest
 
 import DeepMTP.utils.utils as utils
+from DeepMTP import ConfigNormalizationWarning
 from DeepMTP.utils.utils import generate_config, get_optimization_direction
 
 
@@ -73,6 +76,24 @@ def get_default_config_dict():
     }
 
 
+def generate_minimal_config(**overrides):
+    arguments = {
+        "validation_setting": "B",
+        "problem_mode": "classification",
+        "compute_mode": "cpu",
+        "metrics": ["accuracy"],
+        "metrics_average": ["macro"],
+        "instance_branch_architecture": "MLP",
+        "instance_branch_input_dim": 2,
+        "instance_branch_params": {},
+        "target_branch_architecture": "MLP",
+        "target_branch_input_dim": 3,
+        "target_branch_params": {},
+    }
+    arguments.update(overrides)
+    return generate_config(**arguments)
+
+
 get_optimization_direction_data = [
     ("max", "recall"),
     ("max", "val_accuracy_macro"),
@@ -103,6 +124,41 @@ def test_default_image_transforms_explain_optional_dependency(monkeypatch):
 
     with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[image\]"):
         utils.get_default_train_transform()
+
+
+@pytest.mark.parametrize(
+    ("validation_setting", "metrics_average", "expected", "message"),
+    [
+        ("A", ["macro"], ["micro"], "normalized"),
+        ("B", ["micro"], ["micro", "macro"], "Macro averaging"),
+        ("C", ["micro"], ["micro", "macro"], "Macro averaging"),
+        ("D", ["macro"], ["macro", "micro"], "Micro averaging"),
+    ],
+)
+def test_generate_config_warns_when_metric_averaging_is_normalized(
+    validation_setting,
+    metrics_average,
+    expected,
+    message,
+):
+    with pytest.warns(ConfigNormalizationWarning, match=message):
+        config = generate_minimal_config(
+            validation_setting=validation_setting,
+            metrics_average=metrics_average,
+        )
+
+    assert config["metrics_average"] == expected
+
+
+def test_generate_config_applies_documented_branch_defaults_silently(capsys):
+    with warnings.catch_warnings(record=True) as captured_warnings:
+        warnings.simplefilter("always")
+        config = generate_minimal_config()
+
+    assert captured_warnings == []
+    assert capsys.readouterr().out == ""
+    assert config["instance_branch_nodes_per_layer"] == [10, 10, 10]
+    assert config["target_branch_nodes_per_layer"] == [10, 10, 10]
 
 
 def test_generate_config():
@@ -289,6 +345,9 @@ test_generate_config_fails_data = [
 
 @pytest.mark.parametrize(
     "test_generate_config_fails_data", test_generate_config_fails_data
+)
+@pytest.mark.filterwarnings(
+    "ignore::DeepMTP.config.ConfigNormalizationWarning",
 )
 def test_generate_config_fails(test_generate_config_fails_data):
     fail_pass = test_generate_config_fails_data["pass_fail"]

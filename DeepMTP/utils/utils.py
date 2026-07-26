@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import importlib
+import warnings
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
-from DeepMTP.config import DeepMTPConfig
+from DeepMTP.config import ConfigNormalizationWarning, DeepMTPConfig
 
 
 def _load_torchvision_transforms() -> Any:
@@ -401,25 +402,29 @@ def generate_config(
 
     if validation_setting == "A":
         if metrics_average != ["micro"]:
-            print(
+            warnings.warn(
                 "Validation setting A supports only micro-averaged metrics; "
-                "metrics_average has been normalized to ['micro']."
+                "metrics_average has been normalized to ['micro'].",
+                ConfigNormalizationWarning,
+                stacklevel=2,
             )
             metrics_average = ["micro"]
     elif validation_setting in ["B", "C"]:
         if "macro" not in metrics_average:
-            print(
-                "Macro-averaging is the adviced averaging option for validation setting "
-                + validation_setting
-                + ". The macro option will be included in the results"
+            warnings.warn(
+                "Macro averaging is recommended for validation setting "
+                f"{validation_setting}; 'macro' has been added to metrics_average.",
+                ConfigNormalizationWarning,
+                stacklevel=2,
             )
             metrics_average.append("macro")
     elif validation_setting == "D":
         if "micro" not in metrics_average:
-            print(
-                "Micro-averaging is the adviced averaging option for validation setting "
-                + validation_setting
-                + ". The micro option will be included in the results"
+            warnings.warn(
+                "Micro averaging is recommended for validation setting D; "
+                "'micro' has been added to metrics_average.",
+                ConfigNormalizationWarning,
+                stacklevel=2,
             )
             metrics_average.append("micro")
     else:
@@ -461,21 +466,13 @@ def generate_config(
                 "instance_branch_nodes_reducing_factor": 2,
             }
         )
-        for p in [
+        for parameter_name in [
             "instance_branch_nodes_per_layer",
             "instance_branch_layers",
             "instance_branch_nodes_reducing_factor",
         ]:
-            if p not in instance_branch_params:
-                print(
-                    "Warning: "
-                    + p
-                    + " is a necessary hyperparameter to define the instance branch. Using "
-                    + str(base_config[p])
-                    + " as the default"
-                )
-            else:
-                base_config[p] = instance_branch_params[p]
+            if parameter_name in instance_branch_params:
+                base_config[parameter_name] = instance_branch_params[parameter_name]
 
     elif instance_branch_architecture == "CONV":
         base_config.update(
@@ -493,7 +490,7 @@ def generate_config(
                 else instance_inference_transforms,
             }
         )
-        for p in [
+        for parameter_name in [
             "instance_branch_conv_architecture",
             "instance_branch_conv_architecture_version",
             "instance_branch_conv_architecture_dense_layers",
@@ -502,16 +499,8 @@ def generate_config(
             "instance_train_transforms",
             "instance_inference_transforms",
         ]:
-            if p not in instance_branch_params:
-                print(
-                    "Warning: "
-                    + p
-                    + " is a necessary hyperparameter to define the instance branch. Using "
-                    + str(base_config[p])
-                    + " as the default"
-                )
-            else:
-                base_config[p] = instance_branch_params[p]
+            if parameter_name in instance_branch_params:
+                base_config[parameter_name] = instance_branch_params[parameter_name]
     elif (
         instance_branch_architecture == "CUSTOM"
     ):  # this is still a work in progress but should do the trick, for now...
@@ -532,21 +521,13 @@ def generate_config(
                 "target_branch_nodes_reducing_factor": 2,
             }
         )
-        for p in [
+        for parameter_name in [
             "target_branch_nodes_per_layer",
             "target_branch_layers",
             "target_branch_nodes_reducing_factor",
         ]:
-            if p not in target_branch_params:
-                print(
-                    "Warning: "
-                    + p
-                    + " is a necessary hyperparameter to define the target branch. Using "
-                    + str(base_config[p])
-                    + " as the default"
-                )
-            else:
-                base_config[p] = target_branch_params[p]
+            if parameter_name in target_branch_params:
+                base_config[parameter_name] = target_branch_params[parameter_name]
 
     elif target_branch_architecture == "CONV":
         base_config.update(
@@ -564,7 +545,7 @@ def generate_config(
                 else target_inference_transforms,
             }
         )
-        for p in [
+        for parameter_name in [
             "target_branch_conv_architecture",
             "target_branch_conv_architecture_version",
             "target_branch_conv_architecture_dense_layers",
@@ -573,16 +554,8 @@ def generate_config(
             "target_train_transforms",
             "target_inference_transforms",
         ]:
-            if p not in target_branch_params:
-                print(
-                    "Warning: "
-                    + p
-                    + " is a necessary hyperparameter to define the target branch. Using "
-                    + str(base_config[p])
-                    + " as the default"
-                )
-            else:
-                base_config[p] = target_branch_params[p]
+            if parameter_name in target_branch_params:
+                base_config[parameter_name] = target_branch_params[parameter_name]
     elif (
         target_branch_architecture == "CUSTOM"
     ):  # this is still a work in progress but should do the trick, for now...

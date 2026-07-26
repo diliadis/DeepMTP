@@ -87,6 +87,8 @@ all supported options have tests.
 - [ ] Migrate internal dictionary lookups to typed configuration access as the
   trainer is split, while preserving the public dictionary adapter.
 - [ ] Replace wildcard imports and module-level global state.
+- [x] Replace configuration-boundary prints with structured normalization
+  warnings and silent documented defaults.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

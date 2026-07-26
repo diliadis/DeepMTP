@@ -315,6 +315,11 @@ provided for every target. The trainer does not yet retain those baselines, so
 RRMSE is rejected in trainer configurations instead of returning silent `NaN`
 results.
 
+`generate_config` applies documented branch defaults silently. If it changes
+`metrics_average` to satisfy or recommend a validation-setting policy, it emits
+`ConfigNormalizationWarning` so applications can display, filter, or escalate
+that adjustment using Python's standard warnings controls.
+
 
 ## Instance and target branch hyperparameters 
 As mentioned before, all hyperparameters needed to define the architecture of the instance or target branch are passed as key-value pairs in the `instance_branch_params` and `target_branch_params`.

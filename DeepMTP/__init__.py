@@ -2,6 +2,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from DeepMTP.config import (
     ConfigDeprecationWarning,
+    ConfigNormalizationWarning,
     ConfigValidationError,
     DeepMTPConfig,
 )
@@ -46,6 +47,7 @@ except PackageNotFoundError:
 
 __all__ = [
     "ConfigDeprecationWarning",
+    "ConfigNormalizationWarning",
     "ConfigValidationError",
     "DeepMTPConfig",
     "DataLoaderFactory",
