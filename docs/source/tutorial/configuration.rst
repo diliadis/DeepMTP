@@ -51,6 +51,9 @@ In the code snippet above the function generate_config is shown without any spec
      - The averaging strategy used to calculate metrics. The available options
        are ['macro', 'micro', 'instance']; validation setting A supports only
        ['micro'].
+   * - **top_k**
+     - Number of top predictions used to calculate grouped metric variants;
+       requires ``macro`` or ``instance`` averaging
    * - **metric_to_optimize_early_stopping**
      - The metric that will be used for tracking by the early stopping routine. The value can be the **loss** or one of the available performance metrics.
    * - **metric_to_optimize_best_epoch_selection**

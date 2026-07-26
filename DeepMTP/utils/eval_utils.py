@@ -222,10 +222,11 @@ def _validate_evaluation_inputs(
                 parameter_name="scaler_per_target",
                 require_inverse_transformers=True,
             )
-    if top_k is not None and (
-        not isinstance(top_k, int) or isinstance(top_k, bool) or top_k <= 0
-    ):
-        raise ValueError("top_k must be a positive integer when provided.")
+    if top_k is not None:
+        if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k <= 0:
+            raise ValueError("top_k must be a positive integer when provided.")
+        if not {"macro", "instance"}.intersection(averaging):
+            raise ValueError("top_k requires macro or instance averaging.")
 
 
 def get_performance_results(
@@ -265,7 +266,7 @@ def get_performance_results(
         verbose (bool, optional): Whether or not to print useful info in the terminal. Defaults to False.
         per_target_verbose (bool, optional): Whether or not to print useful info per target in the terminal. Defaults to False.
         per_instance_verbose (bool, optional): Whether or not to print useful info per instance in the terminal. Defaults to False.
-        top_k (_type_, optional): The number of top performing instances or targets that are used to calculate metrics. Defaults to None.
+        top_k (int, optional): The number of top-performing instances or targets used to calculate grouped metrics. Requires macro or instance averaging. Defaults to None.
         return_detailed_macro (bool, optional): Whether to include per-target metrics in addition to macro averages. Requires macro averaging. Defaults to False.
         train_true_value (_type_, optional): The training mean for every target, required when calculating macro RRMSE. Defaults to None.
         scaler_per_target (_type_, optional): One global scaler for setting A or a scaler for every target in settings B-D. Supported for regression scores only. Defaults to None.

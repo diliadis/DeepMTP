@@ -344,6 +344,12 @@ class DeepMTPConfig:
             raise ConfigValidationError(
                 "return_results_per_target requires 'macro' in metrics_average."
             )
+        if self.top_k is not None and not {"macro", "instance"}.intersection(
+            self.metrics_average
+        ):
+            raise ConfigValidationError(
+                "top_k requires 'macro' or 'instance' in metrics_average."
+            )
 
         selectable_metrics = {
             f"{metric}_{averaging}"

@@ -161,6 +161,17 @@ def test_per_target_results_require_macro_averaging():
         DeepMTPConfig.from_mapping(config)
 
 
+def test_top_k_requires_grouped_averaging():
+    config = make_valid_config(top_k=3)
+    config["metrics_average"] = ["micro"]
+
+    with pytest.raises(
+        ConfigValidationError,
+        match="top_k requires 'macro' or 'instance'",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
 def test_generate_config_mutable_defaults_are_isolated():
     first = make_valid_config()
     first["metrics"].append("precision")

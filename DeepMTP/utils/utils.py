@@ -247,7 +247,7 @@ def generate_config(
         random_seed (int, optional): The seed used for isolated model initialization and training-data shuffling. Use None for nondeterministic behavior. Defaults to 2.
         metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
         metrics_average (list, optional): The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
-        top_k (float, optional): The number of top predictions used to calculate top_k versions of metrics (frequently used in collaborative filtering problems).
+        top_k (int, optional): The number of top predictions used to calculate grouped top-k metric versions. Requires macro or instance averaging.
         patience (int, optional): The number of epochs that the network is allowed to continue training for while observing worse overall performance. Defaults to 10.
         delta (float, optional): The delta used during early stopping
         evaluate_train (bool, optional): Whether or not to calculate performance metrics over the training set. Defaults to False.
