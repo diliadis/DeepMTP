@@ -57,6 +57,16 @@ def test_model_factory_builds_each_combination_architecture(
     assert output.shape == (2, 1)
 
 
+def test_built_in_models_do_not_read_legacy_config_snapshot():
+    factory = ModelFactory(make_config(general_architecture_version="mlp"))
+    factory.legacy_config["comb_mlp_nodes_per_layer"] = [-1]
+    factory.legacy_config["dropout_rate"] = 2.0
+
+    bundle = factory.build()
+
+    assert bundle.model(torch.ones(2, 2), torch.ones(2, 3)).shape == (2, 1)
+
+
 def test_seeded_model_creation_is_repeatable_and_restores_global_rng():
     config = make_config(random_seed=23)
     global_state = torch.random.get_rng_state()

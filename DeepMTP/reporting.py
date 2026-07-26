@@ -6,7 +6,11 @@ import importlib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeAlias
+
+from DeepMTP.config import DeepMTPConfig
+
+ReporterConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
 
 
 class OptionalIntegrationError(ImportError):
@@ -166,16 +170,23 @@ class WandBReporter:
 
 
 def build_reporter(
-    config: Mapping[str, Any],
+    config: ReporterConfigInput,
     experiment_dir: str | Path,
 ) -> ExperimentReporter:
-    """Build reporters from the legacy configuration switches."""
+    """Build configured reporters from typed or legacy configuration."""
+    if isinstance(config, DeepMTPConfig):
+        use_tensorboard_logger = config.use_tensorboard_logger
+        project_name = config.wandb_project_name
+        project_entity = config.wandb_project_entity
+    else:
+        use_tensorboard_logger = config["use_tensorboard_logger"]
+        project_name = config["wandb_project_name"]
+        project_entity = config["wandb_project_entity"]
+
     reporters: list[ExperimentReporter] = []
-    if config["use_tensorboard_logger"]:
+    if use_tensorboard_logger:
         reporters.append(TensorBoardReporter(experiment_dir))
 
-    project_name = config["wandb_project_name"]
-    project_entity = config["wandb_project_entity"]
     if project_name is not None and project_entity is not None:
         reporters.append(WandBReporter(project_name, project_entity))
 

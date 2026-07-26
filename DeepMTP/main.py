@@ -288,7 +288,7 @@ class DeepMTP:
         reporter = self.reporter
         if reporter is None:
             reporter = build_reporter(
-                self.config,
+                self.configuration,
                 self.experiment_dir,
             )
             self.reporter = reporter

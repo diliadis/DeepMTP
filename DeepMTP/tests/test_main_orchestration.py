@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import DeepMTP.main as main_module
 from DeepMTP.main import DeepMTP
 from DeepMTP.persistence import ExperimentStore
 
@@ -95,6 +96,30 @@ def test_core_trainer_does_not_read_legacy_config_snapshot():
     ]
 
     assert legacy_reads == []
+
+
+def test_trainer_builds_reporter_from_typed_configuration(monkeypatch, tmp_path):
+    captured_configs = []
+    reporter = RecordingReporter()
+
+    def build_recording_reporter(config, experiment_dir):
+        captured_configs.append(config)
+        return reporter
+
+    monkeypatch.setattr(main_module, "build_reporter", build_recording_reporter)
+    trainer = DeepMTP(
+        make_config(tmp_path, experiment_name="typed_reporter_config"),
+    )
+    monkeypatch.setattr(
+        trainer,
+        "_train",
+        lambda *args, **kwargs: {"val_loss": 0.25},
+    )
+
+    trainer.train({}, {}, {})
+
+    assert captured_configs == [trainer.configuration]
+    assert reporter.closed
 
 
 def test_reporter_is_closed_when_start_fails(tmp_path):

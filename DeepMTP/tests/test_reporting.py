@@ -4,6 +4,7 @@ import pytest
 
 import DeepMTP.main as main_module
 import DeepMTP.reporting as reporting_module
+from DeepMTP import DeepMTPConfig
 from DeepMTP.reporting import (
     CompositeReporter,
     NullReporter,
@@ -37,6 +38,22 @@ def base_reporting_config(**overrides):
     }
     config.update(overrides)
     return config
+
+
+def typed_reporting_config(**overrides):
+    values = {
+        "validation_setting": "B",
+        "problem_mode": "classification",
+        "compute_mode": "cpu",
+        "metrics": [],
+        "metrics_average": ["macro"],
+        "instance_branch_architecture": "MLP",
+        "instance_branch_input_dim": 2,
+        "target_branch_architecture": "MLP",
+        "target_branch_input_dim": 2,
+    }
+    values.update(overrides)
+    return DeepMTPConfig(**values)
 
 
 def test_composite_reporter_fans_out_and_closes_in_reverse_order():
@@ -102,6 +119,15 @@ def test_disabled_integrations_do_not_import_optional_modules(monkeypatch, tmp_p
     reporter.start({}, object())
     reporter.log_metrics({"loss": 1.0}, step=0)
     reporter.close()
+
+
+def test_reporter_builder_accepts_typed_configuration(tmp_path):
+    reporter = build_reporter(
+        typed_reporting_config(use_tensorboard_logger=True),
+        tmp_path,
+    )
+
+    assert isinstance(reporter, TensorBoardReporter)
 
 
 def test_tensorboard_reporter_preserves_legacy_metric_names(monkeypatch, tmp_path):

@@ -4,10 +4,14 @@ import importlib
 from collections import OrderedDict
 from collections.abc import Mapping
 from types import ModuleType
-from typing import Any
+from typing import Any, TypeAlias
 
 import torch
 from torch import nn
+
+from DeepMTP.config import DeepMTPConfig
+
+ModelConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
 
 
 def _load_torchvision_models() -> ModuleType:
@@ -25,7 +29,7 @@ class MLP(nn.Sequential):
 
     def __init__(
         self,
-        config: Mapping[str, Any],
+        config: ModelConfigInput,
         input_dim: int,
         output_dim: int,
         nodes_per_layer: list[int] | int,
@@ -86,7 +90,7 @@ class ConvNet(nn.Sequential):
 
     def __init__(
         self,
-        config: Mapping[str, Any],
+        config: ModelConfigInput,
         input_dim: int,
         output_dim: int,
         conv_architecture: str,

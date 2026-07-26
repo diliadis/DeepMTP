@@ -77,6 +77,7 @@ all supported options have tests.
 - [x] Replace wildcard imports and import-time RNG mutation in the core
   trainer, using isolated model and dataloader generators instead.
 - [x] Use typed configuration attributes for core trainer read paths.
+- [x] Use typed configuration at built-in model and reporting boundaries.
 - [ ] Separate data preparation, datasets, models, training, evaluation,
   persistence, and experiment reporting.
 - [ ] Migrate internal dictionary lookups to typed configuration access as the

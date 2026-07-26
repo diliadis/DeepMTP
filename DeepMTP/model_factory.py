@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeAlias
 
 import torch
 from torch import nn
@@ -13,13 +13,15 @@ from torch import nn
 from DeepMTP.branch_models import MLP, ConvNet
 from DeepMTP.config import DeepMTPConfig
 
+ModelConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
+
 
 class TwoBranchDotProductModel(nn.Module):
     """Combine equal-sized branch embeddings with a dot product."""
 
     def __init__(
         self,
-        config: Mapping[str, Any],
+        config: ModelConfigInput,
         instance_branch_model: nn.Module,
         target_branch_model: nn.Module,
     ) -> None:
@@ -45,7 +47,7 @@ class TwoBranchMLPModel(nn.Module):
 
     def __init__(
         self,
-        config: Mapping[str, Any],
+        config: ModelConfigInput,
         instance_branch_model: nn.Module,
         target_branch_model: nn.Module,
     ) -> None:
@@ -56,14 +58,24 @@ class TwoBranchMLPModel(nn.Module):
             instance_branch_model[0][-2].out_features
             + target_branch_model[0][-2].out_features
         )
+        if isinstance(config, DeepMTPConfig):
+            nodes_per_layer = config.comb_mlp_nodes_per_layer
+            num_layers = config.comb_mlp_layers
+            dropout_rate = config.dropout_rate
+            batch_norm = config.batch_norm
+        else:
+            nodes_per_layer = config["comb_mlp_nodes_per_layer"]
+            num_layers = config["comb_mlp_layers"]
+            dropout_rate = config["dropout_rate"]
+            batch_norm = config["batch_norm"]
         self.comb_branch = MLP(
             config,
             combined_dimension,
             1,
-            config["comb_mlp_nodes_per_layer"],
-            config["comb_mlp_layers"],
-            config["dropout_rate"],
-            config["batch_norm"],
+            nodes_per_layer,
+            num_layers,
+            dropout_rate,
+            batch_norm,
             skip_last_act=True,
         )
 
@@ -86,7 +98,7 @@ class TwoBranchKroneckerModel(nn.Module):
 
     def __init__(
         self,
-        config: Mapping[str, Any],
+        config: ModelConfigInput,
         instance_branch_model: nn.Module,
         target_branch_model: nn.Module,
     ) -> None:
@@ -199,7 +211,7 @@ class ModelFactory:
             )
         if architecture == "MLP":
             return MLP(
-                self.legacy_config,
+                self.config,
                 getattr(self.config, f"{branch}_branch_input_dim"),
                 output_dim,
                 getattr(self.config, f"{branch}_branch_nodes_per_layer"),
@@ -209,7 +221,7 @@ class ModelFactory:
             )
         if architecture == "CONV":
             return ConvNet(
-                self.legacy_config,
+                self.config,
                 getattr(self.config, f"{branch}_branch_input_dim"),
                 output_dim,
                 getattr(self.config, f"{branch}_branch_conv_architecture"),
@@ -241,7 +253,7 @@ class ModelFactory:
         }
         model_type = model_types[architecture]
         return model_type(
-            self.legacy_config,
+            self.config,
             instance_branch,
             target_branch,
         )
