@@ -23,6 +23,7 @@ class DataProgressEvent:
     subject: str | None = None
     level: DataProgressLevel = "info"
     end: str = "\n"
+    value: object | None = None
 
 
 class DataProgressObserver(Protocol):

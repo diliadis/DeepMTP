@@ -1,8 +1,13 @@
+import ast
+import inspect
+
 import numpy as np
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+import DeepMTP.utils.data_utils as data_utils_module
+from DeepMTP import DataProgressEvent, NullDataProgressObserver
 from DeepMTP.dataset import (
     generate_MTP_dataset,
     process_dummy_DP,
@@ -29,6 +34,18 @@ from DeepMTP.utils.data_utils import (
     split_data,
     validate_split_ratio,
 )
+
+
+class RecordingDataProgress:
+    def __init__(self) -> None:
+        self.events: list[DataProgressEvent] = []
+
+    def __bool__(self) -> bool:
+        return False
+
+    def on_event(self, event: DataProgressEvent) -> None:
+        self.events.append(event)
+
 
 data_format_type_combo_data = [
     {"pass_fail": "pass", "format": "numpy", "ids_type": "int"},
@@ -3303,6 +3320,160 @@ def test_interaction_format_check_is_silent_when_not_verbose(capsys):
     check_interaction_files_format(data, verbose=False)
 
     assert capsys.readouterr().out == ""
+
+
+def test_interaction_validation_preserves_developer_console_output(capsys):
+    process_interaction_data(
+        np.array([[0, 1], [1, 0]]),
+        verbose=True,
+        print_mode="dev",
+    )
+    data = {
+        split: {"y": {"original_format": "triplets"}}
+        for split in ("train", "val", "test")
+    }
+
+    check_interaction_files_format(data, verbose=True, print_mode="dev")
+
+    assert capsys.readouterr().out == (
+        "info: Interaction file: 2d numpy array format detected\n"
+        "info: Interaction file: checking format consistency... info: Passed\n"
+    )
+
+
+def test_interaction_validation_emits_structured_progress(capsys):
+    progress = RecordingDataProgress()
+    interaction_frame = pd.DataFrame(
+        {
+            "instance_id": [0, 1],
+            "target_id": [0, 1],
+            "value": [0, 1],
+        }
+    )
+    interaction_info = {
+        "data": interaction_frame,
+        "original_format": "triplets",
+        "instance_id_type": "int",
+        "target_id_type": "int",
+    }
+    data = {split: {"y": interaction_info} for split in ("train", "val", "test")}
+    novel_test = {
+        **interaction_info,
+        "data": pd.DataFrame(
+            {
+                "instance_id": [1, 2],
+                "target_id": [1, 2],
+                "value": [1, 0],
+            }
+        ),
+    }
+
+    process_interaction_data(
+        np.array([[0, 1], [1, 0]]),
+        verbose=True,
+        print_mode="dev",
+        progress=progress,
+    )
+    check_interaction_files_format(data, verbose=True, progress=progress)
+    check_interaction_files_column_type_format(
+        data,
+        verbose=True,
+        progress=progress,
+    )
+    assert check_target_variable_type(data, verbose=True, progress=progress) == "binary"
+    assert (
+        check_novel_instances(
+            interaction_info,
+            novel_test,
+            verbose=True,
+            progress=progress,
+        )
+        is True
+    )
+    assert (
+        check_novel_targets(
+            interaction_info,
+            novel_test,
+            verbose=True,
+            progress=progress,
+        )
+        is True
+    )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.subject, event.kind, event.value) for event in progress.events] == [
+        ("interaction_format", "message", "numpy"),
+        ("interaction_format_consistency", "operation_started", None),
+        ("interaction_format_consistency", "operation_completed", "triplets"),
+        ("instance_id_format_consistency", "operation_started", None),
+        ("instance_id_format_consistency", "operation_completed", "int"),
+        ("target_id_format_consistency", "operation_started", None),
+        ("target_id_format_consistency", "operation_completed", "int"),
+        ("target_variable_type_consistency", "operation_started", None),
+        ("target_variable_type_consistency", "operation_completed", "binary"),
+        ("novel_instances", "operation_started", None),
+        ("novel_instances", "operation_completed", True),
+        ("novel_targets", "operation_started", None),
+        ("novel_targets", "operation_completed", True),
+    ]
+
+
+def test_interaction_validation_respects_null_progress(capsys):
+    process_interaction_data(
+        np.array([[0, 1], [1, 0]]),
+        verbose=True,
+        progress=NullDataProgressObserver(),
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+def test_failed_interaction_validation_does_not_emit_completion(capsys):
+    progress = RecordingDataProgress()
+    data = {
+        "train": {"y": {"original_format": "triplets"}},
+        "val": {"y": {"original_format": "numpy"}},
+        "test": {"y": {"original_format": "triplets"}},
+    }
+
+    with pytest.raises(ValueError, match="Inconsistent file formats"):
+        check_interaction_files_format(
+            data,
+            verbose=True,
+            print_mode="dev",
+            progress=progress,
+        )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.subject, event.kind) for event in progress.events] == [
+        ("interaction_format_consistency", "operation_started")
+    ]
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        data_utils_module.process_interaction_data,
+        data_utils_module.check_interaction_files_format,
+        data_utils_module.check_interaction_files_column_type_format,
+        data_utils_module.check_target_variable_type,
+        data_utils_module._check_novel_entities,
+        data_utils_module.check_novel_instances,
+        data_utils_module.check_novel_targets,
+    ],
+)
+def test_interaction_validation_functions_do_not_print_directly(target):
+    tree = ast.parse(inspect.getsource(target))
+
+    direct_prints = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "print"
+    ]
+
+    assert direct_prints == []
 
 
 def test_variable_type_rejects_empty_values():

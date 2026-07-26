@@ -20,6 +20,12 @@ from DeepMTP._split_utils import (
 from DeepMTP._split_utils import (
     validate_split_ratio as _validate_split_ratio,
 )
+from DeepMTP.data_progress import (
+    DataPrintMode,
+    DataProgressEvent,
+    DataProgressObserver,
+    build_data_progress_observer,
+)
 
 pd.set_option("mode.chained_assignment", None)
 
@@ -79,6 +85,52 @@ class Transformer(Protocol):
         """Transform values using a previously fitted scaler."""
 
 
+def _resolve_data_progress(
+    verbose: bool,
+    print_mode: str,
+    progress: DataProgressObserver | None,
+) -> DataProgressObserver:
+    if progress is not None:
+        return progress
+    return build_data_progress_observer(
+        verbose,
+        print_mode=cast(DataPrintMode, print_mode),
+    )
+
+
+def _emit_data_operation_started(
+    progress: DataProgressObserver,
+    *,
+    subject: str,
+    message: str,
+) -> None:
+    progress.on_event(
+        DataProgressEvent(
+            message,
+            kind="operation_started",
+            subject=subject,
+            end="",
+        )
+    )
+
+
+def _emit_data_operation_completed(
+    progress: DataProgressObserver,
+    *,
+    subject: str,
+    message: str,
+    value: object | None = None,
+) -> None:
+    progress.on_event(
+        DataProgressEvent(
+            message,
+            kind="operation_completed",
+            subject=subject,
+            value=value,
+        )
+    )
+
+
 def _validate_interaction_frame(frame: pd.DataFrame) -> None:
     if frame.empty:
         raise ValueError("Interaction data must contain at least one observation.")
@@ -116,6 +168,8 @@ def process_interaction_data(
     interaction_data: pd.DataFrame | np.ndarray,
     verbose: bool = False,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> InteractionInfo:
     """A function that processes the interaction data. It is called separately for the train, val and test interaction data.
     There are two main types of interaction data formats that are supported:
@@ -126,10 +180,12 @@ def process_interaction_data(
         interaction_data (_type_): a numpy array or a dataframe with the interaction data
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives verbose interaction format messages. Defaults to None.
 
     Returns:
         dict: a dictionary with the interaction data and additional information that could be detected (format, type of instance and target ids, etc.)
     """
+    progress_observer = _resolve_data_progress(verbose, print_mode, progress)
     if isinstance(interaction_data, pd.DataFrame):
         if set(interaction_data.columns) != {
             "instance_id",
@@ -149,9 +205,12 @@ def process_interaction_data(
         if 0 in interaction_data.shape:
             raise ValueError("Interaction arrays cannot have an empty dimension.")
         if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Interaction file: 2d numpy array format detected"
+            progress_observer.on_event(
+                DataProgressEvent(
+                    "Interaction file: 2d numpy array format detected",
+                    subject="interaction_format",
+                    value="numpy",
+                )
             )
 
         # converting the 2d numpy array format to the more flexible triplet format
@@ -174,9 +233,12 @@ def process_interaction_data(
         raise TypeError("The interaction 'target_id' column must contain integers.")
 
     if verbose and original_format == "triplets":
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + "Interaction file: triplet format detected"
+        progress_observer.on_event(
+            DataProgressEvent(
+                "Interaction file: triplet format detected",
+                subject="interaction_format",
+                value="triplets",
+            )
         )
 
     possible_pair_count = (
@@ -196,6 +258,8 @@ def check_interaction_files_format(
     data: DatasetMapping,
     verbose: bool = False,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Checks the format of the interaction data. If any inconsistencies are detected (like different formats between train and test interaction data), an exception is raised
 
@@ -203,8 +267,10 @@ def check_interaction_files_format(
         data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives verbose format-validation messages. Defaults to None.
 
     """
+    progress_observer = _resolve_data_progress(verbose, print_mode, progress)
     distinct_formats = {
         data[mode]["y"]["original_format"]
         for mode in ["train", "test", "val"]
@@ -212,14 +278,19 @@ def check_interaction_files_format(
     }
     if len(distinct_formats) != 0:
         if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Interaction file: checking format consistency... ",
-                end="",
+            _emit_data_operation_started(
+                progress_observer,
+                subject="interaction_format_consistency",
+                message="Interaction file: checking format consistency... ",
             )
         if len(distinct_formats) == 1:
             if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Passed")
+                _emit_data_operation_completed(
+                    progress_observer,
+                    subject="interaction_format_consistency",
+                    message="Passed",
+                    value=next(iter(distinct_formats)),
+                )
         else:
             raise ValueError(
                 ("error: " if print_mode == "dev" else "")
@@ -231,6 +302,8 @@ def check_interaction_files_column_type_format(
     data: DatasetMapping,
     verbose: bool = False,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Checks the type of the instance and target ids in the interaction data. If any inconsistencies are detected (like different id types between train and test interaction data), an exception is raised
 
@@ -238,8 +311,10 @@ def check_interaction_files_column_type_format(
         data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives verbose ID-type validation messages. Defaults to None.
 
     """
+    progress_observer = _resolve_data_progress(verbose, print_mode, progress)
     # check for instance id type concistency across the interaction data sources
     distinct_instance_id_format = {
         data[mode]["y"]["instance_id_type"]
@@ -248,14 +323,21 @@ def check_interaction_files_column_type_format(
     }
     if len(distinct_instance_id_format) != 0:
         if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Interaction file: checking instance id format consistency... ",
-                end="",
+            _emit_data_operation_started(
+                progress_observer,
+                subject="instance_id_format_consistency",
+                message=(
+                    "Interaction file: checking instance id format consistency... "
+                ),
             )
         if len(distinct_instance_id_format) == 1:
             if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Passed")
+                _emit_data_operation_completed(
+                    progress_observer,
+                    subject="instance_id_format_consistency",
+                    message="Passed",
+                    value=next(iter(distinct_instance_id_format)),
+                )
         else:
             raise ValueError(
                 ("error: " if print_mode == "dev" else "")
@@ -270,14 +352,19 @@ def check_interaction_files_column_type_format(
     }
     if len(distinct_target_id_format) != 0:
         if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Interaction file: checking target id type consistency... ",
-                end="",
+            _emit_data_operation_started(
+                progress_observer,
+                subject="target_id_format_consistency",
+                message="Interaction file: checking target id type consistency... ",
             )
         if len(distinct_target_id_format) == 1:
             if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Passed")
+                _emit_data_operation_completed(
+                    progress_observer,
+                    subject="target_id_format_consistency",
+                    message="Passed",
+                    value=next(iter(distinct_target_id_format)),
+                )
         else:
             raise ValueError(
                 ("error: " if print_mode == "dev" else "")
@@ -310,6 +397,8 @@ def check_target_variable_type(
     data: DatasetMapping,
     verbose: bool = False,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> VariableType:
     """Checks the type of the target variable in the interaction data. If any inconsistencies are detected (like different id types between train and test interaction data), an exception is raised
 
@@ -317,8 +406,10 @@ def check_target_variable_type(
         data (dict): The dictionary that store all possible data available in a multi-target prediction dataset.
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives verbose target-type validation messages. Defaults to None.
 
     """
+    progress_observer = _resolve_data_progress(verbose, print_mode, progress)
     distinct_target_variable_type = {
         check_variable_type(data[mode]["y"]["data"])
         for mode in ["train", "test", "val"]
@@ -326,14 +417,22 @@ def check_target_variable_type(
     }
     if len(distinct_target_variable_type) != 0:
         if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Interaction file: checking target variable type consistency... ",
-                end="",
+            _emit_data_operation_started(
+                progress_observer,
+                subject="target_variable_type_consistency",
+                message=(
+                    "Interaction file: checking target variable type consistency... "
+                ),
             )
         if len(distinct_target_variable_type) == 1:
+            detected_type = next(iter(distinct_target_variable_type))
             if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Passed")
+                _emit_data_operation_completed(
+                    progress_observer,
+                    subject="target_variable_type_consistency",
+                    message="Passed",
+                    value=detected_type,
+                )
         else:
             raise ValueError(
                 ("error: " if print_mode == "dev" else "")
@@ -345,7 +444,7 @@ def check_target_variable_type(
             + "Could not detect the type of target variables"
         )
     # return the detected type of target variable
-    return distinct_target_variable_type.pop()
+    return next(iter(distinct_target_variable_type))
 
 
 def _check_novel_entities(
@@ -355,7 +454,7 @@ def _check_novel_entities(
     id_column: Literal["instance_id", "target_id"],
     entity_name: Literal["instances", "targets"],
     verbose: bool,
-    print_mode: str,
+    progress: DataProgressObserver,
 ) -> bool | None:
     if test is None:
         return None
@@ -388,10 +487,10 @@ def _check_novel_entities(
         )
 
     if verbose:
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + f"Interaction file: Checking for novel {entity_name}... ",
-            end="",
+        _emit_data_operation_started(
+            progress,
+            subject=f"novel_{entity_name}",
+            message=f"Interaction file: Checking for novel {entity_name}... ",
         )
 
     if train_format == "numpy":
@@ -410,7 +509,12 @@ def _check_novel_entities(
         novelty_detected = bool(test_ids.difference(train_ids))
 
     if verbose:
-        print(("info: " if print_mode == "dev" else "") + "Done")
+        _emit_data_operation_completed(
+            progress,
+            subject=f"novel_{entity_name}",
+            message="Done",
+            value=novelty_detected,
+        )
     return novelty_detected
 
 
@@ -419,15 +523,20 @@ def check_novel_instances(
     test: DatasetMapping | None,
     verbose: bool = False,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> bool | None:
-    """Return whether test interactions contain previously unseen instances."""
+    """Return whether test interactions contain previously unseen instances.
+
+    ``progress`` receives messages when ``verbose`` is enabled.
+    """
     return _check_novel_entities(
         train,
         test,
         id_column="instance_id",
         entity_name="instances",
         verbose=verbose,
-        print_mode=print_mode,
+        progress=_resolve_data_progress(verbose, print_mode, progress),
     )
 
 
@@ -436,15 +545,20 @@ def check_novel_targets(
     test: DatasetMapping | None,
     verbose: bool = False,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> bool | None:
-    """Return whether test interactions contain previously unseen targets."""
+    """Return whether test interactions contain previously unseen targets.
+
+    ``progress`` receives messages when ``verbose`` is enabled.
+    """
     return _check_novel_entities(
         train,
         test,
         id_column="target_id",
         entity_name="targets",
         verbose=verbose,
-        print_mode=print_mode,
+        progress=_resolve_data_progress(verbose, print_mode, progress),
     )
 
 
