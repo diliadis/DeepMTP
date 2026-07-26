@@ -93,6 +93,8 @@ all supported options have tests.
   observers.
 - [x] Route HPO schedule diagnostics and worker configuration messages through
   HPO progress observers.
+- [x] Route early-stopping patience diagnostics through trainer progress
+  observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

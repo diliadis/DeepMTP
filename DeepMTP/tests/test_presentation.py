@@ -42,6 +42,15 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
     observer.on_event(ProgressEvent("training_started"))
     observer.on_event(ProgressEvent("epoch_started", epoch=2))
     observer.on_event(ProgressEvent("epoch_completed", epoch=2))
+    observer.on_event(
+        ProgressEvent(
+            "early_stopping_counter_updated",
+            epoch=2,
+            early_stopping_counter=1,
+            early_stopping_patience=3,
+            best_epoch=1,
+        )
+    )
     observer.on_event(ProgressEvent("early_stopping_triggered", epoch=2))
     observer.on_event(ProgressEvent("training_completed"))
     observer.on_event(ProgressEvent("training_failed", message="bad data"))
@@ -58,6 +67,8 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
     assert "Saving the best model... Done" in output
     assert "Starting training..." in output
     assert "Epoch:2... Done" in output
+    assert "EarlyStopping counter: 1 out of 3" in output
+    assert "best epoch currently 1" in output
     assert "Early stopping criterion met" in output
     assert "Training completed." in output
     assert "Training failed: bad data" in output
@@ -75,6 +86,14 @@ def test_null_progress_observer_has_no_output(capsys):
     observer.on_event(ProgressEvent("device_selected", message="cpu"))
     observer.on_event(ProgressEvent("checkpoint_saving_started"))
     observer.on_event(ProgressEvent("training_started"))
+    observer.on_event(
+        ProgressEvent(
+            "early_stopping_counter_updated",
+            early_stopping_counter=1,
+            early_stopping_patience=3,
+            best_epoch=0,
+        )
+    )
     observer.on_summary(
         RunSummaries("train", "validation", "test"),
         include_train=True,

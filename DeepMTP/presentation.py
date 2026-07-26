@@ -107,6 +107,7 @@ ProgressEventKind = Literal[
     "validation_completed",
     "metrics_started",
     "metrics_completed",
+    "early_stopping_counter_updated",
     "early_stopping_triggered",
     "testing_started",
     "testing_completed",
@@ -199,6 +200,13 @@ class ConsoleProgressObserver:
             )
         elif event.kind == "metrics_completed":
             print("Done")
+        elif event.kind == "early_stopping_counter_updated":
+            print(
+                "-----------------------------EarlyStopping counter: "
+                f"{event.early_stopping_counter} out of "
+                f"{event.early_stopping_patience}---------------------- "
+                f"best epoch currently {event.best_epoch}"
+            )
         elif event.kind == "early_stopping_triggered":
             print("Early stopping criterion met. Training stopped!")
         elif event.kind == "testing_started":

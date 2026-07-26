@@ -2,9 +2,27 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from torch import nn
+
+EarlyStoppingStatus = Literal[
+    "initialized",
+    "improved",
+    "patience_incremented",
+]
+
+
+@dataclass(frozen=True)
+class EarlyStoppingUpdate:
+    """Describe the state transition produced by one validation result."""
+
+    status: EarlyStoppingStatus
+    counter: int
+    patience: int
+    best_epoch: int | None
+    should_stop: bool
 
 
 class EarlyStopping:
@@ -22,8 +40,8 @@ class EarlyStopping:
         Args:
             patience (int): How long to wait after last time validation loss improved.
                             Default: 7
-            verbose (bool): If True, prints a message for each validation loss improvement.
-                            Default: False
+            verbose (bool): Retained for compatibility. User-facing diagnostics are
+                            emitted by the trainer's progress observer.
             delta (float): Minimum change in the monitored quantity to qualify as an improvement.
                             Default: 0
         """
@@ -79,7 +97,7 @@ class EarlyStopping:
         model: nn.Module | None,
         epoch: int,
         optimizer_state_dict: Mapping[str, Any] | None = None,
-    ) -> None:
+    ) -> EarlyStoppingUpdate:
         metric_key = "val_" + self.metric_to_track
         if metric_key not in performance_results:
             raise KeyError(f"Early-stopping metric {metric_key!r} is unavailable.")
@@ -94,6 +112,7 @@ class EarlyStopping:
             dict(optimizer_state_dict) if optimizer_state_dict is not None else None
         )
         if self.best_score is None:
+            status: EarlyStoppingStatus = "initialized"
             self.best_score = score
             self.best_epoch = epoch
             self.best_model = model
@@ -101,11 +120,8 @@ class EarlyStopping:
             self.best_optimizer_state_dict = optimizer_snapshot
 
         elif (score <= self.best_score + self.delta) and self.use_early_stopping:
+            status = "patience_incremented"
             self.counter += 1
-            if self.verbose:
-                print(
-                    f"-----------------------------EarlyStopping counter: {self.counter} out of {self.patience}---------------------- best epoch currently {self.best_epoch}"
-                )
             if self.counter >= self.patience:
                 self.early_stop_flag = True
 
@@ -116,6 +132,7 @@ class EarlyStopping:
                 self.delta_best_performance_results = performance_snapshot
                 self.delta_best_optimizer_state_dict = optimizer_snapshot
         else:
+            status = "improved"
             self.best_score = score
             self.best_epoch = epoch
             self.best_model = model
@@ -128,6 +145,14 @@ class EarlyStopping:
             self.delta_best_model = None
             self.delta_best_performance_results = None
             self.delta_best_optimizer_state_dict = None
+
+        return EarlyStoppingUpdate(
+            status=status,
+            counter=self.counter,
+            patience=self.patience,
+            best_epoch=self.best_epoch,
+            should_stop=self.early_stop_flag,
+        )
 
     def get_best_score(self) -> float | None:
         return (

@@ -1,13 +1,17 @@
 import ast
 import inspect
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+import torch
 
 import DeepMTP.main as main_module
+from DeepMTP import EpochOutput
 from DeepMTP.config import ConfigValidationError
 from DeepMTP.main import DeepMTP
 from DeepMTP.persistence import ExperimentStore
+from DeepMTP.utils.model_utils import EarlyStopping
 
 
 class FailingReporter:
@@ -144,6 +148,76 @@ def test_core_trainer_delegates_output_to_progress_observer():
     ]
 
     assert direct_prints == []
+
+
+def test_training_routes_early_stopping_updates_to_progress_observer(capsys):
+    trainer = DeepMTP.__new__(DeepMTP)
+    trainer.configuration = SimpleNamespace(
+        metrics=(),
+        metrics_average=(),
+        num_epochs=2,
+        evaluate_train=False,
+        evaluate_val=True,
+        use_early_stopping=True,
+        verbose=False,
+        save_model=False,
+    )
+    trainer.config = {}
+    trainer.deepMTP_model = torch.nn.Linear(1, 1)
+    trainer.optimizer = torch.optim.SGD(trainer.deepMTP_model.parameters(), lr=0.1)
+    trainer.early_stopping = EarlyStopping(True, patience=2, verbose=True)
+    trainer.progress = RecordingProgress()
+    trainer.data_loader_factory = SimpleNamespace(
+        for_training=lambda *_: SimpleNamespace(
+            train=(),
+            validation=(),
+            test=(),
+        )
+    )
+    trainer.training_engine = SimpleNamespace(
+        train_epoch=lambda *_args, **_kwargs: EpochOutput(
+            losses=[0.25],
+            loss_weights=[1],
+        ),
+        replace_model=lambda _model: None,
+    )
+    trainer.evaluator = SimpleNamespace(
+        policy=SimpleNamespace(should_evaluate_training=lambda _epoch: False)
+    )
+    results = iter(
+        [
+            {"val_loss": 0.5},
+            {"val_loss": 0.6},
+            {"test_loss": 0.55},
+        ]
+    )
+    trainer.inference = lambda *_args, **_kwargs: next(results)
+    trainer.experiment_store = SimpleNamespace(
+        save_summary=lambda *_args: None,
+        save_config=lambda _config: None,
+    )
+
+    validation_results = trainer._train(
+        {},
+        {},
+        {},
+        reporter=RecordingReporter(),
+    )
+
+    counter_event = next(
+        event
+        for event in trainer.progress.events
+        if event.kind == "early_stopping_counter_updated"
+    )
+    event_kinds = [event.kind for event in trainer.progress.events]
+    assert validation_results == {"val_loss": 0.5}
+    assert counter_event.epoch == 1
+    assert counter_event.early_stopping_counter == 1
+    assert counter_event.early_stopping_patience == 2
+    assert counter_event.best_epoch == 0
+    counter_event_index = event_kinds.index("early_stopping_counter_updated")
+    assert event_kinds[counter_event_index + 1] == "validation_completed"
+    assert capsys.readouterr().out == ""
 
 
 def test_trainer_builds_reporter_from_typed_configuration(monkeypatch, tmp_path):

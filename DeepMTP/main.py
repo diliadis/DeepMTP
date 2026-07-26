@@ -424,12 +424,22 @@ class DeepMTP:
             reporter.log_metrics(results_to_log, step=epoch)
 
             # update early stopping and keep track of best model
-            self.early_stopping(
+            early_stopping_update = self.early_stopping(
                 val_results,
                 copy.deepcopy(self.deepMTP_model),
                 epoch,
                 optimizer_state_dict=copy.deepcopy(self.optimizer.state_dict()),
             )
+            if early_stopping_update.status == "patience_incremented":
+                self.progress.on_event(
+                    ProgressEvent(
+                        "early_stopping_counter_updated",
+                        epoch=epoch,
+                        early_stopping_counter=early_stopping_update.counter,
+                        early_stopping_patience=early_stopping_update.patience,
+                        best_epoch=early_stopping_update.best_epoch,
+                    )
+                )
             run_history.add_validation(
                 epoch,
                 val_results["val_loss"],
