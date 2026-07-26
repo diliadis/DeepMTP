@@ -33,7 +33,8 @@ In the code snippet above the function generate_config is shown without any spec
    * - **delta**
      - Minimum change in the monitored quantity to qualify as an improvement
    * - **return_results_per_target**
-     - Whether or not to returne the performance for every target separately
+     - Whether to include per-target metric values in the results; requires
+       ``macro`` averaging
    * - **evaluate_train**
      - Whether or not to calculate performance metrics over the training set
    * - **evaluate_val**

@@ -76,6 +76,33 @@ def test_evaluator_calculates_metrics_from_epoch_output():
     assert results["val_accuracy_micro"] == pytest.approx(1.0)
 
 
+def test_evaluator_honors_per_target_result_option():
+    output = EpochOutput(
+        true_values=[0.0, 1.0, 0.0, 1.0],
+        predicted_values=[0.1, 0.9, 0.2, 0.8],
+        instance_ids=[0, 1, 0, 1],
+        target_ids=[0, 0, 1, 1],
+    )
+    summary_evaluator = Evaluator(
+        make_config(validation_setting="B", metrics_average=["macro"])
+    )
+    detailed_evaluator = Evaluator(
+        make_config(
+            validation_setting="B",
+            metrics_average=["macro"],
+            return_results_per_target=True,
+        )
+    )
+
+    summary = summary_evaluator.evaluate("val", epoch=0, output=output)
+    detailed = detailed_evaluator.evaluate("val", epoch=0, output=output)
+
+    assert summary["val_accuracy_macro"] == pytest.approx(1.0)
+    assert not any("_target_" in key for key in summary)
+    assert detailed["val_accuracy_target_0"] == pytest.approx(1.0)
+    assert detailed["val_accuracy_target_1"] == pytest.approx(1.0)
+
+
 def test_evaluator_returns_no_metrics_when_none_are_configured():
     evaluator = Evaluator(make_config(metrics=[], metrics_average=[]))
 

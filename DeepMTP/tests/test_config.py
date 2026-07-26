@@ -150,6 +150,17 @@ def test_typed_config_rejects_rrmse_without_training_baseline_support():
         DeepMTPConfig.from_mapping(config)
 
 
+def test_per_target_results_require_macro_averaging():
+    config = make_valid_config(return_results_per_target=True)
+    config["metrics_average"] = ["micro"]
+
+    with pytest.raises(
+        ConfigValidationError,
+        match="return_results_per_target requires 'macro'",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
 def test_generate_config_mutable_defaults_are_isolated():
     first = make_valid_config()
     first["metrics"].append("precision")

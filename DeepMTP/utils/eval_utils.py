@@ -142,6 +142,8 @@ def _validate_evaluation_inputs(
     problem_mode: str,
     metrics: Sequence[str],
     averaging: Sequence[str],
+    slices: ArrayValues | None,
+    return_detailed_macro: bool,
     top_k: int | None,
     train_true_value: TrainingMeans | None,
     scaler_per_target: ScalerInput,
@@ -158,6 +160,8 @@ def _validate_evaluation_inputs(
         )
     if len(true_values) == 0:
         raise ValueError("Evaluation requires at least one prediction.")
+    if slices is not None:
+        raise NotImplementedError("Slice-aware evaluation is not implemented.")
     if validation_setting not in {"A", "B", "C", "D"}:
         raise ValueError(
             "validation_setting must be one of 'A', 'B', 'C', or 'D'; "
@@ -176,6 +180,10 @@ def _validate_evaluation_inputs(
         )
     if validation_setting == "A" and list(averaging) != ["micro"]:
         raise ValueError("averaging must be ['micro'] for validation setting A.")
+    if not isinstance(return_detailed_macro, bool):
+        raise TypeError("return_detailed_macro must be a boolean.")
+    if return_detailed_macro and "macro" not in averaging:
+        raise ValueError("return_detailed_macro requires macro averaging.")
     if "RRMSE" in metrics:
         if validation_setting == "A" or list(averaging) != ["macro"]:
             raise ValueError(
@@ -253,12 +261,12 @@ def get_performance_results(
         problem_mode (str): The type of task of the given problem. Possible values are classification and regression.
         metrics (list): The performance metrics that will be calculated.
         averaging (list): The averaging strategy that will be used to calculate the metric.
-        slices_arr (np.array, optional): An array with the slice ids. This can be used when the problem has dyadic features, or in the case of tensor completion. Not currently implemented. Defaults to None.
+        slices_arr (np.array, optional): An array with the slice ids. Slice-aware evaluation is not implemented and non-None values are rejected. Defaults to None.
         verbose (bool, optional): Whether or not to print useful info in the terminal. Defaults to False.
         per_target_verbose (bool, optional): Whether or not to print useful info per target in the terminal. Defaults to False.
         per_instance_verbose (bool, optional): Whether or not to print useful info per instance in the terminal. Defaults to False.
         top_k (_type_, optional): The number of top performing instances or targets that are used to calculate metrics. Defaults to None.
-        return_detailed_macro (bool, optional): Whether or not to return the per-target metrics. Defaults to False.
+        return_detailed_macro (bool, optional): Whether to include per-target metrics in addition to macro averages. Requires macro averaging. Defaults to False.
         train_true_value (_type_, optional): The training mean for every target, required when calculating macro RRMSE. Defaults to None.
         scaler_per_target (_type_, optional): One global scaler for setting A or a scaler for every target in settings B-D. Supported for regression scores only. Defaults to None.
 
@@ -277,6 +285,8 @@ def get_performance_results(
         problem_mode,
         metrics,
         averaging,
+        slices_arr,
+        return_detailed_macro,
         top_k,
         train_true_value,
         scaler_per_target,
@@ -380,11 +390,14 @@ def get_performance_results(
                 train_true_value=train_true_value,
                 verbose=verbose,
             )
-            # iterate over the targets
-            for target_i, row in results_per_target.items():
-                final_result.update(
-                    {mode + k + "_target_" + str(target_i): v for k, v in row.items()}
-                )
+            if return_detailed_macro:
+                for target_i, row in results_per_target.items():
+                    final_result.update(
+                        {
+                            mode + k + "_target_" + str(target_i): v
+                            for k, v in row.items()
+                        }
+                    )
             if per_target_verbose:  # pragma: no cover
                 print("Per target results: " + str(results_per_target))
 
@@ -416,19 +429,20 @@ def get_performance_results(
                         verbose=verbose,
                     )
                 )
-                for target_i, row in top_k_results_per_target.items():
-                    final_result.update(
-                        {
-                            mode
-                            + "top_"
-                            + str(top_k)
-                            + "_"
-                            + k
-                            + "_target_"
-                            + str(target_i): v
-                            for k, v in row.items()
-                        }
-                    )
+                if return_detailed_macro:
+                    for target_i, row in top_k_results_per_target.items():
+                        final_result.update(
+                            {
+                                mode
+                                + "top_"
+                                + str(top_k)
+                                + "_"
+                                + k
+                                + "_target_"
+                                + str(target_i): v
+                                for k, v in row.items()
+                            }
+                        )
                 if per_target_verbose:  # pragma: no cover
                     print(
                         "Per target top_"

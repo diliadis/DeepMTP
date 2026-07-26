@@ -430,6 +430,7 @@ def test_single_class_curve_metrics_are_reported_as_undefined(averaging):
         problem_mode="classification",
         metrics=["auroc", "aupr"],
         averaging=[averaging],
+        return_detailed_macro=averaging == "macro",
     )
 
     assert math.isnan(results[f"test_auroc_{averaging}"])
@@ -451,11 +452,35 @@ def test_singleton_macro_groups_are_evaluated():
         problem_mode="classification",
         metrics=["accuracy"],
         averaging=["macro"],
+        top_k=1,
+        return_detailed_macro=True,
     )
 
     assert results["test_accuracy_target_0"] == 1.0
     assert results["test_accuracy_target_1"] == 1.0
     assert results["test_accuracy_macro"] == 1.0
+    assert results["test_top_1_accuracy_target_0"] == 1.0
+    assert results["test_top_1_accuracy_macro"] == 1.0
+
+
+def test_macro_details_are_opt_in():
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=np.array([0, 1, 0, 1]),
+        targets_arr=np.array([0, 0, 1, 1]),
+        true_values_arr=np.array([0, 1, 0, 1]),
+        pred_values_arr=np.array([0.1, 0.9, 0.2, 0.8]),
+        validation_setting="B",
+        problem_mode="classification",
+        metrics=["accuracy"],
+        averaging=["macro"],
+        top_k=1,
+    )
+
+    assert results["test_accuracy_macro"] == 1.0
+    assert results["test_top_1_accuracy_macro"] == 1.0
+    assert not any("_target_" in key for key in results)
 
 
 def test_macro_rrmse_uses_each_targets_training_mean():
@@ -470,6 +495,7 @@ def test_macro_rrmse_uses_each_targets_training_mean():
         problem_mode="regression",
         metrics=["RRMSE"],
         averaging=["macro"],
+        return_detailed_macro=True,
         train_true_value={0: 3.0, 1: 12.0},
     )
 
@@ -639,6 +665,7 @@ def test_verbose_evaluation_uses_modern_numpy_nan_api(capsys):
         ({"averaging": ["weighted"]}, "averaging"),
         ({"averaging": ["macro"]}, "validation setting A"),
         ({"top_k": 0}, "top_k"),
+        ({"return_detailed_macro": True}, "requires macro averaging"),
         ({"metrics": ["BOGUS"]}, "Unsupported regression metrics"),
     ],
 )
@@ -659,6 +686,23 @@ def test_evaluation_rejects_invalid_boundary_values(override, message):
 
     with pytest.raises(ValueError, match=message):
         get_performance_results(**arguments)
+
+
+def test_evaluation_rejects_unimplemented_slice_ids():
+    with pytest.raises(NotImplementedError, match="Slice-aware evaluation"):
+        get_performance_results(
+            mode="test",
+            epoch_id=0,
+            instances_arr=[0],
+            targets_arr=[0],
+            true_values_arr=[1.0],
+            pred_values_arr=[1.0],
+            validation_setting="A",
+            problem_mode="regression",
+            metrics=["MSE"],
+            averaging=["micro"],
+            slices_arr=[0],
+        )
 
 
 def test_ranking_ndcg_accepts_one_query_as_flat_values():

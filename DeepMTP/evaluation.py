@@ -105,6 +105,7 @@ class Evaluator:
             verbose=self.config.results_verbose,
             per_target_verbose=self.config.eval_target_verbose,
             per_instance_verbose=self.config.eval_instance_verbose,
+            return_detailed_macro=self.config.return_results_per_target,
             train_true_value=None,
             scaler_per_target=None,
             top_k=self.config.top_k,

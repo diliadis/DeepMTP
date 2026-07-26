@@ -340,6 +340,10 @@ class DeepMTPConfig:
             raise ConfigValidationError(
                 "metrics_average must be ['micro'] for validation setting A."
             )
+        if self.return_results_per_target and "macro" not in self.metrics_average:
+            raise ConfigValidationError(
+                "return_results_per_target requires 'macro' in metrics_average."
+            )
 
         selectable_metrics = {
             f"{metric}_{averaging}"
@@ -389,8 +393,6 @@ class DeepMTPConfig:
             inert_options.append("momentum")
         if self.weighted_loss:
             inert_options.append("weighted_loss")
-        if self.return_results_per_target:
-            inert_options.append("return_results_per_target")
         if self.use_instance_features:
             inert_options.append("use_instance_features")
         if self.use_target_features:
