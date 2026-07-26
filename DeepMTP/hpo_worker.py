@@ -5,6 +5,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from DeepMTP.hpo_progress import (
+    HPOProgressEvent,
+    HPOProgressObserver,
+    build_hpo_progress_observer,
+)
 from DeepMTP.hpo_types import HPOConfiguration, HPOWorkerResult
 from DeepMTP.main import DeepMTP
 from DeepMTP.utils.utils import generate_config
@@ -22,6 +27,7 @@ class BaseWorker:
         base_config: Mapping[str, Any],
         metric_to_optimize: str,
         mode: str = "standard",
+        progress: HPOProgressObserver | None = None,
     ) -> None:
         results_path = Path(base_config["hpo_results_path"])
         results_path.mkdir(parents=True, exist_ok=True)
@@ -38,6 +44,7 @@ class BaseWorker:
         self.older_model_budget: int | None = None
         self.older_model: Any = None
         self.optimize = metric_to_optimize
+        self.progress = progress
 
         self.train = train
         self.val = val
@@ -143,8 +150,17 @@ class BaseWorker:
             config=current_config,
             checkpoint_dir=checkpoint_dir,
         )
-        if current_config["verbose"]:
-            print("HPO worker used this final config: " + str(current_config))
+        progress = (
+            self.progress
+            if self.progress is not None
+            else build_hpo_progress_observer(bool(current_config["verbose"]))
+        )
+        progress.on_event(
+            HPOProgressEvent(
+                "worker_configured",
+                config=current_config,
+            )
+        )
 
         # train, validate and test all at once
         val_results = model.train(self.train, self.val, self.test)

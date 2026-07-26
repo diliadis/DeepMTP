@@ -91,6 +91,8 @@ all supported options have tests.
   warnings and silent documented defaults.
 - [x] Route trainer setup and checkpoint lifecycle messages through progress
   observers.
+- [x] Route HPO schedule diagnostics and worker configuration messages through
+  HPO progress observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

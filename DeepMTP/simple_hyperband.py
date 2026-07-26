@@ -42,6 +42,7 @@ class HyperBand:
         self.configspace = configspace
         self.verbose = verbose
         self.direction = direction
+        self._progress_was_injected = progress is not None
         self.progress = (
             progress if progress is not None else build_hpo_progress_observer(verbose)
         )
@@ -178,27 +179,30 @@ class HyperBand:
         result_dict: dict[int, HyperbandBracket] = {}
         smax = math.floor(math.log(R, eta))
         B = (smax + 1) * R
-        if verbose:  # pragma: no cover
-            print("smax: " + str(smax))
-            print("B: " + str(B))
-            print("")
         for s in reversed(range(smax + 1)):
             # n = int(math.ceil(int((B/R) * ((hta**s)/(s+1)))))
             n = int(math.ceil(int(B / R / (s + 1)) * eta**s))
             r = int(R * (eta ** (-s)))
             result_dict[n] = {"n_i": [], "r_i": [], "num_iters": s + 1}
-            if verbose:  # pragma: no cover
-                print("s: " + str(s))
-                print("     n: " + str(n) + "   r: " + str(r))
-                print("---------------------------")
             for i in range(s + 1):
                 ni = math.floor(n * (eta ** (-i)))
                 ri = r * (eta**i)
-                if verbose:  # pragma: no cover
-                    print("     ni: " + str(ni) + "   ri (epochs): " + str(ri))
                 result_dict[n]["n_i"].append(ni)
                 result_dict[n]["r_i"].append(ri)
-            if verbose:  # pragma: no cover
-                print("")
-                print("===========================")
+        if verbose:
+            progress = (
+                self.progress
+                if self._progress_was_injected
+                else build_hpo_progress_observer(verbose)
+            )
+            progress.on_event(
+                HPOProgressEvent(
+                    "schedule_calculated",
+                    config=result_dict,
+                    smax=smax,
+                    eta=eta,
+                    max_budget=R,
+                    total_budget=B,
+                )
+            )
         return result_dict
