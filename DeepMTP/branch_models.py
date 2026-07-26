@@ -19,6 +19,18 @@ from DeepMTP.config import (
 
 ModelConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
 
+_RESNET_OUTPUT_FEATURES = {
+    "resnet18": 512,
+    "resnet101": 2048,
+}
+_RESNET_TRAINABLE_MODULES = {
+    "last": (),
+    "layer4": ("avgpool", "layer4"),
+    "layer3": ("avgpool", "layer4", "layer3"),
+    "layer2": ("avgpool", "layer4", "layer3", "layer2"),
+    "layer1": ("avgpool", "layer4", "layer3", "layer2", "layer1"),
+}
+
 
 def _load_torchvision_models() -> ModuleType:
     try:
@@ -51,6 +63,16 @@ def _build_torchvision_backbone(
     factory = getattr(models, factory_name)
     weights = getattr(models, weights_name).DEFAULT if pretrained else None
     return cast(nn.Module, factory(weights=weights))
+
+
+def _configure_resnet_trainable_layers(
+    backbone: nn.Module,
+    earliest_trainable_layer: str,
+) -> None:
+    """Freeze a ResNet backbone and enable the requested trailing blocks."""
+    backbone.requires_grad_(False)
+    for module_name in _RESNET_TRAINABLE_MODULES[earliest_trainable_layer]:
+        getattr(backbone, module_name).requires_grad_(True)
 
 
 class MLP(nn.Sequential):
@@ -162,17 +184,7 @@ class ConvNet(nn.Sequential):
         models = _load_torchvision_models()
 
         if conv_architecture == "resnet":
-            in_size = 512
-            if conv_architecture_version == "resnet18":
-                in_size = 512
-            elif conv_architecture_version == "resnet101":
-                in_size = 2048
-            else:
-                raise AttributeError(
-                    "The "
-                    + conv_architecture_version
-                    + " version of resnet is not currently supported"
-                )
+            in_size = _RESNET_OUTPUT_FEATURES[conv_architecture_version]
             self.predictor.append(
                 _build_torchvision_backbone(
                     models,
@@ -181,52 +193,11 @@ class ConvNet(nn.Sequential):
                     pretrained=pretrained,
                 )
             )
-
-            for param in self.predictor.parameters():
-                param.requires_grad = False
-
-            if conv_architecture_last_trained_layer == "last":  # pragma: no cover
-                pass
-            elif conv_architecture_last_trained_layer == "layer4":  # pragma: no cover
-                for param in self.predictor[0].avgpool.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer4.parameters():
-                    param.requires_grad = True
-            elif conv_architecture_last_trained_layer == "layer3":  # pragma: no cover
-                for param in self.predictor[0].avgpool.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer4.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer3.parameters():
-                    param.requires_grad = True
-            elif conv_architecture_last_trained_layer == "layer2":  # pragma: no cover
-                for param in self.predictor[0].avgpool.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer4.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer3.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer2.parameters():
-                    param.requires_grad = True
-            elif conv_architecture_last_trained_layer == "layer1":  # pragma: no cover
-                for param in self.predictor[0].avgpool.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer4.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer3.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer2.parameters():
-                    param.requires_grad = True
-                for param in self.predictor[0].layer1.parameters():
-                    param.requires_grad = True
-            else:
-                raise AttributeError(
-                    "Layer: "
-                    + str(conv_architecture_last_trained_layer)
-                    + " layer is not a valid "
-                    + str(conv_architecture_version)
-                    + " layer"
-                )
+            backbone = self.predictor[0]
+            _configure_resnet_trainable_layers(
+                backbone,
+                conv_architecture_last_trained_layer,
+            )
 
             if conv_architecture_dense_layers == 1:
                 fc = nn.Sequential(
@@ -236,7 +207,7 @@ class ConvNet(nn.Sequential):
                         ]
                     )
                 )
-            elif conv_architecture_dense_layers == 2:
+            else:
                 fc = nn.Sequential(
                     OrderedDict(
                         [
@@ -246,14 +217,8 @@ class ConvNet(nn.Sequential):
                         ]
                     )
                 )
-            else:
-                raise AttributeError(
-                    "Only 1 or 2 dense layers are currently allowed in the "
-                    + str(conv_architecture_version)
-                    + " version of resnet"
-                )
 
-            self.predictor[0].fc = fc
+            backbone.fc = fc
 
         elif conv_architecture == "VGG":
             self.predictor.append(

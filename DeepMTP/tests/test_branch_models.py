@@ -1,10 +1,37 @@
 from types import ModuleType
 
 import pytest
+import torch
 from torch import nn
 
 import DeepMTP.branch_models as branch_models
 from DeepMTP.branch_models import MLP, ConvNet
+
+
+class FakeResNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.stem = nn.Linear(1, 1)
+        self.layer1 = nn.Linear(1, 1)
+        self.layer2 = nn.Linear(1, 1)
+        self.layer3 = nn.Linear(1, 1)
+        self.layer4 = nn.Linear(1, 1)
+        self.avgpool = nn.Linear(1, 1)
+        self.fc = nn.Linear(1, 1)
+
+
+class FakeVGG(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.features = nn.Linear(1, 1)
+        self.classifier = nn.Linear(1, 1)
+
+
+def make_fake_resnet_models(version):
+    models = ModuleType("fake_torchvision_models")
+    setattr(models, version, lambda **_kwargs: FakeResNet())
+    return models
+
 
 test_MLP_data = [
     {
@@ -211,99 +238,122 @@ def test_convnet_rejects_invalid_configuration_before_import(
         ConvNet(**arguments)
 
 
-test_ConvNet_data = [
-    {
-        "pass_fail": "pass",
-        "input_dim": 10,
-        "output_dim": 15,
-        "conv_architecture": "resnet",
-        "conv_architecture_version": "resnet18",
-        "conv_architecture_last_trained_layer": "last",
-        "conv_architecture_dense_layers": 1,
-    },
-    {
-        "pass_fail": "fail",
-        "input_dim": 10,
-        "output_dim": 15,
-        "conv_architecture": "resnet",
-        "conv_architecture_version": "resnet18",
-        "conv_architecture_last_trained_layer": "last",
-        "conv_architecture_dense_layers": 10,
-    },
-    {
-        "pass_fail": "fail",
-        "input_dim": 10,
-        "output_dim": 15,
-        "conv_architecture": "resnet",
-        "conv_architecture_version": "lalala",
-        "conv_architecture_last_trained_layer": "last",
-        "conv_architecture_dense_layers": 1,
-    },
-    {
-        "pass_fail": "pass",
-        "input_dim": 10,
-        "output_dim": 15,
-        "conv_architecture": "resnet",
-        "conv_architecture_version": "resnet18",
-        "conv_architecture_last_trained_layer": "last",
-        "conv_architecture_dense_layers": 1,
-    },
-    {
-        "pass_fail": "pass",
-        "input_dim": 10,
-        "output_dim": 15,
-        "conv_architecture": "resnet",
-        "conv_architecture_version": "resnet101",
-        "conv_architecture_last_trained_layer": "last",
-        "conv_architecture_dense_layers": 2,
-    },
-    {
-        "pass_fail": "fail",
-        "input_dim": 10,
-        "output_dim": 15,
-        "conv_architecture": "resnet",
-        "conv_architecture_version": "resnet101",
-        "conv_architecture_last_trained_layer": "lalala",
-        "conv_architecture_dense_layers": 1,
-    },
-    {
-        "pass_fail": "pass",
-        "input_dim": 10,
-        "output_dim": 15,
-        "conv_architecture": "VGG",
-        "conv_architecture_version": "resnet101",
-        "conv_architecture_last_trained_layer": "lalala",
-        "conv_architecture_dense_layers": 1,
-    },
-    {
-        "pass_fail": "fail",
-        "input_dim": 10,
-        "output_dim": 15,
-        "conv_architecture": "lalalal",
-        "conv_architecture_version": "resnet101",
-        "conv_architecture_last_trained_layer": "lalala",
-        "conv_architecture_dense_layers": 1,
-    },
-]
+@pytest.mark.parametrize(
+    ("earliest_trainable_layer", "trainable_backbone_modules"),
+    [
+        ("last", set()),
+        ("layer4", {"avgpool", "layer4"}),
+        ("layer3", {"avgpool", "layer4", "layer3"}),
+        ("layer2", {"avgpool", "layer4", "layer3", "layer2"}),
+        (
+            "layer1",
+            {"avgpool", "layer4", "layer3", "layer2", "layer1"},
+        ),
+    ],
+)
+def test_convnet_enables_expected_resnet_blocks_offline(
+    monkeypatch,
+    earliest_trainable_layer,
+    trainable_backbone_modules,
+):
+    monkeypatch.setattr(
+        branch_models,
+        "_load_torchvision_models",
+        lambda: make_fake_resnet_models("resnet18"),
+    )
+
+    model = ConvNet(
+        config={},
+        input_dim=10,
+        output_dim=7,
+        conv_architecture="resnet",
+        conv_architecture_version="resnet18",
+        conv_architecture_last_trained_layer=earliest_trainable_layer,
+        conv_architecture_dense_layers=1,
+        pretrained=False,
+    )
+
+    backbone = model.predictor[0]
+    for module_name in ("stem", "layer1", "layer2", "layer3", "layer4", "avgpool"):
+        parameters = list(getattr(backbone, module_name).parameters())
+        assert parameters
+        assert all(parameter.requires_grad for parameter in parameters) == (
+            module_name in trainable_backbone_modules
+        )
+    assert all(parameter.requires_grad for parameter in backbone.fc.parameters())
 
 
-@pytest.mark.parametrize("test_ConvNet_data", test_ConvNet_data)
-@pytest.mark.network
-def test_ConvNet(test_ConvNet_data):
-    convnet_kwargs = {
-        key: value for key, value in test_ConvNet_data.items() if key != "pass_fail"
-    }
-    if test_ConvNet_data["pass_fail"] == "pass":
-        model = ConvNet(config={}, **convnet_kwargs)
-        if test_ConvNet_data["conv_architecture"] == "resnet":
-            assert model[0][0].fc[-1].out_features == test_ConvNet_data["output_dim"]
-        else:
-            linear_layers = [
-                layer
-                for layer in model[0][0].classifier
-                if isinstance(layer, nn.Linear)
-            ]
-            assert linear_layers[-1].out_features == test_ConvNet_data["output_dim"]
-    else:
-        with pytest.raises(AttributeError):
-            ConvNet(config={}, **convnet_kwargs)
+@pytest.mark.parametrize(
+    ("version", "dense_layers", "expected_dimensions"),
+    [
+        ("resnet18", 1, [(512, 7)]),
+        ("resnet101", 2, [(2048, 2048), (2048, 7)]),
+    ],
+)
+def test_convnet_builds_version_specific_classifier_offline(
+    monkeypatch,
+    version,
+    dense_layers,
+    expected_dimensions,
+):
+    monkeypatch.setattr(
+        branch_models,
+        "_load_torchvision_models",
+        lambda: make_fake_resnet_models(version),
+    )
+
+    model = ConvNet(
+        config={},
+        input_dim=10,
+        output_dim=7,
+        conv_architecture="resnet",
+        conv_architecture_version=version,
+        conv_architecture_last_trained_layer="last",
+        conv_architecture_dense_layers=dense_layers,
+        pretrained=False,
+    )
+
+    linear_layers = [
+        layer for layer in model.predictor[0].fc if isinstance(layer, nn.Linear)
+    ]
+    assert [
+        (layer.in_features, layer.out_features) for layer in linear_layers
+    ] == expected_dimensions
+
+
+def test_convnet_builds_frozen_vgg_with_trainable_classifier_offline(monkeypatch):
+    models = ModuleType("fake_torchvision_models")
+    models.vgg11_bn = lambda **_kwargs: FakeVGG()
+    monkeypatch.setattr(
+        branch_models,
+        "_load_torchvision_models",
+        lambda: models,
+    )
+
+    with torch.device("meta"):
+        model = ConvNet(
+            config={},
+            input_dim=10,
+            output_dim=7,
+            conv_architecture="VGG",
+            conv_architecture_version="unused",
+            conv_architecture_last_trained_layer="unused",
+            conv_architecture_dense_layers=99,
+            pretrained=False,
+        )
+
+    backbone = model.predictor[0]
+    linear_layers = [
+        layer for layer in backbone.classifier if isinstance(layer, nn.Linear)
+    ]
+    assert [(layer.in_features, layer.out_features) for layer in linear_layers] == [
+        (25088, 4096),
+        (4096, 4096),
+        (4096, 7),
+    ]
+    assert not any(
+        parameter.requires_grad for parameter in backbone.features.parameters()
+    )
+    assert all(
+        parameter.requires_grad for parameter in backbone.classifier.parameters()
+    )

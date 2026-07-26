@@ -80,6 +80,8 @@ all supported options have tests.
   trainer, using isolated model and dataloader generators instead.
 - [x] Use typed configuration attributes for core trainer read paths.
 - [x] Use typed configuration at built-in model and reporting boundaries.
+- [x] Make ResNet fine-tuning cutoffs explicit and cover them with offline
+  trainability tests.
 - [ ] Separate data preparation, datasets, models, training, evaluation,
   persistence, and experiment reporting.
 - [ ] Migrate internal dictionary lookups to typed configuration access as the
