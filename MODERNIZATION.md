@@ -103,6 +103,8 @@ all supported options have tests.
   data progress observers.
 - [x] Route validation-setting inference messages through data progress
   observers.
+- [x] Route instance and target feature-ingestion messages through data
+  progress observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

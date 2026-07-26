@@ -650,14 +650,16 @@ def _process_entity_features(
     entity_name: Literal["instance", "target"],
     verbose: bool,
     print_mode: str,
+    progress: DataProgressObserver | None,
 ) -> FeatureInfo | None:
     if features is None:
         return None
+    progress_observer = _resolve_data_progress(verbose, print_mode, progress)
     if verbose:
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + f"{entity_name.title()} features file: processing features... ",
-            end="",
+        _emit_data_operation_started(
+            progress_observer,
+            subject=f"{entity_name}_features",
+            message=f"{entity_name.title()} features file: processing features... ",
         )
 
     if isinstance(features, np.ndarray):
@@ -726,7 +728,12 @@ def _process_entity_features(
         )
 
     if verbose:
-        print(("info: " if print_mode == "dev" else "") + "Done")
+        _emit_data_operation_completed(
+            progress_observer,
+            subject=f"{entity_name}_features",
+            message="Done",
+            value=feature_info["info"],
+        )
     return feature_info
 
 
@@ -734,13 +741,19 @@ def process_instance_features(
     instance_features: pd.DataFrame | np.ndarray | None,
     verbose: bool = False,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> FeatureInfo | None:
-    """Normalize instance features without mutating caller-owned inputs."""
+    """Normalize instance features without mutating caller-owned inputs.
+
+    ``progress`` receives messages when ``verbose`` is enabled.
+    """
     return _process_entity_features(
         instance_features,
         "instance",
         verbose,
         print_mode,
+        progress,
     )
 
 
@@ -748,13 +761,19 @@ def process_target_features(
     target_features: pd.DataFrame | np.ndarray | None,
     verbose: bool = False,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> FeatureInfo | None:
-    """Normalize target features without mutating caller-owned inputs."""
+    """Normalize target features without mutating caller-owned inputs.
+
+    ``progress`` receives messages when ``verbose`` is enabled.
+    """
     return _process_entity_features(
         target_features,
         "target",
         verbose,
         print_mode,
+        progress,
     )
 
 

@@ -3556,6 +3556,9 @@ def test_failed_interaction_validation_does_not_emit_completion(capsys):
         data_utils_module.check_novel_instances,
         data_utils_module.check_novel_targets,
         data_utils_module.get_estimated_validation_setting,
+        data_utils_module._process_entity_features,
+        data_utils_module.process_instance_features,
+        data_utils_module.process_target_features,
     ],
 )
 def test_data_progress_functions_do_not_print_directly(target):
@@ -3688,10 +3691,127 @@ def test_feature_processor_does_not_mutate_or_share_caller_data():
     assert processed["data"].iloc[0]["features"].tolist() == [1.0, 2.0]
 
 
-def test_target_feature_logging_uses_target_label(capsys):
-    process_target_features(np.array([[1.0, 2.0]]), verbose=True)
+@pytest.mark.parametrize(
+    ("processor", "entity_label"),
+    [
+        (process_instance_features, "Instance"),
+        (process_target_features, "Target"),
+    ],
+)
+def test_feature_processing_preserves_developer_console_output(
+    processor,
+    entity_label,
+    capsys,
+):
+    processor(
+        np.array([[1.0, 2.0]]),
+        verbose=True,
+        print_mode="dev",
+    )
 
-    assert "Target features file" in capsys.readouterr().out
+    assert capsys.readouterr().out == (
+        f"info: {entity_label} features file: processing features... info: Done\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("processor", "subject"),
+    [
+        (process_instance_features, "instance_features"),
+        (process_target_features, "target_features"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("features", "expected_format"),
+    [
+        (np.array([[1.0, 2.0]]), "numpy"),
+        (
+            pd.DataFrame(
+                {
+                    "id": [0],
+                    "features": [np.array([1.0, 2.0])],
+                }
+            ),
+            "dataframe",
+        ),
+        (pd.DataFrame({"id": [0], "dir": ["image.png"]}), "images"),
+    ],
+)
+def test_feature_processing_emits_structured_progress(
+    processor,
+    subject,
+    features,
+    expected_format,
+    capsys,
+):
+    progress = RecordingDataProgress()
+
+    result = processor(
+        features,
+        verbose=True,
+        print_mode="dev",
+        progress=progress,
+    )
+
+    assert result["info"] == expected_format
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.kind, event.subject, event.value, event.end) for event in progress.events
+    ] == [
+        ("operation_started", subject, None, ""),
+        ("operation_completed", subject, expected_format, "\n"),
+    ]
+
+
+def test_feature_processing_respects_null_progress(capsys):
+    result = process_target_features(
+        np.array([[1.0, 2.0]]),
+        verbose=True,
+        progress=NullDataProgressObserver(),
+    )
+
+    assert result["info"] == "numpy"
+    assert capsys.readouterr().out == ""
+
+
+def test_missing_features_are_silent_without_validating_print_mode(capsys):
+    result = process_instance_features(
+        None,
+        verbose=True,
+        print_mode="unknown",
+    )
+
+    assert result is None
+    assert capsys.readouterr().out == ""
+
+
+def test_feature_processing_is_silent_when_disabled():
+    progress = RecordingDataProgress()
+
+    result = process_instance_features(
+        np.array([[1.0, 2.0]]),
+        verbose=False,
+        progress=progress,
+    )
+
+    assert result["info"] == "numpy"
+    assert progress.events == []
+
+
+def test_failed_feature_processing_does_not_emit_completion(capsys):
+    progress = RecordingDataProgress()
+
+    with pytest.raises(ValueError, match="two-dimensional"):
+        process_target_features(
+            np.array([1.0, 2.0]),
+            verbose=True,
+            progress=progress,
+        )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.kind, event.subject) for event in progress.events] == [
+        ("operation_started", "target_features")
+    ]
 
 
 @pytest.mark.parametrize(
