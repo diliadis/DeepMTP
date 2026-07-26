@@ -164,6 +164,9 @@ As mentioned before, all hyperparameters needed to define the architecture of th
    * - **instance_branch_conv_architecture_last_layer_trained**
      - Earliest trainable instance ResNet block: ``last`` or ``layer4``
        through ``layer1``
+   * - **instance_branch_conv_pretrained**
+     - Use torchvision's default pretrained weights. Defaults to ``True``;
+       set to ``False`` to construct the model without downloading weights
    * - Possible key names currently supported in the **instance_branch_params** dictionary
      -
    * - **target_branch_nodes_per_layer**
@@ -179,6 +182,15 @@ As mentioned before, all hyperparameters needed to define the architecture of th
    * - **target_branch_conv_architecture_last_layer_trained**
      - Earliest trainable target ResNet block: ``last`` or ``layer4``
        through ``layer1``
+   * - **target_branch_conv_pretrained**
+     - Use torchvision's default pretrained weights. Defaults to ``True``;
+       set to ``False`` to construct the model without downloading weights
+
+Pretrained convolutional branches use torchvision's current ``DEFAULT``
+weight enum. Torchvision may download those weights into its local cache the
+first time a model is created. Setting the corresponding
+``*_branch_conv_pretrained`` option to ``False`` passes ``weights=None`` for
+offline construction.
 
 
 Example of a generating a configuration::

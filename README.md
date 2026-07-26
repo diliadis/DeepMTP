@@ -327,6 +327,7 @@ As mentioned before, all hyperparameters needed to define the architecture of th
 | `instance_branch_conv_architecture_version` | Instance ResNet version: `resnet18` or `resnet101` |
 | `instance_branch_conv_architecture_dense_layers` | Number of replacement instance ResNet dense layers: 1 or 2 |
 | `instance_branch_conv_architecture_last_layer_trained` | Earliest trainable instance ResNet block: `last` or `layer4` through `layer1` |
+| `instance_branch_conv_pretrained` | Use torchvision's default pretrained weights. Defaults to `True`; set to `False` to construct the model without downloading weights |
 |  **Possible key names currently supported in the `target_branch_params` dictionary**  ||
 | `target_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the target branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `target_branch_layers` times|
 | `target_branch_layers` | The number of layers in the MLP version of the target branch. (Only used if `target_branch_nodes_per_layer` is int) |
@@ -334,6 +335,12 @@ As mentioned before, all hyperparameters needed to define the architecture of th
 | `target_branch_conv_architecture_version` | Target ResNet version: `resnet18` or `resnet101` |
 | `target_branch_conv_architecture_dense_layers` | Number of replacement target ResNet dense layers: 1 or 2 |
 | `target_branch_conv_architecture_last_layer_trained` | Earliest trainable target ResNet block: `last` or `layer4` through `layer1` |
+| `target_branch_conv_pretrained` | Use torchvision's default pretrained weights. Defaults to `True`; set to `False` to construct the model without downloading weights |
+
+Pretrained convolutional branches use torchvision's current `DEFAULT` weight
+enum. Torchvision may download those weights into its local cache the first
+time a model is created. Set the corresponding `*_branch_conv_pretrained`
+option to `False` for offline construction; this passes `weights=None`.
 
 
 # Logging results

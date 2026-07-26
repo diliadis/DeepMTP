@@ -2,6 +2,7 @@ import pytest
 import torch
 from torch import nn
 
+import DeepMTP.model_factory as model_factory
 from DeepMTP import (
     DeepMTPConfig,
     ModelFactory,
@@ -140,3 +141,23 @@ def test_custom_factory_must_return_a_torch_module():
         ModelFactory(config).build(
             instance_branch_factory=lambda legacy_config: object()
         )
+
+
+def test_model_factory_propagates_offline_convolutional_weights_setting(monkeypatch):
+    captured = {}
+
+    def fake_convnet(*args, pretrained):
+        captured["pretrained"] = pretrained
+        return nn.Identity()
+
+    monkeypatch.setattr(model_factory, "ConvNet", fake_convnet)
+    factory = ModelFactory(
+        make_config(
+            instance_branch_architecture="CONV",
+            instance_branch_conv_pretrained=False,
+        )
+    )
+
+    factory._build_branch("instance", output_dim=3, custom_factory=None)
+
+    assert captured == {"pretrained": False}

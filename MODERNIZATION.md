@@ -103,6 +103,8 @@ TensorBoard, and integrations can be tested independently.
   still a project goal.
 - [x] Move W&B, TensorBoard, Streamlit, image models, and downloadable datasets
   behind optional dependency groups and lazy imports.
+- [x] Use torchvision's explicit weights API and support offline image-model
+  construction.
 
 Exit criterion: there is only one implementation of training and HPO logic.
 

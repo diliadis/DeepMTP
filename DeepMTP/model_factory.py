@@ -237,6 +237,10 @@ class ModelFactory:
                     self.config,
                     f"{branch}_branch_conv_architecture_dense_layers",
                 ),
+                pretrained=getattr(
+                    self.config,
+                    f"{branch}_branch_conv_pretrained",
+                ),
             )
         raise ValueError(f"Unsupported {branch} branch architecture: {architecture!r}.")
 

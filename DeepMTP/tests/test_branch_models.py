@@ -1,3 +1,5 @@
+from types import ModuleType
+
 import pytest
 from torch import nn
 
@@ -104,6 +106,49 @@ def test_convnet_explains_how_to_install_image_dependencies(monkeypatch):
 
 
 @pytest.mark.parametrize(
+    ("architecture", "version", "factory_name", "weights_name"),
+    [
+        ("resnet", "resnet18", "resnet18", "ResNet18_Weights"),
+        ("resnet", "resnet101", "resnet101", "ResNet101_Weights"),
+        ("VGG", "unused", "vgg11_bn", "VGG11_BN_Weights"),
+    ],
+)
+@pytest.mark.parametrize("pretrained", [False, True])
+def test_torchvision_backbone_uses_explicit_weights_api(
+    architecture,
+    version,
+    factory_name,
+    weights_name,
+    pretrained,
+):
+    models = ModuleType("fake_torchvision_models")
+    backbone = nn.Identity()
+    default_weights = object()
+    calls = []
+
+    class Weights:
+        DEFAULT = default_weights
+
+    def build_backbone(**kwargs):
+        calls.append(kwargs)
+        return backbone
+
+    setattr(models, factory_name, build_backbone)
+    if pretrained:
+        setattr(models, weights_name, Weights)
+
+    result = branch_models._build_torchvision_backbone(
+        models,
+        architecture=architecture,
+        version=version,
+        pretrained=pretrained,
+    )
+
+    assert result is backbone
+    assert calls == [{"weights": default_weights if pretrained else None}]
+
+
+@pytest.mark.parametrize(
     ("overrides", "message"),
     [
         ({"input_dim": 0}, "input_dim"),
@@ -138,6 +183,7 @@ def test_mlp_rejects_invalid_dimensions_and_dropout(overrides, message):
         ({"conv_architecture_last_trained_layer": "classifier"}, "not a valid"),
         ({"conv_architecture_dense_layers": 3}, "Only 1 or 2"),
         ({"conv_architecture_dense_layers": True}, "Only 1 or 2"),
+        ({"pretrained": "yes"}, "pretrained must be a boolean"),
     ],
 )
 def test_convnet_rejects_invalid_configuration_before_import(

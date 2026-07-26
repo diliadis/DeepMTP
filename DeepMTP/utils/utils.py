@@ -276,6 +276,7 @@ def generate_config(
         instance_branch_conv_architecture_version (str, optional): The ResNet version used in the instance branch: 'resnet18' or 'resnet101'. Defaults to 'resnet101'.
         instance_branch_conv_architecture_dense_layers (int, optional): The number of replacement dense layers for a ResNet instance branch: 1 or 2. Defaults to 1.
         instance_branch_conv_architecture_last_layer_trained (str, optional): The earliest trainable ResNet block in the instance branch: 'last' or 'layer4' through 'layer1'. Defaults to 'last'.
+        instance_branch_conv_pretrained (bool, optional): Whether to initialize an instance convolutional branch with torchvision's default pretrained weights. Set to False to construct the model without a network download. Defaults to True.
         target_branch_architecture (str, optional): The type of architecture that will be used in the target branch. Currently, there are two available options, MLP: a basic fully connected feed-forward neural network is used, CONV a convolutional neural network is used. Defaults to None.
         use_target_features (bool, optional): Whether or not the target features will be used. Defaults to False.. Defaults to False.
         target_branch_input_dim (int, optional): The input dimension of the target branch. Defaults to None.
@@ -288,6 +289,7 @@ def generate_config(
         target_branch_conv_architecture_version (str, optional): The ResNet version used in the target branch: 'resnet18' or 'resnet101'. Defaults to 'resnet101'.
         target_branch_conv_architecture_dense_layers (int, optional): The number of replacement dense layers for a ResNet target branch: 1 or 2. Defaults to 1.
         target_branch_conv_architecture_last_layer_trained (str, optional): The earliest trainable ResNet block in the target branch: 'last' or 'layer4' through 'layer1'. Defaults to 'last'.
+        target_branch_conv_pretrained (bool, optional): Whether to initialize a target convolutional branch with torchvision's default pretrained weights. Set to False to construct the model without a network download. Defaults to True.
         comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if general_architecture_version in "mlp"). Not currently implemented. Defaults to 2.
         comb_mlp_nodes_per_layer (list or int, optional): Positive layer widths for the combination branch. If a list is provided, each element defines one layer. If an int is provided, the width is repeated ``comb_mlp_layers`` times. Used only when general_architecture_version is "mlp". Defaults to [10, 10, 10].
         comb_mlp_layers (int, optional): The positive number of repeated combination layers, required when comb_mlp_nodes_per_layer is an int. Used only when general_architecture_version is "mlp". Defaults to None.
@@ -482,6 +484,7 @@ def generate_config(
                 "instance_branch_conv_architecture_version": "resnet101",
                 "instance_branch_conv_architecture_dense_layers": 1,
                 "instance_branch_conv_architecture_last_layer_trained": "last",
+                "instance_branch_conv_pretrained": True,
                 "instance_train_transforms": get_default_train_transform()
                 if instance_train_transforms is None
                 else instance_train_transforms,
@@ -495,6 +498,7 @@ def generate_config(
             "instance_branch_conv_architecture_version",
             "instance_branch_conv_architecture_dense_layers",
             "instance_branch_conv_architecture_last_layer_trained",
+            "instance_branch_conv_pretrained",
             "instance_train_transforms",
             "instance_inference_transforms",
         ]:
@@ -551,6 +555,7 @@ def generate_config(
                 "target_branch_conv_architecture_version": "resnet101",
                 "target_branch_conv_architecture_dense_layers": 1,
                 "target_branch_conv_architecture_last_layer_trained": "last",
+                "target_branch_conv_pretrained": True,
                 "target_train_transforms": get_default_train_transform()
                 if target_train_transforms is None
                 else target_train_transforms,
@@ -564,6 +569,7 @@ def generate_config(
             "target_branch_conv_architecture_version",
             "target_branch_conv_architecture_dense_layers",
             "target_branch_conv_architecture_last_layer_trained",
+            "target_branch_conv_pretrained",
             "target_train_transforms",
             "target_inference_transforms",
         ]:

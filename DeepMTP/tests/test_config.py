@@ -217,6 +217,7 @@ def test_combined_mlp_accepts_repeated_integer_width():
         ("conv_architecture_last_layer_trained", "classifier"),
         ("conv_architecture_dense_layers", 3),
         ("conv_architecture_dense_layers", True),
+        ("conv_pretrained", "yes"),
     ],
 )
 def test_convolutional_branches_reject_unsupported_settings(
@@ -250,6 +251,23 @@ def test_vgg_ignores_resnet_specific_legacy_settings():
     typed_config = DeepMTPConfig.from_mapping(config)
 
     assert typed_config.instance_branch_conv_architecture == "VGG"
+
+
+def test_vgg_requires_boolean_pretrained_setting():
+    config = make_valid_config()
+    config.update(
+        {
+            "instance_branch_architecture": "CONV",
+            "instance_branch_conv_architecture": "VGG",
+            "instance_branch_conv_pretrained": 1,
+        }
+    )
+
+    with pytest.raises(
+        ConfigValidationError,
+        match="instance_branch_conv_pretrained",
+    ):
+        DeepMTPConfig.from_mapping(config)
 
 
 def test_generate_config_mutable_defaults_are_isolated():

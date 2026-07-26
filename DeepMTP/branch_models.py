@@ -4,7 +4,7 @@ import importlib
 from collections import OrderedDict
 from collections.abc import Mapping
 from types import ModuleType
-from typing import Any, TypeAlias
+from typing import Any, TypeAlias, cast
 
 import torch
 from torch import nn
@@ -28,6 +28,29 @@ def _load_torchvision_models() -> ModuleType:
             "Image models require the optional 'image' dependencies. "
             "Install them with `pip install 'DeepMTP[image]'`."
         ) from exc
+
+
+def _build_torchvision_backbone(
+    models: ModuleType,
+    *,
+    architecture: str,
+    version: str,
+    pretrained: bool,
+) -> nn.Module:
+    """Construct a supported torchvision model with the modern weights API."""
+    if architecture == "resnet":
+        factory_name = version
+        weights_name = {
+            "resnet18": "ResNet18_Weights",
+            "resnet101": "ResNet101_Weights",
+        }[version]
+    else:
+        factory_name = "vgg11_bn"
+        weights_name = "VGG11_BN_Weights"
+
+    factory = getattr(models, factory_name)
+    weights = getattr(models, weights_name).DEFAULT if pretrained else None
+    return cast(nn.Module, factory(weights=weights))
 
 
 class MLP(nn.Sequential):
@@ -103,6 +126,7 @@ class ConvNet(nn.Sequential):
         conv_architecture_version: str,
         conv_architecture_last_trained_layer: str,
         conv_architecture_dense_layers: int,
+        pretrained: bool = True,
     ) -> None:
         super().__init__()
 
@@ -131,6 +155,8 @@ class ConvNet(nn.Sequential):
                     "Only 1 or 2 dense layers are currently allowed in the "
                     f"{conv_architecture_version} version of resnet."
                 )
+        if not isinstance(pretrained, bool):
+            raise AttributeError("pretrained must be a boolean.")
 
         self.predictor = nn.ModuleList()
         models = _load_torchvision_models()
@@ -138,10 +164,8 @@ class ConvNet(nn.Sequential):
         if conv_architecture == "resnet":
             in_size = 512
             if conv_architecture_version == "resnet18":
-                self.predictor.append(models.resnet18(pretrained=True))
                 in_size = 512
             elif conv_architecture_version == "resnet101":
-                self.predictor.append(models.resnet101(pretrained=True))
                 in_size = 2048
             else:
                 raise AttributeError(
@@ -149,6 +173,14 @@ class ConvNet(nn.Sequential):
                     + conv_architecture_version
                     + " version of resnet is not currently supported"
                 )
+            self.predictor.append(
+                _build_torchvision_backbone(
+                    models,
+                    architecture=conv_architecture,
+                    version=conv_architecture_version,
+                    pretrained=pretrained,
+                )
+            )
 
             for param in self.predictor.parameters():
                 param.requires_grad = False
@@ -224,7 +256,14 @@ class ConvNet(nn.Sequential):
             self.predictor[0].fc = fc
 
         elif conv_architecture == "VGG":
-            self.predictor.append(models.vgg11_bn(pretrained=True))
+            self.predictor.append(
+                _build_torchvision_backbone(
+                    models,
+                    architecture=conv_architecture,
+                    version=conv_architecture_version,
+                    pretrained=pretrained,
+                )
+            )
             for param in self.predictor.parameters():
                 param.requires_grad = False
 

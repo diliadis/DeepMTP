@@ -119,6 +119,7 @@ class DeepMTPConfig:
     instance_branch_conv_architecture_version: str = "resnet101"
     instance_branch_conv_architecture_dense_layers: int = 1
     instance_branch_conv_architecture_last_layer_trained: str = "last"
+    instance_branch_conv_pretrained: bool = True
     instance_train_transforms: Any = None
     instance_inference_transforms: Any = None
 
@@ -134,6 +135,7 @@ class DeepMTPConfig:
     target_branch_conv_architecture_version: str = "resnet101"
     target_branch_conv_architecture_dense_layers: int = 1
     target_branch_conv_architecture_last_layer_trained: str = "last"
+    target_branch_conv_pretrained: bool = True
     target_train_transforms: Any = None
     target_inference_transforms: Any = None
 
@@ -398,6 +400,12 @@ class DeepMTPConfig:
                 raise ConfigValidationError(
                     f"{branch}_branch_conv_architecture must be 'resnet' or "
                     f"'VGG'; received {conv_architecture!r}."
+                )
+            pretrained = getattr(self, f"{branch}_branch_conv_pretrained")
+            if not isinstance(pretrained, bool):
+                raise ConfigValidationError(
+                    f"{branch}_branch_conv_pretrained must be a boolean; "
+                    f"received {pretrained!r}."
                 )
             if conv_architecture != "resnet":
                 return
