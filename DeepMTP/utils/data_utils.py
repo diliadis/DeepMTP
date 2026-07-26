@@ -120,6 +120,7 @@ def _emit_data_operation_completed(
     subject: str,
     message: str,
     value: object | None = None,
+    end: str = "\n",
 ) -> None:
     progress.on_event(
         DataProgressEvent(
@@ -127,6 +128,7 @@ def _emit_data_operation_completed(
             kind="operation_completed",
             subject=subject,
             value=value,
+            end=end,
         )
     )
 
@@ -567,6 +569,8 @@ def get_estimated_validation_setting(
     novel_targets_flag: bool | None,
     verbose: bool,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> ValidationSetting | None:
     """Uses the combination of infrmation about novel instances and novel targets to determine the validation setting that is possible.
 
@@ -575,6 +579,7 @@ def get_estimated_validation_setting(
         novel_targets_flag (bool): A boolean that indicates whether or not the test set contains novel targets.
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives verbose validation-setting inference messages. Defaults to None.
 
     Returns:
         str: The validation setting. Possible values are A, B, C, D
@@ -588,11 +593,12 @@ def get_estimated_validation_setting(
 
     validation_setting_detected: ValidationSetting | None = None
     if novel_instances_flag is not None and novel_targets_flag is not None:
+        progress_observer = _resolve_data_progress(verbose, print_mode, progress)
         if verbose:
-            print(
-                ("info: " if print_mode == "dev" else "")
-                + "Estimating validation setting... ",
-                end="",
+            _emit_data_operation_started(
+                progress_observer,
+                subject="validation_setting",
+                message="Estimating validation setting... ",
             )
         if novel_instances_flag and not novel_targets_flag:
             validation_setting_detected = "B"
@@ -603,13 +609,20 @@ def get_estimated_validation_setting(
         else:  # novel_instances_flag and not novel_targets_flag:
             validation_setting_detected = "A"
         if verbose:
-            print(("info: " if print_mode == "dev" else "") + "Done", end="")
-    if verbose and validation_setting_detected is not None:
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + "-- Detected as setting :"
-            + validation_setting_detected
-        )
+            _emit_data_operation_completed(
+                progress_observer,
+                subject="validation_setting",
+                message="Done",
+                value=validation_setting_detected,
+                end="",
+            )
+            progress_observer.on_event(
+                DataProgressEvent(
+                    "-- Detected as setting :" + validation_setting_detected,
+                    subject="validation_setting",
+                    value=validation_setting_detected,
+                )
+            )
     return validation_setting_detected
 
 

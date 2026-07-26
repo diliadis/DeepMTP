@@ -661,6 +661,101 @@ def test_get_estimated_validation_setting(get_estimated_validation_setting_data)
     )
 
 
+def test_validation_setting_inference_preserves_developer_console_output(capsys):
+    result = get_estimated_validation_setting(
+        False,
+        False,
+        verbose=True,
+        print_mode="dev",
+    )
+
+    assert result == "A"
+    assert capsys.readouterr().out == (
+        "info: Estimating validation setting... "
+        "info: Done"
+        "info: -- Detected as setting :A\n"
+    )
+
+
+def test_validation_setting_inference_emits_structured_progress(capsys):
+    progress = RecordingDataProgress()
+
+    result = get_estimated_validation_setting(
+        True,
+        False,
+        verbose=True,
+        print_mode="dev",
+        progress=progress,
+    )
+
+    assert result == "B"
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.message, event.kind, event.subject, event.value, event.end)
+        for event in progress.events
+    ] == [
+        (
+            "Estimating validation setting... ",
+            "operation_started",
+            "validation_setting",
+            None,
+            "",
+        ),
+        (
+            "Done",
+            "operation_completed",
+            "validation_setting",
+            "B",
+            "",
+        ),
+        (
+            "-- Detected as setting :B",
+            "message",
+            "validation_setting",
+            "B",
+            "\n",
+        ),
+    ]
+
+
+def test_validation_setting_inference_respects_null_progress(capsys):
+    result = get_estimated_validation_setting(
+        True,
+        True,
+        verbose=True,
+        progress=NullDataProgressObserver(),
+    )
+
+    assert result == "D"
+    assert capsys.readouterr().out == ""
+
+
+def test_validation_setting_inference_is_silent_when_disabled():
+    progress = RecordingDataProgress()
+
+    result = get_estimated_validation_setting(
+        False,
+        True,
+        verbose=False,
+        progress=progress,
+    )
+
+    assert result == "C"
+    assert progress.events == []
+
+
+def test_unknown_validation_setting_is_silent_without_validating_print_mode(capsys):
+    result = get_estimated_validation_setting(
+        None,
+        False,
+        verbose=True,
+        print_mode="unknown",
+    )
+
+    assert result is None
+    assert capsys.readouterr().out == ""
+
+
 test_process_instance_features_data = [
     {"format": "numpy", "ids_type": "int", "features_type": "features"},
     {"format": "dataframe", "ids_type": "int", "features_type": "features"},
@@ -3460,9 +3555,10 @@ def test_failed_interaction_validation_does_not_emit_completion(capsys):
         data_utils_module._check_novel_entities,
         data_utils_module.check_novel_instances,
         data_utils_module.check_novel_targets,
+        data_utils_module.get_estimated_validation_setting,
     ],
 )
-def test_interaction_validation_functions_do_not_print_directly(target):
+def test_data_progress_functions_do_not_print_directly(target):
     tree = ast.parse(inspect.getsource(target))
 
     direct_prints = [

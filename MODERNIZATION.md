@@ -101,6 +101,8 @@ all supported options have tests.
   messages through it.
 - [x] Route interaction parsing and cross-split validation messages through
   data progress observers.
+- [x] Route validation-setting inference messages through data progress
+  observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,
