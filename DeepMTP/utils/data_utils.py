@@ -23,6 +23,7 @@ from DeepMTP._split_utils import (
 from DeepMTP.data_progress import (
     DataPrintMode,
     DataProgressEvent,
+    DataProgressLevel,
     DataProgressObserver,
     build_data_progress_observer,
 )
@@ -141,6 +142,7 @@ def _emit_data_message(
     subject: str,
     message: str,
     value: object | None = None,
+    level: DataProgressLevel = "info",
 ) -> None:
     if not verbose:
         return
@@ -149,7 +151,44 @@ def _emit_data_message(
             message,
             subject=subject,
             value=value,
+            level=level,
         )
+    )
+
+
+def _emit_data_operation_started_if_verbose(
+    verbose: bool,
+    print_mode: str,
+    progress: DataProgressObserver | None,
+    *,
+    subject: str,
+    message: str,
+) -> None:
+    if not verbose:
+        return
+    _emit_data_operation_started(
+        _resolve_data_progress(verbose, print_mode, progress),
+        subject=subject,
+        message=message,
+    )
+
+
+def _emit_data_operation_completed_if_verbose(
+    verbose: bool,
+    print_mode: str,
+    progress: DataProgressObserver | None,
+    *,
+    subject: str,
+    message: str,
+    value: object | None = None,
+) -> None:
+    if not verbose:
+        return
+    _emit_data_operation_completed(
+        _resolve_data_progress(verbose, print_mode, progress),
+        subject=subject,
+        message=message,
+        value=value,
     )
 
 
@@ -2099,37 +2138,51 @@ def _scale_feature_splits(
     *,
     verbose: bool,
     print_mode: str,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     if scaling_method is None:
         return
 
     train_source = data["train"][feature_key]
     if train_source is None:
-        if verbose:
-            print(
-                ("warning: " if print_mode == "dev" else "")
-                + f"-- Requested {scaling_method} scaling for the {entity_name} "
+        _emit_data_message(
+            verbose,
+            print_mode,
+            progress,
+            subject=f"{entity_name}_feature_scaling",
+            message=(
+                f"-- Requested {scaling_method} scaling for the {entity_name} "
                 f"features without supplying any {entity_name} features. This "
                 "step will be skipped"
-            )
+            ),
+            value="missing_features",
+            level="warning",
+        )
         return
 
     train_frame = train_source["data"]
     if "features" not in train_frame.columns:
-        if verbose:
-            print(
-                ("warning: " if print_mode == "dev" else "")
-                + f"-- Requested {scaling_method} scaling for the {entity_name} "
+        _emit_data_message(
+            verbose,
+            print_mode,
+            progress,
+            subject=f"{entity_name}_feature_scaling",
+            message=(
+                f"-- Requested {scaling_method} scaling for the {entity_name} "
                 "features while supplying images. This step will be skipped"
-            )
+            ),
+            value="images",
+            level="warning",
+        )
         return
 
-    if verbose:
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + f"Scaling {entity_name} features... ",
-            end="",
-        )
+    _emit_data_operation_started_if_verbose(
+        verbose,
+        print_mode,
+        progress,
+        subject=f"{entity_name}_feature_scaling",
+        message=f"Scaling {entity_name} features... ",
+    )
 
     scaler = MinMaxScaler() if scaling_method == "MinMax" else StandardScaler()
     scaler.fit(np.stack(train_frame["features"].to_numpy()))
@@ -2146,8 +2199,14 @@ def _scale_feature_splits(
             axis=1,
         )
 
-    if verbose:
-        print(("info: " if print_mode == "dev" else "") + "Done")
+    _emit_data_operation_completed_if_verbose(
+        verbose,
+        print_mode,
+        progress,
+        subject=f"{entity_name}_feature_scaling",
+        message="Done",
+        value=scaling_method,
+    )
 
 
 def data_process(

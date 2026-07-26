@@ -3271,6 +3271,229 @@ def make_data_process_scaling_data():
     }
 
 
+def make_feature_scaling_progress_data():
+    values_by_split = {
+        "train": [0.0, 2.0],
+        "val": [1.0],
+        "test": [3.0],
+    }
+    return {
+        split: {
+            "X_instance": {
+                "data": pd.DataFrame(
+                    {
+                        "id": range(len(values)),
+                        "features": [
+                            np.array([value], dtype=float) for value in values
+                        ],
+                    }
+                )
+            },
+            "X_target": {
+                "data": pd.DataFrame(
+                    {
+                        "id": range(len(values)),
+                        "features": [
+                            np.array([value], dtype=float) for value in values
+                        ],
+                    }
+                )
+            },
+        }
+        for split, values in values_by_split.items()
+    }
+
+
+@pytest.mark.parametrize(
+    ("feature_key", "entity_name", "scaling_method"),
+    [
+        ("X_instance", "instance", "Standard"),
+        ("X_target", "target", "MinMax"),
+    ],
+)
+def test_feature_scaling_preserves_developer_console_output(
+    feature_key,
+    entity_name,
+    scaling_method,
+    capsys,
+):
+    data_utils_module._scale_feature_splits(
+        make_feature_scaling_progress_data(),
+        feature_key,
+        entity_name,
+        scaling_method,
+        verbose=True,
+        print_mode="dev",
+    )
+
+    assert capsys.readouterr().out == (
+        f"info: Scaling {entity_name} features... info: Done\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("feature_key", "entity_name", "scaling_method"),
+    [
+        ("X_instance", "instance", "Standard"),
+        ("X_target", "target", "MinMax"),
+    ],
+)
+def test_feature_scaling_emits_structured_progress(
+    feature_key,
+    entity_name,
+    scaling_method,
+    capsys,
+):
+    progress = RecordingDataProgress()
+
+    data_utils_module._scale_feature_splits(
+        make_feature_scaling_progress_data(),
+        feature_key,
+        entity_name,
+        scaling_method,
+        verbose=True,
+        print_mode="dev",
+        progress=progress,
+    )
+
+    subject = f"{entity_name}_feature_scaling"
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.kind, event.subject, event.value, event.end) for event in progress.events
+    ] == [
+        ("operation_started", subject, None, ""),
+        ("operation_completed", subject, scaling_method, "\n"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("feature_key", "entity_name", "scenario", "expected_message"),
+    [
+        (
+            "X_instance",
+            "instance",
+            "missing_features",
+            "-- Requested Standard scaling for the instance features without "
+            "supplying any instance features. This step will be skipped",
+        ),
+        (
+            "X_target",
+            "target",
+            "images",
+            "-- Requested Standard scaling for the target features while "
+            "supplying images. This step will be skipped",
+        ),
+    ],
+)
+def test_feature_scaling_preserves_developer_warning_output(
+    feature_key,
+    entity_name,
+    scenario,
+    expected_message,
+    capsys,
+):
+    data = make_feature_scaling_progress_data()
+    if scenario == "missing_features":
+        data["train"][feature_key] = None
+    else:
+        data["train"][feature_key] = {
+            "data": pd.DataFrame({"id": [0], "dir": ["image.png"]})
+        }
+
+    data_utils_module._scale_feature_splits(
+        data,
+        feature_key,
+        entity_name,
+        "Standard",
+        verbose=True,
+        print_mode="dev",
+    )
+
+    assert capsys.readouterr().out == f"warning: {expected_message}\n"
+
+
+def test_feature_scaling_emits_structured_warning(capsys):
+    progress = RecordingDataProgress()
+    data = make_feature_scaling_progress_data()
+    data["train"]["X_instance"] = None
+
+    data_utils_module._scale_feature_splits(
+        data,
+        "X_instance",
+        "instance",
+        "MinMax",
+        verbose=True,
+        print_mode="dev",
+        progress=progress,
+    )
+
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.kind, event.subject, event.value, event.level)
+        for event in progress.events
+    ] == [
+        (
+            "message",
+            "instance_feature_scaling",
+            "missing_features",
+            "warning",
+        )
+    ]
+
+
+def test_feature_scaling_respects_null_progress(capsys):
+    data_utils_module._scale_feature_splits(
+        make_feature_scaling_progress_data(),
+        "X_target",
+        "target",
+        "MinMax",
+        verbose=True,
+        print_mode="dev",
+        progress=NullDataProgressObserver(),
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+def test_disabled_feature_scaling_is_silent_without_validating_print_mode(capsys):
+    progress = RecordingDataProgress()
+
+    data_utils_module._scale_feature_splits(
+        make_feature_scaling_progress_data(),
+        "X_instance",
+        "instance",
+        None,
+        verbose=True,
+        print_mode="unknown",
+        progress=progress,
+    )
+
+    assert progress.events == []
+    assert capsys.readouterr().out == ""
+
+
+def test_failed_feature_scaling_does_not_emit_completion(capsys):
+    progress = RecordingDataProgress()
+    data = make_feature_scaling_progress_data()
+    data["val"]["X_instance"] = None
+
+    with pytest.raises(ValueError, match="missing from the val"):
+        data_utils_module._scale_feature_splits(
+            data,
+            "X_instance",
+            "instance",
+            "Standard",
+            verbose=True,
+            progress=progress,
+            print_mode="basic",
+        )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.kind, event.subject) for event in progress.events] == [
+        ("operation_started", "instance_feature_scaling")
+    ]
+
+
 @pytest.mark.parametrize(
     "parameter_name",
     ["scale_instance_features", "scale_target_features"],
@@ -3561,6 +3784,7 @@ def test_failed_interaction_validation_does_not_emit_completion(capsys):
         data_utils_module.process_target_features,
         data_utils_module.cross_input_consistency_check_instances,
         data_utils_module.cross_input_consistency_check_targets,
+        data_utils_module._scale_feature_splits,
     ],
 )
 def test_data_progress_functions_do_not_print_directly(target):
