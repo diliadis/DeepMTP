@@ -1,3 +1,5 @@
+import ast
+import inspect
 from pathlib import Path
 
 import pytest
@@ -67,6 +69,32 @@ def make_config(tmp_path, *, experiment_name):
         "target_branch_architecture": "MLP",
         "target_branch_input_dim": 2,
     }
+
+
+def test_trainer_materializes_synced_legacy_config_snapshot(tmp_path):
+    trainer = DeepMTP(
+        make_config(tmp_path, experiment_name="config_snapshot"),
+    )
+
+    assert trainer.configuration.experiment_dir == trainer.experiment_dir
+    assert trainer.config["experiment_dir"] == trainer.experiment_dir
+    assert trainer.config == trainer.configuration.to_dict(include_defaults=True)
+
+
+def test_core_trainer_does_not_read_legacy_config_snapshot():
+    tree = ast.parse(inspect.getsource(DeepMTP))
+    legacy_reads = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Subscript)
+        and isinstance(node.ctx, ast.Load)
+        and isinstance(node.value, ast.Attribute)
+        and isinstance(node.value.value, ast.Name)
+        and node.value.value.id == "self"
+        and node.value.attr == "config"
+    ]
+
+    assert legacy_reads == []
 
 
 def test_reporter_is_closed_when_start_fails(tmp_path):

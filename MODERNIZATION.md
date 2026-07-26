@@ -76,6 +76,7 @@ all supported options have tests.
 - [x] Extract typed model and dataloader factories from the core trainer.
 - [x] Replace wildcard imports and import-time RNG mutation in the core
   trainer, using isolated model and dataloader generators instead.
+- [x] Use typed configuration attributes for core trainer read paths.
 - [ ] Separate data preparation, datasets, models, training, evaluation,
   persistence, and experiment reporting.
 - [ ] Migrate internal dictionary lookups to typed configuration access as the

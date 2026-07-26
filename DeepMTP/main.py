@@ -98,9 +98,6 @@ class DeepMTP:
             merged_config = config_overrides
 
         self.configuration = DeepMTPConfig.from_mapping(merged_config)
-        # ``config`` remains a dictionary for public and checkpoint
-        # compatibility while new code can use the typed ``configuration``.
-        self.config = self.configuration.to_dict(include_defaults=True)
         self.progress = (
             progress
             if progress is not None
@@ -113,7 +110,7 @@ class DeepMTP:
             if (torch.cuda.is_available() and "cuda" in self.configuration.compute_mode)
             else "cpu"
         )
-        if self.config["verbose"]:
+        if self.configuration.verbose:
             print("Selected device: " + str(self.device))
         self.data_loader_factory = DataLoaderFactory(
             self.configuration,
@@ -121,13 +118,15 @@ class DeepMTP:
         )
 
         self.experiment_store = ExperimentStore.create(
-            self.config["results_path"],
-            self.config["experiment_name"],
+            self.configuration.results_path,
+            self.configuration.experiment_name,
         )
         # Keep the historical string attribute for downstream HPO code.
         self.experiment_dir = str(self.experiment_store.experiment_dir)
-        self.config["experiment_dir"] = self.experiment_dir
         self.configuration.set_runtime_value("experiment_dir", self.experiment_dir)
+        # ``config`` remains a dictionary snapshot for public, reporting, and
+        # checkpoint compatibility. Internal behavior uses ``configuration``.
+        self.config = self.configuration.to_dict(include_defaults=True)
 
         model_bundle = ModelFactory(self.configuration).build(
             instance_branch_factory=instance_branch_model,
@@ -142,13 +141,13 @@ class DeepMTP:
         # define the optimizer
         self.optimizer = torch.optim.Adam(
             self.deepMTP_model.parameters(),
-            lr=self.config["learning_rate"],
-            weight_decay=self.config["decay"],
+            lr=self.configuration.learning_rate,
+            weight_decay=self.configuration.decay,
         )
 
         if self.checkpoint_dict is not None:
             # apply the loaded checkpoint
-            if self.config["verbose"]:
+            if self.configuration.verbose:
                 print("Applying saved weights... ", end="")
             self.deepMTP_model.load_state_dict(self.checkpoint_dict["model_state_dict"])
             # update the device of the optimizer
@@ -157,24 +156,25 @@ class DeepMTP:
                 for k, v in state.items():
                     if isinstance(v, torch.Tensor):
                         state[k] = v.to(self.device)
-            if self.config["verbose"]:
+            if self.configuration.verbose:
                 print("Done")
 
         # initialize the loss function that will be used. BCE for classification tasks and MSE for regression tasks.
-        if self.config["problem_mode"] == "classification":
-            self.criterion = nn.BCELoss(reduction="mean")
-        elif self.config["problem_mode"] == "regression":
-            self.criterion = nn.MSELoss(reduction="mean")
-        else:
-            raise AttributeError(
-                "Invalid problem model: " + str(self.config["problem_mode"])
+        problem_mode = self.configuration.problem_mode
+        if problem_mode is None:
+            raise RuntimeError(
+                "Trainer received an incomplete validated problem configuration."
             )
+        if problem_mode == "classification":
+            self.criterion = nn.BCELoss(reduction="mean")
+        else:
+            self.criterion = nn.MSELoss(reduction="mean")
 
         self.training_engine = TrainingEngine(
             model=self.deepMTP_model,
             criterion=self.criterion,
             device=self.device,
-            problem_mode=self.config["problem_mode"],
+            problem_mode=problem_mode,
             optimizer=self.optimizer,
         )
         self.evaluator = Evaluator(self.configuration)
@@ -184,13 +184,15 @@ class DeepMTP:
             In both cases we create the early stopping object so that we can track the best epoch, model etc. 
         """
         self.early_stopping = EarlyStopping(
-            use_early_stopping=self.config["use_early_stopping"],
-            patience=self.config["patience"],
-            delta=self.config["delta"],
-            verbose=self.config["verbose"],
-            metric_to_track=self.config["metric_to_optimize_early_stopping"]
-            if self.config["use_early_stopping"]
-            else self.config["metric_to_optimize_best_epoch_selection"],
+            use_early_stopping=self.configuration.use_early_stopping,
+            patience=self.configuration.patience,
+            delta=self.configuration.delta,
+            verbose=self.configuration.verbose,
+            metric_to_track=(
+                self.configuration.metric_to_optimize_early_stopping
+                if self.configuration.use_early_stopping
+                else self.configuration.metric_to_optimize_best_epoch_selection
+            ),
         )
 
     @overload
@@ -229,11 +231,16 @@ class DeepMTP:
 
         engine = self.training_engine
         if model is not engine.model:
+            problem_mode = self.configuration.problem_mode
+            if problem_mode is None:
+                raise RuntimeError(
+                    "Trainer received an incomplete validated problem configuration."
+                )
             engine = TrainingEngine(
                 model=model,
                 criterion=self.criterion,
                 device=self.device,
-                problem_mode=self.config["problem_mode"],
+                problem_mode=problem_mode,
             )
         epoch_output = engine.evaluate_epoch(
             dataloader,
@@ -343,13 +350,13 @@ class DeepMTP:
         )
 
         # iterate over epochs
-        for epoch in range(self.config["num_epochs"]):
+        for epoch in range(self.configuration.num_epochs):
             train_results = {}
 
             self.progress.on_event(ProgressEvent("epoch_started", epoch=epoch))
             epoch_output = self.training_engine.train_epoch(
                 train_dataloader,
-                collect_predictions=self.config["evaluate_train"],
+                collect_predictions=self.configuration.evaluate_train,
             )
 
             # calculate performance metrics on the training set
@@ -368,8 +375,8 @@ class DeepMTP:
             # update the loggers
             results_to_log = {
                 "train_" + m + "_" + av: train_results["train_" + m + "_" + av]
-                for m in self.config["metrics"]
-                for av in self.config["metrics_average"]
+                for m in self.configuration.metrics
+                for av in self.configuration.metrics_average
                 if "train_" + m + "_" + av in train_results
             }
             results_to_log["train_loss"] = mean_loss
@@ -397,8 +404,8 @@ class DeepMTP:
             results_to_log.update(
                 {
                     "val_" + m + "_" + av: val_results["val_" + m + "_" + av]
-                    for m in self.config["metrics"]
-                    for av in self.config["metrics_average"]
+                    for m in self.configuration.metrics
+                    for av in self.configuration.metrics_average
                     if "val_" + m + "_" + av in val_results
                 }
             )
@@ -429,7 +436,7 @@ class DeepMTP:
             )
             should_stop = (
                 self.early_stopping.early_stop_flag
-                and self.config["use_early_stopping"]
+                and self.configuration.use_early_stopping
             )
             if should_stop:
                 self.progress.on_event(
@@ -457,8 +464,8 @@ class DeepMTP:
             "best_val_" + m + "_" + av: val_best_performance_results[
                 "val_" + m + "_" + av
             ]
-            for m in self.config["metrics"]
-            for av in self.config["metrics_average"]
+            for m in self.configuration.metrics
+            for av in self.configuration.metrics_average
             if "val_" + m + "_" + av in val_best_performance_results
         }
         results_to_log["best_val_loss"] = val_best_performance_results["val_loss"]
@@ -482,8 +489,8 @@ class DeepMTP:
         # update the loggers
         results_to_log = {
             "test_" + m + "_" + av: test_results["test_" + m + "_" + av]
-            for m in self.config["metrics"]
-            for av in self.config["metrics_average"]
+            for m in self.configuration.metrics
+            for av in self.configuration.metrics_average
         }
         reporter.log_metrics(results_to_log)
         self.progress.on_event(
@@ -508,7 +515,7 @@ class DeepMTP:
         )
 
         # save the best model
-        if self.config["save_model"]:
+        if self.configuration.save_model:
             self.save_model(verbose=effective_verbose)
 
         self.experiment_store.save_config(self.config)
