@@ -1,4 +1,9 @@
-from DeepMTP import DeepMTPConfig, ProgressEvent, RunSummaries
+from DeepMTP import (
+    DeepMTPConfig,
+    EvaluationProgressEvent,
+    ProgressEvent,
+    RunSummaries,
+)
 from DeepMTP.hpo_progress import HPOProgressEvent
 from DeepMTP.main import DeepMTP as CoreDeepMTP
 from DeepMTP.main_streamlit import DeepMTP as StreamlitDeepMTP
@@ -88,6 +93,25 @@ def test_streamlit_trainer_is_a_thin_core_subclass():
     assert issubclass(StreamlitDeepMTP, CoreDeepMTP)
     assert issubclass(StreamlitRandomSearch, CoreRandomSearch)
     assert issubclass(StreamlitHyperBand, CoreHyperBand)
+
+
+def test_streamlit_progress_safely_ignores_detailed_evaluation_events():
+    streamlit = FakeStreamlit()
+    observer = StreamlitProgressObserver(
+        make_config(),
+        streamlit_module=streamlit,
+    )
+
+    observer.on_event(
+        EvaluationProgressEvent(
+            "metric_calculated",
+            metric_name="accuracy",
+            metric_value=0.75,
+            averaging="macro",
+        )
+    )
+
+    assert streamlit.slots == []
 
 
 def test_streamlit_progress_renders_core_lifecycle_events(tmp_path):

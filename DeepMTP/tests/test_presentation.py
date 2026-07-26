@@ -1,5 +1,6 @@
 from DeepMTP import (
     ConsoleProgressObserver,
+    EvaluationProgressEvent,
     NullProgressObserver,
     ProgressEvent,
     RunHistory,
@@ -40,6 +41,14 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
     observer.on_event(ProgressEvent("checkpoint_saving_started"))
     observer.on_event(ProgressEvent("checkpoint_saving_completed"))
     observer.on_event(ProgressEvent("training_started"))
+    observer.on_event(
+        EvaluationProgressEvent(
+            "metric_calculated",
+            metric_name="accuracy",
+            metric_value=0.75,
+            averaging="micro",
+        )
+    )
     observer.on_event(ProgressEvent("epoch_started", epoch=2))
     observer.on_event(ProgressEvent("epoch_completed", epoch=2))
     observer.on_event(
@@ -66,6 +75,7 @@ def test_console_progress_observer_renders_events_and_summaries(capsys):
     assert "Applying saved weights... Done" in output
     assert "Saving the best model... Done" in output
     assert "Starting training..." in output
+    assert "accuracy_micro: 0.75" in output
     assert "Epoch:2... Done" in output
     assert "EarlyStopping counter: 1 out of 3" in output
     assert "best epoch currently 1" in output
@@ -86,6 +96,14 @@ def test_null_progress_observer_has_no_output(capsys):
     observer.on_event(ProgressEvent("device_selected", message="cpu"))
     observer.on_event(ProgressEvent("checkpoint_saving_started"))
     observer.on_event(ProgressEvent("training_started"))
+    observer.on_event(
+        EvaluationProgressEvent(
+            "metric_calculated",
+            metric_name="accuracy",
+            metric_value=0.75,
+            averaging="micro",
+        )
+    )
     observer.on_event(
         ProgressEvent(
             "early_stopping_counter_updated",

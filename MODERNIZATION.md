@@ -95,6 +95,8 @@ all supported options have tests.
   HPO progress observers.
 - [x] Route early-stopping patience diagnostics through trainer progress
   observers.
+- [x] Route detailed metric results and evaluation diagnostics through
+  injectable progress observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

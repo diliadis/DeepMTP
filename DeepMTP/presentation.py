@@ -8,6 +8,11 @@ from typing import Literal, Protocol
 
 from prettytable import PrettyTable
 
+from DeepMTP.evaluation_progress import (
+    ConsoleEvaluationProgressObserver,
+    EvaluationProgressEvent,
+)
+
 
 @dataclass(frozen=True)
 class RunSummaries:
@@ -131,7 +136,7 @@ class ProgressEvent:
 class ProgressObserver(Protocol):
     """Receives training lifecycle events and final summaries."""
 
-    def on_event(self, event: ProgressEvent) -> None:
+    def on_event(self, event: ProgressEvent | EvaluationProgressEvent) -> None:
         """Handle one lifecycle event."""
 
     def on_summary(
@@ -147,7 +152,7 @@ class ProgressObserver(Protocol):
 class NullProgressObserver:
     """No-op observer used for non-verbose experiments."""
 
-    def on_event(self, event: ProgressEvent) -> None:
+    def on_event(self, event: ProgressEvent | EvaluationProgressEvent) -> None:
         return None
 
     def on_summary(
@@ -163,7 +168,13 @@ class NullProgressObserver:
 class ConsoleProgressObserver:
     """Renders progress events using the historical console messages."""
 
-    def on_event(self, event: ProgressEvent) -> None:
+    def __init__(self) -> None:
+        self._evaluation = ConsoleEvaluationProgressObserver()
+
+    def on_event(self, event: ProgressEvent | EvaluationProgressEvent) -> None:
+        if isinstance(event, EvaluationProgressEvent):
+            self._evaluation.on_event(event)
+            return
         if event.kind == "checkpoint_loading_started":
             print(f"Loading checkpoint from {event.message}... ", end="")
         elif event.kind == "checkpoint_loading_completed":

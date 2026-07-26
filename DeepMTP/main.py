@@ -189,7 +189,10 @@ class DeepMTP:
             problem_mode=problem_mode,
             optimizer=self.optimizer,
         )
-        self.evaluator = Evaluator(self.configuration)
+        self.evaluator = Evaluator(
+            self.configuration,
+            progress=self.progress if self._progress_was_injected else None,
+        )
 
         """
             the user can specify wether or not they want to use early stopping.

@@ -10,6 +10,7 @@ from typing import Any, Protocol, cast
 import pandas as pd
 
 from DeepMTP.config import DeepMTPConfig
+from DeepMTP.evaluation_progress import EvaluationProgressEvent
 from DeepMTP.hpo_progress import HPOProgressEvent
 from DeepMTP.presentation import ProgressEvent, RunSummaries
 from DeepMTP.reporting import OptionalIntegrationError
@@ -56,7 +57,9 @@ class StreamlitProgressObserver:
         if experiment_dir is not None:
             self._experiment_dir = Path(experiment_dir)
 
-    def on_event(self, event: ProgressEvent) -> None:
+    def on_event(self, event: ProgressEvent | EvaluationProgressEvent) -> None:
+        if isinstance(event, EvaluationProgressEvent):
+            return
         if event.kind == "training_started":
             self._start()
         elif event.kind == "epoch_completed":

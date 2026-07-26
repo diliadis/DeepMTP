@@ -22,6 +22,12 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from DeepMTP.evaluation_progress import (
+    EvaluationProgressEvent,
+    EvaluationProgressObserver,
+    build_evaluation_progress_observer,
+)
+
 ArrayValues: TypeAlias = Sequence[Any]
 MetricResults: TypeAlias = dict[str, float]
 TrainingMeans: TypeAlias = Mapping[Any, float]
@@ -248,6 +254,7 @@ def get_performance_results(
     return_detailed_macro: bool = False,
     train_true_value: TrainingMeans | None = None,
     scaler_per_target: ScalerInput = None,
+    progress: EvaluationProgressObserver | None = None,
 ) -> MetricResults:
     """Calculates all the metrics using different averaging schemes
 
@@ -270,6 +277,8 @@ def get_performance_results(
         return_detailed_macro (bool, optional): Whether to include per-target metrics in addition to macro averages. Requires macro averaging. Defaults to False.
         train_true_value (_type_, optional): The training mean for every target, required when calculating macro RRMSE. Defaults to None.
         scaler_per_target (_type_, optional): One global scaler for setting A or a scaler for every target in settings B-D. Supported for regression scores only. Defaults to None.
+        progress (EvaluationProgressObserver, optional): Receives requested
+            verbose evaluation details instead of writing them directly.
 
     Raises:
         AttributeError: only when the problem setting is A, but a macro or instance wise averaging is requested
@@ -292,20 +301,30 @@ def get_performance_results(
         train_true_value,
         scaler_per_target,
     )
+    progress_observer = (
+        progress
+        if progress is not None
+        else build_evaluation_progress_observer(
+            verbose or per_target_verbose or per_instance_verbose
+        )
+    )
     final_result: MetricResults = {}
     if mode != "":
         mode += "_"
 
     if verbose:  # pragma: no cover
-        print(
-            "There are "
-            + str(np.count_nonzero(np.array(pred_values_arr)))
-            + " non zero predictions"
+        progress_observer.on_event(
+            EvaluationProgressEvent(
+                "input_inspected",
+                nonzero_predictions=int(np.count_nonzero(np.asarray(pred_values_arr))),
+                true_values_have_nan=bool(
+                    np.isnan(np.asarray(true_values_arr, dtype=float)).any()
+                ),
+                predicted_values_have_nan=bool(
+                    np.isnan(np.asarray(pred_values_arr, dtype=float)).any()
+                ),
+            )
         )
-        if np.isnan(np.asarray(true_values_arr, dtype=float)).any():
-            print("NaN value in true_values_arr")
-        if np.isnan(np.asarray(pred_values_arr, dtype=float)).any():
-            print("NaN value in pred_values_arr")
 
     # package all arrays into a dataframe (will have to check if this implementation is faster than the numpy version)
     df = pd.DataFrame(
@@ -318,7 +337,9 @@ def get_performance_results(
     )
 
     if verbose:
-        print("========== " + str(mode) + " ==========")  # pragma: no cover
+        progress_observer.on_event(  # pragma: no cover
+            EvaluationProgressEvent("evaluation_started", mode=mode)
+        )
 
     # for Setting A, the only averating option that makes sense is the micro version.
     if validation_setting == "A":
@@ -338,18 +359,34 @@ def get_performance_results(
                 df["pred_values"],
             )
             if verbose:  # pragma: no cover
-                print("These are the unscaled values: ")
-                print(
-                    "Unscaled True_values: "
-                    + str(df[["true_values", "pred_values"]].head())
+                progress_observer.on_event(
+                    EvaluationProgressEvent(
+                        "values_unscaled",
+                        values_preview=df[["true_values", "pred_values"]].head(),
+                        announce_unscaled_values=True,
+                    )
                 )
 
-        results = base_evaluator(df, problem_mode, metrics, -1, verbose=verbose)
+        results = base_evaluator(
+            df,
+            problem_mode,
+            metrics,
+            -1,
+            verbose=verbose,
+            progress=progress_observer,
+        )
         # iterate the metric_name, metric_value pairs
         for metric_name, metric_val in results.items():
             final_result.update({mode + metric_name + "_micro": metric_val})
             if verbose:  # pragma: no cover
-                print(metric_name + "_micro: " + str(metric_val))
+                progress_observer.on_event(
+                    EvaluationProgressEvent(
+                        "metric_calculated",
+                        metric_name=metric_name,
+                        metric_value=metric_val,
+                        averaging="micro",
+                    )
+                )
 
     # for Setting B, micro, macro and instance-wise averaging version should be available. In settings B,C and probably D, you have a scaler per target.
     elif validation_setting in ["B", "C", "D"]:
@@ -369,18 +406,34 @@ def get_performance_results(
                 axis=1,
             )
             if verbose:  # pragma: no cover
-                print(
-                    "Unscaled True_values: "
-                    + str(df[["true_values", "pred_values"]].head())
+                progress_observer.on_event(
+                    EvaluationProgressEvent(
+                        "values_unscaled",
+                        values_preview=df[["true_values", "pred_values"]].head(),
+                    )
                 )
 
         if "micro" in averaging:
-            results = base_evaluator(df, problem_mode, metrics, -1, verbose=verbose)
+            results = base_evaluator(
+                df,
+                problem_mode,
+                metrics,
+                -1,
+                verbose=verbose,
+                progress=progress_observer,
+            )
             # iterate the metric_name, metric_value pairs
             for metric_name, metric_val in results.items():
                 final_result.update({mode + metric_name + "_micro": metric_val})
                 if verbose:  # pragma: no cover
-                    print(metric_name + "_micro: " + str(metric_val))
+                    progress_observer.on_event(
+                        EvaluationProgressEvent(
+                            "metric_calculated",
+                            metric_name=metric_name,
+                            metric_value=metric_val,
+                            averaging="micro",
+                        )
+                    )
 
         if "macro" in averaging:
             results_per_target = df.groupby("target_id").apply(
@@ -390,6 +443,7 @@ def get_performance_results(
                 idx=None,
                 train_true_value=train_true_value,
                 verbose=verbose,
+                progress=progress_observer,
             )
             if return_detailed_macro:
                 for target_i, row in results_per_target.items():
@@ -400,7 +454,13 @@ def get_performance_results(
                         }
                     )
             if per_target_verbose:  # pragma: no cover
-                print("Per target results: " + str(results_per_target))
+                progress_observer.on_event(
+                    EvaluationProgressEvent(
+                        "group_results_calculated",
+                        group="target",
+                        results=results_per_target,
+                    )
+                )
 
             macro_results_per_metric = results_per_target.apply(pd.Series).mean()
             final_result.update(
@@ -410,7 +470,13 @@ def get_performance_results(
                 }
             )
             if verbose:  # pragma: no cover
-                print("Macro results: " + str(macro_results_per_metric))
+                progress_observer.on_event(
+                    EvaluationProgressEvent(
+                        "aggregate_results_calculated",
+                        averaging="macro",
+                        results=macro_results_per_metric,
+                    )
+                )
 
             if top_k is not None:
                 top_k_results_per_target = (
@@ -428,6 +494,7 @@ def get_performance_results(
                         idx=None,
                         train_true_value=train_true_value,
                         verbose=verbose,
+                        progress=progress_observer,
                     )
                 )
                 if return_detailed_macro:
@@ -445,11 +512,13 @@ def get_performance_results(
                             }
                         )
                 if per_target_verbose:  # pragma: no cover
-                    print(
-                        "Per target top_"
-                        + str(top_k)
-                        + "results: "
-                        + str(top_k_results_per_target)
+                    progress_observer.on_event(
+                        EvaluationProgressEvent(
+                            "group_results_calculated",
+                            group="target",
+                            top_k=top_k,
+                            results=top_k_results_per_target,
+                        )
                     )
 
                 top_k_macro_results_per_metric = top_k_results_per_target.apply(
@@ -462,7 +531,14 @@ def get_performance_results(
                     }
                 )
                 if verbose:  # pragma: no cover
-                    print("Macro results: " + str(top_k_macro_results_per_metric))
+                    progress_observer.on_event(
+                        EvaluationProgressEvent(
+                            "aggregate_results_calculated",
+                            averaging="macro",
+                            top_k=top_k,
+                            results=top_k_macro_results_per_metric,
+                        )
+                    )
 
         if "instance" in averaging:
             results_per_instance = df.groupby("instance_id").apply(
@@ -471,6 +547,7 @@ def get_performance_results(
                 metrics=metrics,
                 idx=None,
                 verbose=verbose,
+                progress=progress_observer,
             )
             # iterate over the instances
             for instance_i, row in results_per_instance.items():
@@ -481,7 +558,13 @@ def get_performance_results(
                     }
                 )
             if per_instance_verbose:  # pragma: no cover
-                print("Per instance results: " + str(results_per_instance))
+                progress_observer.on_event(
+                    EvaluationProgressEvent(
+                        "group_results_calculated",
+                        group="instance",
+                        results=results_per_instance,
+                    )
+                )
 
             instance_results_per_metric = results_per_instance.apply(pd.Series).mean()
             final_result.update(
@@ -491,7 +574,13 @@ def get_performance_results(
                 }
             )
             if verbose:  # pragma: no cover
-                print("Instance results: " + str(instance_results_per_metric))
+                progress_observer.on_event(
+                    EvaluationProgressEvent(
+                        "aggregate_results_calculated",
+                        averaging="instance",
+                        results=instance_results_per_metric,
+                    )
+                )
 
             if top_k is not None:
                 top_k_results_per_instance = (
@@ -508,6 +597,7 @@ def get_performance_results(
                         metrics=metrics,
                         idx=None,
                         verbose=verbose,
+                        progress=progress_observer,
                     )
                 )
                 for instance_i, row in top_k_results_per_instance.items():
@@ -524,11 +614,13 @@ def get_performance_results(
                         }
                     )
                 if per_instance_verbose:  # pragma: no cover
-                    print(
-                        "Per instance top_"
-                        + str(top_k)
-                        + "results: "
-                        + str(top_k_results_per_instance)
+                    progress_observer.on_event(
+                        EvaluationProgressEvent(
+                            "group_results_calculated",
+                            group="instance",
+                            top_k=top_k,
+                            results=top_k_results_per_instance,
+                        )
                     )
 
                 top_k_instance_results_per_metric = top_k_results_per_instance.apply(
@@ -541,11 +633,19 @@ def get_performance_results(
                     }
                 )
                 if verbose:  # pragma: no cover
-                    print("Instance results: " + str(top_k_instance_results_per_metric))
+                    progress_observer.on_event(
+                        EvaluationProgressEvent(
+                            "aggregate_results_calculated",
+                            averaging="instance",
+                            top_k=top_k,
+                            results=top_k_instance_results_per_metric,
+                        )
+                    )
 
     if verbose:  # pragma: no cover
-        print("==================================")
-        print("")
+        progress_observer.on_event(
+            EvaluationProgressEvent("evaluation_completed", mode=mode)
+        )
 
     return final_result
 
@@ -559,6 +659,7 @@ def base_evaluator(
     train_true_value: TrainingMeans | None = None,
     verbose: bool = False,
     threshold: float = 0.5,
+    progress: EvaluationProgressObserver | None = None,
 ) -> MetricResults:
     """The function that actually calculates the different metrics
 
@@ -581,6 +682,11 @@ def base_evaluator(
             f"received {problem_mode!r}."
         )
     _validate_metrics(problem_mode, metrics)
+    progress_observer = (
+        progress
+        if progress is not None
+        else build_evaluation_progress_observer(verbose)
+    )
 
     results: MetricResults = {}
 
@@ -676,12 +782,12 @@ def base_evaluator(
             if "aupr" in metrics:
                 results["aupr"] = float("nan")
             if verbose:  # pragma: no cover
-                print(
-                    "Warning: instance"
-                    + str(idx)
-                    + " has "
-                    + str(true_values.nunique())
-                    + " unique true values"
+                progress_observer.on_event(
+                    EvaluationProgressEvent(
+                        "single_class_group",
+                        group_id=idx,
+                        unique_true_values=int(true_values.nunique()),
+                    )
                 )
         selected_epilepsy_metrics = set(metrics).intersection(EPILEPSY_METRICS)
         if selected_epilepsy_metrics:
@@ -780,8 +886,6 @@ def get_epilepsy_specific_metrics(
         for c in FP_chunks:
             if np.array(c).any():
                 FP += 1
-
-        # print('FP: '+str(FP))
 
         if "sensitivity" in selected_metrics:
             results["sensitivity" + suffix] = float(

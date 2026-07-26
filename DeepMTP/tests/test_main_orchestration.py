@@ -220,6 +220,36 @@ def test_training_routes_early_stopping_updates_to_progress_observer(capsys):
     assert capsys.readouterr().out == ""
 
 
+def test_trainer_forwards_injected_progress_to_evaluator(tmp_path, capsys):
+    progress = RecordingProgress()
+    config = make_config(tmp_path, experiment_name="evaluation_progress")
+    config.update(
+        {
+            "metrics": ["accuracy"],
+            "metrics_average": ["micro"],
+            "results_verbose": True,
+        }
+    )
+    trainer = DeepMTP(config, progress=progress)
+    progress.events.clear()
+
+    results = trainer.evaluator.evaluate(
+        "val",
+        0,
+        EpochOutput(
+            true_values=[0.0, 1.0],
+            predicted_values=[0.1, 0.9],
+            instance_ids=[0, 1],
+            target_ids=[0, 0],
+        ),
+    )
+
+    assert results["val_accuracy_micro"] == pytest.approx(1.0)
+    assert progress.events[0].kind == "input_inspected"
+    assert progress.events[-1].kind == "evaluation_completed"
+    assert capsys.readouterr().out == ""
+
+
 def test_trainer_builds_reporter_from_typed_configuration(monkeypatch, tmp_path):
     captured_configs = []
     reporter = RecordingReporter()

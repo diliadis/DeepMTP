@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from DeepMTP.config import DeepMTPConfig
+from DeepMTP.evaluation_progress import EvaluationProgressObserver
 from DeepMTP.training import EpochOutput
 from DeepMTP.utils.eval_utils import get_performance_results
 
@@ -70,8 +71,10 @@ class Evaluator:
     def __init__(
         self,
         config: DeepMTPConfig | Mapping[str, Any],
+        progress: EvaluationProgressObserver | None = None,
     ):
         self.config = DeepMTPConfig.from_mapping(config)
+        self.progress = progress
 
     @property
     def policy(self) -> EvaluationPolicy:
@@ -109,6 +112,7 @@ class Evaluator:
             train_true_value=None,
             scaler_per_target=None,
             top_k=self.config.top_k,
+            progress=self.progress,
         )
 
     @staticmethod

@@ -1,3 +1,5 @@
+import ast
+import inspect
 import math
 
 import numpy as np
@@ -14,10 +16,20 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import StandardScaler
 
+import DeepMTP.utils.eval_utils as eval_utils_module
 from DeepMTP.utils.eval_utils import (
     get_epilepsy_specific_metrics,
     get_performance_results,
 )
+
+
+class RecordingEvaluationProgress:
+    def __init__(self):
+        self.events = []
+
+    def on_event(self, event):
+        self.events.append(event)
+
 
 mode = [
     {
@@ -655,6 +667,116 @@ def test_verbose_evaluation_uses_modern_numpy_nan_api(capsys):
 
     assert results["test_MSE_micro"] == 0.0
     assert "non zero predictions" in capsys.readouterr().out
+
+
+def test_evaluation_routes_verbose_details_to_injected_progress(capsys):
+    progress = RecordingEvaluationProgress()
+
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=[0, 0, 1, 1],
+        targets_arr=[0, 1, 0, 1],
+        true_values_arr=[1.0, 2.0, 3.0, 4.0],
+        pred_values_arr=[1.0, 2.0, 3.0, 4.0],
+        validation_setting="B",
+        problem_mode="regression",
+        metrics=["MSE"],
+        averaging=["micro", "macro", "instance"],
+        verbose=True,
+        per_target_verbose=True,
+        per_instance_verbose=True,
+        top_k=1,
+        progress=progress,
+    )
+
+    event_kinds = [event.kind for event in progress.events]
+    assert results["test_MSE_micro"] == 0.0
+    assert results["test_MSE_macro"] == 0.0
+    assert results["test_MSE_instance"] == 0.0
+    assert event_kinds == [
+        "input_inspected",
+        "evaluation_started",
+        "metric_calculated",
+        "group_results_calculated",
+        "aggregate_results_calculated",
+        "group_results_calculated",
+        "aggregate_results_calculated",
+        "group_results_calculated",
+        "aggregate_results_calculated",
+        "group_results_calculated",
+        "aggregate_results_calculated",
+        "evaluation_completed",
+    ]
+    target_top_k_event = next(
+        event
+        for event in progress.events
+        if event.kind == "group_results_calculated"
+        and event.group == "target"
+        and event.top_k == 1
+    )
+    assert target_top_k_event.results is not None
+    assert capsys.readouterr().out == ""
+
+
+def test_evaluation_routes_single_class_diagnostic_to_progress(capsys):
+    progress = RecordingEvaluationProgress()
+
+    results = get_performance_results(
+        mode="val",
+        epoch_id=0,
+        instances_arr=[0, 1],
+        targets_arr=[4, 4],
+        true_values_arr=[1.0, 1.0],
+        pred_values_arr=[0.8, 0.9],
+        validation_setting="B",
+        problem_mode="classification",
+        metrics=["auroc"],
+        averaging=["macro"],
+        verbose=True,
+        progress=progress,
+    )
+
+    diagnostic = next(
+        event for event in progress.events if event.kind == "single_class_group"
+    )
+    assert math.isnan(results["val_auroc_macro"])
+    assert diagnostic.group_id == 4
+    assert diagnostic.unique_true_values == 1
+    assert capsys.readouterr().out == ""
+
+
+def test_per_target_verbose_keeps_legacy_console_output(capsys):
+    get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=[0, 1],
+        targets_arr=[0, 0],
+        true_values_arr=[1.0, 2.0],
+        pred_values_arr=[1.0, 2.0],
+        validation_setting="B",
+        problem_mode="regression",
+        metrics=["MSE"],
+        averaging=["macro"],
+        per_target_verbose=True,
+    )
+
+    output = capsys.readouterr().out
+    assert "Per target results:" in output
+    assert "==========" not in output
+
+
+def test_eval_utils_has_no_direct_presentation_output():
+    tree = ast.parse(inspect.getsource(eval_utils_module))
+    direct_prints = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "print"
+    ]
+
+    assert direct_prints == []
 
 
 @pytest.mark.parametrize(

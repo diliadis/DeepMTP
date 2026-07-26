@@ -3,6 +3,14 @@ import pytest
 from DeepMTP import DeepMTPConfig, EpochOutput, EvaluationPolicy, Evaluator
 
 
+class RecordingEvaluationProgress:
+    def __init__(self):
+        self.events = []
+
+    def on_event(self, event):
+        self.events.append(event)
+
+
 def make_config(**overrides):
     values = {
         "validation_setting": "A",
@@ -74,6 +82,35 @@ def test_evaluator_calculates_metrics_from_epoch_output():
     results = evaluator.evaluate("val", epoch=0, output=output)
 
     assert results["val_accuracy_micro"] == pytest.approx(1.0)
+
+
+def test_evaluator_uses_injected_progress_without_stdout(capsys):
+    progress = RecordingEvaluationProgress()
+    evaluator = Evaluator(
+        make_config(results_verbose=True),
+        progress=progress,
+    )
+    output = EpochOutput(
+        true_values=[0.0, 1.0],
+        predicted_values=[0.1, 0.9],
+        instance_ids=[0, 1],
+        target_ids=[0, 0],
+    )
+
+    results = evaluator.evaluate("val", epoch=0, output=output)
+
+    assert results["val_accuracy_micro"] == pytest.approx(1.0)
+    assert [event.kind for event in progress.events] == [
+        "input_inspected",
+        "evaluation_started",
+        "metric_calculated",
+        "metric_calculated",
+        "metric_calculated",
+        "metric_calculated",
+        "metric_calculated",
+        "evaluation_completed",
+    ]
+    assert capsys.readouterr().out == ""
 
 
 def test_evaluator_honors_per_target_result_option():
