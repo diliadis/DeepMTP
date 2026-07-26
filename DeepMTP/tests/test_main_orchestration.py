@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import DeepMTP.main as main_module
+from DeepMTP.config import ConfigValidationError
 from DeepMTP.main import DeepMTP
 from DeepMTP.persistence import ExperimentStore
 
@@ -80,6 +81,21 @@ def test_trainer_materializes_synced_legacy_config_snapshot(tmp_path):
     assert trainer.configuration.experiment_dir == trainer.experiment_dir
     assert trainer.config["experiment_dir"] == trainer.experiment_dir
     assert trainer.config == trainer.configuration.to_dict(include_defaults=True)
+
+
+def test_invalid_combined_mlp_fails_before_experiment_creation(tmp_path):
+    config = make_config(tmp_path, experiment_name="invalid_combined_mlp")
+    config.update(
+        {
+            "general_architecture_version": "mlp",
+            "comb_mlp_nodes_per_layer": [],
+        }
+    )
+
+    with pytest.raises(ConfigValidationError, match="comb_mlp_nodes_per_layer"):
+        DeepMTP(config)
+
+    assert not (tmp_path / "invalid_combined_mlp").exists()
 
 
 def test_core_trainer_does_not_read_legacy_config_snapshot():

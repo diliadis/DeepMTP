@@ -67,6 +67,18 @@ def test_built_in_models_do_not_read_legacy_config_snapshot():
     assert bundle.model(torch.ones(2, 2), torch.ones(2, 3)).shape == (2, 1)
 
 
+def test_combined_mlp_builds_from_repeated_integer_width():
+    bundle = ModelFactory(
+        make_config(
+            general_architecture_version="mlp",
+            comb_mlp_nodes_per_layer=6,
+            comb_mlp_layers=2,
+        )
+    ).build()
+
+    assert bundle.model(torch.ones(2, 2), torch.ones(2, 3)).shape == (2, 1)
+
+
 def test_seeded_model_creation_is_repeatable_and_restores_global_rng():
     config = make_config(random_seed=23)
     global_state = torch.random.get_rng_state()

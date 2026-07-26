@@ -172,6 +172,42 @@ def test_top_k_requires_grouped_averaging():
         DeepMTPConfig.from_mapping(config)
 
 
+@pytest.mark.parametrize(
+    ("nodes_per_layer", "layer_count", "message"),
+    [
+        ([], None, "comb_mlp_nodes_per_layer"),
+        ([8, 0], None, "comb_mlp_nodes_per_layer"),
+        (0, 2, "comb_mlp_nodes_per_layer"),
+        (8, None, "comb_mlp_layers"),
+        (8, 0, "comb_mlp_layers"),
+    ],
+)
+def test_combined_mlp_rejects_invalid_layer_settings(
+    nodes_per_layer,
+    layer_count,
+    message,
+):
+    with pytest.raises(ConfigValidationError, match=message):
+        make_valid_config(
+            general_architecture_version="mlp",
+            comb_mlp_nodes_per_layer=nodes_per_layer,
+            comb_mlp_layers=layer_count,
+        )
+
+
+def test_combined_mlp_accepts_repeated_integer_width():
+    config = make_valid_config(
+        general_architecture_version="mlp",
+        comb_mlp_nodes_per_layer=8,
+        comb_mlp_layers=2,
+    )
+
+    typed_config = DeepMTPConfig.from_mapping(config)
+
+    assert typed_config.comb_mlp_nodes_per_layer == 8
+    assert typed_config.comb_mlp_layers == 2
+
+
 def test_generate_config_mutable_defaults_are_isolated():
     first = make_valid_config()
     first["metrics"].append("precision")

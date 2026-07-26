@@ -276,6 +276,7 @@ class DeepMTPConfig:
 
         self._validate_branch("instance")
         self._validate_branch("target")
+        self._validate_combined_architecture()
 
         self._require_positive("learning_rate", self.learning_rate)
         self._require_non_negative("decay", self.decay)
@@ -392,6 +393,19 @@ class DeepMTPConfig:
                 raise ConfigValidationError(
                     f"{branch}_branch_conv_architecture_dense_layers must be 1 or 2."
                 )
+
+    def _validate_combined_architecture(self) -> None:
+        if self.general_architecture_version != "mlp":
+            return
+        self._validate_nodes(
+            "comb_mlp_nodes_per_layer",
+            self.comb_mlp_nodes_per_layer,
+        )
+        if isinstance(self.comb_mlp_nodes_per_layer, int):
+            self._require_positive_integer(
+                "comb_mlp_layers",
+                self.comb_mlp_layers,
+            )
 
     def _warn_about_inert_legacy_options(self) -> None:
         inert_options = []

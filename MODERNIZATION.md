@@ -44,6 +44,7 @@ two small end-to-end training runs.
 - [x] Make RRMSE and inverse score-scaling requirements explicit.
 - [x] Make per-target evaluation details an explicit opt-in.
 - [x] Reject top-k evaluation when no grouped averaging is configured.
+- [x] Validate combined-MLP layer settings before model construction.
 - [x] Cover single-class and singleton evaluation groups.
 - [x] Validate identifiers used for generated one-hot features.
 

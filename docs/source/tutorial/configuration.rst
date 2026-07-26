@@ -109,9 +109,13 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Combination branch architecture**
      -
    * - **comb_mlp_nodes_per_layer**
-     - Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_layers' times. (**Only used if general_architecture_version == mlp**)
+     - Positive layer widths for the combination branch. A list defines each
+       layer; an integer repeats that width ``comb_mlp_layers`` times.
+       (**Only used if general_architecture_version == mlp**)
    * - **comb_mlp_layers**
-     - The number of layers in the combination branch. (**Only used if general_architecture_version == mlp**)
+     - Positive number of repeated combination layers, required when
+       ``comb_mlp_nodes_per_layer`` is an integer.
+       (**Only used if general_architecture_version == mlp**)
    * - **embedding_size**
      - The size of the embeddings outputted by the two branches. (**Only used if general_architecture_version == dot_product**)
    * - **Pretrained models**
