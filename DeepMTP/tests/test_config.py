@@ -208,6 +208,50 @@ def test_combined_mlp_accepts_repeated_integer_width():
     assert typed_config.comb_mlp_layers == 2
 
 
+@pytest.mark.parametrize("branch", ["instance", "target"])
+@pytest.mark.parametrize(
+    ("field_suffix", "invalid_value"),
+    [
+        ("conv_architecture", "alexnet"),
+        ("conv_architecture_version", "resnet50"),
+        ("conv_architecture_last_layer_trained", "classifier"),
+        ("conv_architecture_dense_layers", 3),
+        ("conv_architecture_dense_layers", True),
+    ],
+)
+def test_convolutional_branches_reject_unsupported_settings(
+    branch,
+    field_suffix,
+    invalid_value,
+):
+    config = make_valid_config()
+    config[f"{branch}_branch_architecture"] = "CONV"
+    config[f"{branch}_branch_{field_suffix}"] = invalid_value
+
+    with pytest.raises(
+        ConfigValidationError,
+        match=f"{branch}_branch_{field_suffix}",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
+def test_vgg_ignores_resnet_specific_legacy_settings():
+    config = make_valid_config()
+    config.update(
+        {
+            "instance_branch_architecture": "CONV",
+            "instance_branch_conv_architecture": "VGG",
+            "instance_branch_conv_architecture_version": "legacy-vgg-value",
+            "instance_branch_conv_architecture_last_layer_trained": "legacy-value",
+            "instance_branch_conv_architecture_dense_layers": 99,
+        }
+    )
+
+    typed_config = DeepMTPConfig.from_mapping(config)
+
+    assert typed_config.instance_branch_conv_architecture == "VGG"
+
+
 def test_generate_config_mutable_defaults_are_isolated():
     first = make_valid_config()
     first["metrics"].append("precision")

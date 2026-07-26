@@ -323,17 +323,17 @@ As mentioned before, all hyperparameters needed to define the architecture of th
 |  **Possible key names currently supported in the `instance_branch_params` dictionary**  ||
 | `instance_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the instance branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `instance_branch_layers` times|
 | `instance_branch_layers` | The number of layers in the MLP version of the instance branch. (Only used if `instance_branch_nodes_per_layer` is int) |
-| `instance_branch_conv_architecture` | The type of the convolutional architecture that is used in the instance branch. |
-| `instance_branch_conv_architecture_version` | The version of the specific type of convolutional architecture that is used in the instance branch. |
-| `instance_branch_conv_architecture_dense_layers` | The number of dense layers that are used at the end of the convolutional architecture of the instance branch |
-| `instance_branch_conv_architecture_last_layer_trained` | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+| `instance_branch_conv_architecture` | Instance convolutional architecture: `resnet` or `VGG` |
+| `instance_branch_conv_architecture_version` | Instance ResNet version: `resnet18` or `resnet101` |
+| `instance_branch_conv_architecture_dense_layers` | Number of replacement instance ResNet dense layers: 1 or 2 |
+| `instance_branch_conv_architecture_last_layer_trained` | Earliest trainable instance ResNet block: `last` or `layer4` through `layer1` |
 |  **Possible key names currently supported in the `target_branch_params` dictionary**  ||
 | `target_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the target branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `target_branch_layers` times|
 | `target_branch_layers` | The number of layers in the MLP version of the target branch. (Only used if `target_branch_nodes_per_layer` is int) |
-| `target_branch_conv_architecture` | The type of the convolutional architecture that is used in the target branch. |
-| `target_branch_conv_architecture_version` | The version of the specific type of convolutional architecture that is used in the target branch. |
-| `target_branch_conv_architecture_dense_layers` | The number of dense layers that are used at the end of the convolutional architecture of the target branch |
-| `target_branch_conv_architecture_last_layer_trained` | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+| `target_branch_conv_architecture` | Target convolutional architecture: `resnet` or `VGG` |
+| `target_branch_conv_architecture_version` | Target ResNet version: `resnet18` or `resnet101` |
+| `target_branch_conv_architecture_dense_layers` | Number of replacement target ResNet dense layers: 1 or 2 |
+| `target_branch_conv_architecture_last_layer_trained` | Earliest trainable target ResNet block: `last` or `layer4` through `layer1` |
 
 
 # Logging results

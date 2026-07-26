@@ -98,6 +98,25 @@ def test_invalid_combined_mlp_fails_before_experiment_creation(tmp_path):
     assert not (tmp_path / "invalid_combined_mlp").exists()
 
 
+def test_invalid_convolutional_config_fails_before_experiment_creation(tmp_path):
+    config = make_config(tmp_path, experiment_name="invalid_conv")
+    config.update(
+        {
+            "instance_branch_architecture": "CONV",
+            "instance_branch_conv_architecture": "resnet",
+            "instance_branch_conv_architecture_version": "resnet50",
+        }
+    )
+
+    with pytest.raises(
+        ConfigValidationError,
+        match="instance_branch_conv_architecture_version",
+    ):
+        DeepMTP(config)
+
+    assert not (tmp_path / "invalid_conv").exists()
+
+
 def test_core_trainer_does_not_read_legacy_config_snapshot():
     tree = ast.parse(inspect.getsource(DeepMTP))
     legacy_reads = [

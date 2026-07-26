@@ -272,10 +272,10 @@ def generate_config(
         instance_branch_layers (int, optional): The number of layers in the MLP version of the instance branch. (Only used if instance_branch_nodes_per_layer is int). Defaults to None.
         instance_train_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures. Defaults to None.
         instance_inference_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures. Defaults to None.
-        instance_branch_conv_architecture (str, optional): The type of the convolutional architecture that is used in the instance branch. Defaults to 'resnet'.
-        instance_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the instance branch. Defaults to 'resnet101'.
-        instance_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the instance branch. Defaults to 1.
-        instance_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
+        instance_branch_conv_architecture (str, optional): The convolutional architecture used in the instance branch: 'resnet' or 'VGG'. Defaults to 'resnet'.
+        instance_branch_conv_architecture_version (str, optional): The ResNet version used in the instance branch: 'resnet18' or 'resnet101'. Defaults to 'resnet101'.
+        instance_branch_conv_architecture_dense_layers (int, optional): The number of replacement dense layers for a ResNet instance branch: 1 or 2. Defaults to 1.
+        instance_branch_conv_architecture_last_layer_trained (str, optional): The earliest trainable ResNet block in the instance branch: 'last' or 'layer4' through 'layer1'. Defaults to 'last'.
         target_branch_architecture (str, optional): The type of architecture that will be used in the target branch. Currently, there are two available options, MLP: a basic fully connected feed-forward neural network is used, CONV a convolutional neural network is used. Defaults to None.
         use_target_features (bool, optional): Whether or not the target features will be used. Defaults to False.. Defaults to False.
         target_branch_input_dim (int, optional): The input dimension of the target branch. Defaults to None.
@@ -284,10 +284,10 @@ def generate_config(
         target_branch_layers (_type_, optional): The number of layers in the MLP version of the target branch. (Only used if target_branch_nodes_per_layer is int). Defaults to None.
         target_train_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures. Defaults to None.
         target_inference_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures. Defaults to None.
-        target_branch_conv_architecture (str, optional): The type of the convolutional architecture that is used in the target branch. Defaults to 'resnet'.
-        target_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the target branch. Defaults to 'resnet101'.
-        target_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the target branch. Defaults to 1.
-        target_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
+        target_branch_conv_architecture (str, optional): The convolutional architecture used in the target branch: 'resnet' or 'VGG'. Defaults to 'resnet'.
+        target_branch_conv_architecture_version (str, optional): The ResNet version used in the target branch: 'resnet18' or 'resnet101'. Defaults to 'resnet101'.
+        target_branch_conv_architecture_dense_layers (int, optional): The number of replacement dense layers for a ResNet target branch: 1 or 2. Defaults to 1.
+        target_branch_conv_architecture_last_layer_trained (str, optional): The earliest trainable ResNet block in the target branch: 'last' or 'layer4' through 'layer1'. Defaults to 'last'.
         comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if general_architecture_version in "mlp"). Not currently implemented. Defaults to 2.
         comb_mlp_nodes_per_layer (list or int, optional): Positive layer widths for the combination branch. If a list is provided, each element defines one layer. If an int is provided, the width is repeated ``comb_mlp_layers`` times. Used only when general_architecture_version is "mlp". Defaults to [10, 10, 10].
         comb_mlp_layers (int, optional): The positive number of repeated combination layers, required when comb_mlp_nodes_per_layer is an int. Used only when general_architecture_version is "mlp". Defaults to None.

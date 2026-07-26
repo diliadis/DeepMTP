@@ -9,7 +9,13 @@ from typing import Any, TypeAlias
 import torch
 from torch import nn
 
-from DeepMTP.config import DeepMTPConfig
+from DeepMTP.config import (
+    CONVOLUTIONAL_ARCHITECTURES,
+    RESNET_DENSE_LAYER_COUNTS,
+    RESNET_TRAINABLE_LAYERS,
+    RESNET_VERSIONS,
+    DeepMTPConfig,
+)
 
 ModelConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
 
@@ -102,28 +108,25 @@ class ConvNet(nn.Sequential):
 
         if output_dim <= 0:
             raise ValueError("output_dim must be a positive integer.")
-        if conv_architecture not in {"resnet", "VGG"}:
+        if conv_architecture not in CONVOLUTIONAL_ARCHITECTURES:
             raise AttributeError(
                 "Unknown name for the convolutional architecture passed. "
                 f"Currently, the only options available are: {['resnet', 'VGG']}"
             )
         if conv_architecture == "resnet":
-            if conv_architecture_version not in {"resnet18", "resnet101"}:
+            if conv_architecture_version not in RESNET_VERSIONS:
                 raise AttributeError(
                     f"{conv_architecture_version} is not a supported resnet version."
                 )
-            if conv_architecture_last_trained_layer not in {
-                "last",
-                "layer4",
-                "layer3",
-                "layer2",
-                "layer1",
-            }:
+            if conv_architecture_last_trained_layer not in RESNET_TRAINABLE_LAYERS:
                 raise AttributeError(
                     f"{conv_architecture_last_trained_layer} is not a valid "
                     f"{conv_architecture_version} layer."
                 )
-            if conv_architecture_dense_layers not in {1, 2}:
+            if (
+                isinstance(conv_architecture_dense_layers, bool)
+                or conv_architecture_dense_layers not in RESNET_DENSE_LAYER_COUNTS
+            ):
                 raise AttributeError(
                     "Only 1 or 2 dense layers are currently allowed in the "
                     f"{conv_architecture_version} version of resnet."

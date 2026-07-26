@@ -130,22 +130,39 @@ def test_mlp_rejects_invalid_dimensions_and_dropout(overrides, message):
         MLP(**arguments)
 
 
-def test_convnet_rejects_invalid_configuration_before_import(monkeypatch):
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"conv_architecture": "alexnet"}, "Unknown name"),
+        ({"conv_architecture_version": "resnet50"}, "supported resnet"),
+        ({"conv_architecture_last_trained_layer": "classifier"}, "not a valid"),
+        ({"conv_architecture_dense_layers": 3}, "Only 1 or 2"),
+        ({"conv_architecture_dense_layers": True}, "Only 1 or 2"),
+    ],
+)
+def test_convnet_rejects_invalid_configuration_before_import(
+    monkeypatch,
+    overrides,
+    message,
+):
     def unexpected_import(_module_name):
         raise AssertionError("invalid configuration must not import torchvision")
 
     monkeypatch.setattr(branch_models.importlib, "import_module", unexpected_import)
 
-    with pytest.raises(AttributeError, match="supported resnet"):
-        ConvNet(
-            config={},
-            input_dim=10,
-            output_dim=15,
-            conv_architecture="resnet",
-            conv_architecture_version="unknown",
-            conv_architecture_last_trained_layer="last",
-            conv_architecture_dense_layers=1,
-        )
+    arguments = {
+        "config": {},
+        "input_dim": 10,
+        "output_dim": 15,
+        "conv_architecture": "resnet",
+        "conv_architecture_version": "resnet18",
+        "conv_architecture_last_trained_layer": "last",
+        "conv_architecture_dense_layers": 1,
+    }
+    arguments.update(overrides)
+
+    with pytest.raises(AttributeError, match=message):
+        ConvNet(**arguments)
 
 
 test_ConvNet_data = [

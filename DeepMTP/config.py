@@ -26,6 +26,10 @@ CLASSIFICATION_METRICS = frozenset(
 )
 REGRESSION_METRICS = frozenset({"RMSE", "MSE", "MAE", "R2"})
 METRIC_AVERAGING_SCHEMES = frozenset({"macro", "micro", "instance"})
+CONVOLUTIONAL_ARCHITECTURES = frozenset({"resnet", "VGG"})
+RESNET_VERSIONS = frozenset({"resnet18", "resnet101"})
+RESNET_TRAINABLE_LAYERS = frozenset({"last", "layer4", "layer3", "layer2", "layer1"})
+RESNET_DENSE_LAYER_COUNTS = frozenset({1, 2})
 _DEVICE_PATTERN = re.compile(r"^(cpu|cuda(?::\d+)?)$")
 
 
@@ -386,10 +390,43 @@ class DeepMTPConfig:
             if isinstance(nodes, int):
                 self._require_positive_integer(f"{branch}_branch_layers", layers)
         elif architecture == "CONV":
+            conv_architecture = getattr(
+                self,
+                f"{branch}_branch_conv_architecture",
+            )
+            if conv_architecture not in CONVOLUTIONAL_ARCHITECTURES:
+                raise ConfigValidationError(
+                    f"{branch}_branch_conv_architecture must be 'resnet' or "
+                    f"'VGG'; received {conv_architecture!r}."
+                )
+            if conv_architecture != "resnet":
+                return
+            version = getattr(
+                self,
+                f"{branch}_branch_conv_architecture_version",
+            )
+            if version not in RESNET_VERSIONS:
+                raise ConfigValidationError(
+                    f"{branch}_branch_conv_architecture_version must be one of "
+                    f"{sorted(RESNET_VERSIONS)}; received {version!r}."
+                )
+            last_trained_layer = getattr(
+                self,
+                f"{branch}_branch_conv_architecture_last_layer_trained",
+            )
+            if last_trained_layer not in RESNET_TRAINABLE_LAYERS:
+                raise ConfigValidationError(
+                    f"{branch}_branch_conv_architecture_last_layer_trained must "
+                    f"be one of {sorted(RESNET_TRAINABLE_LAYERS)}; received "
+                    f"{last_trained_layer!r}."
+                )
             dense_layers = getattr(
                 self, f"{branch}_branch_conv_architecture_dense_layers"
             )
-            if dense_layers not in {1, 2}:
+            if (
+                isinstance(dense_layers, bool)
+                or dense_layers not in RESNET_DENSE_LAYER_COUNTS
+            ):
                 raise ConfigValidationError(
                     f"{branch}_branch_conv_architecture_dense_layers must be 1 or 2."
                 )
