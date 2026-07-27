@@ -44,25 +44,29 @@ PrintMode: TypeAlias = Literal["basic", "dev"]
 DatasetValue: TypeAlias = np.ndarray | pd.DataFrame | None
 
 _MTR_ARCHIVE_URL = "https://github.com/diliadis/MTR/blob/main/mtr-datasets.zip?raw=true"
+_MTR_DATASET_CATALOG = (
+    ("atp1d", 337, 411, 6),
+    ("atp7d", 296, 411, 6),
+    ("oes97", 334, 263, 16),
+    ("oes10", 403, 298, 16),
+    ("rf1", 9125, 64, 8),
+    ("rf2", 9125, 576, 8),
+    ("scm1d", 9803, 280, 16),
+    ("scm20d", 8966, 61, 16),
+    ("edm", 154, 16, 2),
+    ("sf1", 323, 10, 3),
+    ("sf2", 1066, 10, 3),
+    ("jura", 359, 15, 3),
+    ("wq", 1060, 16, 14),
+    ("enb", 768, 8, 2),
+    ("slump", 103, 7, 3),
+    ("andro", 49, 30, 6),
+    ("osales", 639, 413, 12),
+    ("scpf", 1137, 23, 3),
+)
 _MTR_DATASET_TARGETS = {
-    "atp1d": 6,
-    "atp7d": 6,
-    "oes97": 16,
-    "oes10": 16,
-    "rf1": 8,
-    "rf2": 8,
-    "scm1d": 16,
-    "scm20d": 16,
-    "edm": 2,
-    "sf1": 3,
-    "sf2": 3,
-    "jura": 3,
-    "wq": 14,
-    "enb": 2,
-    "slump": 3,
-    "andro": 6,
-    "osales": 12,
-    "scpf": 3,
+    dataset_name: num_targets
+    for dataset_name, _, _, num_targets in _MTR_DATASET_CATALOG
 }
 _MTL_DATASET_NAMES = frozenset({"bird", "dog"})
 _MTL_ARCHIVE_URL_TEMPLATE = (
@@ -1150,28 +1154,30 @@ def process_dummy_MTR(
     )
 
 
-def print_MTR_datasets() -> None:  # pragma: no cover
-    """Prints a table with the basic info for every multivariate regression dataset available in the Mulan repository"""
+def format_mtr_datasets() -> str:
+    """Format the catalog of supported multivariate regression datasets."""
     table = PrettyTable(["name", "#instances", "#instance_features", "#targets"])
-    table.add_row(["atp1d", "337", "411", "6"])
-    table.add_row(["atp7d", "296", "411", "6"])
-    table.add_row(["oes97", "334", "263", "16"])
-    table.add_row(["oes10", "403", "298", "16"])
-    table.add_row(["rf1", "9125", "64", "8"])
-    table.add_row(["rf2", "9125", "576", "8"])
-    table.add_row(["scm1d", "9803", "280", "16"])
-    table.add_row(["scm20d", "8966", "61", "16"])
-    table.add_row(["edm", "154", "16", "2"])
-    table.add_row(["sf1", "323", "10", "3"])
-    table.add_row(["sf2", "1066", "10", "3"])
-    table.add_row(["jura", "359", "15", "3"])
-    table.add_row(["wq", "1060", "16", "14"])
-    table.add_row(["enb", "768", "8", "2"])
-    table.add_row(["slump", "103", "7", "3"])
-    table.add_row(["andro", "49", "30", "6"])
-    table.add_row(["osales", "639", "413", "12"])
-    table.add_row(["scpf", "1137", "23", "3"])
-    print(table.get_string())
+    for dataset_metadata in _MTR_DATASET_CATALOG:
+        table.add_row(dataset_metadata)
+    return cast(str, table.get_string())
+
+
+def print_MTR_datasets(
+    *,
+    progress: DataProgressObserver | None = None,
+) -> None:
+    """Present the supported multivariate regression dataset catalog.
+
+    The default observer preserves the historical console table. Inject
+    ``NullDataProgressObserver`` to suppress output or another data progress
+    observer to render the catalog elsewhere.
+    """
+    _emit_dataset_message(
+        _resolve_dataset_progress("basic", progress),
+        subject="mtr_dataset_catalog",
+        message=format_mtr_datasets(),
+        value=tuple(_MTR_DATASET_TARGETS),
+    )
 
 
 def _load_numeric_matrix(

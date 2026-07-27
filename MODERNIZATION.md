@@ -115,6 +115,8 @@ all supported options have tests.
   through one shared data progress observer.
 - [x] Route public dataset loader and download lifecycle messages through
   injectable data progress observers.
+- [x] Expose reusable MTR catalog formatting and route its legacy presentation
+  helper through a data progress observer.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

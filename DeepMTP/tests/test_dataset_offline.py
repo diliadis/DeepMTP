@@ -17,6 +17,7 @@ import DeepMTP.dataset as dataset_module
 from DeepMTP import DataProgressEvent, NullDataProgressObserver
 from DeepMTP._download_utils import DatasetDownloadError
 from DeepMTP.dataset import (
+    format_mtr_datasets,
     generate_dummy_dataset,
     generate_interaction_matrix,
     generate_MTP_dataset,
@@ -25,6 +26,7 @@ from DeepMTP.dataset import (
     load_process_MLC,
     load_process_MTL,
     load_process_MTR,
+    print_MTR_datasets,
     process_dummy_DP,
     process_dummy_MLC,
     process_dummy_MTR,
@@ -231,6 +233,7 @@ def test_cached_dataset_loaders_respect_null_progress(
         dataset_module._download_movielens_archive,
         dataset_module.load_process_MC,
         dataset_module.load_process_MTL,
+        dataset_module.print_MTR_datasets,
     ],
 )
 def test_dataset_progress_functions_do_not_print_directly(target):
@@ -245,6 +248,64 @@ def test_dataset_progress_functions_do_not_print_directly(target):
     ]
 
     assert direct_prints == []
+
+
+def test_mtr_catalog_preserves_console_output(capsys):
+    catalog = format_mtr_datasets()
+
+    result = print_MTR_datasets()
+
+    assert result is None
+    assert capsys.readouterr().out == catalog + "\n"
+    assert catalog.count("\n") == 21
+    assert "| atp1d  |    337     |        411         |    6     |" in catalog
+    assert "|  scpf  |    1137    |         23         |    3     |" in catalog
+
+
+def test_mtr_catalog_emits_structured_progress(capsys):
+    progress = RecordingDataProgress()
+
+    print_MTR_datasets(progress=progress)
+
+    assert capsys.readouterr().out == ""
+    assert len(progress.events) == 1
+    event = progress.events[0]
+    assert (
+        event.kind,
+        event.subject,
+        event.value,
+        event.message,
+    ) == (
+        "message",
+        "mtr_dataset_catalog",
+        (
+            "atp1d",
+            "atp7d",
+            "oes97",
+            "oes10",
+            "rf1",
+            "rf2",
+            "scm1d",
+            "scm20d",
+            "edm",
+            "sf1",
+            "sf2",
+            "jura",
+            "wq",
+            "enb",
+            "slump",
+            "andro",
+            "osales",
+            "scpf",
+        ),
+        format_mtr_datasets(),
+    )
+
+
+def test_mtr_catalog_respects_null_progress(capsys):
+    print_MTR_datasets(progress=NullDataProgressObserver())
+
+    assert capsys.readouterr().out == ""
 
 
 @pytest.mark.parametrize("features_type", ["numpy", "dataframe"])
