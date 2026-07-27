@@ -1,4 +1,6 @@
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
 import DeepMTP
@@ -76,3 +78,28 @@ def test_direct_printing_is_confined_to_console_adapters():
         "Direct printing must stay inside explicit console adapters; use an "
         f"injectable observer instead: {violations}"
     )
+
+
+def test_importing_data_utils_preserves_pandas_options():
+    script = """
+import pandas as pd
+
+pd.set_option("mode.chained_assignment", "raise")
+import DeepMTP.utils.data_utils  # noqa: F401
+
+actual = pd.get_option("mode.chained_assignment")
+if actual != "raise":
+    raise AssertionError(
+        "import changed mode.chained_assignment from 'raise' to "
+        f"{actual!r}"
+    )
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr

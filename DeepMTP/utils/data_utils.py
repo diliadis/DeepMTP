@@ -28,8 +28,6 @@ from DeepMTP.data_progress import (
     build_data_progress_observer,
 )
 
-pd.set_option("mode.chained_assignment", None)
-
 VariableType: TypeAlias = Literal["binary", "real-valued"]
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
 ScalingMethod: TypeAlias = Literal["MinMax", "Standard"]

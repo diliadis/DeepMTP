@@ -86,7 +86,7 @@ all supported options have tests.
   persistence, and experiment reporting.
 - [ ] Migrate internal dictionary lookups to typed configuration access as the
   trainer is split, while preserving the public dictionary adapter.
-- [ ] Replace wildcard imports and module-level global state.
+- [x] Replace wildcard imports and import-time process-wide state mutations.
 - [x] Replace configuration-boundary prints with structured normalization
   warnings and silent documented defaults.
 - [x] Route trainer setup and checkpoint lifecycle messages through progress
