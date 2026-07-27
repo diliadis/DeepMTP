@@ -49,7 +49,9 @@ class ConsoleDataProgressObserver:
         self.print_mode = print_mode
 
     def on_event(self, event: DataProgressEvent) -> None:
-        prefix = f"{event.level}: " if self.print_mode == "dev" else ""
+        prefix = (
+            f"{event.level}: " if self.print_mode == "dev" and event.message else ""
+        )
         print(f"{prefix}{event.message}", end=event.end)
 
 

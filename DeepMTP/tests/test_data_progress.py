@@ -15,9 +15,10 @@ def test_console_data_progress_renders_basic_and_developer_messages(capsys):
     basic.on_event(DataProgressEvent("Done"))
     developer.on_event(DataProgressEvent("Incomplete data", level="warning"))
     developer.on_event(DataProgressEvent("Invalid data", level="error"))
+    developer.on_event(DataProgressEvent(""))
 
     assert capsys.readouterr().out == (
-        "Processing... Done\nwarning: Incomplete data\nerror: Invalid data\n"
+        "Processing... Done\nwarning: Incomplete data\nerror: Invalid data\n\n"
     )
 
 

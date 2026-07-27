@@ -111,6 +111,8 @@ all supported options have tests.
   observers.
 - [x] Route validation-setting A-D split lifecycle messages through data
   progress observers.
+- [x] Route top-level data-processing orchestration and nested helper messages
+  through one shared data progress observer.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

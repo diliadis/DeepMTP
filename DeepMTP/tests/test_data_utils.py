@@ -3271,6 +3271,214 @@ def make_data_process_scaling_data():
     }
 
 
+def test_data_process_preserves_developer_console_output(capsys):
+    data_process(
+        make_data_process_scaling_data(),
+        validation_setting="B",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=False,
+        verbose=True,
+        print_mode="dev",
+        scale_instance_features="Standard",
+    )
+
+    assert capsys.readouterr().out == (
+        "info: Interaction file: 2d numpy array format detected\n"
+        "info: Interaction file: checking format consistency... info: Passed\n"
+        "info: Interaction file: checking instance id format consistency... "
+        "info: Passed\n"
+        "info: Interaction file: checking target id type consistency... "
+        "info: Passed\n"
+        "\n"
+        "info: Interaction file: checking target variable type consistency... "
+        "info: Passed\n"
+        "info: Automatically detected type of target variable type: binary\n"
+        "\n"
+        "info: Instance features file: processing features... info: Done\n"
+        "\n"
+        "info: Cross input consistency for (numpy) interaction data and "
+        "instance features checks out\n"
+        "info: -- Same instance ids in the interaction and features files for "
+        "the train set\n"
+        "\n"
+        "info: Splitting train to train-test according to validation setting B... "
+        "info: Done\n"
+        "info: Splitting train to train-val according to validation setting B... "
+        "info: Done\n"
+        "info: Scaling instance features... info: Done\n"
+    )
+
+
+def test_data_process_emits_structured_progress(capsys):
+    progress = RecordingDataProgress()
+
+    data_process(
+        make_data_process_scaling_data(),
+        validation_setting="B",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=False,
+        verbose=True,
+        print_mode="dev",
+        scale_instance_features="Standard",
+        progress=progress,
+    )
+
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.kind, event.subject, event.value, event.end) for event in progress.events
+    ] == [
+        ("message", "interaction_format", "numpy", "\n"),
+        ("operation_started", "interaction_format_consistency", None, ""),
+        ("operation_completed", "interaction_format_consistency", "numpy", "\n"),
+        ("operation_started", "instance_id_format_consistency", None, ""),
+        ("operation_completed", "instance_id_format_consistency", "int", "\n"),
+        ("operation_started", "target_id_format_consistency", None, ""),
+        ("operation_completed", "target_id_format_consistency", "int", "\n"),
+        ("message", "data_processing", "separator", "\n"),
+        ("operation_started", "target_variable_type_consistency", None, ""),
+        (
+            "operation_completed",
+            "target_variable_type_consistency",
+            "binary",
+            "\n",
+        ),
+        ("message", "target_variable_type", "binary", "\n\n"),
+        ("operation_started", "instance_features", None, ""),
+        ("operation_completed", "instance_features", "numpy", "\n"),
+        ("message", "data_processing", "separator", "\n"),
+        ("message", "instance_feature_consistency", "numpy", "\n"),
+        ("message", "instance_feature_consistency", "train", "\n"),
+        ("message", "data_processing", "separator", "\n"),
+        ("operation_started", "train_test_split", None, ""),
+        ("operation_completed", "train_test_split", "B", "\n"),
+        ("operation_started", "train_validation_split", None, ""),
+        ("operation_completed", "train_validation_split", "B", "\n"),
+        ("operation_started", "instance_feature_scaling", None, ""),
+        ("operation_completed", "instance_feature_scaling", "Standard", "\n"),
+    ]
+
+
+def test_data_process_respects_null_progress(capsys):
+    data_process(
+        make_data_process_scaling_data(),
+        validation_setting="B",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=False,
+        verbose=True,
+        print_mode="dev",
+        scale_instance_features="Standard",
+        progress=NullDataProgressObserver(),
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+def test_data_process_progress_is_silent_when_verbose_is_disabled():
+    progress = RecordingDataProgress()
+
+    data_process(
+        make_data_process_scaling_data(),
+        validation_setting="B",
+        progress=progress,
+    )
+
+    assert progress.events == []
+
+
+def test_data_process_emits_novelty_summaries(capsys):
+    train_pairs = [
+        (0, 0),
+        (0, 1),
+        (1, 0),
+        (1, 2),
+        (2, 0),
+        (2, 2),
+        (3, 1),
+        (3, 2),
+    ]
+    test_pairs = [(0, 2), (1, 1)]
+    data = {
+        "train": {
+            "y": pd.DataFrame(
+                [
+                    {
+                        "instance_id": instance_id,
+                        "target_id": target_id,
+                        "value": index % 2,
+                    }
+                    for index, (instance_id, target_id) in enumerate(train_pairs)
+                ]
+            )
+        },
+        "test": {
+            "y": pd.DataFrame(
+                [
+                    {
+                        "instance_id": instance_id,
+                        "target_id": target_id,
+                        "value": index % 2,
+                    }
+                    for index, (instance_id, target_id) in enumerate(test_pairs)
+                ]
+            )
+        },
+    }
+    progress = RecordingDataProgress()
+
+    *_, info = data_process(
+        data,
+        verbose=True,
+        print_mode="dev",
+        progress=progress,
+    )
+
+    assert info["detected_validation_setting"] == "A"
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.subject, event.value, event.message)
+        for event in progress.events
+        if event.kind == "message"
+        and event.subject in {"novel_instances", "novel_targets"}
+    ] == [
+        (
+            "novel_instances",
+            False,
+            "-- No novel instances detected in the test set",
+        ),
+        (
+            "novel_targets",
+            False,
+            "-- No novel targets detected in the test set",
+        ),
+    ]
+
+
+def test_failed_data_process_does_not_emit_target_type_completion(capsys):
+    progress = RecordingDataProgress()
+    data = {
+        "train": {"y": np.array([[0, 1], [1, 0]])},
+        "test": {"y": np.array([[1.0, 2.0], [3.0, 4.0]])},
+    }
+
+    with pytest.raises(ValueError, match="Inconsistent target variable type"):
+        data_process(
+            data,
+            validation_setting="A",
+            verbose=True,
+            print_mode="dev",
+            progress=progress,
+        )
+
+    assert capsys.readouterr().out == ""
+    assert (
+        progress.events[-1].kind,
+        progress.events[-1].subject,
+    ) == (
+        "operation_started",
+        "target_variable_type_consistency",
+    )
+
+
 def make_feature_scaling_progress_data():
     values_by_split = {
         "train": [0.0, 2.0],
@@ -3786,6 +3994,7 @@ def test_failed_interaction_validation_does_not_emit_completion(capsys):
         data_utils_module.cross_input_consistency_check_targets,
         data_utils_module._scale_feature_splits,
         data_utils_module.split_data,
+        data_utils_module.data_process,
     ],
 )
 def test_data_progress_functions_do_not_print_directly(target):

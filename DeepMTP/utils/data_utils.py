@@ -143,6 +143,7 @@ def _emit_data_message(
     message: str,
     value: object | None = None,
     level: DataProgressLevel = "info",
+    end: str = "\n",
 ) -> None:
     if not verbose:
         return
@@ -152,7 +153,23 @@ def _emit_data_message(
             subject=subject,
             value=value,
             level=level,
+            end=end,
         )
+    )
+
+
+def _emit_data_separator(
+    verbose: bool,
+    print_mode: str,
+    progress: DataProgressObserver | None,
+) -> None:
+    _emit_data_message(
+        verbose,
+        print_mode,
+        progress,
+        subject="data_processing",
+        message="",
+        value="separator",
     )
 
 
@@ -2295,6 +2312,8 @@ def data_process(
     print_mode: str = "basic",
     scale_instance_features: str | None = None,
     scale_target_features: str | None = None,
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> tuple[ProcessedSplit, ProcessedSplit, ProcessedSplit, DataInfo]:
     """The main function that handles all the preprocessing steps and checks needed to prepare the dataset to be used by the model.
 
@@ -2309,6 +2328,7 @@ def data_process(
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
         scale_instance_features (str, optional): The scaler used for the instance features. Possible values are 'MinMax' for the MinMax scaler and 'Standard' for the standard scaler. Defaults to None.
         scale_target_features (str, optional): The scaler used for the target features. Possible values are 'MinMax' for the MinMax scaler and 'Standard' for the standard scaler. Defaults to None.
+        progress (DataProgressObserver | None, optional): Receives verbose messages from the complete data-processing pipeline. Defaults to None.
 
     Returns:
         dict, dict, dict, dict: Four different dictionaries containing:
@@ -2402,39 +2422,65 @@ def data_process(
                 + "Specified validation setting D without supplying target features"
             )
 
+    progress_observer = _resolve_data_progress(verbose, print_mode, progress)
+
     # process the interaction data. The data dictionary will be augmented with additional inferred info
     data["train"]["y"] = process_interaction_data(
-        data["train"]["y"], verbose=verbose, print_mode=print_mode
+        data["train"]["y"],
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
     if data["test"]["y"] is not None:
         data["test"]["y"] = process_interaction_data(
-            data["test"]["y"], verbose=verbose, print_mode=print_mode
+            data["test"]["y"],
+            verbose=verbose,
+            print_mode=print_mode,
+            progress=progress_observer,
         )
     if data["val"]["y"] is not None:
         data["val"]["y"] = process_interaction_data(
-            data["val"]["y"], verbose=verbose, print_mode=print_mode
+            data["val"]["y"],
+            verbose=verbose,
+            print_mode=print_mode,
+            progress=progress_observer,
         )
 
     # check for format consistency across the interaction files
-    check_interaction_files_format(data, verbose=verbose, print_mode=print_mode)
+    check_interaction_files_format(
+        data,
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
+    )
     # check for format consistency for instance and target ids across the interaction files
     check_interaction_files_column_type_format(
-        data, verbose=verbose, print_mode=print_mode
+        data,
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
 
-    if verbose:
-        print()
+    _emit_data_separator(verbose, print_mode, progress_observer)
     # get the type of the target variable.
     target_variable_type = check_target_variable_type(
-        data, verbose=verbose, print_mode=print_mode
+        data,
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
-    if verbose:
-        print(
-            ("info: " if print_mode == "dev" else "")
-            + "Automatically detected type of target variable type: "
+    _emit_data_message(
+        verbose,
+        print_mode,
+        progress_observer,
+        subject="target_variable_type",
+        message=(
+            "Automatically detected type of target variable type: "
             + target_variable_type
-            + "\n"
-        )
+        ),
+        value=target_variable_type,
+        end="\n\n",
+    )
 
     validation_setting_detected: ValidationSetting | None = None
     if validation_setting is None:
@@ -2443,55 +2489,55 @@ def data_process(
             data["test"]["y"],
             verbose=verbose,
             print_mode=print_mode,
+            progress=progress_observer,
         )
-        if verbose:  # pragma: no cover
-            if novel_instances is None:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "-- Could not determine whether novel instances exist"
-                )
-            elif novel_instances:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "-- Novel instances detected in the test set"
-                )
-            else:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "-- No novel instances detected in the test set"
-                )
+        if novel_instances is None:
+            novel_instances_message = (
+                "-- Could not determine whether novel instances exist"
+            )
+        elif novel_instances:
+            novel_instances_message = "-- Novel instances detected in the test set"
+        else:
+            novel_instances_message = "-- No novel instances detected in the test set"
+        _emit_data_message(
+            verbose,
+            print_mode,
+            progress_observer,
+            subject="novel_instances",
+            message=novel_instances_message,
+            value=novel_instances,
+        )
 
         novel_targets = check_novel_targets(
             data["train"]["y"],
             data["test"]["y"],
             verbose=verbose,
             print_mode=print_mode,
+            progress=progress_observer,
         )
-        if verbose:  # pragma: no cover
-            if novel_targets is None:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "-- Could not determine whether novel targets exist"
-                )
-            elif novel_targets:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "-- Novel targets detected in the test set"
-                )
-            else:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "-- No novel targets detected in the test set"
-                )
+        if novel_targets is None:
+            novel_targets_message = "-- Could not determine whether novel targets exist"
+        elif novel_targets:
+            novel_targets_message = "-- Novel targets detected in the test set"
+        else:
+            novel_targets_message = "-- No novel targets detected in the test set"
+        _emit_data_message(
+            verbose,
+            print_mode,
+            progress_observer,
+            subject="novel_targets",
+            message=novel_targets_message,
+            value=novel_targets,
+        )
 
         validation_setting_detected = get_estimated_validation_setting(
             novel_instances,
             novel_targets,
             verbose,
             print_mode=print_mode,
+            progress=progress_observer,
         )
-        if verbose:
-            print()
+        _emit_data_separator(verbose, print_mode, progress_observer)
         if validation_setting_detected is None:
             raise ValueError(
                 ("error: " if print_mode == "dev" else "")
@@ -2503,27 +2549,44 @@ def data_process(
 
     # process the instance features
     data["train"]["X_instance"] = process_instance_features(
-        data["train"]["X_instance"], verbose=verbose, print_mode=print_mode
+        data["train"]["X_instance"],
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
     data["test"]["X_instance"] = process_instance_features(
-        data["test"]["X_instance"], verbose=verbose, print_mode=print_mode
+        data["test"]["X_instance"],
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
     data["val"]["X_instance"] = process_instance_features(
-        data["val"]["X_instance"], verbose=verbose, print_mode=print_mode
+        data["val"]["X_instance"],
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
     # process the target features
     data["train"]["X_target"] = process_target_features(
-        data["train"]["X_target"], verbose=verbose, print_mode=print_mode
+        data["train"]["X_target"],
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
     data["test"]["X_target"] = process_target_features(
-        data["test"]["X_target"], verbose=verbose, print_mode=print_mode
+        data["test"]["X_target"],
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
     data["val"]["X_target"] = process_target_features(
-        data["val"]["X_target"], verbose=verbose, print_mode=print_mode
+        data["val"]["X_target"],
+        verbose=verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
 
-    if verbose:
-        print()
+    _emit_data_separator(verbose, print_mode, progress_observer)
     if data["train"]["X_instance"] is not None:
         instance_branch_input_dim = data["train"]["X_instance"]["num_features"]
     else:
@@ -2545,14 +2608,21 @@ def data_process(
     data["info"] = data_info
 
     cross_input_consistency_check_instances(
-        data, validation_setting, verbose, print_mode=print_mode
+        data,
+        validation_setting,
+        verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
     cross_input_consistency_check_targets(
-        data, validation_setting, verbose, print_mode=print_mode
+        data,
+        validation_setting,
+        verbose,
+        print_mode=print_mode,
+        progress=progress_observer,
     )
 
-    if verbose:
-        print()
+    _emit_data_separator(verbose, print_mode, progress_observer)
     split_data(
         data,
         validation_setting=validation_setting,
@@ -2562,6 +2632,7 @@ def data_process(
         seed=seed,
         verbose=verbose,
         print_mode=print_mode,
+        progress=progress_observer,
     )
 
     _scale_feature_splits(
@@ -2571,6 +2642,7 @@ def data_process(
         instance_scaling_method,
         verbose=verbose,
         print_mode=print_mode,
+        progress=progress_observer,
     )
     _scale_feature_splits(
         data,
@@ -2579,6 +2651,7 @@ def data_process(
         target_scaling_method,
         verbose=verbose,
         print_mode=print_mode,
+        progress=progress_observer,
     )
 
     return (
