@@ -78,6 +78,8 @@ all supported options have tests.
 - [x] Extract typed model and dataloader factories from the core trainer.
 - [x] Move model-ready PyTorch datasets and samplers out of the legacy data
   preparation utility while preserving compatibility imports.
+- [x] Extract interaction normalization, schema checks, novelty detection, and
+  validation-setting inference behind a focused compatibility boundary.
 - [x] Replace wildcard imports and import-time RNG mutation in the core
   trainer, using isolated model and dataloader generators instead.
 - [x] Use typed configuration attributes for core trainer read paths.

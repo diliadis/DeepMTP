@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+import DeepMTP.interaction_data as interaction_data_module
 import DeepMTP.utils.data_utils as data_utils_module
 from DeepMTP import DataProgressEvent, NullDataProgressObserver
 from DeepMTP.dataset import (
@@ -45,6 +46,25 @@ class RecordingDataProgress:
 
     def on_event(self, event: DataProgressEvent) -> None:
         self.events.append(event)
+
+
+def test_interaction_helpers_have_a_focused_owner_and_legacy_aliases():
+    public_names = (
+        "NoveltyInferenceWarning",
+        "check_interaction_files_column_type_format",
+        "check_interaction_files_format",
+        "check_novel_instances",
+        "check_novel_targets",
+        "check_target_variable_type",
+        "check_variable_type",
+        "get_estimated_validation_setting",
+        "process_interaction_data",
+    )
+
+    for name in public_names:
+        canonical = getattr(interaction_data_module, name)
+        assert getattr(data_utils_module, name) is canonical
+        assert canonical.__module__ == "DeepMTP.interaction_data"
 
 
 data_format_type_combo_data = [
