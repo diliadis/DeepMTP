@@ -1,4 +1,6 @@
+import ast
 import hashlib
+import inspect
 import json
 import pickle
 import zipfile
@@ -12,6 +14,7 @@ from scipy import sparse
 from skmultilearn.dataset import save_dataset_dump
 
 import DeepMTP.dataset as dataset_module
+from DeepMTP import DataProgressEvent, NullDataProgressObserver
 from DeepMTP._download_utils import DatasetDownloadError
 from DeepMTP.dataset import (
     generate_dummy_dataset,
@@ -26,6 +29,17 @@ from DeepMTP.dataset import (
     process_dummy_MLC,
     process_dummy_MTR,
 )
+
+
+class RecordingDataProgress:
+    def __init__(self) -> None:
+        self.events: list[DataProgressEvent] = []
+
+    def __bool__(self) -> bool:
+        return False
+
+    def on_event(self, event: DataProgressEvent) -> None:
+        self.events.append(event)
 
 
 def write_mtr_dataset(root, content=None):
@@ -121,6 +135,116 @@ def write_mlc_dump(
         filename=str(dataset_path),
     )
     return dataset_path
+
+
+def prepare_cached_dataset(loader_name, root):
+    if loader_name == "mlc":
+        write_mlc_dump(root)
+        return load_process_MLC, {"dataset_name": "emotions"}, "emotions"
+    if loader_name == "mtr":
+        write_mtr_dataset(root)
+        return load_process_MTR, {"dataset_name": "enb"}, "enb"
+    write_dp_dataset(root)
+    return load_process_DP, {"dataset_name": "ern"}, "ern"
+
+
+@pytest.mark.parametrize("loader_name", ["mlc", "mtr", "dp"])
+def test_cached_dataset_loaders_preserve_developer_console_output(
+    loader_name,
+    tmp_path,
+    capsys,
+):
+    loader, arguments, _ = prepare_cached_dataset(loader_name, tmp_path)
+
+    loader(
+        tmp_path,
+        print_mode="dev",
+        **arguments,
+    )
+
+    assert capsys.readouterr().out == "info: Processing...\ninfo: Done\n"
+
+
+@pytest.mark.parametrize("loader_name", ["mlc", "mtr", "dp"])
+def test_cached_dataset_loaders_emit_structured_progress(
+    loader_name,
+    tmp_path,
+    capsys,
+):
+    loader, arguments, dataset_name = prepare_cached_dataset(loader_name, tmp_path)
+    progress = RecordingDataProgress()
+
+    loader(
+        tmp_path,
+        print_mode="dev",
+        progress=progress,
+        **arguments,
+    )
+
+    subject = f"{loader_name}_dataset_loading"
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.message, event.kind, event.subject, event.value, event.end)
+        for event in progress.events
+    ] == [
+        (
+            "Processing...",
+            "operation_started",
+            subject,
+            dataset_name,
+            "\n",
+        ),
+        (
+            "Done",
+            "operation_completed",
+            subject,
+            dataset_name,
+            "\n",
+        ),
+    ]
+
+
+@pytest.mark.parametrize("loader_name", ["mlc", "mtr", "dp"])
+def test_cached_dataset_loaders_respect_null_progress(
+    loader_name,
+    tmp_path,
+    capsys,
+):
+    loader, arguments, _ = prepare_cached_dataset(loader_name, tmp_path)
+
+    loader(
+        tmp_path,
+        print_mode="dev",
+        progress=NullDataProgressObserver(),
+        **arguments,
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        dataset_module.load_process_MLC,
+        dataset_module.load_process_MTR,
+        dataset_module.load_process_DP,
+        dataset_module._download_movielens_archive,
+        dataset_module.load_process_MC,
+        dataset_module.load_process_MTL,
+    ],
+)
+def test_dataset_progress_functions_do_not_print_directly(target):
+    tree = ast.parse(inspect.getsource(target))
+
+    direct_prints = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "print"
+    ]
+
+    assert direct_prints == []
 
 
 @pytest.mark.parametrize("features_type", ["numpy", "dataframe"])
@@ -225,6 +349,7 @@ def test_load_process_mlc_validates_arguments_before_download(
 def test_load_process_mlc_downloads_missing_dump_from_manifest(
     monkeypatch,
     tmp_path,
+    capsys,
 ):
     source_path = write_mlc_dump(tmp_path / "source")
     payload = source_path.read_bytes()
@@ -242,8 +367,14 @@ def test_load_process_mlc_downloads_missing_dump_from_manifest(
             destination.write_bytes(payload)
 
     monkeypatch.setattr(dataset_module, "download_file", download)
+    progress = RecordingDataProgress()
 
-    data = load_process_MLC(tmp_path, dataset_name="emotions")
+    data = load_process_MLC(
+        tmp_path,
+        dataset_name="emotions",
+        print_mode="dev",
+        progress=progress,
+    )
 
     dataset_dir = tmp_path / "multi-label_classification"
     assert calls == [
@@ -259,6 +390,25 @@ def test_load_process_mlc_downloads_missing_dump_from_manifest(
         ),
     ]
     assert data["train"]["y"].shape == (8, 2)
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.message, event.kind, event.subject, event.value)
+        for event in progress.events
+    ] == [
+        (
+            "Processing...",
+            "operation_started",
+            "mlc_dataset_loading",
+            "emotions",
+        ),
+        (
+            "Downloaded missing dataset files",
+            "message",
+            "mlc_dataset_download",
+            "emotions",
+        ),
+        ("Done", "operation_completed", "mlc_dataset_loading", "emotions"),
+    ]
 
 
 def test_load_process_mlc_downloads_only_missing_split_dump(
@@ -544,7 +694,11 @@ def test_load_process_dp_validates_arguments_before_download(
         load_process_DP(**arguments)
 
 
-def test_load_process_dp_downloads_only_missing_cache_files(monkeypatch, tmp_path):
+def test_load_process_dp_downloads_only_missing_cache_files(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
     paths = write_dp_dataset(tmp_path)
     paths["X2"].unlink()
     calls = []
@@ -555,8 +709,13 @@ def test_load_process_dp_downloads_only_missing_cache_files(monkeypatch, tmp_pat
         np.savetxt(destination, target_features, delimiter=",")
 
     monkeypatch.setattr(dataset_module, "download_file", download)
+    progress = RecordingDataProgress()
 
-    data = load_process_DP(tmp_path)
+    data = load_process_DP(
+        tmp_path,
+        print_mode="dev",
+        progress=progress,
+    )
 
     assert calls == [
         (
@@ -565,6 +724,15 @@ def test_load_process_dp_downloads_only_missing_cache_files(monkeypatch, tmp_pat
         )
     ]
     np.testing.assert_array_equal(data["train"]["X_target"], target_features)
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.kind, event.subject, event.value, event.end) for event in progress.events
+    ] == [
+        ("operation_started", "dp_dataset_loading", "ern", "\n"),
+        ("operation_started", "dp_dataset_download", "ern", ""),
+        ("operation_completed", "dp_dataset_download", "ern", "\n"),
+        ("operation_completed", "dp_dataset_loading", "ern", "\n"),
+    ]
 
 
 def test_load_process_dp_reports_missing_downloaded_files(monkeypatch, tmp_path):
@@ -823,7 +991,11 @@ def test_load_process_mc_repairs_incomplete_cache_from_archive(
     assert (tmp_path / "matrix-completion-datasets" / "ml-100k" / "u.data").is_file()
 
 
-def test_load_process_mc_replaces_corrupt_cached_archive(monkeypatch, tmp_path):
+def test_load_process_mc_replaces_corrupt_cached_archive(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
     archive_path = tmp_path / "matrix-completion-datasets" / "ml-100k.zip"
     archive_path.parent.mkdir(parents=True)
     archive_path.write_bytes(b"not a zip")
@@ -834,11 +1006,36 @@ def test_load_process_mc_replaces_corrupt_cached_archive(monkeypatch, tmp_path):
         write_movielens_archive(tmp_path)
 
     monkeypatch.setattr(dataset_module, "download_file", download)
+    progress = RecordingDataProgress()
 
-    data = load_process_MC(tmp_path)
+    data = load_process_MC(
+        tmp_path,
+        print_mode="dev",
+        progress=progress,
+    )
 
     assert len(calls) == 1
     assert len(data["train"]["y"]) == 3
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.message, event.kind, event.subject, event.value, event.end)
+        for event in progress.events
+    ] == [
+        (
+            "Downloading dataset ml-100k from scratch... ",
+            "operation_started",
+            "mc_dataset_download",
+            "ml-100k",
+            "",
+        ),
+        (
+            "Done",
+            "operation_completed",
+            "mc_dataset_download",
+            "ml-100k",
+            "\n",
+        ),
+    ]
 
 
 def test_load_process_mc_reports_missing_downloaded_dataset(
@@ -940,7 +1137,7 @@ def test_load_process_mtl_validates_arguments_before_download(
         load_process_MTL(**arguments)
 
 
-def test_load_process_mtl_repairs_incomplete_cache(monkeypatch, tmp_path):
+def test_load_process_mtl_repairs_incomplete_cache(monkeypatch, tmp_path, capsys):
     (tmp_path / "multi-task_learning-datasets" / "dog").mkdir(parents=True)
     calls = []
 
@@ -949,11 +1146,36 @@ def test_load_process_mtl_repairs_incomplete_cache(monkeypatch, tmp_path):
         write_mtl_dataset(tmp_path)
 
     monkeypatch.setattr(dataset_module, "download_and_extract_zip", download)
+    progress = RecordingDataProgress()
 
-    data = load_process_MTL(tmp_path)
+    data = load_process_MTL(
+        tmp_path,
+        print_mode="dev",
+        progress=progress,
+    )
 
     assert len(calls) == 1
     assert len(data["train"]["y"]) + len(data["test"]["y"]) == 10
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.message, event.kind, event.subject, event.value, event.end)
+        for event in progress.events
+    ] == [
+        (
+            "Downloading dataset dog from scratch... ",
+            "operation_started",
+            "mtl_dataset_download",
+            "dog",
+            "",
+        ),
+        (
+            "Done",
+            "operation_completed",
+            "mtl_dataset_download",
+            "dog",
+            "\n",
+        ),
+    ]
 
 
 def test_load_process_mtl_reports_missing_downloaded_dataset(monkeypatch, tmp_path):
@@ -1064,7 +1286,7 @@ def test_load_process_mtr_rejects_file_as_dataset_root(tmp_path):
         load_process_MTR(dataset_root)
 
 
-def test_load_process_mtr_repairs_incomplete_cache(monkeypatch, tmp_path):
+def test_load_process_mtr_repairs_incomplete_cache(monkeypatch, tmp_path, capsys):
     (tmp_path / "mtr-datasets").mkdir()
     calls = []
 
@@ -1073,11 +1295,53 @@ def test_load_process_mtr_repairs_incomplete_cache(monkeypatch, tmp_path):
         write_mtr_dataset(destination)
 
     monkeypatch.setattr(dataset_module, "download_and_extract_zip", download)
+    progress = RecordingDataProgress()
 
-    data = load_process_MTR(tmp_path)
+    data = load_process_MTR(
+        tmp_path,
+        print_mode="dev",
+        progress=progress,
+    )
 
     assert len(calls) == 1
     assert data["train"]["y"].shape == (2, 2)
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.kind, event.subject, event.value, event.end) for event in progress.events
+    ] == [
+        ("operation_started", "mtr_dataset_loading", "enb", "\n"),
+        ("operation_started", "mtr_dataset_download", "enb", ""),
+        ("operation_completed", "mtr_dataset_download", "enb", "\n"),
+        ("operation_completed", "mtr_dataset_loading", "enb", "\n"),
+    ]
+
+
+def test_failed_mtr_download_does_not_emit_completion(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
+    progress = RecordingDataProgress()
+    monkeypatch.setattr(
+        dataset_module,
+        "download_and_extract_zip",
+        lambda url, destination: (_ for _ in ()).throw(
+            DatasetDownloadError("download failed")
+        ),
+    )
+
+    with pytest.raises(DatasetDownloadError, match="download failed"):
+        load_process_MTR(
+            tmp_path,
+            print_mode="dev",
+            progress=progress,
+        )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.kind, event.subject) for event in progress.events] == [
+        ("operation_started", "mtr_dataset_loading"),
+        ("operation_started", "mtr_dataset_download"),
+    ]
 
 
 def test_load_process_mtr_reports_missing_downloaded_dataset(monkeypatch, tmp_path):

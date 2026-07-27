@@ -32,6 +32,11 @@ from DeepMTP._split_utils import (
 from DeepMTP._split_utils import (
     validate_split_ratio as _validate_split_ratio,
 )
+from DeepMTP.data_progress import (
+    DataProgressEvent,
+    DataProgressObserver,
+    build_data_progress_observer,
+)
 
 ArrayFormat: TypeAlias = Literal["numpy", "dataframe"]
 DatasetVariant: TypeAlias = Literal["undivided", "divided"]
@@ -274,14 +279,64 @@ def _validate_print_mode(print_mode: object) -> None:
         raise ValueError("print_mode must be either 'basic' or 'dev'.")
 
 
-def _print_dataset_status(
-    message: str,
+def _resolve_dataset_progress(
     print_mode: PrintMode,
+    progress: DataProgressObserver | None,
+) -> DataProgressObserver:
+    if progress is not None:
+        return progress
+    return build_data_progress_observer(True, print_mode=print_mode)
+
+
+def _emit_dataset_operation_started(
+    progress: DataProgressObserver,
     *,
+    subject: str,
+    message: str,
+    value: object | None = None,
     end: str = "\n",
 ) -> None:
-    prefix = "info: " if print_mode == "dev" else ""
-    print(f"{prefix}{message}", end=end)
+    progress.on_event(
+        DataProgressEvent(
+            message,
+            kind="operation_started",
+            subject=subject,
+            value=value,
+            end=end,
+        )
+    )
+
+
+def _emit_dataset_operation_completed(
+    progress: DataProgressObserver,
+    *,
+    subject: str,
+    value: object | None = None,
+) -> None:
+    progress.on_event(
+        DataProgressEvent(
+            "Done",
+            kind="operation_completed",
+            subject=subject,
+            value=value,
+        )
+    )
+
+
+def _emit_dataset_message(
+    progress: DataProgressObserver,
+    *,
+    subject: str,
+    message: str,
+    value: object | None = None,
+) -> None:
+    progress.on_event(
+        DataProgressEvent(
+            message,
+            subject=subject,
+            value=value,
+        )
+    )
 
 
 def _format_feature_matrix(
@@ -777,6 +832,8 @@ def load_process_MLC(
     variant: DatasetVariant = "undivided",
     features_type: ArrayFormat = "numpy",
     print_mode: PrintMode = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> DatasetBundle:
     """Load a cached or downloadable scikit-multilearn benchmark dataset.
 
@@ -787,6 +844,7 @@ def load_process_MLC(
         features_type: Return instance features as an array or feature DataFrame.
         print_mode: ``"basic"`` for ordinary messages or ``"dev"`` for
             messages prefixed for the development application.
+        progress: Receives dataset loading and download status events.
 
     Raises:
         ValueError: If an option or cached dataset is invalid.
@@ -799,18 +857,29 @@ def load_process_MLC(
         raise ValueError("variant must be either 'undivided' or 'divided'.")
     _validate_array_format("features_type", features_type)
     _validate_print_mode(print_mode)
+    progress_observer = _resolve_dataset_progress(print_mode, progress)
 
     data_root = _prepare_dataset_root(path)
     dataset_dir = data_root / "multi-label_classification"
     variants = ("undivided",) if variant == "undivided" else ("train", "test")
-    _print_dataset_status("Processing...", print_mode)
+    _emit_dataset_operation_started(
+        progress_observer,
+        subject="mlc_dataset_loading",
+        message="Processing...",
+        value=dataset_name,
+    )
     dataset_files, downloaded = _ensure_mlc_cache(
         dataset_dir,
         dataset_name,
         variants,
     )
     if downloaded:
-        _print_dataset_status("Downloaded missing dataset files", print_mode)
+        _emit_dataset_message(
+            progress_observer,
+            subject="mlc_dataset_download",
+            message="Downloaded missing dataset files",
+            value=dataset_name,
+        )
 
     X_train_array, y_train = _load_mlc_variant(dataset_files[variants[0]])
     X_test_array: np.ndarray | None = None
@@ -835,7 +904,11 @@ def load_process_MLC(
         if X_test_array is not None
         else None
     )
-    _print_dataset_status("Done", print_mode)
+    _emit_dataset_operation_completed(
+        progress_observer,
+        subject="mlc_dataset_loading",
+        value=dataset_name,
+    )
     return _dataset_bundle(
         train=_dataset_split(y=y_train, X_instance=X_train_instance),
         test=_dataset_split(y=y_test, X_instance=X_test_instance),
@@ -892,6 +965,8 @@ def load_process_MTR(
     dataset_name: str = "enb",
     features_type: ArrayFormat = "numpy",
     print_mode: PrintMode = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> DatasetBundle:
     """Load multivariate regression datasets from the mulan repository.
 
@@ -900,6 +975,7 @@ def load_process_MTR(
         dataset_name (str, optional): The name of the multivariate regression dataset. Defaults to 'enb'.
         features_type (str, optional): The format of the instance features. There are two possible values, numpy and dataframe. This is intended to test the functionality of the data_process function. Defaults to 'numpy'.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives dataset loading and download status events. Defaults to None.
 
     Raises:
         ValueError: If a public option or downloaded dataset is invalid.
@@ -914,18 +990,30 @@ def load_process_MTR(
     if dataset_name not in _MTR_DATASET_TARGETS:
         raise ValueError(f"dataset_name must be one of {sorted(_MTR_DATASET_TARGETS)}.")
     data_root = _prepare_dataset_root(path)
+    progress_observer = _resolve_dataset_progress(print_mode, progress)
 
-    _print_dataset_status("Processing...", print_mode)
+    _emit_dataset_operation_started(
+        progress_observer,
+        subject="mtr_dataset_loading",
+        message="Processing...",
+        value=dataset_name,
+    )
 
     dataset_path = data_root / "mtr-datasets" / f"{dataset_name}.arff"
     if not dataset_path.is_file():
-        _print_dataset_status(
-            "Downloading and extracting dataset from scratch... ",
-            print_mode,
+        _emit_dataset_operation_started(
+            progress_observer,
+            subject="mtr_dataset_download",
+            message="Downloading and extracting dataset from scratch... ",
+            value=dataset_name,
             end="",
         )
         download_and_extract_zip(_MTR_ARCHIVE_URL, data_root)
-        _print_dataset_status("Done", print_mode)
+        _emit_dataset_operation_completed(
+            progress_observer,
+            subject="mtr_dataset_download",
+            value=dataset_name,
+        )
     if not dataset_path.is_file():
         raise FileNotFoundError(
             f"Dataset archive did not contain the expected file: {dataset_path}."
@@ -944,7 +1032,11 @@ def load_process_MTR(
     )
     y_train = np.array(data[:, -num_targets:])
 
-    _print_dataset_status("Done", print_mode)
+    _emit_dataset_operation_completed(
+        progress_observer,
+        subject="mtr_dataset_loading",
+        value=dataset_name,
+    )
     return _dataset_bundle(
         train=_dataset_split(y=y_train, X_instance=X_train_instance),
     )
@@ -1282,6 +1374,8 @@ def load_process_DP(
     split_target_features: bool = False,
     validation_setting: str = "B",
     print_mode: PrintMode = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> DatasetBundle:
     """Load a dyadic-prediction dataset and optionally create held-out splits.
 
@@ -1296,6 +1390,7 @@ def load_process_DP(
         validation_setting: Novelty setting ``"B"``, ``"C"``, or ``"D"``.
         print_mode: ``"basic"`` for ordinary messages or ``"dev"`` for
             messages prefixed for the development application.
+        progress: Receives dataset loading and download status events.
 
     Raises:
         ValueError: If an option or dataset matrix is invalid.
@@ -1319,6 +1414,7 @@ def load_process_DP(
         raise TypeError("split_target_features must be a boolean.")
     _validate_print_mode(print_mode)
     _random_generator(random_state)
+    progress_observer = _resolve_dataset_progress(print_mode, progress)
 
     data_root = _prepare_dataset_root(path)
     dataset_dir = data_root / "dyadic_prediction-datasets" / dataset_name
@@ -1343,17 +1439,28 @@ def load_process_DP(
         if not dataset_file.is_file()
     ]
 
-    _print_dataset_status("Processing...", print_mode)
+    _emit_dataset_operation_started(
+        progress_observer,
+        subject="dp_dataset_loading",
+        message="Processing...",
+        value=dataset_name,
+    )
     if missing_files:
         dataset_dir.mkdir(parents=True, exist_ok=True)
-        _print_dataset_status(
-            "Downloading missing dataset files... ",
-            print_mode,
+        _emit_dataset_operation_started(
+            progress_observer,
+            subject="dp_dataset_download",
+            message="Downloading missing dataset files... ",
+            value=dataset_name,
             end="",
         )
         for stem, destination in missing_files:
             download_file(f"{url_prefix}{stem}.txt", destination)
-        _print_dataset_status("Done", print_mode)
+        _emit_dataset_operation_completed(
+            progress_observer,
+            subject="dp_dataset_download",
+            value=dataset_name,
+        )
 
     still_missing = [
         str(dataset_file)
@@ -1390,7 +1497,11 @@ def load_process_DP(
             validation_setting=validation_setting,
         )
 
-    _print_dataset_status("Done", print_mode)
+    _emit_dataset_operation_completed(
+        progress_observer,
+        subject="dp_dataset_loading",
+        value=dataset_name,
+    )
     return data
 
 
@@ -1525,21 +1636,29 @@ def _download_movielens_archive(
     url: str,
     archive_path: Path,
     dataset_name: str,
-    print_mode: PrintMode,
+    progress: DataProgressObserver,
 ) -> None:
-    _print_dataset_status(
-        f"Downloading dataset {dataset_name} from scratch... ",
-        print_mode,
+    _emit_dataset_operation_started(
+        progress,
+        subject="mc_dataset_download",
+        message=f"Downloading dataset {dataset_name} from scratch... ",
+        value=dataset_name,
         end="",
     )
     download_file(url, archive_path)
-    _print_dataset_status("Done", print_mode)
+    _emit_dataset_operation_completed(
+        progress,
+        subject="mc_dataset_download",
+        value=dataset_name,
+    )
 
 
 def load_process_MC(
     path: str | os.PathLike[str] = "./data",
     dataset_name: str = "ml-100k",
     print_mode: PrintMode = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> DatasetBundle:
     """Load a matrix-completion dataset from the MovieLens repository.
 
@@ -1548,6 +1667,7 @@ def load_process_MC(
         dataset_name: Matrix-completion dataset to load.
         print_mode: ``"basic"`` for ordinary messages or ``"dev"`` for
             messages prefixed for the development application.
+        progress: Receives dataset download status events.
 
     Raises:
         ValueError: If an option or the ratings data is invalid.
@@ -1560,6 +1680,7 @@ def load_process_MC(
     if dataset_name not in _MC_DATASET_URLS:
         raise ValueError(f"dataset_name must be one of {sorted(_MC_DATASET_URLS)}.")
     _validate_print_mode(print_mode)
+    progress_observer = _resolve_dataset_progress(print_mode, progress)
 
     data_root = _prepare_dataset_root(path)
     base_dir = data_root / "matrix-completion-datasets"
@@ -1576,7 +1697,7 @@ def load_process_MC(
                 url,
                 archive_path,
                 dataset_name,
-                print_mode,
+                progress_observer,
             )
 
         try:
@@ -1588,7 +1709,7 @@ def load_process_MC(
                 url,
                 archive_path,
                 dataset_name,
-                print_mode,
+                progress_observer,
             )
             extract_zip_file(archive_path, base_dir)
 
@@ -1597,7 +1718,7 @@ def load_process_MC(
                 url,
                 archive_path,
                 dataset_name,
-                print_mode,
+                progress_observer,
             )
             extract_zip_file(archive_path, base_dir)
 
@@ -1615,6 +1736,8 @@ def load_process_MTL(
     path: str | os.PathLike[str] = "./data",
     dataset_name: str = "dog",
     print_mode: PrintMode = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> DatasetBundle:
     """Load multi-task learning datasets from my custom repository.
 
@@ -1622,6 +1745,7 @@ def load_process_MTL(
         path (str, optional): The path where the datasets should be stored. If it doesn't exist, download and store it in this directory. Defaults to './data'.
         dataset_name (str, optional): The name of the multi-task learning dataset. Defaults to 'dog'.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives dataset download status events. Defaults to None.
 
     Raises:
         ValueError: If a public option or dataset file is invalid.
@@ -1634,6 +1758,7 @@ def load_process_MTL(
     if dataset_name not in _MTL_DATASET_NAMES:
         raise ValueError(f"dataset_name must be one of {sorted(_MTL_DATASET_NAMES)}.")
     _validate_print_mode(print_mode)
+    progress_observer = _resolve_dataset_progress(print_mode, progress)
 
     data_root = _prepare_dataset_root(path)
     base_dir = data_root / "multi-task_learning-datasets"
@@ -1642,16 +1767,22 @@ def load_process_MTL(
     legacy_scores_path = data_dir / "y_dog.pkl"
 
     if not json_path.is_file() and not legacy_scores_path.is_file():
-        _print_dataset_status(
-            f"Downloading dataset {dataset_name} from scratch... ",
-            print_mode,
+        _emit_dataset_operation_started(
+            progress_observer,
+            subject="mtl_dataset_download",
+            message=f"Downloading dataset {dataset_name} from scratch... ",
+            value=dataset_name,
             end="",
         )
         download_and_extract_zip(
             _MTL_ARCHIVE_URL_TEMPLATE.format(dataset_name=dataset_name),
             base_dir,
         )
-        _print_dataset_status("Done", print_mode)
+        _emit_dataset_operation_completed(
+            progress_observer,
+            subject="mtl_dataset_download",
+            value=dataset_name,
+        )
 
     if json_path.is_file():
         scores_matrix = _load_mtl_interaction_matrix(json_path)

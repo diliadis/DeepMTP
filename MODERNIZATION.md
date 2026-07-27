@@ -113,6 +113,8 @@ all supported options have tests.
   progress observers.
 - [x] Route top-level data-processing orchestration and nested helper messages
   through one shared data progress observer.
+- [x] Route public dataset loader and download lifecycle messages through
+  injectable data progress observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,
