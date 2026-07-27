@@ -3,7 +3,9 @@ import pytest
 import torch
 
 import DeepMTP.data_loading as data_loading_module
+import DeepMTP.utils.data_utils as legacy_data_utils
 from DeepMTP import DataLoaderFactory, DeepMTPConfig
+from DeepMTP.data_loading import BaseDataset, MTPSampler
 
 
 def make_config(**overrides):
@@ -52,6 +54,13 @@ def pair_order(dataloader):
             strict=True,
         )
     ]
+
+
+def test_data_components_live_in_data_loading_with_legacy_compatibility():
+    assert BaseDataset.__module__ == "DeepMTP.data_loading"
+    assert MTPSampler.__module__ == "DeepMTP.data_loading"
+    assert legacy_data_utils.BaseDataset is BaseDataset
+    assert legacy_data_utils.MTPSampler is MTPSampler
 
 
 def test_training_loaders_use_configured_batches_and_device_settings():

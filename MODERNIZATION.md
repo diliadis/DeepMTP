@@ -76,6 +76,8 @@ all supported options have tests.
 - [x] Route trainer lifecycle events and summary-table formatting through an
   injectable progress observer.
 - [x] Extract typed model and dataloader factories from the core trainer.
+- [x] Move model-ready PyTorch datasets and samplers out of the legacy data
+  preparation utility while preserving compatibility imports.
 - [x] Replace wildcard imports and import-time RNG mutation in the core
   trainer, using isolated model and dataloader generators instead.
 - [x] Use typed configuration attributes for core trainer read paths.
