@@ -3785,6 +3785,7 @@ def test_failed_interaction_validation_does_not_emit_completion(capsys):
         data_utils_module.cross_input_consistency_check_instances,
         data_utils_module.cross_input_consistency_check_targets,
         data_utils_module._scale_feature_splits,
+        data_utils_module.split_data,
     ],
 )
 def test_data_progress_functions_do_not_print_directly(target):
@@ -4322,6 +4323,183 @@ def make_setting_a_split_data():
         "val": {"y": None, "X_instance": None, "X_target": None},
         "test": {"y": None, "X_instance": None, "X_target": None},
     }
+
+
+def make_split_progress_data():
+    return generate_MTP_dataset(
+        12,
+        8,
+        num_instance_features=2,
+        num_target_features=2,
+        return_static_features_data=True,
+    )
+
+
+@pytest.mark.parametrize("validation_setting", ["A", "B", "C", "D"])
+def test_split_data_preserves_developer_console_output(
+    validation_setting,
+    capsys,
+):
+    split_data(
+        make_split_progress_data(),
+        validation_setting,
+        split_method="random",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=False,
+        seed=42,
+        verbose=True,
+        print_mode="dev",
+    )
+
+    assert capsys.readouterr().out == (
+        "info: Splitting train to train-test according to validation setting "
+        f"{validation_setting}... info: Done\n"
+        "info: Splitting train to train-val according to validation setting "
+        f"{validation_setting}... info: Done\n"
+    )
+
+
+@pytest.mark.parametrize("validation_setting", ["A", "B", "C", "D"])
+def test_split_data_emits_structured_progress(
+    validation_setting,
+    capsys,
+):
+    progress = RecordingDataProgress()
+
+    split_data(
+        make_split_progress_data(),
+        validation_setting,
+        split_method="random",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=False,
+        seed=42,
+        verbose=True,
+        print_mode="dev",
+        progress=progress,
+    )
+
+    assert capsys.readouterr().out == ""
+    assert [
+        (event.kind, event.subject, event.value, event.end) for event in progress.events
+    ] == [
+        ("operation_started", "train_test_split", None, ""),
+        (
+            "operation_completed",
+            "train_test_split",
+            validation_setting,
+            "\n",
+        ),
+        ("operation_started", "train_validation_split", None, ""),
+        (
+            "operation_completed",
+            "train_validation_split",
+            validation_setting,
+            "\n",
+        ),
+    ]
+
+
+def test_split_data_respects_null_progress(capsys):
+    split_data(
+        make_split_progress_data(),
+        "A",
+        split_method="random",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=False,
+        seed=42,
+        verbose=True,
+        print_mode="dev",
+        progress=NullDataProgressObserver(),
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+def test_split_data_is_silent_when_disabled():
+    progress = RecordingDataProgress()
+
+    split_data(
+        make_split_progress_data(),
+        "B",
+        split_method="random",
+        ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+        shuffle=False,
+        seed=42,
+        verbose=False,
+        progress=progress,
+    )
+
+    assert progress.events == []
+
+
+def test_repeated_setting_a_split_is_silent_without_validating_print_mode(capsys):
+    data = make_split_progress_data()
+    arguments = {
+        "validation_setting": "A",
+        "split_method": "random",
+        "ratio": {"train": 0.5, "val": 0.25, "test": 0.25},
+        "shuffle": False,
+        "seed": 42,
+    }
+    split_data(data, verbose=False, **arguments)
+
+    split_data(
+        data,
+        verbose=True,
+        print_mode="unknown",
+        **arguments,
+    )
+
+    assert capsys.readouterr().out == ""
+
+
+def test_repeated_setting_d_split_preserves_trailing_completion(capsys):
+    data = make_split_progress_data()
+    arguments = {
+        "validation_setting": "D",
+        "split_method": "random",
+        "ratio": {"train": 0.5, "val": 0.25, "test": 0.25},
+        "shuffle": False,
+        "seed": 42,
+    }
+    split_data(data, verbose=False, **arguments)
+    progress = RecordingDataProgress()
+
+    split_data(
+        data,
+        verbose=True,
+        progress=progress,
+        **arguments,
+    )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.kind, event.subject, event.value) for event in progress.events] == [
+        ("operation_completed", "train_validation_split", "D")
+    ]
+
+
+def test_failed_split_data_does_not_emit_completion(capsys):
+    progress = RecordingDataProgress()
+    data = make_split_progress_data()
+    data["train"]["X_instance"] = None
+
+    with pytest.raises(TypeError):
+        split_data(
+            data,
+            "B",
+            split_method="random",
+            ratio={"train": 0.5, "val": 0.25, "test": 0.25},
+            shuffle=False,
+            seed=42,
+            verbose=True,
+            print_mode="dev",
+            progress=progress,
+        )
+
+    assert capsys.readouterr().out == ""
+    assert [(event.kind, event.subject) for event in progress.events] == [
+        ("operation_started", "train_test_split")
+    ]
 
 
 @pytest.mark.parametrize(

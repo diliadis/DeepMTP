@@ -109,6 +109,8 @@ all supported options have tests.
   progress observers.
 - [x] Route feature-scaling lifecycle and skip warnings through data progress
   observers.
+- [x] Route validation-setting A-D split lifecycle messages through data
+  progress observers.
 - [ ] Replace direct printing with standard logging and optional progress
   callbacks.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,

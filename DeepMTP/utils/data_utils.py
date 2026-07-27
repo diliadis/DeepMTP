@@ -1555,6 +1555,46 @@ def _validate_split_result(
                 )
 
 
+def _emit_split_started(
+    verbose: bool,
+    print_mode: str,
+    progress: DataProgressObserver | None,
+    *,
+    destination: Literal["test", "val"],
+    validation_setting: ValidationSetting,
+) -> None:
+    subject = "train_test_split" if destination == "test" else "train_validation_split"
+    _emit_data_operation_started_if_verbose(
+        verbose,
+        print_mode,
+        progress,
+        subject=subject,
+        message=(
+            f"Splitting train to train-{destination} according to validation "
+            f"setting {validation_setting}... "
+        ),
+    )
+
+
+def _emit_split_completed(
+    verbose: bool,
+    print_mode: str,
+    progress: DataProgressObserver | None,
+    *,
+    destination: Literal["test", "val"],
+    validation_setting: ValidationSetting,
+) -> None:
+    subject = "train_test_split" if destination == "test" else "train_validation_split"
+    _emit_data_operation_completed_if_verbose(
+        verbose,
+        print_mode,
+        progress,
+        subject=subject,
+        message="Done",
+        value=validation_setting,
+    )
+
+
 def split_data(
     data: MutableMapping[str, Any],
     validation_setting: ValidationSetting,
@@ -1564,6 +1604,8 @@ def split_data(
     seed: int | None,
     verbose: bool,
     print_mode: str = "basic",
+    *,
+    progress: DataProgressObserver | None = None,
 ) -> None:
     """Splits the dataset and offers two main functionalities:
         * split based on the 4 different validation settings (A, B, C, D)
@@ -1577,6 +1619,7 @@ def split_data(
         seed (int): The seed used to initiate the randomized split
         verbose (bool, optional): Whether or not to print usefull info in the terminal. Defaults to False.
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
+        progress (DataProgressObserver | None, optional): Receives verbose split lifecycle messages. Defaults to None.
 
     """
     if validation_setting not in {"A", "B", "C", "D"}:
@@ -1632,14 +1675,13 @@ def split_data(
 
     if validation_setting == "B":
         if data["test"]["y"] is None:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Splitting train to train-test according to validation setting "
-                    + validation_setting
-                    + "... ",
-                    end="",
-                )
+            _emit_split_started(
+                verbose,
+                print_mode,
+                progress,
+                destination="test",
+                validation_setting=validation_setting,
+            )
             train_ids, test_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
                 test_size=test_size,
@@ -1664,18 +1706,22 @@ def split_data(
             data["train"]["X_instance"]["data"] = data["train"]["X_instance"][
                 "data"
             ].loc[data["train"]["X_instance"]["data"]["id"].isin(train_ids)]
-            if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Done")
+            _emit_split_completed(
+                verbose,
+                print_mode,
+                progress,
+                destination="test",
+                validation_setting=validation_setting,
+            )
 
         if data["val"]["y"] is None:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Splitting train to train-val according to validation setting "
-                    + validation_setting
-                    + "... ",
-                    end="",
-                )
+            _emit_split_started(
+                verbose,
+                print_mode,
+                progress,
+                destination="val",
+                validation_setting=validation_setting,
+            )
             train_ids, val_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
                 test_size=validation_size,
@@ -1706,8 +1752,13 @@ def split_data(
             data["train"]["X_instance"]["data"] = instance_data.loc[
                 instance_data["id"].isin(train_ids)
             ]
-            if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Done")
+            _emit_split_completed(
+                verbose,
+                print_mode,
+                progress,
+                destination="val",
+                validation_setting=validation_setting,
+            )
 
         # if data['train']['X_instance'] is not None:
         if data["test"]["X_instance"] is None:
@@ -1739,14 +1790,13 @@ def split_data(
 
     elif validation_setting == "C":
         if data["test"]["y"] is None:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Splitting train to train-test according to validation setting "
-                    + validation_setting
-                    + "... ",
-                    end="",
-                )
+            _emit_split_started(
+                verbose,
+                print_mode,
+                progress,
+                destination="test",
+                validation_setting=validation_setting,
+            )
             train_ids, test_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
                 test_size=test_size,
@@ -1771,18 +1821,22 @@ def split_data(
             data["train"]["X_target"]["data"] = data["train"]["X_target"]["data"].loc[
                 data["train"]["X_target"]["data"]["id"].isin(train_ids)
             ]
-            if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Done")
+            _emit_split_completed(
+                verbose,
+                print_mode,
+                progress,
+                destination="test",
+                validation_setting=validation_setting,
+            )
 
         if data["val"]["y"] is None:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Splitting train to train-val according to validation setting "
-                    + validation_setting
-                    + "... ",
-                    end="",
-                )
+            _emit_split_started(
+                verbose,
+                print_mode,
+                progress,
+                destination="val",
+                validation_setting=validation_setting,
+            )
             train_ids, val_ids = train_test_split(
                 data["train"]["y"]["data"]["target_id"].unique(),
                 test_size=validation_size,
@@ -1813,8 +1867,13 @@ def split_data(
             data["train"]["X_target"]["data"] = target_data.loc[
                 target_data["id"].isin(train_ids)
             ]
-            if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Done")
+            _emit_split_completed(
+                verbose,
+                print_mode,
+                progress,
+                destination="val",
+                validation_setting=validation_setting,
+            )
 
         # if data['train']['X_target'] is not None:
         if data["test"]["X_target"] is None:
@@ -1846,14 +1905,13 @@ def split_data(
 
     elif validation_setting == "A":
         if data["test"]["y"] is None:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Splitting train to train-test according to validation setting "
-                    + validation_setting
-                    + "... ",
-                    end="",
-                )
+            _emit_split_started(
+                verbose,
+                print_mode,
+                progress,
+                destination="test",
+                validation_setting=validation_setting,
+            )
             train_y_data, test_y_data = _split_frame_rows(
                 data["train"]["y"]["data"],
                 test_size,
@@ -1866,18 +1924,22 @@ def split_data(
                 data["test"]["X_instance"] = data["train"]["X_instance"]
             if data["train"]["X_target"] is not None:
                 data["test"]["X_target"] = data["train"]["X_target"]
-            if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Done")
+            _emit_split_completed(
+                verbose,
+                print_mode,
+                progress,
+                destination="test",
+                validation_setting=validation_setting,
+            )
 
         if data["val"]["y"] is None:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Splitting train to train-val according to validation setting "
-                    + validation_setting
-                    + "... ",
-                    end="",
-                )
+            _emit_split_started(
+                verbose,
+                print_mode,
+                progress,
+                destination="val",
+                validation_setting=validation_setting,
+            )
             train_y_data, val_y_data = _split_frame_rows(
                 data["train"]["y"]["data"],
                 validation_size,
@@ -1896,19 +1958,23 @@ def split_data(
                     data["test"]["X_target"] = data["train"]["X_target"]
                 if data["val"]["X_target"] is None:
                     data["val"]["X_target"] = data["train"]["X_target"]
-            if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Done")
+            _emit_split_completed(
+                verbose,
+                print_mode,
+                progress,
+                destination="val",
+                validation_setting=validation_setting,
+            )
 
     elif validation_setting == "D":
         if data["test"]["y"] is None:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Splitting train to train-test according to validation setting "
-                    + validation_setting
-                    + "... ",
-                    end="",
-                )
+            _emit_split_started(
+                verbose,
+                print_mode,
+                progress,
+                destination="test",
+                validation_setting=validation_setting,
+            )
             train_instance_ids, test_instance_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
                 test_size=test_instance_size,
@@ -1952,18 +2018,22 @@ def split_data(
                 data["train"]["X_target"]["data"]["id"].isin(train_target_ids)
             ]
 
-            if verbose:
-                print(("info: " if print_mode == "dev" else "") + "Done")
+            _emit_split_completed(
+                verbose,
+                print_mode,
+                progress,
+                destination="test",
+                validation_setting=validation_setting,
+            )
 
         if data["val"]["y"] is None:
-            if verbose:
-                print(
-                    ("info: " if print_mode == "dev" else "")
-                    + "Splitting train to train-val according to validation setting "
-                    + validation_setting
-                    + "... ",
-                    end="",
-                )
+            _emit_split_started(
+                verbose,
+                print_mode,
+                progress,
+                destination="val",
+                validation_setting=validation_setting,
+            )
             train_instance_ids, val_instance_ids = train_test_split(
                 data["train"]["y"]["data"]["instance_id"].unique(),
                 test_size=validation_instance_size,
@@ -2066,8 +2136,13 @@ def split_data(
                 ]
             }
 
-        if verbose:
-            print(("info: " if print_mode == "dev" else "") + "Done")
+        _emit_split_completed(
+            verbose,
+            print_mode,
+            progress,
+            destination="val",
+            validation_setting=validation_setting,
+        )
 
     _detach_shared_feature_sources(data)
     _validate_split_result(data, validation_setting)
