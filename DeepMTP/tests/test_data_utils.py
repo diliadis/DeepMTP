@@ -2854,7 +2854,6 @@ def test_split_data(test_split_data_data):
 
     assert len(original_data) == len(processed_data)
     for mode in original_data:
-        print("mode: " + str(mode))
         assert original_data[mode]["y"]["data"].equals(
             processed_data[mode]["y"]["data"]
         )

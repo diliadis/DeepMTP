@@ -117,8 +117,8 @@ all supported options have tests.
   injectable data progress observers.
 - [x] Expose reusable MTR catalog formatting and route its legacy presentation
   helper through a data progress observer.
-- [ ] Replace direct printing with standard logging and optional progress
-  callbacks.
+- [x] Confine direct printing to explicit console adapters and use injectable
+  progress callbacks in core workflows, enforced by an AST boundary test.
 - [x] Inject W&B and TensorBoard reporting integrations through a shared,
   lazily imported reporter interface.
 - [x] Make checkpoint loading device-safe and explicit.
