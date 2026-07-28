@@ -1,4 +1,5 @@
 import warnings
+from types import SimpleNamespace
 
 import pytest
 
@@ -124,6 +125,16 @@ def test_default_image_transforms_explain_optional_dependency(monkeypatch):
 
     with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[image\]"):
         utils.get_default_train_transform()
+
+
+def test_convolutional_config_explains_optional_dependency(monkeypatch):
+    def missing_torchvision(_module_name):
+        raise ImportError("torchvision is not installed")
+
+    monkeypatch.setattr(utils.importlib, "import_module", missing_torchvision)
+
+    with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[image\]"):
+        generate_minimal_config(instance_branch_architecture="CONV")
 
 
 @pytest.mark.parametrize(
@@ -349,7 +360,25 @@ test_generate_config_fails_data = [
 @pytest.mark.filterwarnings(
     "ignore::DeepMTP.config.ConfigNormalizationWarning",
 )
-def test_generate_config_fails(test_generate_config_fails_data):
+def test_generate_config_fails(test_generate_config_fails_data, monkeypatch):
+    def fake_transform(*args, **kwargs):
+        return args, kwargs
+
+    fake_transforms = SimpleNamespace(
+        Compose=lambda transforms: transforms,
+        Normalize=fake_transform,
+        RandomCrop=fake_transform,
+        RandomHorizontalFlip=fake_transform,
+        RandomRotation=fake_transform,
+        Resize=fake_transform,
+        ToTensor=fake_transform,
+    )
+    monkeypatch.setattr(
+        utils,
+        "_load_torchvision_transforms",
+        lambda: fake_transforms,
+    )
+
     fail_pass = test_generate_config_fails_data["pass_fail"]
 
     if fail_pass == "fail":
