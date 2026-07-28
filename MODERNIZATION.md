@@ -82,6 +82,8 @@ all supported options have tests.
   validation-setting inference behind a focused compatibility boundary.
 - [x] Extract feature normalization and cross-input consistency validation
   while preserving the legacy data utility surface.
+- [x] Extract split orchestration, defensive copying, and post-split
+  validation while preserving legacy entry points.
 - [x] Replace wildcard imports and import-time RNG mutation in the core
   trainer, using isolated model and dataloader generators instead.
 - [x] Use typed configuration attributes for core trainer read paths.

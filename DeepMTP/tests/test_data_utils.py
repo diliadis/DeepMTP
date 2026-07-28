@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+import DeepMTP.data_splitting as data_splitting_module
 import DeepMTP.feature_data as feature_data_module
 import DeepMTP.interaction_data as interaction_data_module
 import DeepMTP.utils.data_utils as data_utils_module
@@ -84,6 +85,26 @@ def test_feature_helpers_have_a_focused_owner_and_legacy_aliases():
         canonical = getattr(feature_data_module, name)
         assert getattr(data_utils_module, name) is canonical
         assert canonical.__module__ == "DeepMTP.feature_data"
+
+
+def test_split_helpers_have_a_focused_owner_and_legacy_aliases():
+    owned_names = (
+        "_copy_feature_source",
+        "_detach_shared_feature_sources",
+        "_emit_split_completed",
+        "_emit_split_started",
+        "_interaction_axis_size",
+        "_interaction_pairs",
+        "_interaction_row_count",
+        "_split_frame_rows",
+        "_validate_split_result",
+        "split_data",
+    )
+
+    for name in owned_names:
+        canonical = getattr(data_splitting_module, name)
+        assert getattr(data_utils_module, name) is canonical
+        assert canonical.__module__ == "DeepMTP.data_splitting"
 
 
 data_format_type_combo_data = [
