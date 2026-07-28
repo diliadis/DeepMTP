@@ -16,6 +16,34 @@ from DeepMTP.config import DeepMTPConfig
 ModelConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
 
 
+@dataclass(frozen=True)
+class _CombinedMLPSettings:
+    """Typed combined-branch options resolved from public config input."""
+
+    nodes_per_layer: list[int] | int
+    num_layers: int | None
+    dropout_rate: float
+    batch_norm: bool
+
+    @classmethod
+    def from_config(cls, config: ModelConfigInput) -> _CombinedMLPSettings:
+        if isinstance(config, DeepMTPConfig):
+            return cls(
+                nodes_per_layer=config.comb_mlp_nodes_per_layer,
+                num_layers=config.comb_mlp_layers,
+                dropout_rate=config.dropout_rate,
+                batch_norm=config.batch_norm,
+            )
+        if not isinstance(config, Mapping):
+            raise TypeError("config must be a mapping or DeepMTPConfig.")
+        return cls(
+            nodes_per_layer=config["comb_mlp_nodes_per_layer"],
+            num_layers=config["comb_mlp_layers"],
+            dropout_rate=config["dropout_rate"],
+            batch_norm=config["batch_norm"],
+        )
+
+
 class TwoBranchDotProductModel(nn.Module):
     """Combine equal-sized branch embeddings with a dot product."""
 
@@ -58,24 +86,15 @@ class TwoBranchMLPModel(nn.Module):
             instance_branch_model[0][-2].out_features
             + target_branch_model[0][-2].out_features
         )
-        if isinstance(config, DeepMTPConfig):
-            nodes_per_layer = config.comb_mlp_nodes_per_layer
-            num_layers = config.comb_mlp_layers
-            dropout_rate = config.dropout_rate
-            batch_norm = config.batch_norm
-        else:
-            nodes_per_layer = config["comb_mlp_nodes_per_layer"]
-            num_layers = config["comb_mlp_layers"]
-            dropout_rate = config["dropout_rate"]
-            batch_norm = config["batch_norm"]
+        settings = _CombinedMLPSettings.from_config(config)
         self.comb_branch = MLP(
             config,
             combined_dimension,
             1,
-            nodes_per_layer,
-            num_layers,
-            dropout_rate,
-            batch_norm,
+            settings.nodes_per_layer,
+            settings.num_layers,
+            settings.dropout_rate,
+            settings.batch_norm,
             skip_last_act=True,
         )
 

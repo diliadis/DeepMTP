@@ -94,7 +94,7 @@ all supported options have tests.
   trainability tests.
 - [x] Separate data preparation, datasets, models, training, evaluation,
   persistence, and experiment reporting.
-- [ ] Migrate internal dictionary lookups to typed configuration access as the
+- [x] Migrate internal dictionary lookups to typed configuration access as the
   trainer is split, while preserving the public dictionary adapter.
 - [x] Replace wildcard imports and import-time process-wide state mutations.
 - [x] Replace configuration-boundary prints with structured normalization

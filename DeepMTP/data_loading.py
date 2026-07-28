@@ -12,7 +12,7 @@ import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, Sampler
 
-from DeepMTP.config import DeepMTPConfig
+from DeepMTP.config import BranchArchitecture, DeepMTPConfig
 
 __all__ = [
     "BaseDataset",
@@ -53,6 +53,37 @@ class _DatasetComponents:
     interactions: Mapping[str, Any]
     instance_features: Mapping[str, Any] | None
     target_features: Mapping[str, Any] | None
+
+
+@dataclass(frozen=True)
+class _DatasetModelSettings:
+    """Typed fields needed to turn interactions into model inputs."""
+
+    instance_input_dim: int | None
+    target_input_dim: int | None
+    instance_architecture: BranchArchitecture | None
+    target_architecture: BranchArchitecture | None
+
+    @classmethod
+    def from_config(
+        cls,
+        config: DeepMTPConfig | Mapping[str, Any],
+    ) -> _DatasetModelSettings:
+        if isinstance(config, DeepMTPConfig):
+            return cls(
+                instance_input_dim=config.instance_branch_input_dim,
+                target_input_dim=config.target_branch_input_dim,
+                instance_architecture=config.instance_branch_architecture,
+                target_architecture=config.target_branch_architecture,
+            )
+        if not isinstance(config, Mapping):
+            raise TypeError("config must be a mapping or DeepMTPConfig.")
+        return cls(
+            instance_input_dim=config.get("instance_branch_input_dim"),
+            target_input_dim=config.get("target_branch_input_dim"),
+            instance_architecture=config.get("instance_branch_architecture"),
+            target_architecture=config.get("target_branch_architecture"),
+        )
 
 
 def _normalize_device(device: torch.device | str) -> torch.device:
@@ -103,18 +134,23 @@ class BaseDataset(Dataset):
 
     def __init__(
         self,
-        config: Mapping[str, Any],
+        config: DeepMTPConfig | Mapping[str, Any],
         data: Mapping[str, Any],
         instance_features: Mapping[str, Any] | None,
         target_features: Mapping[str, Any] | None,
         instance_transform: Callable[[Image.Image], Any] | None = None,
         target_transform: Callable[[Image.Image], Any] | None = None,
     ) -> None:
-        self.config = dict(config)
-        self.instance_branch_input_dim = config.get("instance_branch_input_dim")
-        self.target_branch_input_dim = config.get("target_branch_input_dim")
-        self.instance_branch_architecture = config.get("instance_branch_architecture")
-        self.target_branch_architecture = config.get("target_branch_architecture")
+        settings = _DatasetModelSettings.from_config(config)
+        self.config = (
+            config.to_dict(include_defaults=True)
+            if isinstance(config, DeepMTPConfig)
+            else dict(config)
+        )
+        self.instance_branch_input_dim = settings.instance_input_dim
+        self.target_branch_input_dim = settings.target_input_dim
+        self.instance_branch_architecture = settings.instance_architecture
+        self.target_branch_architecture = settings.target_architecture
         self.instance_transform = instance_transform
         self.target_transform = target_transform
 
@@ -438,7 +474,6 @@ class DataLoaderFactory:
         device: torch.device | str,
     ) -> None:
         self.config = DeepMTPConfig.from_mapping(config)
-        self.dataset_config = self.config.to_dict(include_defaults=True)
         self.device = _normalize_device(device)
 
     def for_training(
@@ -499,7 +534,7 @@ class DataLoaderFactory:
         train: bool,
     ) -> DataLoader:
         dataset = BaseDataset(
-            self.dataset_config,
+            self.config,
             components.interactions,
             components.instance_features,
             components.target_features,

@@ -214,6 +214,23 @@ def test_training_validates_every_split_before_constructing_datasets(
     assert constructor_calls == []
 
 
+def test_factory_preserves_typed_config_at_dataset_boundary(monkeypatch):
+    captured_configs = []
+    original_dataset = data_loading_module.BaseDataset
+
+    def tracking_dataset(config, *args, **kwargs):
+        captured_configs.append(config)
+        return original_dataset(config, *args, **kwargs)
+
+    monkeypatch.setattr(data_loading_module, "BaseDataset", tracking_dataset)
+    factory = DataLoaderFactory(make_config(), "cpu")
+
+    factory.for_prediction(make_data())
+
+    assert captured_configs == [factory.config]
+    assert isinstance(captured_configs[0], DeepMTPConfig)
+
+
 @pytest.mark.parametrize(
     ("validation_data", "test_data", "message"),
     [

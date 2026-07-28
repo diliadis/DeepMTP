@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Protocol, TypeAlias
@@ -11,6 +12,31 @@ from typing import Any, Protocol, TypeAlias
 from DeepMTP.config import DeepMTPConfig
 
 ReporterConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class _ReporterSettings:
+    """Typed reporting options resolved at the compatibility boundary."""
+
+    use_tensorboard_logger: bool
+    wandb_project_name: str | None
+    wandb_project_entity: str | None
+
+    @classmethod
+    def from_config(cls, config: ReporterConfigInput) -> _ReporterSettings:
+        if isinstance(config, DeepMTPConfig):
+            return cls(
+                use_tensorboard_logger=config.use_tensorboard_logger,
+                wandb_project_name=config.wandb_project_name,
+                wandb_project_entity=config.wandb_project_entity,
+            )
+        if not isinstance(config, Mapping):
+            raise TypeError("config must be a mapping or DeepMTPConfig.")
+        return cls(
+            use_tensorboard_logger=config["use_tensorboard_logger"],
+            wandb_project_name=config["wandb_project_name"],
+            wandb_project_entity=config["wandb_project_entity"],
+        )
 
 
 class OptionalIntegrationError(ImportError):
@@ -174,21 +200,22 @@ def build_reporter(
     experiment_dir: str | Path,
 ) -> ExperimentReporter:
     """Build configured reporters from typed or legacy configuration."""
-    if isinstance(config, DeepMTPConfig):
-        use_tensorboard_logger = config.use_tensorboard_logger
-        project_name = config.wandb_project_name
-        project_entity = config.wandb_project_entity
-    else:
-        use_tensorboard_logger = config["use_tensorboard_logger"]
-        project_name = config["wandb_project_name"]
-        project_entity = config["wandb_project_entity"]
+    settings = _ReporterSettings.from_config(config)
 
     reporters: list[ExperimentReporter] = []
-    if use_tensorboard_logger:
+    if settings.use_tensorboard_logger:
         reporters.append(TensorBoardReporter(experiment_dir))
 
-    if project_name is not None and project_entity is not None:
-        reporters.append(WandBReporter(project_name, project_entity))
+    if (
+        settings.wandb_project_name is not None
+        and settings.wandb_project_entity is not None
+    ):
+        reporters.append(
+            WandBReporter(
+                settings.wandb_project_name,
+                settings.wandb_project_entity,
+            )
+        )
 
     if not reporters:
         return NullReporter()
