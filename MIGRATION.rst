@@ -69,13 +69,17 @@ Current style:
    from DeepMTP import DeepMTP, DeepMTPConfig, data_process
 
 Dataset loader functions such as ``load_process_MLC`` remain in
-``DeepMTP.dataset``. HPO code should import ``BaseWorker`` from
-``DeepMTP.hpo_worker`` and optimizers from their own modules:
+``DeepMTP.dataset``. New HPO code should use the focused ``DeepMTP.hpo``
+package:
 
 .. code-block:: python
 
-   from DeepMTP.hpo_worker import BaseWorker
-   from DeepMTP.simple_hyperband import HyperBand
+   from DeepMTP.hpo import BaseWorker, HyperBand, RandomSearch
+
+The historical ``DeepMTP.hpo_worker``, ``DeepMTP.random_search``,
+``DeepMTP.simple_hyperband``, ``DeepMTP.hpo_progress``, and
+``DeepMTP.hpo_types`` module paths remain compatibility facades. Existing
+imports and persisted objects that refer to those paths continue to resolve.
 
 Configuration
 -------------

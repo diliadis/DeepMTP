@@ -11,7 +11,7 @@ import pandas as pd
 
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.evaluation_progress import EvaluationProgressEvent
-from DeepMTP.hpo_progress import HPOProgressEvent
+from DeepMTP.hpo.progress import HPOProgressEvent
 from DeepMTP.presentation import ProgressEvent, RunSummaries
 from DeepMTP.reporting import OptionalIntegrationError
 

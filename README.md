@@ -435,8 +435,7 @@ import ConfigSpace as CS
 import numpy as np
 
 from DeepMTP import DeepMTP, data_process
-from DeepMTP.hpo_worker import BaseWorker
-from DeepMTP.simple_hyperband import HyperBand
+from DeepMTP.hpo import BaseWorker, HyperBand
 
 rng = np.random.default_rng(42)
 scores = (

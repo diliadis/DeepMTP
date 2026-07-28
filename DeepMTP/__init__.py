@@ -21,7 +21,7 @@ from DeepMTP.evaluation_progress import (
     EvaluationProgressObserver,
     NullEvaluationProgressObserver,
 )
-from DeepMTP.hpo_progress import (
+from DeepMTP.hpo.progress import (
     ConsoleHPOProgressObserver,
     HPOProgressEvent,
     HPOProgressObserver,

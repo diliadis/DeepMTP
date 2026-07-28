@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   DeepMTP.hpo
    DeepMTP.utils
 
 Submodules
@@ -28,14 +29,6 @@ DeepMTP.dataset module
    :undoc-members:
    :show-inheritance:
 
-DeepMTP.hpo\_worker module
---------------------------
-
-.. automodule:: DeepMTP.hpo_worker
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 DeepMTP.main module
 -------------------
 
@@ -52,26 +45,10 @@ DeepMTP.main\_streamlit module
    :undoc-members:
    :show-inheritance:
 
-DeepMTP.random\_search module
------------------------------
-
-.. automodule:: DeepMTP.random_search
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 DeepMTP.random\_search\_streamlit module
 ----------------------------------------
 
 .. automodule:: DeepMTP.random_search_streamlit
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-DeepMTP.simple\_hyperband module
---------------------------------
-
-.. automodule:: DeepMTP.simple_hyperband
    :members:
    :undoc-members:
    :show-inheritance:

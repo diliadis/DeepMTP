@@ -12,7 +12,7 @@ _ALLOWED_PRINT_METHODS = {
     Path("evaluation_progress.py"): {
         ("ConsoleEvaluationProgressObserver", "on_event"),
     },
-    Path("hpo_progress.py"): {
+    Path("hpo/progress.py"): {
         ("ConsoleHPOProgressObserver", "on_event"),
     },
     Path("presentation.py"): {

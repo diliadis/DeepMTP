@@ -2,8 +2,8 @@
 
 from typing import Any
 
-from DeepMTP.hpo_progress import HPOProgressObserver
-from DeepMTP.simple_hyperband import HyperBand as CoreHyperBand
+from DeepMTP.hpo.hyperband import HyperBand as CoreHyperBand
+from DeepMTP.hpo.progress import HPOProgressObserver
 from DeepMTP.streamlit_adapter import StreamlitHPOProgressObserver
 
 

@@ -52,6 +52,9 @@ checkpoints.
   pretrained weights for offline construction.
 - Streamlit training and HPO adapters reuse the same core implementations as
   non-Streamlit runs.
+- HPO workers, optimizers, progress events, and structural types now live in
+  the focused `DeepMTP.hpo` package. Historical module paths remain
+  compatibility facades for existing imports and persisted objects.
 
 ### Fixed
 

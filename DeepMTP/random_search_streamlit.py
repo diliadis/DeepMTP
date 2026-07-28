@@ -2,8 +2,8 @@
 
 from typing import Any
 
-from DeepMTP.hpo_progress import HPOProgressObserver
-from DeepMTP.random_search import RandomSearch as CoreRandomSearch
+from DeepMTP.hpo.progress import HPOProgressObserver
+from DeepMTP.hpo.random_search import RandomSearch as CoreRandomSearch
 from DeepMTP.streamlit_adapter import StreamlitHPOProgressObserver
 
 
