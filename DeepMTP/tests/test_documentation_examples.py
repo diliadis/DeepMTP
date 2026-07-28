@@ -171,6 +171,49 @@ def test_migration_guide_tracks_the_current_public_contract():
         ast.parse(example, filename="MIGRATION.rst")
 
 
+def test_project_policies_are_complete_and_linked():
+    policy_names = (
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "MIGRATION.rst",
+        "SECURITY.md",
+        "RELEASING.md",
+    )
+    policies = {
+        name: (_PROJECT_ROOT / name).read_text(encoding="utf-8")
+        for name in policy_names
+    }
+    readme = (_PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    project_page = (_PROJECT_ROOT / "docs" / "source" / "project.rst").read_text(
+        encoding="utf-8"
+    )
+    index = (_PROJECT_ROOT / "docs" / "source" / "index.rst").read_text(
+        encoding="utf-8"
+    )
+    publish_workflow = (
+        _PROJECT_ROOT / ".github" / "workflows" / "publish.yml"
+    ).read_text(encoding="utf-8")
+
+    for policy_name in policy_names:
+        assert policy_name in readme or policy_name == "MIGRATION.rst"
+        assert policy_name in project_page
+
+    assert "## [Unreleased]" in policies["CHANGELOG.md"]
+    assert "## [0.0.22] - 2022-12-08" in policies["CHANGELOG.md"]
+    assert "[migration guide](MIGRATION.rst)" in policies["CHANGELOG.md"]
+    assert "sphinx-build -W --keep-going" in policies["CONTRIBUTING.md"]
+    assert "[SECURITY.md](SECURITY.md)" in policies["CONTRIBUTING.md"]
+    assert "dimitrios.iliadis@ugent.be" in policies["SECURITY.md"]
+    assert "Load only" in policies["SECURITY.md"]
+    assert "`setuptools-scm`" in policies["RELEASING.md"]
+    assert "`PYPI_API_TOKEN`" in policies["RELEASING.md"]
+    assert "python -m pytest" in policies["RELEASING.md"]
+    assert "python -m twine check --strict" in policies["RELEASING.md"]
+    assert "vX.Y.Z" in policies["RELEASING.md"]
+    assert "Project policies <project>" in index
+    assert "python -m twine check --strict dist/*" in publish_workflow
+
+
 def test_demo_links_reference_version_controlled_notebooks():
     readme = (_PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
     sphinx_demos = (

@@ -79,6 +79,10 @@ behavioral checks. See the [0.0.22 migration guide](MIGRATION.rst) for
 before-and-after examples covering configuration, data preparation,
 predictions, checkpoints, and optional integrations.
 
+Project maintenance is documented in the [changelog](CHANGELOG.md),
+[contributor guide](CONTRIBUTING.md), [security policy](SECURITY.md), and
+[release checklist](RELEASING.md).
+
 # Background
 
 ## What is MTP??

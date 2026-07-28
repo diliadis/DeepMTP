@@ -173,7 +173,7 @@ documented using repository commands.
 - [x] Repair README and notebook examples against the tested public API.
 - [x] Replace network-dependent demos with small local examples where possible.
 - [x] Document migration from the last published release.
-- [ ] Add changelog, contributor guide, security policy, and release checklist.
+- [x] Add changelog, contributor guide, security policy, and release checklist.
 - [ ] Run a release-candidate validation on representative MLC, MTR, DP, MTL,
   and matrix-completion tasks.
 

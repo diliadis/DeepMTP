@@ -24,6 +24,7 @@ Documentation
 	tutorial/configuration
 	tutorial/hpo
 	tutorial/demos
+	Project policies <project>
 	API reference <modules>
 	tutorial/credits
 
