@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+import DeepMTP.data_preparation as data_preparation_module
 import DeepMTP.data_splitting as data_splitting_module
 import DeepMTP.feature_data as feature_data_module
 import DeepMTP.interaction_data as interaction_data_module
@@ -105,6 +106,40 @@ def test_split_helpers_have_a_focused_owner_and_legacy_aliases():
         canonical = getattr(data_splitting_module, name)
         assert getattr(data_utils_module, name) is canonical
         assert canonical.__module__ == "DeepMTP.data_splitting"
+
+
+def test_preparation_helpers_have_a_focused_owner_and_legacy_aliases():
+    owned_names = (
+        "DataInfo",
+        "Transformer",
+        "_normalize_scaling_method",
+        "_normalize_validation_setting",
+        "_prepare_dataset_mapping",
+        "_scale_feature_splits",
+        "data_process",
+        "normalize",
+        "validate_split_ratio",
+    )
+
+    for name in owned_names:
+        canonical = getattr(data_preparation_module, name)
+        assert getattr(data_utils_module, name) is canonical
+        assert canonical.__module__ == "DeepMTP.data_preparation"
+
+    assert data_utils_module.ProcessedSplit is data_preparation_module.ProcessedSplit
+    assert data_utils_module.ScalingMethod is data_preparation_module.ScalingMethod
+
+
+def test_data_utils_is_a_definition_free_compatibility_facade():
+    tree = ast.parse(inspect.getsource(data_utils_module))
+
+    definitions = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+
+    assert definitions == []
 
 
 data_format_type_combo_data = [
