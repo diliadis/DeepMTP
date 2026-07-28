@@ -11,7 +11,6 @@ from torch import nn
 
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.data_loading import DataLoaderFactory
-from DeepMTP.evaluation import Evaluator
 from DeepMTP.models import (
     BranchFactory,
     ModelFactory,
@@ -19,6 +18,7 @@ from DeepMTP.models import (
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
 )
+from DeepMTP.runtime.evaluation import Evaluator
 from DeepMTP.runtime.persistence import ExperimentStore
 from DeepMTP.runtime.presentation import (
     ConsoleProgressObserver,
@@ -29,7 +29,7 @@ from DeepMTP.runtime.presentation import (
     build_progress_observer,
 )
 from DeepMTP.runtime.reporting import ExperimentReporter, build_reporter
-from DeepMTP.training import TensorBatch, TrainingEngine
+from DeepMTP.runtime.training import TensorBatch, TrainingEngine
 from DeepMTP.utils.model_utils import EarlyStopping
 
 __all__ = [

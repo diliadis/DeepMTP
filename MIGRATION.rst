@@ -93,20 +93,25 @@ paths remain compatibility facades. Existing imports and pickled model classes
 continue to resolve, while normal DeepMTP checkpoints remain unaffected because
 they store model state dictionaries rather than model objects.
 
-Runtime support services now live under ``DeepMTP.runtime``:
+Numerical training, evaluation, and their runtime support services now live
+under ``DeepMTP.runtime``:
 
 .. code-block:: python
 
    from DeepMTP.runtime import (
+       Evaluator,
        ExperimentStore,
        ProgressObserver,
        TensorBoardReporter,
+       TrainingEngine,
    )
 
-The historical ``DeepMTP.persistence``, ``DeepMTP.presentation``,
-``DeepMTP.reporting``, and ``DeepMTP.evaluation_progress`` paths remain
-compatibility facades. Existing imports and pickled support objects continue
-to resolve.
+The historical ``DeepMTP.evaluation``, ``DeepMTP.training``,
+``DeepMTP.persistence``, ``DeepMTP.presentation``, ``DeepMTP.reporting``, and
+``DeepMTP.evaluation_progress`` paths remain compatibility facades. Existing
+imports and pickled runtime objects continue to resolve. The tested top-level
+imports such as ``from DeepMTP import Evaluator, TrainingEngine`` also remain
+stable.
 
 Configuration
 -------------

@@ -7,18 +7,22 @@ import sys
 import pytest
 
 import DeepMTP as deepmtp_api
+import DeepMTP.evaluation as legacy_evaluation
 import DeepMTP.evaluation_progress as legacy_evaluation_progress
 import DeepMTP.persistence as legacy_persistence
 import DeepMTP.presentation as legacy_presentation
 import DeepMTP.reporting as legacy_reporting
 import DeepMTP.runtime as runtime_api
+import DeepMTP.runtime.evaluation as evaluation_module
 import DeepMTP.runtime.evaluation_progress as evaluation_progress_module
 import DeepMTP.runtime.persistence as persistence_module
 import DeepMTP.runtime.presentation as presentation_module
 import DeepMTP.runtime.reporting as reporting_module
+import DeepMTP.runtime.training as training_module
+import DeepMTP.training as legacy_training
 
 
-def test_runtime_package_exposes_canonical_support_services():
+def test_runtime_package_exposes_canonical_services():
     expected_symbols = {
         "CHECKPOINT_KEYS": persistence_module.CHECKPOINT_KEYS,
         "CompositeReporter": reporting_module.CompositeReporter,
@@ -28,6 +32,7 @@ def test_runtime_package_exposes_canonical_support_services():
         "ConsoleProgressObserver": presentation_module.ConsoleProgressObserver,
         "EvaluationAveraging": evaluation_progress_module.EvaluationAveraging,
         "EvaluationGroup": evaluation_progress_module.EvaluationGroup,
+        "EvaluationPolicy": evaluation_module.EvaluationPolicy,
         "EvaluationProgressEvent": (evaluation_progress_module.EvaluationProgressEvent),
         "EvaluationProgressEventKind": (
             evaluation_progress_module.EvaluationProgressEventKind
@@ -35,6 +40,8 @@ def test_runtime_package_exposes_canonical_support_services():
         "EvaluationProgressObserver": (
             evaluation_progress_module.EvaluationProgressObserver
         ),
+        "Evaluator": evaluation_module.Evaluator,
+        "EpochOutput": training_module.EpochOutput,
         "ExperimentReporter": reporting_module.ExperimentReporter,
         "ExperimentStore": persistence_module.ExperimentStore,
         "NullEvaluationProgressObserver": (
@@ -50,6 +57,8 @@ def test_runtime_package_exposes_canonical_support_services():
         "RunHistory": presentation_module.RunHistory,
         "RunSummaries": presentation_module.RunSummaries,
         "TensorBoardReporter": reporting_module.TensorBoardReporter,
+        "TensorBatch": training_module.TensorBatch,
+        "TrainingEngine": training_module.TrainingEngine,
         "WandBReporter": reporting_module.WandBReporter,
         "build_evaluation_progress_observer": (
             evaluation_progress_module.build_evaluation_progress_observer
@@ -68,7 +77,10 @@ def test_top_level_runtime_api_uses_canonical_implementations():
         "CompositeReporter",
         "ConsoleEvaluationProgressObserver",
         "ConsoleProgressObserver",
+        "EpochOutput",
+        "EvaluationPolicy",
         "EvaluationProgressEvent",
+        "Evaluator",
         "ExperimentReporter",
         "ExperimentStore",
         "NullEvaluationProgressObserver",
@@ -80,6 +92,7 @@ def test_top_level_runtime_api_uses_canonical_implementations():
         "RunHistory",
         "RunSummaries",
         "TensorBoardReporter",
+        "TrainingEngine",
         "WandBReporter",
     ):
         assert getattr(deepmtp_api, name) is getattr(runtime_api, name)
@@ -88,10 +101,12 @@ def test_top_level_runtime_api_uses_canonical_implementations():
 @pytest.mark.parametrize(
     ("legacy_module", "canonical_module"),
     [
+        (legacy_evaluation, evaluation_module),
         (legacy_evaluation_progress, evaluation_progress_module),
         (legacy_persistence, persistence_module),
         (legacy_presentation, presentation_module),
         (legacy_reporting, reporting_module),
+        (legacy_training, training_module),
     ],
 )
 def test_legacy_runtime_modules_reexport_canonical_symbols(
@@ -106,10 +121,12 @@ def test_legacy_runtime_modules_reexport_canonical_symbols(
 @pytest.mark.parametrize(
     "legacy_module",
     [
+        legacy_evaluation,
         legacy_evaluation_progress,
         legacy_persistence,
         legacy_presentation,
         legacy_reporting,
+        legacy_training,
     ],
 )
 def test_legacy_runtime_modules_are_definition_free_facades(legacy_module):
@@ -127,6 +144,11 @@ def test_legacy_runtime_modules_are_definition_free_facades(legacy_module):
 @pytest.mark.parametrize(
     ("legacy_module", "name", "canonical"),
     [
+        (
+            "DeepMTP.evaluation",
+            "EvaluationPolicy",
+            evaluation_module.EvaluationPolicy,
+        ),
         (
             "DeepMTP.evaluation_progress",
             "EvaluationProgressEvent",
@@ -147,6 +169,11 @@ def test_legacy_runtime_modules_are_definition_free_facades(legacy_module):
             "CompositeReporter",
             reporting_module.CompositeReporter,
         ),
+        (
+            "DeepMTP.training",
+            "EpochOutput",
+            training_module.EpochOutput,
+        ),
     ],
 )
 def test_historical_runtime_pickle_globals_resolve(
@@ -159,7 +186,11 @@ def test_historical_runtime_pickle_globals_resolve(
     assert pickle.loads(payload) is canonical
 
 
-def test_runtime_support_classes_report_their_canonical_module_names():
+def test_runtime_classes_report_their_canonical_module_names():
+    assert evaluation_module.EvaluationPolicy.__module__ == (
+        "DeepMTP.runtime.evaluation"
+    )
+    assert training_module.EpochOutput.__module__ == "DeepMTP.runtime.training"
     assert persistence_module.ExperimentStore.__module__ == (
         "DeepMTP.runtime.persistence"
     )

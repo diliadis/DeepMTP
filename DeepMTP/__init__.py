@@ -14,7 +14,6 @@ from DeepMTP.data_progress import (
     DataProgressObserver,
     NullDataProgressObserver,
 )
-from DeepMTP.evaluation import EvaluationPolicy, Evaluator
 from DeepMTP.hpo.progress import (
     ConsoleHPOProgressObserver,
     HPOProgressEvent,
@@ -29,6 +28,7 @@ from DeepMTP.models import (
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
 )
+from DeepMTP.runtime.evaluation import EvaluationPolicy, Evaluator
 from DeepMTP.runtime.evaluation_progress import (
     ConsoleEvaluationProgressObserver,
     EvaluationProgressEvent,
@@ -52,7 +52,7 @@ from DeepMTP.runtime.reporting import (
     TensorBoardReporter,
     WandBReporter,
 )
-from DeepMTP.training import EpochOutput, TrainingEngine
+from DeepMTP.runtime.training import EpochOutput, TrainingEngine
 
 try:
     __version__ = version("DeepMTP")

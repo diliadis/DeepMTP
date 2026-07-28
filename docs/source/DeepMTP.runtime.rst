@@ -1,16 +1,35 @@
 DeepMTP.runtime package
 =======================
 
-The runtime namespace owns experiment persistence, lifecycle presentation,
-reporting integrations, and structured evaluation progress:
+The runtime namespace owns numerical training and evaluation, experiment
+persistence, lifecycle presentation, reporting integrations, and structured
+evaluation progress:
 
 .. code-block:: python
 
    from DeepMTP.runtime import (
+       Evaluator,
        ExperimentStore,
        ProgressObserver,
        TensorBoardReporter,
+       TrainingEngine,
    )
+
+Evaluation
+----------
+
+.. automodule:: DeepMTP.runtime.evaluation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Training
+--------
+
+.. automodule:: DeepMTP.runtime.training
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Persistence
 -----------

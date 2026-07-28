@@ -1,5 +1,6 @@
 """Training-runtime services and integration boundaries."""
 
+from DeepMTP.runtime.evaluation import EvaluationPolicy, Evaluator
 from DeepMTP.runtime.evaluation_progress import (
     ConsoleEvaluationProgressObserver,
     EvaluationAveraging,
@@ -31,6 +32,7 @@ from DeepMTP.runtime.reporting import (
     WandBReporter,
     build_reporter,
 )
+from DeepMTP.runtime.training import EpochOutput, TensorBatch, TrainingEngine
 
 __all__ = [
     "CHECKPOINT_KEYS",
@@ -39,9 +41,12 @@ __all__ = [
     "ConsoleProgressObserver",
     "EvaluationAveraging",
     "EvaluationGroup",
+    "EvaluationPolicy",
     "EvaluationProgressEvent",
     "EvaluationProgressEventKind",
     "EvaluationProgressObserver",
+    "Evaluator",
+    "EpochOutput",
     "ExperimentReporter",
     "ExperimentStore",
     "NullEvaluationProgressObserver",
@@ -55,6 +60,8 @@ __all__ = [
     "RunHistory",
     "RunSummaries",
     "TensorBoardReporter",
+    "TensorBatch",
+    "TrainingEngine",
     "WandBReporter",
     "build_evaluation_progress_observer",
     "build_progress_observer",
