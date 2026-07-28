@@ -8,6 +8,7 @@ import pytest
 
 import DeepMTP as deepmtp_api
 import DeepMTP.data as data_api
+import DeepMTP.data.datasets as datasets_module
 import DeepMTP.data.features as features_module
 import DeepMTP.data.interactions as interactions_module
 import DeepMTP.data.loading as loading_module
@@ -18,12 +19,14 @@ import DeepMTP.data_loading as legacy_loading
 import DeepMTP.data_preparation as legacy_preparation
 import DeepMTP.data_progress as legacy_progress
 import DeepMTP.data_splitting as legacy_splitting
+import DeepMTP.dataset as legacy_datasets
 import DeepMTP.feature_data as legacy_features
 import DeepMTP.interaction_data as legacy_interactions
 
 
-def test_data_package_exposes_canonical_foundation_services():
+def test_data_package_exposes_canonical_services():
     expected_symbols = {
+        "ArrayFormat": datasets_module.ArrayFormat,
         "BaseDataset": loading_module.BaseDataset,
         "ConsoleDataProgressObserver": progress_module.ConsoleDataProgressObserver,
         "DataInfo": preparation_module.DataInfo,
@@ -33,13 +36,21 @@ def test_data_package_exposes_canonical_foundation_services():
         "DataProgressEventKind": progress_module.DataProgressEventKind,
         "DataProgressLevel": progress_module.DataProgressLevel,
         "DataProgressObserver": progress_module.DataProgressObserver,
+        "DatasetBundle": datasets_module.DatasetBundle,
         "DatasetItem": loading_module.DatasetItem,
         "DatasetMapping": interactions_module.DatasetMapping,
+        "DatasetSplit": datasets_module.DatasetSplit,
+        "DatasetValue": datasets_module.DatasetValue,
+        "DatasetVariant": datasets_module.DatasetVariant,
         "FeatureInfo": features_module.FeatureInfo,
         "InteractionInfo": interactions_module.InteractionInfo,
         "MTPSampler": loading_module.MTPSampler,
         "NoveltyInferenceWarning": interactions_module.NoveltyInferenceWarning,
         "NullDataProgressObserver": progress_module.NullDataProgressObserver,
+        "PrintMode": datasets_module.PrintMode,
+        "ProcessedDatasetBundle": datasets_module.ProcessedDatasetBundle,
+        "ProcessedDatasetSplit": datasets_module.ProcessedDatasetSplit,
+        "ProcessedDatasetValue": datasets_module.ProcessedDatasetValue,
         "ProcessedSplit": preparation_module.ProcessedSplit,
         "SamplerMode": loading_module.SamplerMode,
         "ScalingMethod": preparation_module.ScalingMethod,
@@ -65,10 +76,23 @@ def test_data_package_exposes_canonical_foundation_services():
             features_module.cross_input_consistency_check_targets
         ),
         "data_process": preparation_module.data_process,
+        "format_mtr_datasets": datasets_module.format_mtr_datasets,
+        "generate_MTP_dataset": datasets_module.generate_MTP_dataset,
+        "generate_dummy_dataset": datasets_module.generate_dummy_dataset,
+        "generate_interaction_matrix": datasets_module.generate_interaction_matrix,
         "get_estimated_validation_setting": (
             interactions_module.get_estimated_validation_setting
         ),
+        "load_process_DP": datasets_module.load_process_DP,
+        "load_process_MC": datasets_module.load_process_MC,
+        "load_process_MLC": datasets_module.load_process_MLC,
+        "load_process_MTL": datasets_module.load_process_MTL,
+        "load_process_MTR": datasets_module.load_process_MTR,
         "normalize": preparation_module.normalize,
+        "print_MTR_datasets": datasets_module.print_MTR_datasets,
+        "process_dummy_DP": datasets_module.process_dummy_DP,
+        "process_dummy_MLC": datasets_module.process_dummy_MLC,
+        "process_dummy_MTR": datasets_module.process_dummy_MTR,
         "process_instance_features": features_module.process_instance_features,
         "process_interaction_data": interactions_module.process_interaction_data,
         "process_target_features": features_module.process_target_features,
@@ -97,6 +121,7 @@ def test_top_level_data_api_uses_canonical_implementations():
 @pytest.mark.parametrize(
     ("legacy_module", "canonical_module"),
     [
+        (legacy_datasets, datasets_module),
         (legacy_features, features_module),
         (legacy_interactions, interactions_module),
         (legacy_loading, loading_module),
@@ -117,6 +142,7 @@ def test_legacy_data_modules_reexport_canonical_symbols(
 @pytest.mark.parametrize(
     "legacy_module",
     [
+        legacy_datasets,
         legacy_features,
         legacy_interactions,
         legacy_loading,
@@ -140,6 +166,7 @@ def test_legacy_data_modules_are_definition_free_facades(legacy_module):
 @pytest.mark.parametrize(
     ("legacy_module", "name", "canonical"),
     [
+        ("DeepMTP.dataset", "DatasetBundle", datasets_module.DatasetBundle),
         ("DeepMTP.feature_data", "FeatureInfo", features_module.FeatureInfo),
         (
             "DeepMTP.interaction_data",
@@ -171,6 +198,7 @@ def test_historical_data_pickle_globals_resolve(
 
 
 def test_data_classes_report_their_canonical_module_names():
+    assert datasets_module.DatasetBundle.__module__ == "DeepMTP.data.datasets"
     assert features_module.FeatureInfo.__module__ == "DeepMTP.data.features"
     assert interactions_module.NoveltyInferenceWarning.__module__ == (
         "DeepMTP.data.interactions"
@@ -190,6 +218,31 @@ import DeepMTP.data
 
 if "DeepMTP.dataset" in sys.modules:
     raise AssertionError("Dataset helpers were imported eagerly")
+if "DeepMTP.data.datasets" in sys.modules:
+    raise AssertionError("Canonical dataset helpers were imported eagerly")
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_data_package_loads_dataset_helpers_on_demand():
+    script = """
+import sys
+
+import DeepMTP.data as data
+
+helper = data.generate_MTP_dataset
+if "DeepMTP.data.datasets" not in sys.modules:
+    raise AssertionError("Dataset helpers were not loaded on demand")
+if helper.__module__ != "DeepMTP.data.datasets":
+    raise AssertionError(f"Unexpected helper owner: {helper.__module__}")
 """
 
     completed = subprocess.run(

@@ -287,6 +287,9 @@ test_results, predictions = model.predict(test, return_predictions=True)
 <summary> Loading one of the datasets offered natively by DeepMTP </summary>
 In the example above, the multi-label classification dataset is loaded my one of the built-in functions offered by the framework. More specifically the available functions are the following:
 
+Install the `datasets` extra and import loaders from `DeepMTP.data.datasets`.
+The historical `DeepMTP.dataset` path remains available for compatibility.
+
 |  Function  | Description |
 | :--- | :--- |
 | `load_process_MLC()` | the user can load the multi-label classification datasets available in the [MULAN repository](http://mulan.sourceforge.net/datasets-mlc.html). The different datasets can be accessed by specifying a valid name in the `dataset_name` parameter.|

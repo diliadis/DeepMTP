@@ -12,7 +12,7 @@ import DeepMTP.data.preparation as data_preparation_module
 import DeepMTP.data.splitting as data_splitting_module
 import DeepMTP.utils.data_utils as data_utils_module
 from DeepMTP import DataProgressEvent, NullDataProgressObserver
-from DeepMTP.dataset import (
+from DeepMTP.data.datasets import (
     generate_MTP_dataset,
     process_dummy_DP,
     process_dummy_MLC,

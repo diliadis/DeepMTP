@@ -6,6 +6,16 @@ Loading a built-in dataset
 Loading one of the datasets offered natively by DeepMTP
 In the example above, the multi-label classification dataset is loaded my one of the built-in functions offered by **DeepMTP**. More specifically the available functions are the following:
 
+.. code-block:: python
+
+    from DeepMTP import data_process
+    from DeepMTP.data.datasets import (
+        load_process_DP,
+        load_process_MC,
+        load_process_MLC,
+        load_process_MTR,
+    )
+
 
 **load_process_MLC()**
 ======================

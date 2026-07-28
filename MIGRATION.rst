@@ -82,10 +82,19 @@ services now live in ``DeepMTP.data``:
 
 The historical ``DeepMTP.interaction_data``, ``DeepMTP.feature_data``,
 ``DeepMTP.data_splitting``, ``DeepMTP.data_preparation``,
-``DeepMTP.data_loading``, and ``DeepMTP.data_progress`` paths remain
-compatibility facades. Existing public imports and pickled data objects
-continue to resolve. Dataset loader functions such as ``load_process_MLC``
-remain in ``DeepMTP.dataset`` while the final package migration proceeds.
+``DeepMTP.data_loading``, ``DeepMTP.data_progress``, and ``DeepMTP.dataset``
+paths remain compatibility facades. Existing public imports and pickled data
+objects continue to resolve.
+
+Built-in, generated, and downloadable dataset helpers use the dataset module:
+
+.. code-block:: python
+
+   from DeepMTP.data.datasets import load_process_MLC, process_dummy_MLC
+
+Importing ``DeepMTP`` or ``DeepMTP.data`` does not load dataset-specific
+dependencies. They are loaded only when ``DeepMTP.data.datasets`` or a lazy
+dataset export such as ``DeepMTP.data.load_process_MLC`` is accessed.
 
 New HPO code should use the focused ``DeepMTP.hpo`` package:
 

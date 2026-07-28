@@ -1,8 +1,9 @@
 DeepMTP.data package
 ====================
 
-The data namespace owns interaction normalization, feature validation, dataset
-splitting, preparation, model-ready loading, and structured progress events:
+The data namespace owns built-in dataset helpers, interaction normalization,
+feature validation, splitting, preparation, model-ready loading, and structured
+progress events:
 
 .. code-block:: python
 
@@ -12,6 +13,17 @@ splitting, preparation, model-ready loading, and structured progress events:
        TrainingDataLoaders,
        data_process,
    )
+
+Dataset helpers
+---------------
+
+Dataset-specific dependencies remain lazy until this module or one of its
+package-level exports is used.
+
+.. automodule:: DeepMTP.data.datasets
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Interactions
 ------------

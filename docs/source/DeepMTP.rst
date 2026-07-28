@@ -17,14 +17,6 @@ Subpackages
 Submodules
 ----------
 
-DeepMTP.dataset module
-----------------------
-
-.. automodule:: DeepMTP.dataset
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 DeepMTP.main module
 -------------------
 
