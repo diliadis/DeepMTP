@@ -1,8 +1,21 @@
+import ast
+import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 _PROJECT_ROOT = Path(__file__).parents[2]
+_DEMO_NOTEBOOKS = sorted((_PROJECT_ROOT / "DEMO").glob("*.ipynb"))
+_FORBIDDEN_NOTEBOOK_SNIPPETS = (
+    "from DeepMTP.main import DeepMTP",
+    "from DeepMTP.utils.data_utils import data_process",
+    "from ast import arg",
+    "os.chdir(",
+    "BaseDataset",
+    'default_value="1e-3"',
+    "/data/dimitriosi",
+)
 
 
 def _marked_python_example(document: Path, marker: str) -> str:
@@ -15,6 +28,15 @@ def _marked_python_example(document: Path, marker: str) -> str:
         "```",
         maxsplit=1,
     )[0]
+
+
+def _notebook_code_cells(notebook_path: Path) -> list[str]:
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    return [
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+    ]
 
 
 def test_readme_quickstart_runs_offline(monkeypatch, tmp_path):
@@ -32,3 +54,29 @@ def test_readme_quickstart_runs_offline(monkeypatch, tmp_path):
     assert isinstance(namespace["predictions"], pd.DataFrame)
     assert len(namespace["predictions"]) == len(namespace["test"]["y"]["data"])
     assert (tmp_path / "results" / "quickstart" / "config.json").is_file()
+
+
+@pytest.mark.parametrize("notebook_path", _DEMO_NOTEBOOKS, ids=lambda path: path.name)
+def test_demo_notebook_code_uses_current_public_api(notebook_path):
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    code_cells = _notebook_code_cells(notebook_path)
+    source = "\n\n".join(code_cells)
+
+    code_cell_data = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
+    assert all(cell["execution_count"] is None for cell in code_cell_data)
+    assert all(cell["outputs"] == [] for cell in code_cell_data)
+
+    for snippet in _FORBIDDEN_NOTEBOOK_SNIPPETS:
+        assert snippet not in source
+
+    tree = ast.parse(source, filename=str(notebook_path))
+    positional_checkpoint_calls = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "DeepMTP"
+        and len(node.args) > 1
+    ]
+
+    assert positional_checkpoint_calls == []

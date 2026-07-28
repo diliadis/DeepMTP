@@ -168,6 +168,8 @@ documented using repository commands.
 ## Phase 6 — Documentation and release readiness
 
 - [x] Replace the README quick start with a tested, typed, offline example.
+- [x] Modernize demo notebook imports and checkpoint restoration calls, with
+  static API regression coverage.
 - [ ] Repair README and notebook examples against the tested public API.
 - [ ] Replace network-dependent demos with small local examples where possible.
 - [ ] Document migration from the last published release.
