@@ -172,7 +172,7 @@ documented using repository commands.
   static API regression coverage.
 - [x] Repair README and notebook examples against the tested public API.
 - [x] Replace network-dependent demos with small local examples where possible.
-- [ ] Document migration from the last published release.
+- [x] Document migration from the last published release.
 - [ ] Add changelog, contributor guide, security policy, and release checklist.
 - [ ] Run a release-candidate validation on representative MLC, MTR, DP, MTL,
   and matrix-completion tasks.

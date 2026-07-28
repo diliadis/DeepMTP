@@ -19,6 +19,7 @@ Documentation
 	:caption: Contents:
 
 	tutorial/installation
+	tutorial/migration
 	tutorial/loading_datasets
 	tutorial/configuration
 	tutorial/hpo

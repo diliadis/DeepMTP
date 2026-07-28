@@ -81,6 +81,32 @@ def _marked_rst_python_example(document: Path, marker: str) -> str:
     return textwrap.dedent(code_block).strip()
 
 
+def _rst_python_examples(document: Path) -> list[str]:
+    lines = document.read_text(encoding="utf-8").splitlines()
+    examples = []
+    line_number = 0
+    while line_number < len(lines):
+        if lines[line_number].strip() != ".. code-block:: python":
+            line_number += 1
+            continue
+
+        line_number += 1
+        while line_number < len(lines) and (
+            not lines[line_number].strip()
+            or lines[line_number].lstrip().startswith(":")
+        ):
+            line_number += 1
+
+        block = []
+        while line_number < len(lines) and (
+            not lines[line_number].strip() or lines[line_number].startswith((" ", "\t"))
+        ):
+            block.append(lines[line_number])
+            line_number += 1
+        examples.append(textwrap.dedent("\n".join(block)).strip())
+    return examples
+
+
 def test_readme_quickstart_runs_offline(monkeypatch, tmp_path):
     example = _marked_python_example(
         _PROJECT_ROOT / "README.md",
@@ -116,6 +142,33 @@ def test_hpo_documentation_example_runs_offline(monkeypatch, tmp_path):
     assert isinstance(namespace["best_model_results"], dict)
     assert namespace["best_experiment"].info["model_dir"].endswith("model.pt")
     assert Path(namespace["best_experiment"].info["model_dir"]).is_file()
+
+
+def test_migration_guide_tracks_the_current_public_contract():
+    migration_path = _PROJECT_ROOT / "MIGRATION.rst"
+    migration = migration_path.read_text(encoding="utf-8")
+    readme = (_PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    index = (_PROJECT_ROOT / "docs" / "source" / "index.rst").read_text(
+        encoding="utf-8"
+    )
+    sphinx_page = (
+        _PROJECT_ROOT / "docs" / "source" / "tutorial" / "migration.rst"
+    ).read_text(encoding="utf-8")
+
+    assert "DeepMTP 0.0.22" in migration
+    assert "v0.0.22" in migration
+    assert "from DeepMTP import DeepMTP, DeepMTPConfig, data_process" in migration
+    assert "DeepMTPConfig.from_mapping(existing_config)" in migration
+    assert "checkpoint_dir=checkpoint_path" in migration
+    assert "return_predictions=True" in migration
+    assert "MIGRATION.rst" in readme
+    assert "tutorial/migration" in index
+    assert sphinx_page.strip() == ".. include:: ../../../MIGRATION.rst"
+
+    examples = _rst_python_examples(migration_path)
+    assert examples
+    for example in examples:
+        ast.parse(example, filename="MIGRATION.rst")
 
 
 def test_demo_links_reference_version_controlled_notebooks():

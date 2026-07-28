@@ -74,6 +74,11 @@ Conda users can instead run `conda env create -f environment.yml`. Development
 commands and contribution expectations are documented in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
+Upgrading an experiment from the published `0.0.22` release requires a few
+behavioral checks. See the [0.0.22 migration guide](MIGRATION.rst) for
+before-and-after examples covering configuration, data preparation,
+predictions, checkpoints, and optional integrations.
+
 # Background
 
 ## What is MTP??
