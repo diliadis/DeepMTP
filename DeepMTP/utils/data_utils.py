@@ -4,10 +4,26 @@ New code should import from the focused data-loading, preparation, splitting,
 feature, and interaction modules.
 """
 
-from DeepMTP.data_loading import BaseDataset as BaseDataset
-from DeepMTP.data_loading import DatasetItem as DatasetItem
-from DeepMTP.data_loading import MTPSampler as MTPSampler
-from DeepMTP.data_loading import SamplerMode as SamplerMode
+from DeepMTP.data.loading import BaseDataset as BaseDataset
+from DeepMTP.data.loading import DatasetItem as DatasetItem
+from DeepMTP.data.loading import MTPSampler as MTPSampler
+from DeepMTP.data.loading import SamplerMode as SamplerMode
+from DeepMTP.data.progress import DataProgressObserver as DataProgressObserver
+from DeepMTP.data.progress import _emit_data_message as _emit_data_message
+from DeepMTP.data.progress import (
+    _emit_data_operation_completed as _emit_data_operation_completed,
+)
+from DeepMTP.data.progress import (
+    _emit_data_operation_completed_if_verbose as _emit_data_operation_completed_if_verbose,
+)
+from DeepMTP.data.progress import (
+    _emit_data_operation_started as _emit_data_operation_started,
+)
+from DeepMTP.data.progress import (
+    _emit_data_operation_started_if_verbose as _emit_data_operation_started_if_verbose,
+)
+from DeepMTP.data.progress import _emit_data_separator as _emit_data_separator
+from DeepMTP.data.progress import _resolve_data_progress as _resolve_data_progress
 from DeepMTP.data_preparation import DataInfo as DataInfo
 from DeepMTP.data_preparation import ProcessedSplit as ProcessedSplit
 from DeepMTP.data_preparation import ScalingMethod as ScalingMethod
@@ -25,22 +41,6 @@ from DeepMTP.data_preparation import _scale_feature_splits as _scale_feature_spl
 from DeepMTP.data_preparation import data_process as data_process
 from DeepMTP.data_preparation import normalize as normalize
 from DeepMTP.data_preparation import validate_split_ratio as validate_split_ratio
-from DeepMTP.data_progress import DataProgressObserver as DataProgressObserver
-from DeepMTP.data_progress import _emit_data_message as _emit_data_message
-from DeepMTP.data_progress import (
-    _emit_data_operation_completed as _emit_data_operation_completed,
-)
-from DeepMTP.data_progress import (
-    _emit_data_operation_completed_if_verbose as _emit_data_operation_completed_if_verbose,
-)
-from DeepMTP.data_progress import (
-    _emit_data_operation_started as _emit_data_operation_started,
-)
-from DeepMTP.data_progress import (
-    _emit_data_operation_started_if_verbose as _emit_data_operation_started_if_verbose,
-)
-from DeepMTP.data_progress import _emit_data_separator as _emit_data_separator
-from DeepMTP.data_progress import _resolve_data_progress as _resolve_data_progress
 from DeepMTP.data_splitting import _copy_feature_source as _copy_feature_source
 from DeepMTP.data_splitting import (
     _detach_shared_feature_sources as _detach_shared_feature_sources,

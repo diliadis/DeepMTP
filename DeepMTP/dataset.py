@@ -32,7 +32,7 @@ from DeepMTP._split_utils import (
 from DeepMTP._split_utils import (
     validate_split_ratio as _validate_split_ratio,
 )
-from DeepMTP.data_progress import (
+from DeepMTP.data.progress import (
     DataProgressEvent,
     DataProgressObserver,
     build_data_progress_observer,

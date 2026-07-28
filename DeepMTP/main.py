@@ -10,7 +10,7 @@ import torch
 from torch import nn
 
 from DeepMTP.config import DeepMTPConfig
-from DeepMTP.data_loading import DataLoaderFactory
+from DeepMTP.data.loading import DataLoaderFactory
 from DeepMTP.models import (
     BranchFactory,
     ModelFactory,

@@ -6,7 +6,7 @@ from pathlib import Path
 import DeepMTP
 
 _ALLOWED_PRINT_METHODS = {
-    Path("data_progress.py"): {
+    Path("data/progress.py"): {
         ("ConsoleDataProgressObserver", "on_event"),
     },
     Path("runtime/evaluation_progress.py"): {
@@ -22,7 +22,7 @@ _ALLOWED_PRINT_METHODS = {
 }
 
 _ALLOWED_CONFIG_LOOKUP_METHODS = {
-    Path("data_loading.py"): {
+    Path("data/loading.py"): {
         ("_DatasetModelSettings", "from_config"),
     },
     Path("models/factory.py"): {

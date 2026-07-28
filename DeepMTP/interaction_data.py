@@ -9,7 +9,7 @@ from typing import Any, Literal, TypeAlias, TypedDict
 import numpy as np
 import pandas as pd
 
-from DeepMTP.data_progress import (
+from DeepMTP.data.progress import (
     DataProgressEvent,
     DataProgressObserver,
     _emit_data_operation_completed,

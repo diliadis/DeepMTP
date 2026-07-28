@@ -68,9 +68,22 @@ Current style:
 
    from DeepMTP import DeepMTP, DeepMTPConfig, data_process
 
-Dataset loader functions such as ``load_process_MLC`` remain in
-``DeepMTP.dataset``. New HPO code should use the focused ``DeepMTP.hpo``
-package:
+Model-ready loading and data-progress services now live in ``DeepMTP.data``:
+
+.. code-block:: python
+
+   from DeepMTP.data import (
+       DataLoaderFactory,
+       DataProgressObserver,
+       TrainingDataLoaders,
+   )
+
+The historical ``DeepMTP.data_loading`` and ``DeepMTP.data_progress`` paths
+remain compatibility facades. Existing imports and pickled data objects
+continue to resolve. Dataset loader functions such as ``load_process_MLC``
+remain in ``DeepMTP.dataset`` while the package migration proceeds.
+
+New HPO code should use the focused ``DeepMTP.hpo`` package:
 
 .. code-block:: python
 

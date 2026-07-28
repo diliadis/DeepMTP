@@ -194,8 +194,11 @@ produced from a tagged commit without manual repository edits.
     services while preserving historical import and pickle paths.
   - [x] Group numerical evaluation and training services while preserving
     historical import and pickle paths.
-- [ ] Group data loading, preparation, splitting, features, interactions, and
-  built-in datasets under `DeepMTP.data`.
+- [ ] Complete the `DeepMTP.data` package:
+  - [x] Group model-ready loading and data-progress services while preserving
+    historical import and pickle paths.
+  - [ ] Group interaction, feature, splitting, and preparation services.
+  - [ ] Group built-in and downloadable dataset helpers.
 
 Exit criterion: package paths communicate ownership without breaking supported
 legacy imports or persisted artifacts.

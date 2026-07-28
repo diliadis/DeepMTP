@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   DeepMTP.data
    DeepMTP.hpo
    DeepMTP.integrations
    DeepMTP.models
@@ -45,6 +46,6 @@ Module contents
 
 .. automodule:: DeepMTP
    :members:
-   :exclude-members: EvaluationProgressObserver
+   :exclude-members: DataProgressObserver, EvaluationProgressObserver
    :undoc-members:
    :show-inheritance:

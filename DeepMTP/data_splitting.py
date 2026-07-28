@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 
 from DeepMTP._split_utils import absolute_split_sizes as _absolute_split_sizes
 from DeepMTP._split_utils import validate_split_ratio
-from DeepMTP.data_progress import (
+from DeepMTP.data.progress import (
     DataProgressObserver,
     _emit_data_operation_completed_if_verbose,
     _emit_data_operation_started_if_verbose,

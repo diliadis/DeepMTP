@@ -7,7 +7,7 @@ from typing import Literal, TypedDict
 import numpy as np
 import pandas as pd
 
-from DeepMTP.data_progress import (
+from DeepMTP.data.progress import (
     DataProgressObserver,
     _emit_data_message,
     _emit_data_operation_completed,

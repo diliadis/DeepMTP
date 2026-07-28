@@ -2,10 +2,10 @@ import pandas as pd
 import pytest
 import torch
 
-import DeepMTP.data_loading as data_loading_module
+import DeepMTP.data.loading as data_loading_module
 import DeepMTP.utils.data_utils as legacy_data_utils
 from DeepMTP import DataLoaderFactory, DeepMTPConfig
-from DeepMTP.data_loading import BaseDataset, MTPSampler
+from DeepMTP.data.loading import BaseDataset, MTPSampler
 
 
 def make_config(**overrides):
@@ -56,9 +56,9 @@ def pair_order(dataloader):
     ]
 
 
-def test_data_components_live_in_data_loading_with_legacy_compatibility():
-    assert BaseDataset.__module__ == "DeepMTP.data_loading"
-    assert MTPSampler.__module__ == "DeepMTP.data_loading"
+def test_data_components_live_in_data_package_with_legacy_compatibility():
+    assert BaseDataset.__module__ == "DeepMTP.data.loading"
+    assert MTPSampler.__module__ == "DeepMTP.data.loading"
     assert legacy_data_utils.BaseDataset is BaseDataset
     assert legacy_data_utils.MTPSampler is MTPSampler
 

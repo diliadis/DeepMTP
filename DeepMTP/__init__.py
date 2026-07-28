@@ -6,14 +6,14 @@ from DeepMTP.config import (
     ConfigValidationError,
     DeepMTPConfig,
 )
-from DeepMTP.data_loading import DataLoaderFactory, TrainingDataLoaders
-from DeepMTP.data_preparation import data_process
-from DeepMTP.data_progress import (
+from DeepMTP.data.loading import DataLoaderFactory, TrainingDataLoaders
+from DeepMTP.data.progress import (
     ConsoleDataProgressObserver,
     DataProgressEvent,
     DataProgressObserver,
     NullDataProgressObserver,
 )
+from DeepMTP.data_preparation import data_process
 from DeepMTP.hpo.progress import (
     ConsoleHPOProgressObserver,
     HPOProgressEvent,

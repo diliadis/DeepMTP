@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from DeepMTP._split_utils import validate_split_ratio as _validate_split_ratio
-from DeepMTP.data_progress import (
+from DeepMTP.data.progress import (
     DataProgressObserver,
     _emit_data_message,
     _emit_data_operation_completed_if_verbose,
