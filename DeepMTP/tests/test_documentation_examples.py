@@ -1,7 +1,10 @@
 import ast
 import json
 import math
+import runpy
+import sys
 import textwrap
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 
 import pandas as pd
@@ -265,8 +268,23 @@ def test_project_policies_are_complete_and_linked():
     assert "python -m pytest -m release_candidate" in policies["RELEASING.md"]
     assert "python -m twine check --strict" in policies["RELEASING.md"]
     assert "vX.Y.Z" in policies["RELEASING.md"]
+    assert "scripts/verify_release_artifacts.py vX.Y.Z" in policies["RELEASING.md"]
     assert "Project policies <project>" in index
     assert "python -m twine check --strict dist/*" in publish_workflow
+    assert "${{ github.event.release.tag_name }}" in publish_workflow
+    assert 'scripts/verify_release_artifacts.py "$RELEASE_TAG" dist/*' in (
+        publish_workflow
+    )
+
+
+def test_sphinx_config_exposes_installed_distribution_version(monkeypatch):
+    monkeypatch.setattr(sys, "path", list(sys.path))
+
+    configuration = runpy.run_path(str(_PROJECT_ROOT / "docs" / "source" / "conf.py"))
+    installed_version = distribution_version("DeepMTP")
+
+    assert configuration["version"] == installed_version
+    assert configuration["release"] == installed_version
 
 
 def test_demo_links_reference_version_controlled_notebooks():

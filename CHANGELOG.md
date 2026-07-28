@@ -66,6 +66,9 @@ checkpoints.
   state.
 - Dataset caching and extraction use validated paths and safer filesystem
   boundaries.
+- Release automation rejects wheels and source distributions whose metadata does
+  not exactly match the GitHub Release tag.
+- Sphinx documentation displays the package version derived from Git metadata.
 
 ### Deprecated
 

@@ -87,11 +87,13 @@ git tag -a vX.Y.Z -m "DeepMTP X.Y.Z"
 git show --no-patch vX.Y.Z
 python -m build --outdir dist/vX.Y.Z
 python -m twine check --strict dist/vX.Y.Z/*
+python scripts/verify_release_artifacts.py vX.Y.Z dist/vX.Y.Z/*
 ```
 
 Use a new version-specific output directory so stale distributions cannot be
-uploaded by mistake. Confirm both filenames contain exactly `X.Y.Z`, without a
-development or local-version suffix.
+uploaded by mistake. The verifier reads package metadata from exactly one wheel
+and one source distribution, rejects development or local versions, and requires
+both versions to match the release tag.
 
 Test the tagged wheel, rather than the source checkout, in a new environment:
 
@@ -123,7 +125,8 @@ tagged commit to pass before publishing a GitHub Release.
 - Mark a pre-release appropriately for alpha, beta, or release-candidate tags.
 - Publish the GitHub Release. This triggers `.github/workflows/publish.yml`.
 - Confirm the publish job built fresh distributions, passed strict metadata
-  validation, and uploaded both artifacts to PyPI.
+  validation, verified both artifact versions against the GitHub Release tag,
+  and uploaded both artifacts to PyPI.
 
 Never run a second manual upload while the publishing workflow is active.
 

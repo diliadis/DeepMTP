@@ -123,6 +123,7 @@ line-length = 88
 include = [
     "pyproject.toml",
     "DeepMTP/**/*.py",
+    "scripts/**/*.py",
 ]
 
 [tool.ruff.lint]
@@ -169,6 +170,7 @@ files = [
     "DeepMTP/utils/model_utils.py",
     "DeepMTP/utils/tests.py",
     "DeepMTP/utils/utils.py",
+    "scripts/verify_release_artifacts.py",
 ]
 check_untyped_defs = true
 follow_imports = "skip"

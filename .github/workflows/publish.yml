@@ -29,6 +29,11 @@ jobs:
       - name: Inspect distribution metadata
         run: python -m twine check --strict dist/*
 
+      - name: Verify release tag and artifact versions
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: python scripts/verify_release_artifacts.py "$RELEASE_TAG" dist/*
+
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
