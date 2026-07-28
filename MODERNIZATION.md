@@ -174,7 +174,7 @@ documented using repository commands.
 - [x] Replace network-dependent demos with small local examples where possible.
 - [x] Document migration from the last published release.
 - [x] Add changelog, contributor guide, security policy, and release checklist.
-- [ ] Run a release-candidate validation on representative MLC, MTR, DP, MTL,
+- [x] Run a release-candidate validation on representative MLC, MTR, DP, MTL,
   and matrix-completion tasks.
 
 Exit criterion: documentation examples execute in CI and a release can be

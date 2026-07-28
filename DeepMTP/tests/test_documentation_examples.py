@@ -1,5 +1,6 @@
 import ast
 import json
+import math
 import textwrap
 from pathlib import Path
 
@@ -8,6 +9,59 @@ import pytest
 
 _PROJECT_ROOT = Path(__file__).parents[2]
 _DEMO_NOTEBOOKS = sorted((_PROJECT_ROOT / "DEMO").glob("*.ipynb"))
+_RELEASE_CANDIDATE_WORKLOADS = [
+    pytest.param(
+        "main_example_MLC.ipynb",
+        "B",
+        "classification",
+        {"val_loss", "val_hamming_loss_macro", "val_auroc_macro"},
+        True,
+        False,
+        id="MLC",
+    ),
+    pytest.param(
+        "main_example_MTR.ipynb",
+        "B",
+        "regression",
+        {"val_loss", "val_RMSE_macro", "val_R2_macro"},
+        True,
+        False,
+        id="MTR",
+    ),
+    pytest.param(
+        "main_example_DP.ipynb",
+        "D",
+        "classification",
+        {
+            "val_loss",
+            "val_aupr_macro",
+            "val_aupr_micro",
+            "val_auroc_macro",
+            "val_auroc_micro",
+        },
+        True,
+        True,
+        id="DP",
+    ),
+    pytest.param(
+        "main_example_MTL.ipynb",
+        "B",
+        "classification",
+        {"val_loss", "val_aupr_macro", "val_auroc_macro"},
+        True,
+        False,
+        id="MTL",
+    ),
+    pytest.param(
+        "main_example_MC.ipynb",
+        "A",
+        "regression",
+        {"val_loss", "val_RMSE_micro", "val_MSE_micro"},
+        False,
+        False,
+        id="MC",
+    ),
+]
 _FORBIDDEN_NOTEBOOK_SNIPPETS = (
     "from DeepMTP.main import DeepMTP",
     "from DeepMTP.utils.data_utils import data_process",
@@ -208,6 +262,7 @@ def test_project_policies_are_complete_and_linked():
     assert "`setuptools-scm`" in policies["RELEASING.md"]
     assert "`PYPI_API_TOKEN`" in policies["RELEASING.md"]
     assert "python -m pytest" in policies["RELEASING.md"]
+    assert "python -m pytest -m release_candidate" in policies["RELEASING.md"]
     assert "python -m twine check --strict" in policies["RELEASING.md"]
     assert "vX.Y.Z" in policies["RELEASING.md"]
     assert "Project policies <project>" in index
@@ -238,18 +293,26 @@ def test_local_dataset_notebook_runs_offline(monkeypatch, tmp_path):
     assert namespace["data_info_mc"]["detected_validation_setting"] == "A"
 
 
+@pytest.mark.release_candidate
+@pytest.mark.integration
 @pytest.mark.parametrize(
-    "notebook_name",
-    [
-        "main_example_DP.ipynb",
-        "main_example_MC.ipynb",
-        "main_example_MLC.ipynb",
-        "main_example_MTL.ipynb",
-        "main_example_MTR.ipynb",
-    ],
+    (
+        "notebook_name",
+        "validation_setting",
+        "problem_mode",
+        "expected_validation_metrics",
+        "has_instance_features",
+        "has_target_features",
+    ),
+    _RELEASE_CANDIDATE_WORKLOADS,
 )
 def test_training_notebook_runs_offline(
     notebook_name,
+    validation_setting,
+    problem_mode,
+    expected_validation_metrics,
+    has_instance_features,
+    has_target_features,
     monkeypatch,
     tmp_path,
 ):
@@ -258,12 +321,42 @@ def test_training_notebook_runs_offline(
     namespace = _execute_notebook(_PROJECT_ROOT / "DEMO" / notebook_name)
 
     model = namespace["model"]
+    data_info = namespace["data_info"]
+    validation_results = namespace["validation_results"]
+    predictions = namespace["preds"]
+    restored_results = namespace["restored_results"]
+
     assert model.configuration.compute_mode == "cpu"
     assert model.configuration.num_epochs == 1
     assert model.configuration.use_tensorboard_logger is False
-    assert "val_loss" in namespace["validation_results"]
-    assert isinstance(namespace["preds"], pd.DataFrame)
-    assert isinstance(namespace["restored_results"], dict)
+    assert model.configuration.validation_setting == validation_setting
+    assert model.configuration.problem_mode == problem_mode
+    assert data_info["detected_validation_setting"] == validation_setting
+    assert data_info["detected_problem_mode"] == problem_mode
+    assert (
+        namespace["data"]["train"]["X_instance"] is not None
+    ) is has_instance_features
+    assert (namespace["data"]["train"]["X_target"] is not None) is has_target_features
+
+    assert expected_validation_metrics.issubset(validation_results)
+    assert all(
+        math.isfinite(validation_results[metric])
+        for metric in expected_validation_metrics
+    )
+    assert isinstance(predictions, pd.DataFrame)
+    assert list(predictions) == [
+        "instance_id",
+        "target_id",
+        "true_values",
+        "predicted_values",
+    ]
+    assert len(predictions) == len(namespace["train"]["y"]["data"])
+
+    checkpoint_path = Path(model.experiment_dir) / "model.pt"
+    assert checkpoint_path.is_file()
+    assert isinstance(restored_results, dict)
+    original_test_results = model.predict(namespace["test"])
+    assert original_test_results == pytest.approx(restored_results)
 
 
 @pytest.mark.parametrize(

@@ -114,6 +114,7 @@ markers = [
     "slow: takes too long for the default local feedback loop",
     "gpu: requires a CUDA-capable GPU",
     "integration: exercises multiple package layers together",
+    "release_candidate: representative offline workloads required before release",
 ]
 
 [tool.ruff]

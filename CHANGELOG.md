@@ -24,6 +24,8 @@ checkpoints.
 - Optional dependency groups for datasets, HPO, image models, Streamlit,
   tracking, testing, quality checks, and documentation.
 - Offline, executable quick-start, training, dataset, and HPO examples.
+- A repeatable release-candidate matrix covering representative MLC, MTR, DP,
+  MTL, and matrix-completion workloads.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 

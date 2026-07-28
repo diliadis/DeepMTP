@@ -39,9 +39,20 @@ tested before removing the token.
 
 From a clean, up-to-date checkout of the release branch:
 
+The release-candidate marker runs five small, offline, one-epoch workloads:
+
+| Workload | Mode | Validation setting | Input coverage |
+| --- | --- | --- | --- |
+| Multi-label classification (MLC) | Classification | B | Instance features and label IDs |
+| Multivariate regression (MTR) | Regression | B | Instance features and response IDs |
+| Dyadic prediction (DP) | Classification | D | Instance and target features |
+| Multi-task learning (MTL) | Classification | B | Instance features and task IDs |
+| Matrix completion (MC) | Regression | A | Instance and target IDs only |
+
 ```bash
 git status --short
 python -m pytest
+python -m pytest -m release_candidate
 pre-commit run --all-files --show-diff-on-failure
 sphinx-build -W --keep-going -b html docs/source docs/_build/html
 python -m build --outdir dist/preflight
@@ -51,6 +62,7 @@ python -m twine check --strict dist/preflight/*
 The status command must produce no output before and after the checks. A
 development-version suffix is expected before the release tag exists. This
 preflight build catches packaging failures before tagging; it is not uploaded.
+The release-candidate run must report all five workloads as passed.
 
 Inspect the preflight wheel and source distribution:
 
