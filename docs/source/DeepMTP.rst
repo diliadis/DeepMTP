@@ -9,18 +9,11 @@ Subpackages
 
    DeepMTP.hpo
    DeepMTP.integrations
+   DeepMTP.models
    DeepMTP.utils
 
 Submodules
 ----------
-
-DeepMTP.branch\_models module
------------------------------
-
-.. automodule:: DeepMTP.branch_models
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 DeepMTP.dataset module
 ----------------------

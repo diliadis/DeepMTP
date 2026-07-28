@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch import nn
 
-import DeepMTP.model_factory as model_factory
+import DeepMTP.models.factory as model_factory
 from DeepMTP import (
     DeepMTPConfig,
     ModelFactory,

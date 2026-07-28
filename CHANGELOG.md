@@ -58,6 +58,9 @@ checkpoints.
 - Optional Streamlit trainers, HPO wrappers, and progress renderers now live
   under `DeepMTP.integrations.streamlit`, with historical root modules retained
   as compatibility facades.
+- Branch networks, combination architectures, and model construction now live
+  under `DeepMTP.models`; historical model modules remain compatibility
+  facades.
 
 ### Fixed
 

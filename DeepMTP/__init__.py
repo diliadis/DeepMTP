@@ -28,7 +28,7 @@ from DeepMTP.hpo.progress import (
     NullHPOProgressObserver,
 )
 from DeepMTP.main import DeepMTP
-from DeepMTP.model_factory import (
+from DeepMTP.models import (
     ModelBundle,
     ModelFactory,
     TwoBranchDotProductModel,

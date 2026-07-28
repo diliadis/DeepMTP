@@ -1,8 +1,8 @@
 import pytest
 import torch
 
-from DeepMTP.branch_models import MLP
-from DeepMTP.model_factory import (
+from DeepMTP.models import (
+    MLP,
     TwoBranchDotProductModel,
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,

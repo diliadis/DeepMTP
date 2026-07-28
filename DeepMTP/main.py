@@ -12,7 +12,7 @@ from torch import nn
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.data_loading import DataLoaderFactory
 from DeepMTP.evaluation import Evaluator
-from DeepMTP.model_factory import (
+from DeepMTP.models import (
     BranchFactory,
     ModelFactory,
     TwoBranchDotProductModel,

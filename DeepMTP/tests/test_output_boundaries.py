@@ -25,7 +25,7 @@ _ALLOWED_CONFIG_LOOKUP_METHODS = {
     Path("data_loading.py"): {
         ("_DatasetModelSettings", "from_config"),
     },
-    Path("model_factory.py"): {
+    Path("models/factory.py"): {
         ("_CombinedMLPSettings", "from_config"),
     },
     Path("reporting.py"): {

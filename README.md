@@ -136,6 +136,13 @@ Using the formal definition above we can simplify the basic components that we n
 ## How does DeepMTP work??
 The DeepMTP framework is based on a flexible two branch neural network architecture that can be adapted to account for specific needs of the different MTP problem settings. The two branches are designed to take as input any available side information (features) for the instances and targets and then output two embedding vectors $p_{x}$ and $q_{t}$, respectively. The embedding can then be concatenated and passed through a series of fully-connected layers with a single output node (predicting the score of the instance-target pair). Alternatively, a more straightforward and less expensive approach replaces the series of fully-connected layers with a simple dot-product. In terms of the sizes allowed for the two embedding vectors $p_{x}$ and $q_{t}$, the MLP version allows for different sizes and the dot-product version requires the same size.  
 
+Reusable branch models, combined architectures, and the model factory are
+available from the focused model namespace:
+
+```python
+from DeepMTP.models import ConvNet, MLP, ModelFactory
+```
+
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="250"/></p>
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="250"/></p>
 

@@ -9,7 +9,7 @@ from typing import Any
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.integrations.streamlit.progress import StreamlitProgressObserver
 from DeepMTP.main import DeepMTP as CoreDeepMTP
-from DeepMTP.model_factory import BranchFactory
+from DeepMTP.models import BranchFactory
 from DeepMTP.presentation import ProgressObserver
 from DeepMTP.reporting import ExperimentReporter
 

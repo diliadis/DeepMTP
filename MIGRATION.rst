@@ -81,6 +81,18 @@ The historical ``DeepMTP.hpo_worker``, ``DeepMTP.random_search``,
 ``DeepMTP.hpo_types`` module paths remain compatibility facades. Existing
 imports and persisted objects that refer to those paths continue to resolve.
 
+Reusable branch models, combined architectures, and model construction now
+live in ``DeepMTP.models``:
+
+.. code-block:: python
+
+   from DeepMTP.models import ConvNet, MLP, ModelFactory
+
+The historical ``DeepMTP.branch_models`` and ``DeepMTP.model_factory`` module
+paths remain compatibility facades. Existing imports and pickled model classes
+continue to resolve, while normal DeepMTP checkpoints remain unaffected because
+they store model state dictionaries rather than model objects.
+
 Configuration
 -------------
 
