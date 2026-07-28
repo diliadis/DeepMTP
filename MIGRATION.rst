@@ -236,6 +236,21 @@ Tracking, Streamlit, image models, HPO, and downloadable datasets are imported
 only when used. Missing integrations now produce a focused installation error
 instead of preventing ``import DeepMTP``.
 
+New Streamlit adapter imports use the optional integration namespace:
+
+.. code-block:: python
+
+   from DeepMTP.integrations.streamlit import (
+       DeepMTP as StreamlitDeepMTP,
+       HyperBand,
+       RandomSearch,
+   )
+
+The historical ``DeepMTP.main_streamlit``,
+``DeepMTP.random_search_streamlit``,
+``DeepMTP.simple_hyperband_streamlit``, and
+``DeepMTP.streamlit_adapter`` paths remain compatibility facades.
+
 Torchvision's explicit weights API may download pretrained weights on first
 use. For an offline convolutional experiment, disable pretrained weights on
 each convolutional branch:

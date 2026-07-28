@@ -185,7 +185,8 @@ produced from a tagged commit without manual repository edits.
 
 - [x] Group HPO workers, optimizers, progress events, and structural types
   under `DeepMTP.hpo` while preserving historical import and pickle paths.
-- [ ] Group optional Streamlit adapters under a focused integration package.
+- [x] Group optional Streamlit adapters under a focused integration package
+  while preserving historical import and pickle paths.
 - [ ] Group branch models and model construction under `DeepMTP.models`.
 - [ ] Group training, evaluation, persistence, presentation, and reporting
   services under `DeepMTP.runtime`.

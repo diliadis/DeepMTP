@@ -58,6 +58,17 @@ pip install "DeepMTP[tracking]"   # TensorBoard and Weights & Biases
 pip install "DeepMTP[all]"        # every runtime integration
 ```
 
+Streamlit-specific trainers, optimizers, and progress observers live under the
+optional integration namespace:
+
+```python
+from DeepMTP.integrations.streamlit import (
+    DeepMTP as StreamlitDeepMTP,
+    HyperBand,
+    RandomSearch,
+)
+```
+
 ## Installing from Source
 
 ```bash

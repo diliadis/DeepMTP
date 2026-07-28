@@ -4,17 +4,19 @@ from DeepMTP import (
     ProgressEvent,
     RunSummaries,
 )
-from DeepMTP.hpo_progress import HPOProgressEvent
-from DeepMTP.main import DeepMTP as CoreDeepMTP
-from DeepMTP.main_streamlit import DeepMTP as StreamlitDeepMTP
-from DeepMTP.random_search import RandomSearch as CoreRandomSearch
-from DeepMTP.random_search_streamlit import RandomSearch as StreamlitRandomSearch
-from DeepMTP.simple_hyperband import HyperBand as CoreHyperBand
-from DeepMTP.simple_hyperband_streamlit import HyperBand as StreamlitHyperBand
-from DeepMTP.streamlit_adapter import (
+from DeepMTP.hpo import HPOProgressEvent
+from DeepMTP.hpo import HyperBand as CoreHyperBand
+from DeepMTP.hpo import RandomSearch as CoreRandomSearch
+from DeepMTP.integrations.streamlit import (
+    DeepMTP as StreamlitDeepMTP,
+)
+from DeepMTP.integrations.streamlit import HyperBand as StreamlitHyperBand
+from DeepMTP.integrations.streamlit import RandomSearch as StreamlitRandomSearch
+from DeepMTP.integrations.streamlit import (
     StreamlitHPOProgressObserver,
     StreamlitProgressObserver,
 )
+from DeepMTP.main import DeepMTP as CoreDeepMTP
 
 
 class FakeSlot:

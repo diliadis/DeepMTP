@@ -1,23 +1,5 @@
-"""Backward-compatible Streamlit adapter for random search."""
+"""Compatibility facade for :mod:`DeepMTP.integrations.streamlit.hpo`."""
 
-from typing import Any
+from DeepMTP.integrations.streamlit.hpo import RandomSearch
 
-from DeepMTP.hpo.progress import HPOProgressObserver
-from DeepMTP.hpo.random_search import RandomSearch as CoreRandomSearch
-from DeepMTP.streamlit_adapter import StreamlitHPOProgressObserver
-
-
-class RandomSearch(CoreRandomSearch):  # pragma: no cover
-    """Core random search configured with Streamlit progress rendering."""
-
-    def __init__(
-        self,
-        *args: Any,
-        progress: HPOProgressObserver | None = None,
-        **kwargs: Any,
-    ) -> None:
-        streamlit_progress = (
-            progress if progress is not None else StreamlitHPOProgressObserver()
-        )
-        kwargs["progress"] = streamlit_progress
-        super().__init__(*args, **kwargs)
+__all__ = ["RandomSearch"]

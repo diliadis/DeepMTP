@@ -8,6 +8,7 @@ Subpackages
    :maxdepth: 4
 
    DeepMTP.hpo
+   DeepMTP.integrations
    DeepMTP.utils
 
 Submodules
@@ -34,30 +35,6 @@ DeepMTP.main module
 
 .. automodule:: DeepMTP.main
    :members: DeepMTP
-   :undoc-members:
-   :show-inheritance:
-
-DeepMTP.main\_streamlit module
-------------------------------
-
-.. automodule:: DeepMTP.main_streamlit
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-DeepMTP.random\_search\_streamlit module
-----------------------------------------
-
-.. automodule:: DeepMTP.random_search_streamlit
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-DeepMTP.simple\_hyperband\_streamlit module
--------------------------------------------
-
-.. automodule:: DeepMTP.simple_hyperband_streamlit
-   :members:
    :undoc-members:
    :show-inheritance:
 

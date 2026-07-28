@@ -59,7 +59,9 @@ class BaseWorker:
         self.mode = mode
         self.trainer_type: type[DeepMTP]
         if mode == "streamlit":
-            from DeepMTP.main_streamlit import DeepMTP as StreamlitDeepMTP
+            from DeepMTP.integrations.streamlit.trainer import (
+                DeepMTP as StreamlitDeepMTP,
+            )
 
             self.trainer_type = StreamlitDeepMTP
         else:
