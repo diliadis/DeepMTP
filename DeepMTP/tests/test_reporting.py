@@ -3,9 +3,9 @@ from types import SimpleNamespace
 import pytest
 
 import DeepMTP.main as main_module
-import DeepMTP.reporting as reporting_module
+import DeepMTP.runtime.reporting as reporting_module
 from DeepMTP import DeepMTPConfig
-from DeepMTP.reporting import (
+from DeepMTP.runtime.reporting import (
     CompositeReporter,
     NullReporter,
     OptionalIntegrationError,

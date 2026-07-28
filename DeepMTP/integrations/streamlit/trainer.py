@@ -10,8 +10,8 @@ from DeepMTP.config import DeepMTPConfig
 from DeepMTP.integrations.streamlit.progress import StreamlitProgressObserver
 from DeepMTP.main import DeepMTP as CoreDeepMTP
 from DeepMTP.models import BranchFactory
-from DeepMTP.presentation import ProgressObserver
-from DeepMTP.reporting import ExperimentReporter
+from DeepMTP.runtime.presentation import ProgressObserver
+from DeepMTP.runtime.reporting import ExperimentReporter
 
 __all__ = ["DeepMTP", "initialize_mode"]
 

@@ -10,10 +10,10 @@ from typing import Any, Protocol, cast
 import pandas as pd
 
 from DeepMTP.config import DeepMTPConfig
-from DeepMTP.evaluation_progress import EvaluationProgressEvent
 from DeepMTP.hpo.progress import HPOProgressEvent
-from DeepMTP.presentation import ProgressEvent, RunSummaries
-from DeepMTP.reporting import OptionalIntegrationError
+from DeepMTP.runtime.evaluation_progress import EvaluationProgressEvent
+from DeepMTP.runtime.presentation import ProgressEvent, RunSummaries
+from DeepMTP.runtime.reporting import OptionalIntegrationError
 
 __all__ = [
     "StreamlitAPI",

@@ -61,6 +61,9 @@ checkpoints.
 - Branch networks, combination architectures, and model construction now live
   under `DeepMTP.models`; historical model modules remain compatibility
   facades.
+- Persistence, progress presentation, reporting, and evaluation-progress
+  services now live under `DeepMTP.runtime`; historical modules remain
+  compatibility facades.
 
 ### Fixed
 

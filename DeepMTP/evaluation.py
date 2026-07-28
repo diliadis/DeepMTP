@@ -9,7 +9,7 @@ from typing import Any
 import pandas as pd
 
 from DeepMTP.config import DeepMTPConfig
-from DeepMTP.evaluation_progress import EvaluationProgressObserver
+from DeepMTP.runtime.evaluation_progress import EvaluationProgressObserver
 from DeepMTP.training import EpochOutput
 from DeepMTP.utils.eval_utils import get_performance_results
 

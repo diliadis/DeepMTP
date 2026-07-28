@@ -189,8 +189,10 @@ produced from a tagged commit without manual repository edits.
   while preserving historical import and pickle paths.
 - [x] Group branch models and model construction under `DeepMTP.models` while
   preserving historical import and pickle paths.
-- [ ] Group training, evaluation, persistence, presentation, and reporting
-  services under `DeepMTP.runtime`.
+- [ ] Complete the `DeepMTP.runtime` package:
+  - [x] Group persistence, presentation, reporting, and evaluation-progress
+    services while preserving historical import and pickle paths.
+  - [ ] Group numerical evaluation and training services.
 - [ ] Group data loading, preparation, splitting, features, interactions, and
   built-in datasets under `DeepMTP.data`.
 

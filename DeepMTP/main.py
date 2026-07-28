@@ -19,8 +19,8 @@ from DeepMTP.models import (
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
 )
-from DeepMTP.persistence import ExperimentStore
-from DeepMTP.presentation import (
+from DeepMTP.runtime.persistence import ExperimentStore
+from DeepMTP.runtime.presentation import (
     ConsoleProgressObserver,
     NullProgressObserver,
     ProgressEvent,
@@ -28,7 +28,7 @@ from DeepMTP.presentation import (
     RunHistory,
     build_progress_observer,
 )
-from DeepMTP.reporting import ExperimentReporter, build_reporter
+from DeepMTP.runtime.reporting import ExperimentReporter, build_reporter
 from DeepMTP.training import TensorBatch, TrainingEngine
 from DeepMTP.utils.model_utils import EarlyStopping
 

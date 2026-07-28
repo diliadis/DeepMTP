@@ -10,6 +10,7 @@ Subpackages
    DeepMTP.hpo
    DeepMTP.integrations
    DeepMTP.models
+   DeepMTP.runtime
    DeepMTP.utils
 
 Submodules
@@ -44,5 +45,6 @@ Module contents
 
 .. automodule:: DeepMTP
    :members:
+   :exclude-members: EvaluationProgressObserver
    :undoc-members:
    :show-inheritance:

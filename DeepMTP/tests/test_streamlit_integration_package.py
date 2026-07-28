@@ -14,7 +14,7 @@ import DeepMTP.main_streamlit as legacy_trainer
 import DeepMTP.random_search_streamlit as legacy_random_search
 import DeepMTP.simple_hyperband_streamlit as legacy_hyperband
 import DeepMTP.streamlit_adapter as legacy_progress
-from DeepMTP.reporting import OptionalIntegrationError
+from DeepMTP.runtime.reporting import OptionalIntegrationError
 
 
 def test_streamlit_package_exposes_canonical_implementations():

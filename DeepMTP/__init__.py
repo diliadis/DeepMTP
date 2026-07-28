@@ -15,12 +15,6 @@ from DeepMTP.data_progress import (
     NullDataProgressObserver,
 )
 from DeepMTP.evaluation import EvaluationPolicy, Evaluator
-from DeepMTP.evaluation_progress import (
-    ConsoleEvaluationProgressObserver,
-    EvaluationProgressEvent,
-    EvaluationProgressObserver,
-    NullEvaluationProgressObserver,
-)
 from DeepMTP.hpo.progress import (
     ConsoleHPOProgressObserver,
     HPOProgressEvent,
@@ -35,8 +29,14 @@ from DeepMTP.models import (
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
 )
-from DeepMTP.persistence import ExperimentStore
-from DeepMTP.presentation import (
+from DeepMTP.runtime.evaluation_progress import (
+    ConsoleEvaluationProgressObserver,
+    EvaluationProgressEvent,
+    EvaluationProgressObserver,
+    NullEvaluationProgressObserver,
+)
+from DeepMTP.runtime.persistence import ExperimentStore
+from DeepMTP.runtime.presentation import (
     ConsoleProgressObserver,
     NullProgressObserver,
     ProgressEvent,
@@ -44,7 +44,7 @@ from DeepMTP.presentation import (
     RunHistory,
     RunSummaries,
 )
-from DeepMTP.reporting import (
+from DeepMTP.runtime.reporting import (
     CompositeReporter,
     ExperimentReporter,
     NullReporter,

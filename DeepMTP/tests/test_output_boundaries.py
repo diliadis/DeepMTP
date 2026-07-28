@@ -9,13 +9,13 @@ _ALLOWED_PRINT_METHODS = {
     Path("data_progress.py"): {
         ("ConsoleDataProgressObserver", "on_event"),
     },
-    Path("evaluation_progress.py"): {
+    Path("runtime/evaluation_progress.py"): {
         ("ConsoleEvaluationProgressObserver", "on_event"),
     },
     Path("hpo/progress.py"): {
         ("ConsoleHPOProgressObserver", "on_event"),
     },
-    Path("presentation.py"): {
+    Path("runtime/presentation.py"): {
         ("ConsoleProgressObserver", "on_event"),
         ("ConsoleProgressObserver", "on_summary"),
     },
@@ -28,7 +28,7 @@ _ALLOWED_CONFIG_LOOKUP_METHODS = {
     Path("models/factory.py"): {
         ("_CombinedMLPSettings", "from_config"),
     },
-    Path("reporting.py"): {
+    Path("runtime/reporting.py"): {
         ("_ReporterSettings", "from_config"),
     },
 }
