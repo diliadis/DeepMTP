@@ -506,16 +506,20 @@ best_model_results = best_model.predict(test, verbose=True)
 <!-- hpo-example:end -->
 
 # DEMOS
-|   |   |
+These notebooks use small local datasets and are executed by the test suite.
+Each Colab link opens the version-controlled notebook rather than a separate
+copy.
+
+| Example | Notebook |
 |---|---|
-| Loading built-in datasets  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1H23ODC7--GI-5hRDzmUp3yYvB9VE8uZm?usp=sharing)   |
-| Multi-label classification (MLC)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lVI-gqAEtyGBUDqFAxYJYkV7UWMcHzvR?usp=sharing)   |
-| Multivariate regression (MTR)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lm7M37YPfaW3hGtSO9wg4UG_Cz_Manth?usp=sharing)   |
-| Multi-task learning (MTL)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1eztLI4ad1tclj9QP5IXzX9pbK_1SEXy3?usp=sharing) |
-| Matrix Completion (MC)  | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1cs45TN0FVI4NcRmbrdvljfjbyp0_NtVt?usp=sharing) |
-| Dyadic Prediction (DP) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1sPjYTur2xpoOPnidQEYLWMvlE4ai6WbV?usp=sharing) |
-| Hyperband | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1UQxtxAYcuNoIOHZce3UJDh6kKl4T5gNa?usp=sharing) |
-| Additional information for specific hyperparameters | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ns5XXtOlkzonRNHz3ljDS2IYYfwtSZE7?usp=sharing) |
+| Local dataset preparation | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/load_datasets.ipynb) |
+| Multi-label classification (MLC) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MLC.ipynb) |
+| Multivariate regression (MTR) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTR.ipynb) |
+| Multi-task learning (MTL) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTL.ipynb) |
+| Matrix completion (MC) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MC.ipynb) |
+| Dyadic prediction (DP) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_DP.ipynb) |
+| Hyperband | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/hyperband_example.ipynb) |
+| Random search | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/random_search_example.ipynb) |
 
 # Cite Us
 If you use this package, please cite [our paper](https://www.sciencedirect.com/science/article/pii/S2352711023002121):
