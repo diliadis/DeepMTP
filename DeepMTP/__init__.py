@@ -7,6 +7,7 @@ from DeepMTP.config import (
     DeepMTPConfig,
 )
 from DeepMTP.data_loading import DataLoaderFactory, TrainingDataLoaders
+from DeepMTP.data_preparation import data_process
 from DeepMTP.data_progress import (
     ConsoleDataProgressObserver,
     DataProgressEvent,
@@ -26,6 +27,7 @@ from DeepMTP.hpo_progress import (
     HPOProgressObserver,
     NullHPOProgressObserver,
 )
+from DeepMTP.main import DeepMTP
 from DeepMTP.model_factory import (
     ModelBundle,
     ModelFactory,
@@ -61,6 +63,7 @@ __all__ = [
     "ConfigDeprecationWarning",
     "ConfigNormalizationWarning",
     "ConfigValidationError",
+    "DeepMTP",
     "DeepMTPConfig",
     "DataLoaderFactory",
     "TrainingDataLoaders",
@@ -99,4 +102,5 @@ __all__ = [
     "TrainingEngine",
     "WandBReporter",
     "__version__",
+    "data_process",
 ]

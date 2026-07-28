@@ -196,29 +196,64 @@ Finally, in setting D the test set contains pairs of novel instances and targets
 </details>
 
 
-# A few lines of code is all you need
+# Quick start
 
+This complete example trains on a small synthetic multi-label dataset, runs on
+the CPU, and requires no downloads or optional dependencies. DeepMTP writes the
+experiment summary and configuration below `results/quickstart`.
+
+<!-- quickstart-example:start -->
 ```python
-from DeepMTP.dataset import load_process_MLC
-from DeepMTP.main import DeepMTP
-from DeepMTP.utils.utils import generate_config
+import numpy as np
 
-# load dataset
-data = load_process_MLC(dataset_name='yeast', variant='undivided', features_type='numpy')
-# process and split
-train, val, test, data_info = data_process(data, validation_setting='B', verbose=True)
+from DeepMTP import DeepMTP, DeepMTPConfig, data_process
 
-# generate a configuration for the experiment
-config = generate_config(...)
+rng = np.random.default_rng(42)
+scores = (
+    np.arange(24)[:, np.newaxis] + np.arange(4)[np.newaxis, :]
+) % 2
+data = {
+    "train": {
+        "y": scores,
+        "X_instance": rng.normal(size=(24, 3)),
+        "X_target": None,
+    }
+}
+train, validation, test, data_info = data_process(
+    data,
+    validation_setting="B",
+)
 
-# initialize model
+config = DeepMTPConfig(
+    validation_setting=data_info["detected_validation_setting"],
+    problem_mode=data_info["detected_problem_mode"],
+    general_architecture_version="dot_product",
+    compute_mode="cpu",
+    num_workers=0,
+    train_batchsize=16,
+    val_batchsize=16,
+    num_epochs=1,
+    metrics=["accuracy"],
+    metrics_average=["macro"],
+    evaluate_val=True,
+    use_early_stopping=False,
+    save_model=False,
+    results_path="results",
+    experiment_name="quickstart",
+    instance_branch_architecture="MLP",
+    instance_branch_input_dim=data_info["instance_branch_input_dim"],
+    instance_branch_nodes_per_layer=[8],
+    target_branch_architecture="MLP",
+    target_branch_input_dim=data_info["target_branch_input_dim"],
+    target_branch_nodes_per_layer=[8],
+    embedding_size=4,
+)
+
 model = DeepMTP(config)
-# train, validate, test
-validation_results = model.train(train, val, test)
-
-# generate predictions from the trained model
-results, preds = model.predict(train, return_predictions=True ,verbose=True)
+validation_results = model.train(train, validation, test)
+test_results, predictions = model.predict(test, return_predictions=True)
 ```
+<!-- quickstart-example:end -->
 
 ## Input data
 <details>
