@@ -1,5 +1,6 @@
 import ast
 import json
+import textwrap
 from pathlib import Path
 
 import pandas as pd
@@ -39,6 +40,16 @@ def _notebook_code_cells(notebook_path: Path) -> list[str]:
     ]
 
 
+def _marked_rst_python_example(document: Path, marker: str) -> str:
+    text = document.read_text(encoding="utf-8")
+    marked_section = text.split(f".. {marker}-start", maxsplit=1)[1].split(
+        f".. {marker}-end",
+        maxsplit=1,
+    )[0]
+    code_block = marked_section.split(".. code-block:: python", maxsplit=1)[1]
+    return textwrap.dedent(code_block).strip()
+
+
 def test_readme_quickstart_runs_offline(monkeypatch, tmp_path):
     example = _marked_python_example(
         _PROJECT_ROOT / "README.md",
@@ -54,6 +65,26 @@ def test_readme_quickstart_runs_offline(monkeypatch, tmp_path):
     assert isinstance(namespace["predictions"], pd.DataFrame)
     assert len(namespace["predictions"]) == len(namespace["test"]["y"]["data"])
     assert (tmp_path / "results" / "quickstart" / "config.json").is_file()
+
+
+def test_hpo_documentation_example_runs_offline(monkeypatch, tmp_path):
+    readme_example = _marked_python_example(
+        _PROJECT_ROOT / "README.md",
+        "hpo-example",
+    ).strip()
+    sphinx_example = _marked_rst_python_example(
+        _PROJECT_ROOT / "docs" / "source" / "tutorial" / "hpo.rst",
+        "hpo-example",
+    )
+    namespace = {"__name__": "__main__"}
+    monkeypatch.chdir(tmp_path)
+
+    assert sphinx_example == readme_example
+    exec(compile(readme_example, "README.md", "exec"), namespace)
+
+    assert isinstance(namespace["best_model_results"], dict)
+    assert namespace["best_experiment"].info["model_dir"].endswith("model.pt")
+    assert Path(namespace["best_experiment"].info["model_dir"]).is_file()
 
 
 @pytest.mark.parametrize("notebook_path", _DEMO_NOTEBOOKS, ids=lambda path: path.name)
