@@ -1,7 +1,24 @@
-import torchvision.transforms as transforms
+from __future__ import annotations
+
+import importlib
+import warnings
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal
+
+from DeepMTP.config import ConfigNormalizationWarning, DeepMTPConfig
 
 
-def get_optimization_direction(metric_name: str) -> str:
+def _load_torchvision_transforms() -> Any:
+    try:
+        return importlib.import_module("torchvision.transforms")
+    except ImportError as exc:
+        raise ModuleNotFoundError(
+            "Image transforms require the optional 'image' dependencies. "
+            "Install them with `pip install 'DeepMTP[image]'`."
+        ) from exc
+
+
+def get_optimization_direction(metric_name: str) -> Literal["max", "min"]:
     """Determines if the goal is to maximize or minimize based on the name of the metric
 
     Args:
@@ -10,7 +27,7 @@ def get_optimization_direction(metric_name: str) -> str:
     Returns:
         string: max if the goal is go maximize or min if the goal is to mimize
     """
-    metrics_to_max = [
+    metrics_to_max = (
         "sensitivity",
         "f1_score",
         "recall",
@@ -20,49 +37,59 @@ def get_optimization_direction(metric_name: str) -> str:
         "precision",
         "auroc",
         "aupr",
-    ]
-    if True in [n in metric_name for n in metrics_to_max]:
+    )
+    metrics_to_min = (
+        "false_alarm_rate_per_hour",
+        "hamming_loss",
+        "RRMSE",
+        "RMSE",
+        "MSE",
+        "MAE",
+        "loss",
+    )
+    if any(name in metric_name for name in metrics_to_max):
         return "max"
-    return "min"
+    if any(name in metric_name for name in metrics_to_min):
+        return "min"
+    raise ValueError(f"Unknown optimization metric: {metric_name!r}.")
 
 
 class BaseExperimentInfo:  # pragma: no cover
     """A class used to keep track of all relevant info of a given experiment. This is mainly used by the HPO methods."""
 
-    def __init__(self, config, budget):
+    def __init__(self, config: Any, budget: int | float) -> None:
         self.config = config
-        self.score = 0
+        self.score = 0.0
         self.budget = budget
-        self.info = {}
+        self.info: dict[str, Any] = {}
 
-    def update_score(self, score):
+    def update_score(self, score: float) -> None:
         self.score = score
 
-    def get_config(self):
+    def get_config(self) -> Any:
         return self.config
 
-    def get_budget(self):
+    def get_budget(self) -> int | float:
         return self.budget
 
-    def __lt__(self, other):
+    def __lt__(self, other: BaseExperimentInfo) -> bool:
         return self.score < other.score
 
-    def __le__(self, other):
+    def __le__(self, other: BaseExperimentInfo) -> bool:
         return self.score <= other.score
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, BaseExperimentInfo):
+            return NotImplemented
         return self.score == other.score
 
-    def __ne__(self, other):
-        return self.score != other.score
-
-    def __gt__(self, other):
+    def __gt__(self, other: BaseExperimentInfo) -> bool:
         return self.score > other.score
 
-    def __ge__(self, other):
+    def __ge__(self, other: BaseExperimentInfo) -> bool:
         return self.score >= other.score
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             "config: "
             + str(self.config)
@@ -77,16 +104,16 @@ class BaseExperimentInfo:  # pragma: no cover
         )
 
 
-def get_default_dropout_rate():  # pragma: no cover
+def get_default_dropout_rate() -> float:  # pragma: no cover
     """To return the default dropout rate
 
     Returns:
         int: The value 0
     """
-    return 0
+    return 0.0
 
 
-def get_default_batch_norm():  # pragma: no cover
+def get_default_batch_norm() -> bool:  # pragma: no cover
     """To return the default batch_norm value
 
     Returns:
@@ -96,12 +123,13 @@ def get_default_batch_norm():  # pragma: no cover
 
 
 # dafault transofmations applied for resnet inputs
-def get_default_train_transform():  # pragma: no cover
+def get_default_train_transform() -> Any:  # pragma: no cover
     """To return the default transformation pipeline for a resnet during training
 
     Returns:
        torchvision.transforms : A transformation pipeline
     """
+    transforms = _load_torchvision_transforms()
     pretrained_size = 224
     pretrained_means = [0.485, 0.456, 0.406]
     pretrained_stds = [0.229, 0.224, 0.225]
@@ -117,12 +145,13 @@ def get_default_train_transform():  # pragma: no cover
     )
 
 
-def get_default_inference_transform():  # pragma: no cover
+def get_default_inference_transform() -> Any:  # pragma: no cover
     """To return the default transformation pipeline for a resnet during inference
 
     Returns:
        torchvision.transforms : A transformation pipeline
     """
+    transforms = _load_torchvision_transforms()
     pretrained_size = 224
     pretrained_means = [0.485, 0.456, 0.406]
     pretrained_stds = [0.229, 0.224, 0.225]
@@ -136,74 +165,67 @@ def get_default_inference_transform():  # pragma: no cover
 
 
 def generate_config(
-    validation_setting=None,
-    general_architecture_version="dot_product",
-    problem_mode=None,
-    learning_rate=0.001,
-    decay=0,
-    batch_norm=False,
-    dropout_rate=0,
-    dropout_rate_instance_branch=None,
-    dropout_rate_target_branch=None,
-    momentum=0.9,
-    weighted_loss=False,
-    compute_mode="cuda:0",
-    num_workers=1,
-    train_batchsize=512,
-    val_batchsize=512,
-    num_epochs=100,
-    metrics=[
-        "hamming_loss",
-        "auroc",
-        "f1_score",
-        "aupr",
-        "accuracy",
-        "recall",
-        "precision",
-    ],
-    metrics_average=["macro", "micro"],
-    top_k=None,
-    patience=10,
-    delta=0,
-    evaluate_train=False,
-    evaluate_val=False,
-    verbose=False,
-    results_verbose=False,
-    eval_instance_verbose=False,
-    eval_target_verbose=False,
-    return_results_per_target=False,
-    use_early_stopping=True,
-    use_tensorboard_logger=False,
-    wandb_project_name=None,
-    wandb_project_entity=None,
-    results_path="./results/",
-    experiment_name=None,
-    save_model=True,
-    metric_to_optimize_early_stopping="loss",
-    metric_to_optimize_best_epoch_selection="loss",
-    instance_branch_architecture=None,
-    use_instance_features=False,
-    instance_branch_input_dim=None,
-    instance_train_transforms=None,
-    instance_inference_transforms=None,
-    target_branch_architecture=None,
-    use_target_features=False,
-    target_branch_input_dim=None,
-    target_train_transforms=None,
-    target_inference_transforms=None,
-    comb_mlp_nodes_reducing_factor=2,
-    comb_mlp_nodes_per_layer=[10, 10, 10],
-    comb_mlp_layers=None,
-    embedding_size=100,
-    eval_every_n_epochs=10,
-    load_pretrained_model=False,
-    pretrained_model_path="",
-    running_hpo=False,
-    additional_info={},
-    instance_branch_params={},
-    target_branch_params={},
-    hpo_results_path="./",
-):
+    validation_setting: str | None = None,
+    general_architecture_version: str = "dot_product",
+    problem_mode: str | None = None,
+    learning_rate: float = 0.001,
+    decay: float = 0,
+    batch_norm: bool | str = False,
+    dropout_rate: float = 0,
+    dropout_rate_instance_branch: float | None = None,
+    dropout_rate_target_branch: float | None = None,
+    momentum: float = 0.9,
+    weighted_loss: bool = False,
+    compute_mode: str = "cuda:0",
+    num_workers: int = 1,
+    train_batchsize: int = 512,
+    val_batchsize: int = 512,
+    num_epochs: int = 100,
+    random_seed: int | None = 2,
+    metrics: Sequence[str] | None = None,
+    metrics_average: Sequence[str] | None = None,
+    top_k: int | None = None,
+    patience: int = 10,
+    delta: float = 0,
+    evaluate_train: bool = False,
+    evaluate_val: bool = False,
+    verbose: bool = False,
+    results_verbose: bool = False,
+    eval_instance_verbose: bool = False,
+    eval_target_verbose: bool = False,
+    return_results_per_target: bool = False,
+    use_early_stopping: bool = True,
+    use_tensorboard_logger: bool = False,
+    wandb_project_name: str | None = None,
+    wandb_project_entity: str | None = None,
+    results_path: str = "./results/",
+    experiment_name: str | None = None,
+    save_model: bool = True,
+    metric_to_optimize_early_stopping: str = "loss",
+    metric_to_optimize_best_epoch_selection: str = "loss",
+    instance_branch_architecture: str | None = None,
+    use_instance_features: bool = False,
+    instance_branch_input_dim: int | None = None,
+    instance_train_transforms: Any = None,
+    instance_inference_transforms: Any = None,
+    target_branch_architecture: str | None = None,
+    use_target_features: bool = False,
+    target_branch_input_dim: int | None = None,
+    target_train_transforms: Any = None,
+    target_inference_transforms: Any = None,
+    comb_mlp_nodes_reducing_factor: int = 2,
+    comb_mlp_nodes_per_layer: list[int] | int | None = None,
+    comb_mlp_layers: int | None = None,
+    embedding_size: int = 100,
+    eval_every_n_epochs: int = 10,
+    load_pretrained_model: bool = False,
+    pretrained_model_path: str = "",
+    running_hpo: bool = False,
+    additional_info: Mapping[str, Any] | None = None,
+    instance_branch_params: Mapping[str, Any] | None = None,
+    target_branch_params: Mapping[str, Any] | None = None,
+    hpo_results_path: str = "./",
+) -> dict[str, Any]:
     """Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
 
     Args:
@@ -223,9 +245,10 @@ def generate_config(
         train_batchsize (int, optional): The number of samples that comprise a batch from the training set. Defaults to 512.
         val_batchsize (int, optional): 	The number of samples that comprise a batch from the validation and test sets. Defaults to 512.
         num_epochs (int, optional): The max number of epochs allowed for training. Defaults to 100.
-        metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
+        random_seed (int, optional): The seed used for isolated model initialization and training-data shuffling. Use None for nondeterministic behavior. Defaults to 2.
+        metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
         metrics_average (list, optional): The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
-        top_k (float, optional): The number of top predictions used to calculate top_k versions of metrics (frequently used in collaborative filtering problems).
+        top_k (int, optional): The number of top predictions used to calculate grouped top-k metric versions. Requires macro or instance averaging.
         patience (int, optional): The number of epochs that the network is allowed to continue training for while observing worse overall performance. Defaults to 10.
         delta (float, optional): The delta used during early stopping
         evaluate_train (bool, optional): Whether or not to calculate performance metrics over the training set. Defaults to False.
@@ -250,10 +273,11 @@ def generate_config(
         instance_branch_layers (int, optional): The number of layers in the MLP version of the instance branch. (Only used if instance_branch_nodes_per_layer is int). Defaults to None.
         instance_train_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures. Defaults to None.
         instance_inference_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures. Defaults to None.
-        instance_branch_conv_architecture (str, optional): The type of the convolutional architecture that is used in the instance branch. Defaults to 'resnet'.
-        instance_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the instance branch. Defaults to 'resnet101'.
-        instance_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the instance branch. Defaults to 1.
-        instance_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
+        instance_branch_conv_architecture (str, optional): The convolutional architecture used in the instance branch: 'resnet' or 'VGG'. Defaults to 'resnet'.
+        instance_branch_conv_architecture_version (str, optional): The ResNet version used in the instance branch: 'resnet18' or 'resnet101'. Defaults to 'resnet101'.
+        instance_branch_conv_architecture_dense_layers (int, optional): The number of replacement dense layers for a ResNet instance branch: 1 or 2. Defaults to 1.
+        instance_branch_conv_architecture_last_layer_trained (str, optional): The earliest trainable ResNet block in the instance branch: 'last' or 'layer4' through 'layer1'. Defaults to 'last'.
+        instance_branch_conv_pretrained (bool, optional): Whether to initialize an instance convolutional branch with torchvision's default pretrained weights. Set to False to construct the model without a network download. Defaults to True.
         target_branch_architecture (str, optional): The type of architecture that will be used in the target branch. Currently, there are two available options, MLP: a basic fully connected feed-forward neural network is used, CONV a convolutional neural network is used. Defaults to None.
         use_target_features (bool, optional): Whether or not the target features will be used. Defaults to False.. Defaults to False.
         target_branch_input_dim (int, optional): The input dimension of the target branch. Defaults to None.
@@ -262,13 +286,14 @@ def generate_config(
         target_branch_layers (_type_, optional): The number of layers in the MLP version of the target branch. (Only used if target_branch_nodes_per_layer is int). Defaults to None.
         target_train_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures. Defaults to None.
         target_inference_transforms (_type_, optional): The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures. Defaults to None.
-        target_branch_conv_architecture (str, optional): The type of the convolutional architecture that is used in the target branch. Defaults to 'resnet'.
-        target_branch_conv_architecture_version (str, optional): The version of the specific type of convolutional architecture that is used in the target branch. Defaults to 'resnet101'.
-        target_branch_conv_architecture_dense_layers (int, optional): The number of dense layers that are used at the end of the convolutional architecture of the target branch. Defaults to 1.
-        target_branch_conv_architecture_last_layer_trained (str, optional): When using pre-trained architectures, the user can define that last layer that will be frozen during training. Defaults to 'last'.
+        target_branch_conv_architecture (str, optional): The convolutional architecture used in the target branch: 'resnet' or 'VGG'. Defaults to 'resnet'.
+        target_branch_conv_architecture_version (str, optional): The ResNet version used in the target branch: 'resnet18' or 'resnet101'. Defaults to 'resnet101'.
+        target_branch_conv_architecture_dense_layers (int, optional): The number of replacement dense layers for a ResNet target branch: 1 or 2. Defaults to 1.
+        target_branch_conv_architecture_last_layer_trained (str, optional): The earliest trainable ResNet block in the target branch: 'last' or 'layer4' through 'layer1'. Defaults to 'last'.
+        target_branch_conv_pretrained (bool, optional): Whether to initialize a target convolutional branch with torchvision's default pretrained weights. Set to False to construct the model without a network download. Defaults to True.
         comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if general_architecture_version in "mlp"). Not currently implemented. Defaults to 2.
-        comb_mlp_nodes_per_layer (list, optional): The number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_layers' times. (Only used if general_architecture_version in "mlp" or "kronecker")). Defaults to [10, 10, 10].
-        comb_mlp_layers (int, optional): The number of layers in the combination branch. (Only used if general_architecture_version in "mlp"). Defaults to None.
+        comb_mlp_nodes_per_layer (list or int, optional): Positive layer widths for the combination branch. If a list is provided, each element defines one layer. If an int is provided, the width is repeated ``comb_mlp_layers`` times. Used only when general_architecture_version is "mlp". Defaults to [10, 10, 10].
+        comb_mlp_layers (int, optional): The positive number of repeated combination layers, required when comb_mlp_nodes_per_layer is an int. Used only when general_architecture_version is "mlp". Defaults to None.
         embedding_size (int, optional): The size of the embeddings outputted by the two branches. (Only used if general_architecture_version in "dot_product"). Defaults to 100.
         eval_every_n_epochs (int, optional): The interval that indicates when the performance metrics are computed. Defaults to 10.
         load_pretrained_model (bool, optional): Whether or not a pretrained model will be loaded. Defaults to False.
@@ -281,18 +306,32 @@ def generate_config(
     Returns:
         dict: A dictionary with the config that will be used by the model to adjust the architecture and all other training-related information
     """
-
-    if metric_to_optimize_early_stopping not in [
-        m + "_" + m_a for m in metrics for m_a in metrics_average
-    ] + ["loss"]:
-        raise AttributeError(
-            "The metric requested to track during early stopping ("
-            + metric_to_optimize_early_stopping
-            + ") is should be also defined in the metrics field of the configuration object "
-            + str(
-                [m + "_" + m_a for m in metrics + ["loss"] for m_a in metrics_average]
-            )
-        )
+    metrics = (
+        [
+            "hamming_loss",
+            "auroc",
+            "f1_score",
+            "aupr",
+            "accuracy",
+            "recall",
+            "precision",
+        ]
+        if metrics is None
+        else list(metrics)
+    )
+    metrics_average = (
+        ["macro", "micro"] if metrics_average is None else list(metrics_average)
+    )
+    comb_mlp_nodes_per_layer = (
+        [10, 10, 10] if comb_mlp_nodes_per_layer is None else comb_mlp_nodes_per_layer
+    )
+    additional_info = {} if additional_info is None else dict(additional_info)
+    instance_branch_params = (
+        {} if instance_branch_params is None else dict(instance_branch_params)
+    )
+    target_branch_params = (
+        {} if target_branch_params is None else dict(target_branch_params)
+    )
 
     base_config = {
         "validation_setting": validation_setting,
@@ -315,6 +354,7 @@ def generate_config(
         "train_batchsize": train_batchsize,
         "val_batchsize": val_batchsize,
         "num_epochs": num_epochs,
+        "random_seed": random_seed,
         "use_early_stopping": use_early_stopping,
         "patience": patience,
         "delta": delta,
@@ -348,75 +388,48 @@ def generate_config(
         "target_inference_transforms": target_inference_transforms,
         "running_hpo": running_hpo,
         "hpo_results_path": hpo_results_path,
+        "additional_info": additional_info,
         "top_k": top_k,
     }
 
-    # various sanity checks for the metrics and averaging options that are provided by the user
-    classification_metrics = [
-        "hamming_loss",
-        "auroc",
-        "f1_score",
-        "aupr",
-        "accuracy",
-        "recall",
-        "precision",
-    ]
-    regression_metrics = ["RMSE", "MSE", "MAE", "R2", "RRMSE"]
+    # Normalize user-facing names before centralized typed validation.
     if problem_mode == "classification":
         metrics = [m.lower() for m in metrics]
-        unknown_metrics = set(metrics).difference(set(classification_metrics))
-        if unknown_metrics != set():
-            raise Exception(
-                "Detected unknown metrics for the current classification task: "
-                + str(unknown_metrics)
-            )
-    else:
+    elif problem_mode == "regression":
         metrics = [m.upper() for m in metrics]
-        unknown_metrics = set(metrics).difference(set(regression_metrics))
-        if unknown_metrics != set():
-            raise Exception(
-                "Detected unknown metrics for the current regression task: "
-                + str(unknown_metrics)
-            )
 
-    metric_averaging_schemes = ["macro", "micro", "instance"]
     metrics_average = [m.lower() for m in metrics_average]
-    unknown_metric_averaging_schemes = set(metrics_average).difference(
-        set(metric_averaging_schemes)
-    )
-    if unknown_metric_averaging_schemes != set():
-        raise Exception(
-            "Detected unknown metric averaging scheme for the current "
-            + problem_mode
-            + " task: "
-            + str(unknown_metric_averaging_schemes)
-        )
 
     if validation_setting == "A":
-        if "micro" not in metrics_average:
-            print(
-                "The macro and instance-wise averaging schemes are not recommended while on validation setting A. The experiments will calculate the micro averaged version of the selected metrics"
+        if metrics_average != ["micro"]:
+            warnings.warn(
+                "Validation setting A supports only micro-averaged metrics; "
+                "metrics_average has been normalized to ['micro'].",
+                ConfigNormalizationWarning,
+                stacklevel=2,
             )
-            metrics_average.append("micro")
+            metrics_average = ["micro"]
     elif validation_setting in ["B", "C"]:
         if "macro" not in metrics_average:
-            print(
-                "Macro-averaging is the adviced averaging option for validation setting "
-                + validation_setting
-                + ". The macro option will be included in the results"
+            warnings.warn(
+                "Macro averaging is recommended for validation setting "
+                f"{validation_setting}; 'macro' has been added to metrics_average.",
+                ConfigNormalizationWarning,
+                stacklevel=2,
             )
             metrics_average.append("macro")
     elif validation_setting == "D":
         if "micro" not in metrics_average:
-            print(
-                "Micro-averaging is the adviced averaging option for validation setting "
-                + validation_setting
-                + ". The micro option will be included in the results"
+            warnings.warn(
+                "Micro averaging is recommended for validation setting D; "
+                "'micro' has been added to metrics_average.",
+                ConfigNormalizationWarning,
+                stacklevel=2,
             )
             metrics_average.append("micro")
     else:
-        raise Exception(
-            "Validation setting " + validation_setting + " is not recognized."
+        raise ValueError(
+            f"Validation setting {validation_setting!r} is not recognized."
         )
 
     base_config["metrics"] = metrics
@@ -441,7 +454,7 @@ def generate_config(
     elif general_architecture_version == "kronecker":
         pass
     else:
-        raise AttributeError(
+        raise ValueError(
             "Value: " + str(general_architecture_version) + " is not a valid option"
         )
 
@@ -453,21 +466,13 @@ def generate_config(
                 "instance_branch_nodes_reducing_factor": 2,
             }
         )
-        for p in [
+        for parameter_name in [
             "instance_branch_nodes_per_layer",
             "instance_branch_layers",
             "instance_branch_nodes_reducing_factor",
         ]:
-            if p not in instance_branch_params:
-                print(
-                    "Warning: "
-                    + p
-                    + " is a necessary hyperparameter to define the instance branch. Using "
-                    + str(base_config[p])
-                    + " as the default"
-                )
-            else:
-                base_config[p] = instance_branch_params[p]
+            if parameter_name in instance_branch_params:
+                base_config[parameter_name] = instance_branch_params[parameter_name]
 
     elif instance_branch_architecture == "CONV":
         base_config.update(
@@ -476,6 +481,7 @@ def generate_config(
                 "instance_branch_conv_architecture_version": "resnet101",
                 "instance_branch_conv_architecture_dense_layers": 1,
                 "instance_branch_conv_architecture_last_layer_trained": "last",
+                "instance_branch_conv_pretrained": True,
                 "instance_train_transforms": get_default_train_transform()
                 if instance_train_transforms is None
                 else instance_train_transforms,
@@ -484,32 +490,25 @@ def generate_config(
                 else instance_inference_transforms,
             }
         )
-        for p in [
+        for parameter_name in [
             "instance_branch_conv_architecture",
             "instance_branch_conv_architecture_version",
             "instance_branch_conv_architecture_dense_layers",
             "instance_branch_conv_architecture_last_layer_trained",
+            "instance_branch_conv_pretrained",
             "instance_train_transforms",
             "instance_inference_transforms",
         ]:
-            if p not in instance_branch_params:
-                print(
-                    "Warning: "
-                    + p
-                    + " is a necessary hyperparameter to define the instance branch. Using "
-                    + str(base_config[p])
-                    + " as the default"
-                )
-            else:
-                base_config[p] = instance_branch_params[p]
+            if parameter_name in instance_branch_params:
+                base_config[parameter_name] = instance_branch_params[parameter_name]
     elif (
         instance_branch_architecture == "CUSTOM"
     ):  # this is still a work in progress but should do the trick, for now...
         base_config.update(instance_branch_params)
     elif instance_branch_architecture is None:
-        raise AttributeError("The instance branch has to be explicitly defined")
+        raise ValueError("The instance branch has to be explicitly defined")
     else:
-        raise AttributeError(
+        raise ValueError(
             str(instance_branch_architecture)
             + " is not a valid name for the architecture in the instance branch"
         )
@@ -522,21 +521,13 @@ def generate_config(
                 "target_branch_nodes_reducing_factor": 2,
             }
         )
-        for p in [
+        for parameter_name in [
             "target_branch_nodes_per_layer",
             "target_branch_layers",
             "target_branch_nodes_reducing_factor",
         ]:
-            if p not in target_branch_params:
-                print(
-                    "Warning: "
-                    + p
-                    + " is a necessary hyperparameter to define the target branch. Using "
-                    + str(base_config[p])
-                    + " as the default"
-                )
-            else:
-                base_config[p] = target_branch_params[p]
+            if parameter_name in target_branch_params:
+                base_config[parameter_name] = target_branch_params[parameter_name]
 
     elif target_branch_architecture == "CONV":
         base_config.update(
@@ -545,6 +536,7 @@ def generate_config(
                 "target_branch_conv_architecture_version": "resnet101",
                 "target_branch_conv_architecture_dense_layers": 1,
                 "target_branch_conv_architecture_last_layer_trained": "last",
+                "target_branch_conv_pretrained": True,
                 "target_train_transforms": get_default_train_transform()
                 if target_train_transforms is None
                 else target_train_transforms,
@@ -553,34 +545,28 @@ def generate_config(
                 else target_inference_transforms,
             }
         )
-        for p in [
+        for parameter_name in [
             "target_branch_conv_architecture",
             "target_branch_conv_architecture_version",
             "target_branch_conv_architecture_dense_layers",
             "target_branch_conv_architecture_last_layer_trained",
+            "target_branch_conv_pretrained",
             "target_train_transforms",
             "target_inference_transforms",
         ]:
-            if p not in target_branch_params:
-                print(
-                    "Warning: "
-                    + p
-                    + " is a necessary hyperparameter to define the target branch. Using "
-                    + str(base_config[p])
-                    + " as the default"
-                )
-            else:
-                base_config[p] = target_branch_params[p]
+            if parameter_name in target_branch_params:
+                base_config[parameter_name] = target_branch_params[parameter_name]
     elif (
         target_branch_architecture == "CUSTOM"
     ):  # this is still a work in progress but should do the trick, for now...
         base_config.update(target_branch_params)
     elif target_branch_architecture is None:
-        raise AttributeError("The target branch has to be explicitly defined")
+        raise ValueError("The target branch has to be explicitly defined")
     else:
-        raise AttributeError(
+        raise ValueError(
             str(target_branch_architecture)
             + " is not a valid name for the architecture in the target branch"
         )
 
-    return base_config
+    validated_config: dict[str, Any] = DeepMTPConfig.from_mapping(base_config).to_dict()
+    return validated_config

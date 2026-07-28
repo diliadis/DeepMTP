@@ -1,7 +1,9 @@
 Hyperparameter Optimization
 ###########################
 
-To further automate DeepMTP we decided to benchmark different popular hyperparameter optimization (HPO) methods (The resulting paper will be pubished in the near future). Based on the results, we concluded that Hyperband is a viable option for the majority of the MTP problem settings DeepMTP considers.
+DeepMTP includes random-search and Hyperband optimizers for automating model
+selection. Hyperband is a practical option for many of the MTP problem settings
+supported by the project.
 
 Hyperband
 *********
@@ -15,100 +17,95 @@ A popular representative of such methods is Hyperband. Hyperband builds upon Suc
 Combining Hyperband with DeepMTP
 ********************************
 
-DeepMTP offers a basic Hyperband implementation natively, so the code needs only modification::
+Install the HPO dependency with ``pip install "DeepMTP[hpo]"``. The example
+below uses synthetic data and one epoch so it can also serve as a quick API
+check; increase ``max_budget`` and expand the configuration space for real
+experiments. Sampled branch-specific parameters must retain their ``instance_``
+or ``target_`` prefixes so ``BaseWorker`` can route them to the correct branch.
 
-    from DeepMTP.dataset import load_process_MLC
-    from DeepMTP.main import DeepMTP
-    from DeepMTP.utils.utils import generate_config
-    from DeepMTP.simple_hyperband import BaseWorker
+.. hpo-example-start
+
+.. code-block:: python
+
+    import ConfigSpace as CS
+    import numpy as np
+
+    from DeepMTP import DeepMTP, data_process
+    from DeepMTP.hpo_worker import BaseWorker
     from DeepMTP.simple_hyperband import HyperBand
-    import ConfigSpace.hyperparameters as CSH
 
+    rng = np.random.default_rng(42)
+    scores = (
+        np.arange(16)[:, np.newaxis] + np.arange(3)[np.newaxis, :]
+    ) % 2
+    data = {
+        "train": {
+            "y": scores,
+            "X_instance": rng.normal(size=(16, 3)),
+            "X_target": None,
+        }
+    }
+    train, validation, test, data_info = data_process(
+        data,
+        validation_setting="B",
+    )
 
-    # define the configuration space
-    cs= CS.ConfigurationSpace()
-    # REALLY IMPORTANT: all hyperparameters for the instance or target branch should have the 'instance_' or 'target_' prefix
-    lr= CSH.UniformFloatHyperparameter('learning_rate', lower=1e-6, upper=1e-3, default_value="1e-3", log=True)
-    embedding_size= CSH.UniformIntegerHyperparameter('embedding_size', lower=8, upper=2048, default_value=64, log=False)
-    instance_branch_layers= CSH.UniformIntegerHyperparameter('instance_branch_layers', lower=1, upper=2, default_value=1, log=False)
-    instance_branch_nodes_per_layer= CSH.UniformIntegerHyperparameter('instance_branch_nodes_per_layer', lower=8, upper=2048, default_value=64, log=False)
-    target_branch_layers = CSH.UniformIntegerHyperparameter('target_branch_layers', lower=1, upper=2, default_value=1, log=False)
-    target_branch_nodes_per_layer = CSH.UniformIntegerHyperparameter('target_branch_nodes_per_layer', lower=8, upper=2048, default_value=64, log=False)
-    dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.0, upper=0.9, default_value=0.4, log=False)
-    batch_norm = CSH.CategoricalHyperparameter('batch_norm', [True, False])
-    cs.add_hyperparameters(
+    config_space = CS.ConfigurationSpace(seed=42)
+    config_space.add(
         [
-            lr,
-            embedding_size,
-            instance_branch_layers,
-            instance_branch_nodes_per_layer,
-            target_branch_layers,
-            target_branch_nodes_per_layer,
-            dropout_rate,
-            batch_norm,
+            CS.Float(
+                "learning_rate",
+                (1e-4, 1e-2),
+                default=1e-3,
+                log=True,
+            ),
+            CS.Integer("embedding_size", (2, 4), default=3),
         ]
     )
 
-    #adding condition on the hyperparameter values
-    cond = CS.GreaterThanCondition(dropout_rate, instance_branch_layers, 1)
-    cond2 = CS.GreaterThanCondition(batch_norm, instance_branch_layers, 1)
-    cond3 = CS.GreaterThanCondition(dropout_rate, target_branch_layers, 1)
-    cond4 = CS.GreaterThanCondition(batch_norm, target_branch_layers, 1)
-    cs.add_condition(CS.OrConjunction(cond, cond3))
-    cs.add_condition(CS.OrConjunction(cond2, cond4))
+    base_config = {
+        "hpo_results_path": "hpo_results",
+        "validation_setting": data_info["detected_validation_setting"],
+        "problem_mode": data_info["detected_problem_mode"],
+        "general_architecture_version": "dot_product",
+        "compute_mode": "cpu",
+        "num_workers": 0,
+        "train_batchsize": 16,
+        "val_batchsize": 16,
+        "metrics": [],
+        "metrics_average": ["macro"],
+        "evaluate_train": False,
+        "evaluate_val": False,
+        "use_early_stopping": False,
+        "save_model": True,
+        "verbose": False,
+        "instance_branch_architecture": "MLP",
+        "instance_branch_input_dim": data_info["instance_branch_input_dim"],
+        "target_branch_architecture": "MLP",
+        "target_branch_input_dim": data_info["target_branch_input_dim"],
+    }
 
-    # load dataset
-    data = load_process_MLC(dataset_name='yeast', variant='undivided', features_type='numpy')
-    # process and split
-    train, val, test, data_info = data_process(data, validation_setting='B', verbose=True)
-
-    # initialize the minimal configuration
-    config = {    
-        'hpo_results_path': './hyperband/',
-        'instance_branch_input_dim': data_info['instance_branch_input_dim'],
-        'target_branch_input_dim': data_info['target_branch_input_dim'],
-        'validation_setting': data_info['detected_validation_setting'],
-        'general_architecture_version': 'dot_product',
-        'problem_mode': data_info['detected_problem_mode'],
-        'compute_mode': 'cuda:1',
-        'train_batchsize': 512,
-        'val_batchsize': 512,
-        'num_epochs': 6,
-        'num_workers': 8,
-        'metrics': ['hamming_loss', 'auroc'],
-        'metrics_average': ['macro'],
-        'patience': 10,
-        'evaluate_train': True,
-        'evaluate_val': True,
-        'verbose': True,
-        'results_verbose': False,
-        'use_early_stopping': True,
-        'use_tensorboard_logger': True,
-        'wandb_project_name': 'DeepMTP_v2',
-        'wandb_project_entity': 'diliadis',
-        'metric_to_optimize_early_stopping': 'loss',
-        'metric_to_optimize_best_epoch_selection': 'loss',
-        'instance_branch_architecture': 'MLP',
-        'target_branch_architecture': 'MLP',
-        'save_model': True,
-        'eval_every_n_epochs': 10,
-        'additional_info': {'eta': 3, 'max_budget': 9}
-        }
-
-    # initialize the BaseWorker that will be used by Hyperband's optimizer
-    worker = BaseWorker(train, val, test, data_info, config, 'loss')
-    # initialize the optimizers
-    hb = HyperBand(
-        base_worker=worker,
-        configspace=cs,
-        eta=config['additional_info']['eta'],
-        max_budget=config['additional_info']['max_budget'],
-        direction='min',
-        verbose=True
+    worker = BaseWorker(
+        train,
+        validation,
+        test,
+        data_info,
+        base_config,
+        metric_to_optimize="loss",
     )
-    # start-up the optimizer
-    best_overall_config = hb.run_optimizer()
+    optimizer = HyperBand(
+        base_worker=worker,
+        configspace=config_space,
+        eta=2,
+        max_budget=1,
+        direction="min",
+    )
+    best_experiment = optimizer.run_optimizer()
 
-    # load the best model and generate predictions on the test set
-    best_model = DeepMTP(best_overall_config.info['config'], best_overall_config.info['model_dir'])
+    best_model = DeepMTP(
+        best_experiment.info["config"],
+        checkpoint_dir=best_experiment.info["model_dir"],
+    )
     best_model_results = best_model.predict(test, verbose=True)
+
+.. hpo-example-end

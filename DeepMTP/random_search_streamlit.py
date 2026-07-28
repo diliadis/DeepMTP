@@ -1,65 +1,23 @@
-import sys
-sys.path.insert(0, '../../../..')
-from DeepMTP.utils.utils import BaseExperimentInfo, get_optimization_direction
-import streamlit as st
+"""Backward-compatible Streamlit adapter for random search."""
 
-class RandomSearch:   # pragma: no cover
-    '''Implements the basic Random search HPO method. Nothing fancy, just a for loop over randomly generated configurations.
-    '''
+from typing import Any
+
+from DeepMTP.hpo_progress import HPOProgressObserver
+from DeepMTP.random_search import RandomSearch as CoreRandomSearch
+from DeepMTP.streamlit_adapter import StreamlitHPOProgressObserver
+
+
+class RandomSearch(CoreRandomSearch):  # pragma: no cover
+    """Core random search configured with Streamlit progress rendering."""
+
     def __init__(
         self,
-        base_worker,
-        configspace,
-        budget=1,
-        max_num_epochs=100,
-        direction='min',
-        verbose=False,
-    ):   # pragma: no cover
-        self.base_worker = base_worker
-        self.configspace = configspace
-        self.verbose = verbose
-        self.direction = direction
-        self.budget = budget
-        self.max_num_epochs = max_num_epochs
-        self.experiment_history = {}
-
-    def get_run_summary(self):   # pragma: no cover
-        return self.experiment_history
-
-    def get_norm_val(self, val, min_val, max_val):   # pragma: no cover
-        return (val-min_val) / (max_val-min_val) * 100
-
-    def run_optimizer(self):   # pragma: no cover
-        random_search_iter_info_update = st.empty()
-        random_search_iter_progress_bar = st.progress(0)
-        config_info_update = st.empty()
-
-        self.configs_to_evaluate = [BaseExperimentInfo(config=self.configspace.sample_configuration(), budget=self.max_num_epochs) for c in range(self.budget)]
-        for exp_counter, experiment in enumerate(self.configs_to_evaluate):
-            if self.verbose:
-                random_search_iter_info_update.write('---- Evaluating configuration: ['+str(exp_counter)+'/'+str(len(self.configs_to_evaluate))+']')
-                config_info_update.json(experiment.config.get_dictionary())
-            temp_result_dict = self.base_worker.compute(
-                self.max_num_epochs, experiment.config
-            )    
-            experiment.score = temp_result_dict['loss']
-            experiment.info = temp_result_dict['info']
-            if self.verbose:
-                random_search_iter_info_update.write(
-                    '---- Finished evaluating configuration with score: '
-                    + str(experiment.score)
-                )
-            random_search_iter_progress_bar.progress(int(self.get_norm_val(exp_counter, 0, self.budget)))
-        random_search_iter_progress_bar.progress(100)
-        random_search_iter_info_update.empty()
-        config_info_update.empty()
-        
-        self.configs_to_evaluate = sorted(
-            self.configs_to_evaluate,
-            key=lambda x: x.score,
-            reverse=False if self.direction == 'min' else True,
+        *args: Any,
+        progress: HPOProgressObserver | None = None,
+        **kwargs: Any,
+    ) -> None:
+        streamlit_progress = (
+            progress if progress is not None else StreamlitHPOProgressObserver()
         )
-        best_overall_config = self.configs_to_evaluate[0]
-        best_overall_config.info['config']['experiment_name'] = 'best_model'
-
-        return best_overall_config
+        kwargs["progress"] = streamlit_progress
+        super().__init__(*args, **kwargs)

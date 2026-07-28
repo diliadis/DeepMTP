@@ -33,7 +33,8 @@ In the code snippet above the function generate_config is shown without any spec
    * - **delta**
      - Minimum change in the monitored quantity to qualify as an improvement
    * - **return_results_per_target**
-     - Whether or not to returne the performance for every target separately
+     - Whether to include per-target metric values in the results; requires
+       ``macro`` averaging
    * - **evaluate_train**
      - Whether or not to calculate performance metrics over the training set
    * - **evaluate_val**
@@ -45,9 +46,14 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Metrics**
      -
    * - **metrics**
-     - The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']
+     - The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2']
    * - **metrics_average**
-     - The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']
+     - The averaging strategy used to calculate metrics. The available options
+       are ['macro', 'micro', 'instance']; validation setting A supports only
+       ['micro'].
+   * - **top_k**
+     - Number of top predictions used to calculate grouped metric variants;
+       requires ``macro`` or ``instance`` averaging
    * - **metric_to_optimize_early_stopping**
      - The metric that will be used for tracking by the early stopping routine. The value can be the **loss** or one of the available performance metrics.
    * - **metric_to_optimize_best_epoch_selection**
@@ -103,9 +109,13 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Combination branch architecture**
      -
    * - **comb_mlp_nodes_per_layer**
-     - Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_layers' times. (**Only used if general_architecture_version == mlp**)
+     - Positive layer widths for the combination branch. A list defines each
+       layer; an integer repeats that width ``comb_mlp_layers`` times.
+       (**Only used if general_architecture_version == mlp**)
    * - **comb_mlp_layers**
-     - The number of layers in the combination branch. (**Only used if general_architecture_version == mlp**)
+     - Positive number of repeated combination layers, required when
+       ``comb_mlp_nodes_per_layer`` is an integer.
+       (**Only used if general_architecture_version == mlp**)
    * - **embedding_size**
      - The size of the embeddings outputted by the two branches. (**Only used if general_architecture_version == dot_product**)
    * - **Pretrained models**
@@ -120,6 +130,16 @@ In the code snippet above the function generate_config is shown without any spec
      - A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb
    * - **validation_setting**
      - The validation setting of the specific example
+
+RRMSE remains available through the low-level ``get_performance_results``
+utility for macro evaluation when a training mean is provided for every
+target. The trainer does not yet retain those baselines, so RRMSE is rejected
+in trainer configurations instead of returning silent ``NaN`` results.
+
+``generate_config`` applies documented branch defaults silently. If it changes
+``metrics_average`` to satisfy or recommend a validation-setting policy, it
+emits ``ConfigNormalizationWarning`` so applications can display, filter, or
+escalate that adjustment using Python's standard warnings controls.
 
 
 Instance and target branch hyperparameters
@@ -141,13 +161,17 @@ As mentioned before, all hyperparameters needed to define the architecture of th
    * - **instance_branch_layers**
      - The number of layers in the MLP version of the instance branch. (Only used if **instance_branch_nodes_per_layer** is int)
    * - **instance_branch_conv_architecture**
-     - The type of the convolutional architecture that is used in the instance branch.
+     - Instance convolutional architecture: ``resnet`` or ``VGG``
    * - **instance_branch_conv_architecture_version**
-     - The version of the specific type of convolutional architecture that is used in the instance branch.
+     - Instance ResNet version: ``resnet18`` or ``resnet101``
    * - **instance_branch_conv_architecture_dense_layers**
-     - The number of dense layers that are used at the end of the convolutional architecture of the instance branch
+     - Number of replacement instance ResNet dense layers: 1 or 2
    * - **instance_branch_conv_architecture_last_layer_trained**
-     - When using pre-trained architectures, the user can define that last layer that will be frozen during training
+     - Earliest trainable instance ResNet block: ``last`` or ``layer4``
+       through ``layer1``
+   * - **instance_branch_conv_pretrained**
+     - Use torchvision's default pretrained weights. Defaults to ``True``;
+       set to ``False`` to construct the model without downloading weights
    * - Possible key names currently supported in the **instance_branch_params** dictionary
      -
    * - **target_branch_nodes_per_layer**
@@ -155,13 +179,23 @@ As mentioned before, all hyperparameters needed to define the architecture of th
    * - **target_branch_layers**
      - The number of layers in the MLP version of the target branch. (Only used if **target_branch_nodes_per_layer** is int)
    * - **target_branch_conv_architecture**
-     - The type of the convolutional architecture that is used in the target branch.
+     - Target convolutional architecture: ``resnet`` or ``VGG``
    * - **target_branch_conv_architecture_version**
-     - The version of the specific type of convolutional architecture that is used in the target branch.
+     - Target ResNet version: ``resnet18`` or ``resnet101``
    * - **target_branch_conv_architecture_dense_layers**
-     - The number of dense layers that are used at the end of the convolutional architecture of the target branch
+     - Number of replacement target ResNet dense layers: 1 or 2
    * - **target_branch_conv_architecture_last_layer_trained**
-     - When using pre-trained architectures, the user can define that last layer that will be frozen during training
+     - Earliest trainable target ResNet block: ``last`` or ``layer4``
+       through ``layer1``
+   * - **target_branch_conv_pretrained**
+     - Use torchvision's default pretrained weights. Defaults to ``True``;
+       set to ``False`` to construct the model without downloading weights
+
+Pretrained convolutional branches use torchvision's current ``DEFAULT``
+weight enum. Torchvision may download those weights into its local cache the
+first time a model is created. Setting the corresponding
+``*_branch_conv_pretrained`` option to ``False`` passes ``weights=None`` for
+offline construction.
 
 
 Example of a generating a configuration::

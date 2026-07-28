@@ -1,7 +1,9 @@
-DEMOS
-#####
+Demo notebooks
+##############
 
-The following table contains links to several DEMO google colab notebooks.
+The notebooks use small local datasets and are executed by the test suite.
+Each Colab link opens the version-controlled notebook rather than a separate
+copy.
 
 .. list-table::
    :widths: 50 50
@@ -9,15 +11,19 @@ The following table contains links to several DEMO google colab notebooks.
 
    * - Name
      - Link
-   * - **Loading built-in datasets**
-     - `link1 <https://colab.research.google.com/drive/1H23ODC7--GI-5hRDzmUp3yYvB9VE8uZm?usp=sharing>`_
+   * - **Local dataset preparation**
+     - `Open in Colab <https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/load_datasets.ipynb>`__
    * - **Multi-label classification (MLC)** 
-     - `link2 <https://colab.research.google.com/drive/1lVI-gqAEtyGBUDqFAxYJYkV7UWMcHzvR?usp=sharing>`_
+     - `Open in Colab <https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MLC.ipynb>`__
    * - **Multivariate regression (MTR)**
-     - `link3 <https://colab.research.google.com/drive/1lm7M37YPfaW3hGtSO9wg4UG_Cz_Manth?usp=sharing>`_
+     - `Open in Colab <https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTR.ipynb>`__
    * - **Multi-task learning (MTL)**
-     - `link4 <https://colab.research.google.com/drive/1eztLI4ad1tclj9QP5IXzX9pbK_1SEXy3?usp=sharing>`_
+     - `Open in Colab <https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTL.ipynb>`__
    * - **Matrix Completion (MC)**
-     - `link5 <https://colab.research.google.com/drive/1cs45TN0FVI4NcRmbrdvljfjbyp0_NtVt?usp=sharing>`_
+     - `Open in Colab <https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MC.ipynb>`__
    * - **Dyadic Prediction (DP)**
-     - `link6 <https://colab.research.google.com/drive/1sPjYTur2xpoOPnidQEYLWMvlE4ai6WbV?usp=sharing>`_
+     - `Open in Colab <https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_DP.ipynb>`__
+   * - **Hyperband**
+     - `Open in Colab <https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/hyperband_example.ipynb>`__
+   * - **Random search**
+     - `Open in Colab <https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/random_search_example.ipynb>`__

@@ -1,47 +1,66 @@
 Installation
-============================
+============
 
-Dependencies
+Requirements
 ------------
 
-**DeepMTP** works with **Python 3.7 or later**.
+DeepMTP supports Python 3.10 and newer. CPU execution is fully supported. A
+CUDA-capable GPU is optional and may significantly reduce training time for
+larger experiments.
 
-Installation
-------------
+Install from PyPI
+-----------------
 
-**DeepMTP** is
-`available on PyPI <https://pypi.org/project/DeepMTP/>`_
-and can be installed using **pip**::
+Create an isolated environment and install the core package::
 
-  # create and activate a conda environment
-  conda create -n DeepMTP_env python=3.8
-  conda activate DeepMTP_env
+  python -m venv .venv
+  source .venv/bin/activate
+  python -m pip install --upgrade pip
+  python -m pip install DeepMTP
 
-  # if a gpu is available
-  pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu113
+On Windows, activate the environment with
+``.venv\Scripts\activate``.
 
-  # if a gpu is NOT available
-  pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
+To use a GPU, install the appropriate PyTorch distribution from the
+`official PyTorch installation guide
+<https://pytorch.org/get-started/locally/>`_ first.
 
-  # install DeepMTP
-  pip install DeepMTP
+Optional integrations
+---------------------
 
-Alternatively, you can install directly from the **source code**. Simply clone the **Git**
-repository of the project and run the following commands::
+Install only the integrations required by an experiment::
+
+  python -m pip install "DeepMTP[datasets]"
+  python -m pip install "DeepMTP[hpo]"
+  python -m pip install "DeepMTP[image]"
+  python -m pip install "DeepMTP[streamlit]"
+  python -m pip install "DeepMTP[tracking]"
+
+The ``all`` extra installs every runtime integration::
+
+  python -m pip install "DeepMTP[all]"
+
+Install from source
+-------------------
+
+For development, clone the repository and install the editable development
+environment::
 
   git clone https://github.com/diliadis/DeepMTP.git
   cd DeepMTP
+  python -m venv .venv
+  source .venv/bin/activate
+  python -m pip install --upgrade pip
+  python -m pip install -e ".[dev]"
+
+Run the offline suite and quality checks::
+
+  python -m pytest
+  ruff check .
+  ruff format --check .
+  mypy
+
+Conda users may create the equivalent environment from the repository root::
+
   conda env create -f environment.yml
-  conda activate DeepMTP_env
-
-
-.. Development
-.. -----------
-
-
-.. Testing
-.. -------
-
-
-.. Generating the documentation
-.. ----------------------------
+  conda activate deepmtp

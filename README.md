@@ -3,8 +3,7 @@
 <h3 align="center">
 <p> A Deep Learning Framework for Multi-target Prediction </h3>
 
-[![Build Status](https://app.travis-ci.com/diliadis/DeepMTP.svg?branch=main)](https://app.travis-ci.com/diliadis/DeepMTP)
-[![codecov](https://codecov.io/gh/diliadis/DeepMTP/branch/main/graph/badge.svg?token=P7DHO5KVWG)](https://codecov.io/gh/diliadis/DeepMTP)
+[![CI](https://github.com/diliadis/DeepMTP/actions/workflows/ci.yml/badge.svg)](https://github.com/diliadis/DeepMTP/actions/workflows/ci.yml)
 [![PyPi Version](https://img.shields.io/pypi/v/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/)
 [![PyPi Version Alt](https://badge.fury.io/py/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) [![PyPi Python Versions](https://img.shields.io/pypi/pyversions/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) 
 [![GitHub license](https://img.shields.io/github/license/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/blob/main/LICENSE.md)
@@ -31,35 +30,58 @@ This is the official repository of DeepMTP, a deep learning framework that can b
 [Documention](https://deepmtp.readthedocs.io/en/latest/#)
 
 # Installing DeepMTP
-The framework uses gpu acceleration, so the use of a GPU is strongly recommended. The local installation can be done using `pip`:
 
-## Installing from Pypi
+DeepMTP supports Python 3.10 and newer. CPU execution is fully supported; a
+CUDA-capable GPU is optional and is most useful for larger experiments.
+
+## Installing from PyPI
+
 ```bash
-# create and activate a conda environment
-conda create -n DeepMTP_env python=3.8
-conda activate DeepMTP_env
-
-# if a gpu is available
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu113
-
-# if a gpu is NOT available
-pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
-
-# install DeepMTP
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install DeepMTP
 ```
 
-## Installing from Source
-```bash
-# download from the github repository
-git clone https://github.com/diliadis/DeepMTP.git
-cd DeepMTP
-conda env create -f environment.yml
-conda activate DeepMTP_env
+For GPU acceleration, install the appropriate PyTorch build for your platform
+using the [official PyTorch selector](https://pytorch.org/get-started/locally/)
+before installing DeepMTP.
 
-# open one of the notebooks in the DEMO folder
+Optional integrations are installed explicitly:
+
+```bash
+pip install "DeepMTP[datasets]"   # downloadable benchmark datasets
+pip install "DeepMTP[hpo]"        # ConfigSpace-based optimization
+pip install "DeepMTP[image]"      # Torchvision image models/transforms
+pip install "DeepMTP[streamlit]"  # Streamlit progress adapters
+pip install "DeepMTP[tracking]"   # TensorBoard and Weights & Biases
+pip install "DeepMTP[all]"        # every runtime integration
 ```
 
+## Installing from Source
+
+```bash
+git clone https://github.com/diliadis/DeepMTP.git
+cd DeepMTP
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+Conda users can instead run `conda env create -f environment.yml`. Development
+commands and contribution expectations are documented in
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+Upgrading an experiment from the published `0.0.22` release requires a few
+behavioral checks. See the [0.0.22 migration guide](MIGRATION.rst) for
+before-and-after examples covering configuration, data preparation,
+predictions, checkpoints, and optional integrations.
+
+Project maintenance is documented in the [changelog](CHANGELOG.md),
+[contributor guide](CONTRIBUTING.md), [security policy](SECURITY.md), and
+[release checklist](RELEASING.md).
 
 # Background
 
@@ -183,29 +205,64 @@ Finally, in setting D the test set contains pairs of novel instances and targets
 </details>
 
 
-# A few lines of code is all you need
+# Quick start
 
+This complete example trains on a small synthetic multi-label dataset, runs on
+the CPU, and requires no downloads or optional dependencies. DeepMTP writes the
+experiment summary and configuration below `results/quickstart`.
+
+<!-- quickstart-example:start -->
 ```python
-from DeepMTP.dataset import load_process_MLC
-from DeepMTP.main import DeepMTP
-from DeepMTP.utils.utils import generate_config
+import numpy as np
 
-# load dataset
-data = load_process_MLC(dataset_name='yeast', variant='undivided', features_type='numpy')
-# process and split
-train, val, test, data_info = data_process(data, validation_setting='B', verbose=True)
+from DeepMTP import DeepMTP, DeepMTPConfig, data_process
 
-# generate a configuration for the experiment
-config = generate_config(...)
+rng = np.random.default_rng(42)
+scores = (
+    np.arange(24)[:, np.newaxis] + np.arange(4)[np.newaxis, :]
+) % 2
+data = {
+    "train": {
+        "y": scores,
+        "X_instance": rng.normal(size=(24, 3)),
+        "X_target": None,
+    }
+}
+train, validation, test, data_info = data_process(
+    data,
+    validation_setting="B",
+)
 
-# initialize model
+config = DeepMTPConfig(
+    validation_setting=data_info["detected_validation_setting"],
+    problem_mode=data_info["detected_problem_mode"],
+    general_architecture_version="dot_product",
+    compute_mode="cpu",
+    num_workers=0,
+    train_batchsize=16,
+    val_batchsize=16,
+    num_epochs=1,
+    metrics=["accuracy"],
+    metrics_average=["macro"],
+    evaluate_val=True,
+    use_early_stopping=False,
+    save_model=False,
+    results_path="results",
+    experiment_name="quickstart",
+    instance_branch_architecture="MLP",
+    instance_branch_input_dim=data_info["instance_branch_input_dim"],
+    instance_branch_nodes_per_layer=[8],
+    target_branch_architecture="MLP",
+    target_branch_input_dim=data_info["target_branch_input_dim"],
+    target_branch_nodes_per_layer=[8],
+    embedding_size=4,
+)
+
 model = DeepMTP(config)
-# train, validate, test
-validation_results = model.train(train, val, test)
-
-# generate predictions from the trained model
-results, preds = model.predict(train, return_predictions=True ,verbose=True)
+validation_results = model.train(train, validation, test)
+test_results, predictions = model.predict(test, return_predictions=True)
 ```
+<!-- quickstart-example:end -->
 
 ## Input data
 <details>
@@ -248,14 +305,15 @@ In the code snippet above the function generate_config is shown without any spec
 | `val_batchsize` | The number of samples that comprise a batch from the validation and test sets |
 | `patience` | The number of epochs that the network is allowed to continue training for while observing worse overall performance |
 | `delta` | Minimum change in the monitored quantity to qualify as an improvement |
-| `return_results_per_target` | Whether or not to returne the performance for every target separately |
+| `return_results_per_target` | Whether to include per-target metric values in the results; requires `macro` averaging |
 | `evaluate_train` | Whether or not to calculate performance metrics over the training set |
 | `evaluate_val` | Whether or not to calculate performance metrics over the validation set |
 | `eval_every_n_epochs` | The interval that indicates when the performance metrics are computed |
 | `use_early_stopping` | Whether or not to use early stopping while training |
 | **Metrics** ||
-| `metrics` | The performance metrics that will be calculated. For classification tasks the available metrics are `['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision']` while for regression tasks the available metrics are `['RMSE', 'MSE', 'MAE', 'R2', 'RRMSE']` |
-| `metrics_average` | The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance'] |
+| `metrics` | The performance metrics that will be calculated. For classification tasks the available metrics are `['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision']` while for regression tasks the available metrics are `['RMSE', 'MSE', 'MAE', 'R2']` |
+| `metrics_average` | The averaging strategy used to calculate metrics. Available options are `['macro', 'micro', 'instance']`; validation setting A supports only `['micro']`. |
+| `top_k` | Number of top predictions used to calculate grouped metric variants; requires `macro` or `instance` averaging |
 | `metric_to_optimize_early_stopping` | The metric that will be used for tracking by the early stopping routine. The value can be the `loss` or one of the available performance metrics. |
 | `metric_to_optimize_best_epoch_selection` | The validation metric that will be used to determine the best configuration. The value can be the `loss` or one of the available performance metrics. |
 | **Printing - Saving - Logging** ||
@@ -285,8 +343,8 @@ In the code snippet above the function generate_config is shown without any spec
 | `target_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `target_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the target branch. |
 |  **Combination branch architecture**  ||
-| `comb_mlp_nodes_per_layer` |  Defines the number of nodes in the combination branch. If list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used 'comb_mlp_layers' times. (Only used if `general_architecture_version == mlp`)|
-| `comb_mlp_layers` | The number of layers in the combination branch. (Only used if `general_architecture_version == mlp`) |
+| `comb_mlp_nodes_per_layer` | Positive layer widths for the combination branch. A list defines each layer; an integer repeats that width `comb_mlp_layers` times. Only used if `general_architecture_version == mlp` |
+| `comb_mlp_layers` | Positive number of repeated combination layers, required when `comb_mlp_nodes_per_layer` is an integer. Only used if `general_architecture_version == mlp` |
 | `embedding_size` | The size of the embeddings outputted by the two branches. (Only used if `general_architecture_version == dot_product`) |
 |  **Pretrained models**  ||
 | `load_pretrained_model` | Whether or not a pretrained model will be loaded |
@@ -294,6 +352,17 @@ In the code snippet above the function generate_config is shown without any spec
 |  **Other**  ||
 | `additional_info` | A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb |
 | `validation_setting` | The validation setting of the specific example |
+
+RRMSE remains available through the low-level
+`get_performance_results` utility for macro evaluation when a training mean is
+provided for every target. The trainer does not yet retain those baselines, so
+RRMSE is rejected in trainer configurations instead of returning silent `NaN`
+results.
+
+`generate_config` applies documented branch defaults silently. If it changes
+`metrics_average` to satisfy or recommend a validation-setting policy, it emits
+`ConfigNormalizationWarning` so applications can display, filter, or escalate
+that adjustment using Python's standard warnings controls.
 
 
 ## Instance and target branch hyperparameters 
@@ -303,17 +372,24 @@ As mentioned before, all hyperparameters needed to define the architecture of th
 |  **Possible key names currently supported in the `instance_branch_params` dictionary**  ||
 | `instance_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the instance branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `instance_branch_layers` times|
 | `instance_branch_layers` | The number of layers in the MLP version of the instance branch. (Only used if `instance_branch_nodes_per_layer` is int) |
-| `instance_branch_conv_architecture` | The type of the convolutional architecture that is used in the instance branch. |
-| `instance_branch_conv_architecture_version` | The version of the specific type of convolutional architecture that is used in the instance branch. |
-| `instance_branch_conv_architecture_dense_layers` | The number of dense layers that are used at the end of the convolutional architecture of the instance branch |
-| `instance_branch_conv_architecture_last_layer_trained` | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+| `instance_branch_conv_architecture` | Instance convolutional architecture: `resnet` or `VGG` |
+| `instance_branch_conv_architecture_version` | Instance ResNet version: `resnet18` or `resnet101` |
+| `instance_branch_conv_architecture_dense_layers` | Number of replacement instance ResNet dense layers: 1 or 2 |
+| `instance_branch_conv_architecture_last_layer_trained` | Earliest trainable instance ResNet block: `last` or `layer4` through `layer1` |
+| `instance_branch_conv_pretrained` | Use torchvision's default pretrained weights. Defaults to `True`; set to `False` to construct the model without downloading weights |
 |  **Possible key names currently supported in the `target_branch_params` dictionary**  ||
 | `target_branch_nodes_per_layer` | Defines the number of nodes in the `MLP` version of the target branch.  if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used `target_branch_layers` times|
 | `target_branch_layers` | The number of layers in the MLP version of the target branch. (Only used if `target_branch_nodes_per_layer` is int) |
-| `target_branch_conv_architecture` | The type of the convolutional architecture that is used in the target branch. |
-| `target_branch_conv_architecture_version` | The version of the specific type of convolutional architecture that is used in the target branch. |
-| `target_branch_conv_architecture_dense_layers` | The number of dense layers that are used at the end of the convolutional architecture of the target branch |
-| `target_branch_conv_architecture_last_layer_trained` | When using pre-trained architectures, the user can define that last layer that will be frozen during training |
+| `target_branch_conv_architecture` | Target convolutional architecture: `resnet` or `VGG` |
+| `target_branch_conv_architecture_version` | Target ResNet version: `resnet18` or `resnet101` |
+| `target_branch_conv_architecture_dense_layers` | Number of replacement target ResNet dense layers: 1 or 2 |
+| `target_branch_conv_architecture_last_layer_trained` | Earliest trainable target ResNet block: `last` or `layer4` through `layer1` |
+| `target_branch_conv_pretrained` | Use torchvision's default pretrained weights. Defaults to `True`; set to `False` to construct the model without downloading weights |
+
+Pretrained convolutional branches use torchvision's current `DEFAULT` weight
+enum. Torchvision may download those weights into its local cache the first
+time a model is created. Set the corresponding `*_branch_conv_pretrained`
+option to `False` for offline construction; this passes `weights=None`.
 
 
 # Logging results
@@ -333,7 +409,9 @@ The third and more feature-rich option utilizes the weights & biases framework. 
 
 
 # Hyperparameter Optimization
-To further automate DeepMTP we decided to benchmark different popular hyperparameter optimization (HPO) methods (The resulting paper will be pubished in the near future).  Based on the results, we concluded that Hyperband is a viable option for the majority of the MTP problem settings DeepMTP considers.
+DeepMTP includes random-search and Hyperband optimizers for automating model
+selection. Hyperband is a practical option for many of the MTP problem settings
+supported by the project.
 
 ## Hyperband
 One of the core steps in any standard HPO method is the performance evaluation of a given configuration. This can be manageable for simple models that are relatively cheap to train and test, but can be a significant bottleneck for more complex models that need hours or even days to train. This is particularly evident in deep learning, as big neural networks with millions of parameters trained on increasingly larger datasets can deem traditional black-box HPO methods impractical. 
@@ -342,120 +420,115 @@ Addressing this issue, multi-fidelity HPO methods have been devised to discard u
 
 A popular representative of such methods is Hyperband. Hyperband builds upon Successive Halving (SH), where a set of n candidates is first evaluated on a small budget. Based on these low-fidelity performance estimates, the $\frac{n}{\eta}$ ($\eta \geq 2)$ best candidates are preserved, while the remaining configurations are already discarded. Iteratively increasing the evaluation budget and reevaluating the remaining candidates with the increased budget while discarding the inferior candidates results in fewer resources wasted on inferior candidates. In return, one focuses more on the promising candidates.
 
-Despite the efficiency of the successive halving strategy, it is well known that it suffers from the exploration-exploitation trade-off. In simple terms, a static budget $\mathcal{B}$ means that the user has to manually decide whether to explore a number of configurations $n$ or give each configuration a sufficient budget to develop. An incorrect decision can lead to an inadequate exploration of the search space (small $n$) or the early rejection of promising configurations (large $n$). Hyperband overcomes the exploration-exploitation trade-off by repeating the successive halving strategy with different initializations of SH, varying the budget and the number of initial candidate configurations.rf
+Despite the efficiency of the successive halving strategy, it is well known that it suffers from the exploration-exploitation trade-off. In simple terms, a static budget $\mathcal{B}$ means that the user has to manually decide whether to explore a number of configurations $n$ or give each configuration a sufficient budget to develop. An incorrect decision can lead to an inadequate exploration of the search space (small $n$) or the early rejection of promising configurations (large $n$). Hyperband overcomes the exploration-exploitation trade-off by repeating the successive halving strategy with different initializations of SH, varying the budget and the number of initial candidate configurations.
 
 ## Combining Hyperband with DeepMTP
-DeepMTP offers a basic Hyperband implementation natively, so the code needs only modification  
+Install the HPO dependency with `pip install "DeepMTP[hpo]"`. The example below
+uses synthetic data and one epoch so it can also serve as a quick API check;
+increase `max_budget` and expand the configuration space for real experiments.
+Sampled branch-specific parameters must retain their `instance_` or `target_`
+prefixes so `BaseWorker` can route them to the correct branch.
 
+<!-- hpo-example:start -->
 ```python
-from DeepMTP.dataset import load_process_MLC
-from DeepMTP.main import DeepMTP
-from DeepMTP.utils.utils import generate_config
-from DeepMTP.simple_hyperband import BaseWorker
+import ConfigSpace as CS
+import numpy as np
+
+from DeepMTP import DeepMTP, data_process
+from DeepMTP.hpo_worker import BaseWorker
 from DeepMTP.simple_hyperband import HyperBand
-import ConfigSpace.hyperparameters as CSH
 
+rng = np.random.default_rng(42)
+scores = (
+    np.arange(16)[:, np.newaxis] + np.arange(3)[np.newaxis, :]
+) % 2
+data = {
+    "train": {
+        "y": scores,
+        "X_instance": rng.normal(size=(16, 3)),
+        "X_target": None,
+    }
+}
+train, validation, test, data_info = data_process(
+    data,
+    validation_setting="B",
+)
 
-# define the configuration space
-cs= CS.ConfigurationSpace()
-# REALLY IMPORTANT: all hyperparameters for the instance or target branch should have the 'instance_' or 'target_' prefix
-lr= CSH.UniformFloatHyperparameter('learning_rate', lower=1e-6, upper=1e-3, default_value="1e-3", log=True)
-embedding_size= CSH.UniformIntegerHyperparameter('embedding_size', lower=8, upper=2048, default_value=64, log=False)
-instance_branch_layers= CSH.UniformIntegerHyperparameter('instance_branch_layers', lower=1, upper=2, default_value=1, log=False)
-instance_branch_nodes_per_layer= CSH.UniformIntegerHyperparameter('instance_branch_nodes_per_layer', lower=8, upper=2048, default_value=64, log=False)
-target_branch_layers = CSH.UniformIntegerHyperparameter('target_branch_layers', lower=1, upper=2, default_value=1, log=False)
-target_branch_nodes_per_layer = CSH.UniformIntegerHyperparameter('target_branch_nodes_per_layer', lower=8, upper=2048, default_value=64, log=False)
-dropout_rate = CSH.UniformFloatHyperparameter('dropout_rate', lower=0.0, upper=0.9, default_value=0.4, log=False)
-batch_norm = CSH.CategoricalHyperparameter('batch_norm', [True, False])
-cs.add_hyperparameters(
+config_space = CS.ConfigurationSpace(seed=42)
+config_space.add(
     [
-        lr,
-        embedding_size,
-        instance_branch_layers,
-        instance_branch_nodes_per_layer,
-        target_branch_layers,
-        target_branch_nodes_per_layer,
-        dropout_rate,
-        batch_norm,
+        CS.Float(
+            "learning_rate",
+            (1e-4, 1e-2),
+            default=1e-3,
+            log=True,
+        ),
+        CS.Integer("embedding_size", (2, 4), default=3),
     ]
 )
 
-#adding condition on the hyperparameter values
-cond = CS.GreaterThanCondition(dropout_rate, instance_branch_layers, 1)
-cond2 = CS.GreaterThanCondition(batch_norm, instance_branch_layers, 1)
-cond3 = CS.GreaterThanCondition(dropout_rate, target_branch_layers, 1)
-cond4 = CS.GreaterThanCondition(batch_norm, target_branch_layers, 1)
-cs.add_condition(CS.OrConjunction(cond, cond3))
-cs.add_condition(CS.OrConjunction(cond2, cond4))
+base_config = {
+    "hpo_results_path": "hpo_results",
+    "validation_setting": data_info["detected_validation_setting"],
+    "problem_mode": data_info["detected_problem_mode"],
+    "general_architecture_version": "dot_product",
+    "compute_mode": "cpu",
+    "num_workers": 0,
+    "train_batchsize": 16,
+    "val_batchsize": 16,
+    "metrics": [],
+    "metrics_average": ["macro"],
+    "evaluate_train": False,
+    "evaluate_val": False,
+    "use_early_stopping": False,
+    "save_model": True,
+    "verbose": False,
+    "instance_branch_architecture": "MLP",
+    "instance_branch_input_dim": data_info["instance_branch_input_dim"],
+    "target_branch_architecture": "MLP",
+    "target_branch_input_dim": data_info["target_branch_input_dim"],
+}
 
-# load dataset
-data = load_process_MLC(dataset_name='yeast', variant='undivided', features_type='numpy')
-# process and split
-train, val, test, data_info = data_process(data, validation_setting='B', verbose=True)
-
-# initialize the minimal configuration
-config = {    
-    'hpo_results_path': './hyperband/',
-    'instance_branch_input_dim': data_info['instance_branch_input_dim'],
-    'target_branch_input_dim': data_info['target_branch_input_dim'],
-    'validation_setting': data_info['detected_validation_setting'],
-    'general_architecture_version': 'dot_product',
-    'problem_mode': data_info['detected_problem_mode'],
-    'compute_mode': 'cuda:1',
-    'train_batchsize': 512,
-    'val_batchsize': 512,
-    'num_epochs': 6,
-    'num_workers': 8,
-    'metrics': ['hamming_loss', 'auroc'],
-    'metrics_average': ['macro'],
-    'patience': 10,
-    'evaluate_train': True,
-    'evaluate_val': True,
-    'verbose': True,
-    'results_verbose': False,
-    'use_early_stopping': True,
-    'use_tensorboard_logger': True,
-    'wandb_project_name': 'DeepMTP_v2',
-    'wandb_project_entity': 'John_Doe',
-    'metric_to_optimize_early_stopping': 'loss',
-    'metric_to_optimize_best_epoch_selection': 'loss',
-    'instance_branch_architecture': 'MLP',
-    'target_branch_architecture': 'MLP',
-    'save_model': True,
-    'eval_every_n_epochs': 10,
-    'additional_info': {'eta': 3, 'max_budget': 9}
-    }
-
-# initialize the BaseWorker that will be used by Hyperband's optimizer
-worker = BaseWorker(train, val, test, data_info, config, 'loss')
-# initialize the optimizers
-hb = HyperBand(
-    base_worker=worker,
-    configspace=cs,
-    eta=config['additional_info']['eta'],
-    max_budget=config['additional_info']['max_budget'],
-    direction='min',
-    verbose=True
+worker = BaseWorker(
+    train,
+    validation,
+    test,
+    data_info,
+    base_config,
+    metric_to_optimize="loss",
 )
-# start-up the optimizer
-best_overall_config = hb.run_optimizer()
+optimizer = HyperBand(
+    base_worker=worker,
+    configspace=config_space,
+    eta=2,
+    max_budget=1,
+    direction="min",
+)
+best_experiment = optimizer.run_optimizer()
 
-# load the best model and generate predictions on the test set
-best_model = DeepMTP(best_overall_config.info['config'], best_overall_config.info['model_dir'])
+best_model = DeepMTP(
+    best_experiment.info["config"],
+    checkpoint_dir=best_experiment.info["model_dir"],
+)
 best_model_results = best_model.predict(test, verbose=True)
 ```
+<!-- hpo-example:end -->
 
 # DEMOS
-|   |   |
+These notebooks use small local datasets and are executed by the test suite.
+Each Colab link opens the version-controlled notebook rather than a separate
+copy.
+
+| Example | Notebook |
 |---|---|
-| Loading built-in datasets  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1H23ODC7--GI-5hRDzmUp3yYvB9VE8uZm?usp=sharing)   |
-| Multi-label classification (MLC)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lVI-gqAEtyGBUDqFAxYJYkV7UWMcHzvR?usp=sharing)   |
-| Multivariate regression (MTR)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1lm7M37YPfaW3hGtSO9wg4UG_Cz_Manth?usp=sharing)   |
-| Multi-task learning (MTL)  |  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1eztLI4ad1tclj9QP5IXzX9pbK_1SEXy3?usp=sharing) |
-| Matrix Completion (MC)  | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1cs45TN0FVI4NcRmbrdvljfjbyp0_NtVt?usp=sharing) |
-| Dyadic Prediction (DP) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1sPjYTur2xpoOPnidQEYLWMvlE4ai6WbV?usp=sharing) |
-| Hyperband | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1UQxtxAYcuNoIOHZce3UJDh6kKl4T5gNa?usp=sharing) |
-| Additional information for specific hyperparameters | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ns5XXtOlkzonRNHz3ljDS2IYYfwtSZE7?usp=sharing) |
+| Local dataset preparation | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/load_datasets.ipynb) |
+| Multi-label classification (MLC) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MLC.ipynb) |
+| Multivariate regression (MTR) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTR.ipynb) |
+| Multi-task learning (MTL) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTL.ipynb) |
+| Matrix completion (MC) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MC.ipynb) |
+| Dyadic prediction (DP) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_DP.ipynb) |
+| Hyperband | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/hyperband_example.ipynb) |
+| Random search | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/random_search_example.ipynb) |
 
 # Cite Us
 If you use this package, please cite [our paper](https://www.sciencedirect.com/science/article/pii/S2352711023002121):

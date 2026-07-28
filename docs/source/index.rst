@@ -19,10 +19,12 @@ Documentation
 	:caption: Contents:
 
 	tutorial/installation
+	tutorial/migration
 	tutorial/loading_datasets
 	tutorial/configuration
 	tutorial/hpo
 	tutorial/demos
+	Project policies <project>
 	API reference <modules>
 	tutorial/credits
 

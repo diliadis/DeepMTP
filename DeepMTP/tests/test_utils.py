@@ -1,5 +1,11 @@
-from DeepMTP.utils.utils import generate_config, get_optimization_direction
+import warnings
+from types import SimpleNamespace
+
 import pytest
+
+import DeepMTP.utils.utils as utils
+from DeepMTP import ConfigNormalizationWarning
+from DeepMTP.utils.utils import generate_config, get_optimization_direction
 
 
 def get_default_config_dict():
@@ -21,6 +27,7 @@ def get_default_config_dict():
         "train_batchsize": 512,
         "val_batchsize": 512,
         "num_epochs": 50,
+        "random_seed": 2,
         "num_workers": 4,
         "metrics": ["hamming_loss", "auroc"],
         "metrics_average": ["macro"],
@@ -70,7 +77,30 @@ def get_default_config_dict():
     }
 
 
-get_optimization_direction_data = [("max", "recall"), ("min", "MSE")]
+def generate_minimal_config(**overrides):
+    arguments = {
+        "validation_setting": "B",
+        "problem_mode": "classification",
+        "compute_mode": "cpu",
+        "metrics": ["accuracy"],
+        "metrics_average": ["macro"],
+        "instance_branch_architecture": "MLP",
+        "instance_branch_input_dim": 2,
+        "instance_branch_params": {},
+        "target_branch_architecture": "MLP",
+        "target_branch_input_dim": 3,
+        "target_branch_params": {},
+    }
+    arguments.update(overrides)
+    return generate_config(**arguments)
+
+
+get_optimization_direction_data = [
+    ("max", "recall"),
+    ("max", "val_accuracy_macro"),
+    ("min", "MSE"),
+    ("min", "false_alarm_rate_per_hour"),
+]
 
 
 @pytest.mark.parametrize(
@@ -80,6 +110,66 @@ def test_get_optimization_direction(get_optimization_direction_data):
     min_max = get_optimization_direction_data[0]
     metric_name = get_optimization_direction_data[1]
     assert get_optimization_direction(metric_name) == min_max
+
+
+def test_get_optimization_direction_rejects_unknown_metric():
+    with pytest.raises(ValueError, match="Unknown optimization metric"):
+        get_optimization_direction("mystery_score")
+
+
+def test_default_image_transforms_explain_optional_dependency(monkeypatch):
+    def missing_torchvision(_module_name):
+        raise ImportError("torchvision is not installed")
+
+    monkeypatch.setattr(utils.importlib, "import_module", missing_torchvision)
+
+    with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[image\]"):
+        utils.get_default_train_transform()
+
+
+def test_convolutional_config_explains_optional_dependency(monkeypatch):
+    def missing_torchvision(_module_name):
+        raise ImportError("torchvision is not installed")
+
+    monkeypatch.setattr(utils.importlib, "import_module", missing_torchvision)
+
+    with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[image\]"):
+        generate_minimal_config(instance_branch_architecture="CONV")
+
+
+@pytest.mark.parametrize(
+    ("validation_setting", "metrics_average", "expected", "message"),
+    [
+        ("A", ["macro"], ["micro"], "normalized"),
+        ("B", ["micro"], ["micro", "macro"], "Macro averaging"),
+        ("C", ["micro"], ["micro", "macro"], "Macro averaging"),
+        ("D", ["macro"], ["macro", "micro"], "Micro averaging"),
+    ],
+)
+def test_generate_config_warns_when_metric_averaging_is_normalized(
+    validation_setting,
+    metrics_average,
+    expected,
+    message,
+):
+    with pytest.warns(ConfigNormalizationWarning, match=message):
+        config = generate_minimal_config(
+            validation_setting=validation_setting,
+            metrics_average=metrics_average,
+        )
+
+    assert config["metrics_average"] == expected
+
+
+def test_generate_config_applies_documented_branch_defaults_silently(capsys):
+    with warnings.catch_warnings(record=True) as captured_warnings:
+        warnings.simplefilter("always")
+        config = generate_minimal_config()
+
+    assert captured_warnings == []
+    assert capsys.readouterr().out == ""
+    assert config["instance_branch_nodes_per_layer"] == [10, 10, 10]
+    assert config["target_branch_nodes_per_layer"] == [10, 10, 10]
 
 
 def test_generate_config():
@@ -197,7 +287,7 @@ test_generate_config_fails_data = [
     {
         "pass_fail": "pass",
         "temp_config_data": {"validation_setting": "A", "metrics_average": ["macro"]},
-        "data_to_be_added": {"metrics_average": ["macro", "micro"]},
+        "data_to_be_added": {"metrics_average": ["micro"]},
     },
     {
         "pass_fail": "pass",
@@ -227,6 +317,7 @@ test_generate_config_fails_data = [
             "instance_branch_conv_architecture_version": "resnet101",
             "instance_branch_conv_architecture_dense_layers": 1,
             "instance_branch_conv_architecture_last_layer_trained": "last",
+            "instance_branch_conv_pretrained": True,
         },
     },
     {
@@ -237,6 +328,7 @@ test_generate_config_fails_data = [
             "target_branch_conv_architecture_version": "resnet101",
             "target_branch_conv_architecture_dense_layers": 1,
             "target_branch_conv_architecture_last_layer_trained": "last",
+            "target_branch_conv_pretrained": True,
         },
     },
     {
@@ -265,11 +357,32 @@ test_generate_config_fails_data = [
 @pytest.mark.parametrize(
     "test_generate_config_fails_data", test_generate_config_fails_data
 )
-def test_generate_config_fails(test_generate_config_fails_data):
+@pytest.mark.filterwarnings(
+    "ignore::DeepMTP.config.ConfigNormalizationWarning",
+)
+def test_generate_config_fails(test_generate_config_fails_data, monkeypatch):
+    def fake_transform(*args, **kwargs):
+        return args, kwargs
+
+    fake_transforms = SimpleNamespace(
+        Compose=lambda transforms: transforms,
+        Normalize=fake_transform,
+        RandomCrop=fake_transform,
+        RandomHorizontalFlip=fake_transform,
+        RandomRotation=fake_transform,
+        Resize=fake_transform,
+        ToTensor=fake_transform,
+    )
+    monkeypatch.setattr(
+        utils,
+        "_load_torchvision_transforms",
+        lambda: fake_transforms,
+    )
+
     fail_pass = test_generate_config_fails_data["pass_fail"]
 
     if fail_pass == "fail":
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, ValueError)):
             original_config = get_default_config_dict()
             original_config.update(test_generate_config_fails_data["temp_config_data"])
             config = generate_config(
@@ -431,4 +544,4 @@ def test_generate_config_fails(test_generate_config_fails_data):
                     assert k in original_config
                     assert v == original_config[k]
         except Exception as exc:
-            assert False
+            raise AssertionError("valid configuration unexpectedly failed") from exc

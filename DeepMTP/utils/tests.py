@@ -1,96 +1,237 @@
-import numpy as np
+"""Validation helpers for checking generated dataset splits.
 
-def check_mlc_results(train, val, test):    # pragma: no cover
-    '''Checks if the number of instance ids between the interaction data and instance features are the same.
+The historical module name is retained for compatibility. These functions are
+runtime validators, not pytest tests.
+"""
 
-    Args:
-        train (dict): The training dataset
-        val (dict): The validation dataset
-        test (dict): the test dataset 
-    '''
-    print('Checking if MLC splitting results are valid... ', end='')
-    # checks if the instance ids in the interaction and instance feature datasets are exactly the same 
-    assert set(train['X_instance']['data']['id'].unique()).difference(set(train['y']['data']['instance_id'].unique())) == set()
-    assert set(val['X_instance']['data']['id'].unique()).difference(set(val['y']['data']['instance_id'].unique())) == set()
-    assert set(test['X_instance']['data']['id'].unique()).difference(set(test['y']['data']['instance_id'].unique())) == set()
+from __future__ import annotations
 
-    # check if train, val and test instance feature datasets don't share any instance_ids
-    assert set(train['X_instance']['data']['id'].unique()).union(set(val['X_instance']['data']['id'].unique()))
-    assert set(val['X_instance']['data']['id'].unique()).union(set(test['X_instance']['data']['id'].unique()))
-    assert set(train['X_instance']['data']['id'].unique()).union(set(test['X_instance']['data']['id'].unique()))
+from collections.abc import Mapping
+from itertools import combinations
+from typing import Any, TypeAlias
 
-    print('Done')
+from DeepMTP.data_progress import (
+    DataProgressEvent,
+    DataProgressObserver,
+    build_data_progress_observer,
+)
 
-def check_mtr_results(train, val, test):    # pragma: no cover
-    '''Checks if the number of instance ids between the interaction data and instance features are the same.
+DatasetSplit: TypeAlias = Mapping[str, Any]
 
-    Args:
-        train (dict): The training dataset
-        val (dict): The validation dataset
-        test (dict): the test dataset 
-    '''
-    print('Checking if MTR splitting results are valid... ', end='')
-    # checks if the instance ids in the interaction and instance feature datasets are exactly the same 
-    assert set(train['X_instance']['data']['id'].unique()).difference(set(train['y']['data']['instance_id'].unique())) == set()
-    assert set(val['X_instance']['data']['id'].unique()).difference(set(val['y']['data']['instance_id'].unique())) == set()
-    assert set(test['X_instance']['data']['id'].unique()).difference(set(test['y']['data']['instance_id'].unique())) == set()
 
-    # check if train, val and test instance feature datasets don't share any instance_ids
-    assert set(train['X_instance']['data']['id'].unique()).union(set(val['X_instance']['data']['id'].unique()))
-    assert set(val['X_instance']['data']['id'].unique()).union(set(test['X_instance']['data']['id'].unique()))
-    assert set(train['X_instance']['data']['id'].unique()).union(set(test['X_instance']['data']['id'].unique()))
-    print('Done')
+class SplitValidationError(ValueError):
+    """Raised when generated train, validation, and test splits are inconsistent."""
 
-def check_dp_results(train, val, test):    # pragma: no cover
-    '''Checks if the number of instance ids between the interaction data and instance features are the same.
-       Also checks if the number of target ids between the interaction data and target features are the same.
-       
-    Args:
-        train (dict): The training dataset
-        val (dict): The validation dataset
-        test (dict): the test dataset 
-    '''
-    print('Checking if DP splitting results are valid... ', end='')
-    # checks if the instance ids in the interaction and instance feature datasets are exactly the same 
-    assert set(train['X_instance']['data']['id'].unique()).symmetric_difference(set(train['y']['data']['instance_id'].unique())) == set()
-    assert set(val['X_instance']['data']['id'].unique()).symmetric_difference(set(val['y']['data']['instance_id'].unique())) == set()
-    assert set(test['X_instance']['data']['id'].unique()).symmetric_difference(set(test['y']['data']['instance_id'].unique())) == set()
-    # checks if the target ids in the interaction and target feature datasets are exactly the same 
-    assert set(train['X_target']['data']['id'].unique()).symmetric_difference(set(train['y']['data']['target_id'].unique())) == set()
-    assert set(val['X_target']['data']['id'].unique()).symmetric_difference(set(val['y']['data']['target_id'].unique())) == set()
-    assert set(test['X_target']['data']['id'].unique()).symmetric_difference(set(test['y']['data']['target_id'].unique())) == set()
-    print('Done')
 
-def check_mc_results(train, val, test):    # pragma: no cover
-    '''Checks if the pairs of instance, target ids in the train, validation and test sets are unique
+def _resolve_progress(
+    progress: DataProgressObserver | None,
+) -> DataProgressObserver:
+    return progress if progress is not None else build_data_progress_observer(True)
 
-    Args:
-        train (dict): The training dataset
-        val (dict): The validation dataset
-        test (dict): the test dataset 
-    '''
-    print('Checking if MC splitting results are valid... ', end='')
-    # check if train, val and test don't share any <instance_id, target_id> pairs
-    assert set(list(map(tuple, np.array(train['y']['data'][['instance_id', 'target_id']])))).intersection(set(list(map(tuple, np.array(val['y']['data'][['instance_id', 'target_id']]))))) == set()
-    assert set(list(map(tuple, np.array(train['y']['data'][['instance_id', 'target_id']])))).intersection(set(list(map(tuple, np.array(test['y']['data'][['instance_id', 'target_id']]))))) == set()
-    assert set(list(map(tuple, np.array(val['y']['data'][['instance_id', 'target_id']])))).intersection(set(list(map(tuple, np.array(test['y']['data'][['instance_id', 'target_id']]))))) == set()
 
-def check_mtl_results(train, val, test):    # pragma: no cover
-    '''Checks if the number of instance ids between the interaction data and instance features are the same.
+def _emit_validation_started(
+    label: str,
+    progress: DataProgressObserver,
+) -> None:
+    progress.on_event(
+        DataProgressEvent(
+            f"Checking if {label} splitting results are valid... ",
+            kind="operation_started",
+            subject=label,
+            end="",
+        )
+    )
 
-    Args:
-        train (dict): The training dataset
-        val (dict): The validation dataset
-        test (dict): the test dataset 
-    '''
-    print('Checking if MTR splitting results are valid... ', end='')
-    # checks if the instance ids in the interaction and instance feature datasets are exactly the same 
-    assert set(train['X_instance']['data']['id'].unique()).difference(set(train['y']['data']['instance_id'].unique())) == set()
-    assert set(val['X_instance']['data']['id'].unique()).difference(set(val['y']['data']['instance_id'].unique())) == set()
-    assert set(test['X_instance']['data']['id'].unique()).difference(set(test['y']['data']['instance_id'].unique())) == set()
 
-    # check if train, val and test instance feature datasets don't share any instance_ids
-    assert set(train['X_instance']['data']['id'].unique()).union(set(val['X_instance']['data']['id'].unique()))
-    assert set(val['X_instance']['data']['id'].unique()).union(set(test['X_instance']['data']['id'].unique()))
-    assert set(train['X_instance']['data']['id'].unique()).union(set(test['X_instance']['data']['id'].unique()))
-    print('Done')
+def _emit_validation_completed(
+    label: str,
+    progress: DataProgressObserver,
+) -> None:
+    progress.on_event(
+        DataProgressEvent(
+            "Done",
+            kind="operation_completed",
+            subject=label,
+        )
+    )
+
+
+def _feature_ids(split: DatasetSplit, feature_name: str) -> set[Any]:
+    return set(split[feature_name]["data"]["id"].unique())
+
+
+def _interaction_ids(split: DatasetSplit, id_column: str) -> set[Any]:
+    return set(split["y"]["data"][id_column].unique())
+
+
+def _interaction_pairs(split: DatasetSplit) -> set[tuple[Any, Any]]:
+    interactions = split["y"]["data"]
+    return set(
+        interactions[["instance_id", "target_id"]].itertuples(
+            index=False,
+            name=None,
+        )
+    )
+
+
+def _ensure_feature_ids_match(
+    split_name: str,
+    split: DatasetSplit,
+    feature_name: str,
+    interaction_column: str,
+) -> set[Any]:
+    feature_ids = _feature_ids(split, feature_name)
+    interaction_ids = _interaction_ids(split, interaction_column)
+    if feature_ids != interaction_ids:
+        missing_features = interaction_ids.difference(feature_ids)
+        unused_features = feature_ids.difference(interaction_ids)
+        raise SplitValidationError(
+            f"{split_name} {feature_name} IDs do not match interaction "
+            f"{interaction_column} IDs; missing features={missing_features!r}, "
+            f"unused features={unused_features!r}."
+        )
+    return feature_ids
+
+
+def _ensure_pairwise_disjoint(
+    named_values: Mapping[str, set[Any]],
+    value_description: str,
+) -> None:
+    for (left_name, left_values), (right_name, right_values) in combinations(
+        named_values.items(),
+        2,
+    ):
+        overlap = left_values.intersection(right_values)
+        if overlap:
+            raise SplitValidationError(
+                f"{value_description} overlap between {left_name} and "
+                f"{right_name}: {overlap!r}."
+            )
+
+
+def _check_instance_partition(
+    label: str,
+    train: DatasetSplit,
+    val: DatasetSplit,
+    test: DatasetSplit,
+    progress: DataProgressObserver,
+) -> None:
+    _emit_validation_started(label, progress)
+    instance_ids = {
+        split_name: _ensure_feature_ids_match(
+            split_name,
+            split,
+            "X_instance",
+            "instance_id",
+        )
+        for split_name, split in (
+            ("train", train),
+            ("validation", val),
+            ("test", test),
+        )
+    }
+    _ensure_pairwise_disjoint(instance_ids, "Instance IDs")
+    _emit_validation_completed(label, progress)
+
+
+def check_mlc_results(
+    train: DatasetSplit,
+    val: DatasetSplit,
+    test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
+) -> None:
+    """Validate a multi-label classification split."""
+    _check_instance_partition(
+        "MLC",
+        train,
+        val,
+        test,
+        _resolve_progress(progress),
+    )
+
+
+def check_mtr_results(
+    train: DatasetSplit,
+    val: DatasetSplit,
+    test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
+) -> None:
+    """Validate a multi-target regression split."""
+    _check_instance_partition(
+        "MTR",
+        train,
+        val,
+        test,
+        _resolve_progress(progress),
+    )
+
+
+def check_dp_results(
+    train: DatasetSplit,
+    val: DatasetSplit,
+    test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
+) -> None:
+    """Validate feature coverage for a dyadic-prediction split."""
+    progress_observer = _resolve_progress(progress)
+    _emit_validation_started("DP", progress_observer)
+    for split_name, split in (
+        ("train", train),
+        ("validation", val),
+        ("test", test),
+    ):
+        _ensure_feature_ids_match(
+            split_name,
+            split,
+            "X_instance",
+            "instance_id",
+        )
+        _ensure_feature_ids_match(
+            split_name,
+            split,
+            "X_target",
+            "target_id",
+        )
+    _emit_validation_completed("DP", progress_observer)
+
+
+def check_mc_results(
+    train: DatasetSplit,
+    val: DatasetSplit,
+    test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
+) -> None:
+    """Validate that matrix-completion splits do not share interaction pairs."""
+    progress_observer = _resolve_progress(progress)
+    _emit_validation_started("MC", progress_observer)
+    split_pairs = {
+        split_name: _interaction_pairs(split)
+        for split_name, split in (
+            ("train", train),
+            ("validation", val),
+            ("test", test),
+        )
+    }
+    _ensure_pairwise_disjoint(split_pairs, "Instance-target pairs")
+    _emit_validation_completed("MC", progress_observer)
+
+
+def check_mtl_results(
+    train: DatasetSplit,
+    val: DatasetSplit,
+    test: DatasetSplit,
+    *,
+    progress: DataProgressObserver | None = None,
+) -> None:
+    """Validate a multi-task learning split."""
+    _check_instance_partition(
+        "MTL",
+        train,
+        val,
+        test,
+        _resolve_progress(progress),
+    )

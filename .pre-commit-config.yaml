@@ -1,0 +1,31 @@
+minimum_pre_commit_version: "4.6.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: &quality_python >-
+          ^DeepMTP/.*\.py$
+        types_or: [python, pyi]
+      - id: ruff-format
+        files: *quality_python
+        types_or: [python, pyi]
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: python
+        additional_dependencies: [mypy>=1.16]
+        pass_filenames: false
+        always_run: true
