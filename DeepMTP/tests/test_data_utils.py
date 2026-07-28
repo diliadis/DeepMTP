@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+import DeepMTP.feature_data as feature_data_module
 import DeepMTP.interaction_data as interaction_data_module
 import DeepMTP.utils.data_utils as data_utils_module
 from DeepMTP import DataProgressEvent, NullDataProgressObserver
@@ -65,6 +66,24 @@ def test_interaction_helpers_have_a_focused_owner_and_legacy_aliases():
         canonical = getattr(interaction_data_module, name)
         assert getattr(data_utils_module, name) is canonical
         assert canonical.__module__ == "DeepMTP.interaction_data"
+
+
+def test_feature_helpers_have_a_focused_owner_and_legacy_aliases():
+    owned_names = (
+        "FeatureInfo",
+        "_cross_input_source_layout",
+        "_feature_vector_size",
+        "_process_entity_features",
+        "cross_input_consistency_check_instances",
+        "cross_input_consistency_check_targets",
+        "process_instance_features",
+        "process_target_features",
+    )
+
+    for name in owned_names:
+        canonical = getattr(feature_data_module, name)
+        assert getattr(data_utils_module, name) is canonical
+        assert canonical.__module__ == "DeepMTP.feature_data"
 
 
 data_format_type_combo_data = [

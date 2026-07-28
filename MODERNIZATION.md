@@ -80,6 +80,8 @@ all supported options have tests.
   preparation utility while preserving compatibility imports.
 - [x] Extract interaction normalization, schema checks, novelty detection, and
   validation-setting inference behind a focused compatibility boundary.
+- [x] Extract feature normalization and cross-input consistency validation
+  while preserving the legacy data utility surface.
 - [x] Replace wildcard imports and import-time RNG mutation in the core
   trainer, using isolated model and dataloader generators instead.
 - [x] Use typed configuration attributes for core trainer read paths.
