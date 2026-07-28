@@ -7,7 +7,8 @@ regression test.
 
 ## Compatibility policy
 
-- Support Python 3.10 and newer, with CI initially covering Python 3.10–3.12.
+- Support Python 3.10 and newer, with CI covering Python 3.10–3.14 on Linux and
+  Python 3.12 on macOS and Windows.
 - Keep CPU execution fully supported; GPU acceleration is optional.
 - Preserve the public API during the stabilization phases. Use warnings and a
   documented deprecation window before removing public names or arguments.

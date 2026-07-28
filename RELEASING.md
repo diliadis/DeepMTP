@@ -101,12 +101,14 @@ Test the tagged wheel, rather than the source checkout, in a new environment:
 python -m venv dist/release-smoke
 dist/release-smoke/bin/python -m pip install --upgrade pip
 dist/release-smoke/bin/python -m pip install dist/vX.Y.Z/*.whl
-dist/release-smoke/bin/python -c "import DeepMTP; print(DeepMTP.__version__)"
+dist/release-smoke/bin/python scripts/smoke_test_installation.py \
+  --require-wheel-install \
+  --output-dir dist/release-smoke-results
 ```
 
-On Windows, use `dist\release-smoke\Scripts\python.exe`. Confirm the printed
-version is exactly `X.Y.Z`, then run a small offline CPU experiment from outside
-the repository so the installed wheel, not the source tree, is imported.
+On Windows, use `dist\release-smoke\Scripts\python.exe`. The script refuses a
+source-checkout import, runs a small offline CPU experiment, and prints the
+installed version. Confirm that version is exactly `X.Y.Z`.
 
 Push the tag only after the tagged artifacts pass these checks:
 

@@ -26,6 +26,10 @@ jobs:
             python: "3.11"
           - os: ubuntu-latest
             python: "3.12"
+          - os: ubuntu-latest
+            python: "3.13"
+          - os: ubuntu-latest
+            python: "3.14"
           - os: macos-latest
             python: "3.12"
           - os: windows-latest
@@ -116,6 +120,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install build tools
         run: python -m pip install --upgrade build twine
@@ -125,6 +131,20 @@ jobs:
 
       - name: Inspect distribution metadata
         run: python -m twine check --strict dist/*
+
+      - name: Install wheel in an isolated environment
+        run: |
+          python -m venv "$RUNNER_TEMP/deepmtp-wheel-smoke"
+          "$RUNNER_TEMP/deepmtp-wheel-smoke/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/deepmtp-wheel-smoke/bin/python" -m pip install dist/*.whl
+
+      - name: Run installed-wheel CPU smoke test
+        working-directory: ${{ runner.temp }}
+        run: |
+          "$RUNNER_TEMP/deepmtp-wheel-smoke/bin/python" \
+            "$GITHUB_WORKSPACE/scripts/smoke_test_installation.py" \
+            --require-wheel-install \
+            --output-dir "$RUNNER_TEMP/deepmtp-wheel-results"
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4

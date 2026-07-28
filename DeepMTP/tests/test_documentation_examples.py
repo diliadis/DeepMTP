@@ -250,6 +250,9 @@ def test_project_policies_are_complete_and_linked():
     publish_workflow = (
         _PROJECT_ROOT / ".github" / "workflows" / "publish.yml"
     ).read_text(encoding="utf-8")
+    ci_workflow = (_PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
 
     for policy_name in policy_names:
         assert policy_name in readme or policy_name == "MIGRATION.rst"
@@ -269,12 +272,19 @@ def test_project_policies_are_complete_and_linked():
     assert "python -m twine check --strict" in policies["RELEASING.md"]
     assert "vX.Y.Z" in policies["RELEASING.md"]
     assert "scripts/verify_release_artifacts.py vX.Y.Z" in policies["RELEASING.md"]
+    assert "scripts/smoke_test_installation.py" in policies["RELEASING.md"]
     assert "Project policies <project>" in index
     assert "python -m twine check --strict dist/*" in publish_workflow
     assert "${{ github.event.release.tag_name }}" in publish_workflow
     assert 'scripts/verify_release_artifacts.py "$RELEASE_TAG" dist/*' in (
         publish_workflow
     )
+    assert 'python: "3.13"' in ci_workflow
+    assert 'python: "3.14"' in ci_workflow
+    assert "-m pip install dist/*.whl" in ci_workflow
+    assert "scripts/smoke_test_installation.py" in ci_workflow
+    assert "--require-wheel-install" in ci_workflow
+    assert "working-directory: ${{ runner.temp }}" in ci_workflow
 
 
 def test_sphinx_config_exposes_installed_distribution_version(monkeypatch):

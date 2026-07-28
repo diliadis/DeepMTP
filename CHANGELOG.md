@@ -32,6 +32,8 @@ checkpoints.
 ### Changed
 
 - Python 3.10 and PyTorch 2.0 are now the minimum supported versions.
+- CI verifies Python 3.10 through 3.14 and runs an offline CPU experiment against
+  the built wheel in an isolated environment.
 - Packaging uses the PEP 621 project table and derives versions from Git tags
   with `setuptools-scm`.
 - Dataset downloaders, Torchvision, Streamlit, TensorBoard, Weights & Biases,
