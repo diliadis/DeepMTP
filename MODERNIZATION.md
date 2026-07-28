@@ -197,7 +197,8 @@ produced from a tagged commit without manual repository edits.
 - [ ] Complete the `DeepMTP.data` package:
   - [x] Group model-ready loading and data-progress services while preserving
     historical import and pickle paths.
-  - [ ] Group interaction, feature, splitting, and preparation services.
+  - [x] Group interaction, feature, splitting, and preparation services while
+    preserving historical import and pickle paths.
   - [ ] Group built-in and downloadable dataset helpers.
 
 Exit criterion: package paths communicate ownership without breaking supported

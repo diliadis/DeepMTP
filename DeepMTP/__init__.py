@@ -7,13 +7,13 @@ from DeepMTP.config import (
     DeepMTPConfig,
 )
 from DeepMTP.data.loading import DataLoaderFactory, TrainingDataLoaders
+from DeepMTP.data.preparation import data_process
 from DeepMTP.data.progress import (
     ConsoleDataProgressObserver,
     DataProgressEvent,
     DataProgressObserver,
     NullDataProgressObserver,
 )
-from DeepMTP.data_preparation import data_process
 from DeepMTP.hpo.progress import (
     ConsoleHPOProgressObserver,
     HPOProgressEvent,

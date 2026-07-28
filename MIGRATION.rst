@@ -68,7 +68,8 @@ Current style:
 
    from DeepMTP import DeepMTP, DeepMTPConfig, data_process
 
-Model-ready loading and data-progress services now live in ``DeepMTP.data``:
+Data preparation, validation, splitting, model-ready loading, and progress
+services now live in ``DeepMTP.data``:
 
 .. code-block:: python
 
@@ -76,12 +77,15 @@ Model-ready loading and data-progress services now live in ``DeepMTP.data``:
        DataLoaderFactory,
        DataProgressObserver,
        TrainingDataLoaders,
+       data_process,
    )
 
-The historical ``DeepMTP.data_loading`` and ``DeepMTP.data_progress`` paths
-remain compatibility facades. Existing imports and pickled data objects
+The historical ``DeepMTP.interaction_data``, ``DeepMTP.feature_data``,
+``DeepMTP.data_splitting``, ``DeepMTP.data_preparation``,
+``DeepMTP.data_loading``, and ``DeepMTP.data_progress`` paths remain
+compatibility facades. Existing public imports and pickled data objects
 continue to resolve. Dataset loader functions such as ``load_process_MLC``
-remain in ``DeepMTP.dataset`` while the package migration proceeds.
+remain in ``DeepMTP.dataset`` while the final package migration proceeds.
 
 New HPO code should use the focused ``DeepMTP.hpo`` package:
 

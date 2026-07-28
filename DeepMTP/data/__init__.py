@@ -1,5 +1,27 @@
-"""Data loading and progress services for the preparation pipeline."""
+"""Data loading, preparation, validation, and progress services."""
 
+from DeepMTP.data.features import (
+    FeatureInfo,
+    cross_input_consistency_check_instances,
+    cross_input_consistency_check_targets,
+    process_instance_features,
+    process_target_features,
+)
+from DeepMTP.data.interactions import (
+    DatasetMapping,
+    InteractionInfo,
+    NoveltyInferenceWarning,
+    ValidationSetting,
+    VariableType,
+    check_interaction_files_column_type_format,
+    check_interaction_files_format,
+    check_novel_instances,
+    check_novel_targets,
+    check_target_variable_type,
+    check_variable_type,
+    get_estimated_validation_setting,
+    process_interaction_data,
+)
 from DeepMTP.data.loading import (
     BaseDataset,
     DataLoaderFactory,
@@ -7,6 +29,15 @@ from DeepMTP.data.loading import (
     MTPSampler,
     SamplerMode,
     TrainingDataLoaders,
+)
+from DeepMTP.data.preparation import (
+    DataInfo,
+    ProcessedSplit,
+    ScalingMethod,
+    Transformer,
+    data_process,
+    normalize,
+    validate_split_ratio,
 )
 from DeepMTP.data.progress import (
     ConsoleDataProgressObserver,
@@ -18,10 +49,12 @@ from DeepMTP.data.progress import (
     NullDataProgressObserver,
     build_data_progress_observer,
 )
+from DeepMTP.data.splitting import split_data
 
 __all__ = [
     "BaseDataset",
     "ConsoleDataProgressObserver",
+    "DataInfo",
     "DataLoaderFactory",
     "DataPrintMode",
     "DataProgressEvent",
@@ -29,9 +62,34 @@ __all__ = [
     "DataProgressLevel",
     "DataProgressObserver",
     "DatasetItem",
+    "DatasetMapping",
+    "FeatureInfo",
+    "InteractionInfo",
     "MTPSampler",
+    "NoveltyInferenceWarning",
     "NullDataProgressObserver",
+    "ProcessedSplit",
     "SamplerMode",
+    "ScalingMethod",
     "TrainingDataLoaders",
+    "Transformer",
+    "ValidationSetting",
+    "VariableType",
     "build_data_progress_observer",
+    "check_interaction_files_column_type_format",
+    "check_interaction_files_format",
+    "check_novel_instances",
+    "check_novel_targets",
+    "check_target_variable_type",
+    "check_variable_type",
+    "cross_input_consistency_check_instances",
+    "cross_input_consistency_check_targets",
+    "data_process",
+    "get_estimated_validation_setting",
+    "normalize",
+    "process_instance_features",
+    "process_interaction_data",
+    "process_target_features",
+    "split_data",
+    "validate_split_ratio",
 ]
