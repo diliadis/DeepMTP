@@ -25,8 +25,9 @@ common two-branch architecture.
   encoders.
 - Dot-product, concatenation-plus-MLP, and Kronecker-product fusion.
 - Validation settings A–D for known and novel instances and targets.
-- Classification and regression metrics, early stopping, checkpoints,
-  deterministic undersampling, and top-k grouped metrics.
+- Binary and multiclass classification plus regression metrics, early
+  stopping, checkpoints, deterministic undersampling, and top-k grouped
+  metrics where applicable.
 - Random-search and Hyperband optimization, plus optional TensorBoard,
   Weights & Biases, and Streamlit integrations.
 - Typed configuration, model-ready batches, and early validation of invalid
@@ -161,11 +162,12 @@ product to predict the score of the instance-target pair. Dot-product models
 require equal branch widths; the other fusion strategies can combine different
 widths.
 
-For classification, the combined model produces logits.
-`BCEWithLogitsLoss` consumes those raw scores during training, while metrics
-and returned predictions receive sigmoid probabilities. Regression defaults
-to mean squared error and can instead optimize mean absolute error or Huber
-loss through the validated `loss` configuration field.
+For classification, the combined model produces logits. Binary classification
+uses `BCEWithLogitsLoss` and sigmoid probabilities. Multiclass classification
+uses `CrossEntropyLoss`, one logit per mutually exclusive class, and softmax
+probabilities. Regression defaults to mean squared error and can instead
+optimize mean absolute error or Huber loss through the validated `loss`
+configuration field.
 
 Reusable branch models, combined architectures, and the model factory are
 available from the focused model namespace:
@@ -379,6 +381,60 @@ test_results, predictions = model.predict(test, return_predictions=True)
 ```
 <!-- quickstart-example:end -->
 
+## Multiclass classification
+
+Multiclass mode predicts exactly one of three or more classes for each
+instance-target pair. Labels must be zero-based integer IDs in `[0, C)`.
+Declare the interpretation during data preparation because integer-valued
+regression scores cannot be distinguished safely from class IDs:
+
+<!-- multiclass-config-example:start -->
+```python
+import numpy as np
+
+from DeepMTP import DeepMTPConfig, data_process
+
+scores = (
+    np.arange(18)[:, np.newaxis] + np.arange(3)[np.newaxis, :]
+) % 3
+train, validation, test, data_info = data_process(
+    {"train": {"y": scores}},
+    validation_setting="A",
+    classification_mode="multiclass",
+)
+
+config = DeepMTPConfig(
+    validation_setting=data_info["detected_validation_setting"],
+    problem_mode="classification",
+    classification_mode=data_info["detected_classification_mode"],
+    num_classes=data_info["detected_num_classes"],
+    metrics=["accuracy", "f1_score", "auroc"],
+    metrics_average=["micro"],
+    multiclass_average="macro",
+    compute_mode="cpu",
+    instance_branch_architecture="EMBEDDING",
+    instance_branch_input_dim=data_info["instance_branch_input_dim"],
+    target_branch_architecture="EMBEDDING",
+    target_branch_input_dim=data_info["target_branch_input_dim"],
+    embedding_size=8,
+)
+```
+<!-- multiclass-config-example:end -->
+
+`CrossEntropyLoss` and macro class averaging are selected automatically.
+`metrics_average` still controls whether observations are grouped globally,
+per target, or per instance; `multiclass_average` controls how classes are
+combined inside precision, recall, F1, AUROC, and AUPR. Set it to `micro`,
+`macro`, or `weighted`.
+
+All declared classes must occur in the training interactions. Prediction
+frames contain `predicted_values` as class IDs, `predicted_probability` for
+the winning class, and one `probability_class_<id>` column per class.
+Interaction-ranking `top_k` metrics are not available in multiclass mode.
+See the
+[multiclass guide](https://deepmtp.readthedocs.io/en/latest/tutorial/multiclass_classification.html)
+for the complete contract.
+
 ## Mixed tabular inputs
 
 Use a `TABULAR` branch when entity side information contains both continuous
@@ -513,7 +569,9 @@ The table below summarizes the commonly configured public options.
 | **Training** ||
 | `validation_setting` | Generalization setting `A`, `B`, `C`, or `D` |
 | `problem_mode` | `classification` or `regression` |
-| `loss` | Training objective. Classification defaults to `binary_cross_entropy_with_logits`; regression defaults to `mean_squared_error` and also supports `mean_absolute_error` and `huber` |
+| `classification_mode` | `binary` (the backward-compatible classification default) or `multiclass` |
+| `num_classes` | Number of mutually exclusive classes; required and at least 3 for multiclass classification |
+| `loss` | Training objective. Binary classification defaults to `binary_cross_entropy_with_logits`, multiclass classification uses `cross_entropy`, and regression defaults to `mean_squared_error` with optional `mean_absolute_error` or `huber` |
 | `num_epochs` | The max number of epochs allowed for training |
 | `learning_rate` | The learning rate used to determine the step size at each iteration of the optimization process|
 | `decay` | The weight decay (L2 penalty) used by the Adam optimizer|
@@ -532,7 +590,8 @@ The table below summarizes the commonly configured public options.
 | **Metrics** ||
 | `metrics` | The performance metrics that will be calculated. For classification tasks the available metrics are `['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision']` while for regression tasks the available metrics are `['RMSE', 'MSE', 'MAE', 'R2']` |
 | `metrics_average` | The averaging strategy used to calculate metrics. Available options are `['macro', 'micro', 'instance']`; validation setting A supports only `['micro']`. |
-| `top_k` | Number of top predictions used to calculate grouped metric variants; requires `macro` or `instance` averaging |
+| `multiclass_average` | Class averaging for multiclass precision, recall, F1, AUROC, and AUPR: `micro`, `macro` (default), or `weighted` |
+| `top_k` | Number of top predictions used to calculate grouped metric variants; requires `macro` or `instance` averaging and is unavailable for multiclass classification |
 | `metric_to_optimize_early_stopping` | The metric that will be used for tracking by the early stopping routine. The value can be the `loss` or one of the available performance metrics. |
 | `metric_to_optimize_best_epoch_selection` | The validation metric that will be used to determine the best configuration. The value can be the `loss` or one of the available performance metrics. |
 | **Printing - Saving - Logging** ||

@@ -228,6 +228,9 @@ def generate_config(
     target_branch_params: Mapping[str, Any] | None = None,
     hpo_results_path: str = "./",
     loss: str | None = None,
+    classification_mode: str | None = None,
+    num_classes: int | None = None,
+    multiclass_average: str | None = None,
 ) -> dict[str, Any]:
     """Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
 
@@ -235,7 +238,10 @@ def generate_config(
         validation_setting (str, optional): The validation setting of the given problem. The possible values are A, B, C, D. Defaults to None.
         general_architecture_version (str, optional): Enables a specific version of the general neural network architecture. Available options are: "mlp" for the mlp version, "dot_product" for the dot product version, "kronecker": for the kronecker product version. Default value if "dot_product"
         problem_mode (str, optional): The type of task for the given problem. The possible values are classification or regression. Defaults to None.
-        loss (str, optional): The training objective. Classification supports "binary_cross_entropy_with_logits" (default) and explicit legacy "binary_cross_entropy". Regression supports "mean_squared_error" (default), "mean_absolute_error", and "huber". Defaults to the stable objective for ``problem_mode``.
+        classification_mode (str, optional): Use "binary" (default for classification) or "multiclass". Multiclass mode requires ``num_classes``.
+        num_classes (int, optional): Number of mutually exclusive classes. Required and at least three for multiclass classification.
+        multiclass_average (str, optional): Class averaging for multiclass precision, recall, F1, AUROC, and AUPR. Available values are "micro", "macro", and "weighted". Defaults to "macro".
+        loss (str, optional): The training objective. Binary classification supports "binary_cross_entropy_with_logits" (default) and explicit legacy "binary_cross_entropy". Multiclass classification uses "cross_entropy". Regression supports "mean_squared_error" (default), "mean_absolute_error", and "huber". Defaults to the stable objective for the configured task.
         learning_rate (float, optional): The learning rate that will be used during training. Defaults to 0.001.
         decay (float, optional): The weight decay (L2 penalty) used by the Adam optimizer . Defaults to 0.
         batch_norm (bool, optional): The option to use batch normalization between the fully connected layers in the two branches. Defaults to False.
@@ -398,6 +404,17 @@ def generate_config(
         "additional_info": additional_info,
         "top_k": top_k,
     }
+    normalized_classification_mode = (
+        classification_mode.lower()
+        if isinstance(classification_mode, str)
+        else classification_mode
+    )
+    if classification_mode is not None:
+        base_config["classification_mode"] = classification_mode
+    if num_classes is not None or normalized_classification_mode == "multiclass":
+        base_config["num_classes"] = num_classes
+    if multiclass_average is not None or normalized_classification_mode == "multiclass":
+        base_config["multiclass_average"] = multiclass_average
 
     # Normalize user-facing names before centralized typed validation.
     if problem_mode == "classification":

@@ -182,10 +182,12 @@ reserved index zero unless their policy is configured as `error`.
   applying sigmoid only for metrics and returned predictions.
 - [x] Add documented configuration and registry support for binary
   cross-entropy, mean squared error, mean absolute error, and Huber losses.
+- [x] Add mutually exclusive multiclass classification with zero-based class
+  IDs, architecture-wide multi-logit heads, cross-entropy training, softmax
+  predictions, class-aware metrics, and checkpoint coverage.
 - [ ] Add optional ranking losses after their sampling and validation-setting
   semantics are defined.
-- Add explicit heads for binary, multiclass, ordinal, count, and bounded
-  regression tasks.
+- Add explicit heads for ordinal, count, and bounded regression tasks.
 - Implement class/example weighting only with a tested definition for each
   validation setting.
 

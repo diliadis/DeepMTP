@@ -3,12 +3,15 @@ import torch
 from torch import nn
 
 from DeepMTP.runtime import (
+    DEFAULT_LOSS_BY_CLASSIFICATION_MODE,
     DEFAULT_LOSS_BY_PROBLEM_MODE,
     DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE,
+    DEFAULT_OUTPUT_HEAD_BY_CLASSIFICATION_MODE,
     DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE,
     LOSS_INPUT_TRANSFORM_BY_LOSS,
     LOSS_REGISTRY,
     OUTPUT_HEAD_REGISTRY,
+    SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE,
     SUPPORTED_LOSSES_BY_PROBLEM_MODE,
     build_default_loss,
     build_default_loss_input_transform,
@@ -25,11 +28,16 @@ def test_task_component_registries_expose_behavior_preserving_defaults():
     assert LOSS_REGISTRY.names == (
         "binary_cross_entropy",
         "binary_cross_entropy_with_logits",
+        "cross_entropy",
         "huber",
         "mean_absolute_error",
         "mean_squared_error",
     )
-    assert OUTPUT_HEAD_REGISTRY.names == ("identity", "sigmoid")
+    assert OUTPUT_HEAD_REGISTRY.names == ("identity", "sigmoid", "softmax")
+    assert dict(DEFAULT_LOSS_BY_CLASSIFICATION_MODE) == {
+        "binary": "binary_cross_entropy_with_logits",
+        "multiclass": "cross_entropy",
+    }
     assert dict(DEFAULT_LOSS_BY_PROBLEM_MODE) == {
         "classification": "binary_cross_entropy_with_logits",
         "regression": "mean_squared_error",
@@ -41,6 +49,7 @@ def test_task_component_registries_expose_behavior_preserving_defaults():
     assert dict(LOSS_INPUT_TRANSFORM_BY_LOSS) == {
         "binary_cross_entropy": "sigmoid",
         "binary_cross_entropy_with_logits": "identity",
+        "cross_entropy": "identity",
         "huber": "identity",
         "mean_absolute_error": "identity",
         "mean_squared_error": "identity",
@@ -50,6 +59,7 @@ def test_task_component_registries_expose_behavior_preserving_defaults():
             {
                 "binary_cross_entropy",
                 "binary_cross_entropy_with_logits",
+                "cross_entropy",
             }
         ),
         "regression": frozenset(
@@ -63,6 +73,19 @@ def test_task_component_registries_expose_behavior_preserving_defaults():
     assert dict(DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE) == {
         "classification": "sigmoid",
         "regression": "identity",
+    }
+    assert dict(DEFAULT_OUTPUT_HEAD_BY_CLASSIFICATION_MODE) == {
+        "binary": "sigmoid",
+        "multiclass": "softmax",
+    }
+    assert dict(SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE) == {
+        "binary": frozenset(
+            {
+                "binary_cross_entropy",
+                "binary_cross_entropy_with_logits",
+            }
+        ),
+        "multiclass": frozenset({"cross_entropy"}),
     }
 
 
@@ -83,6 +106,7 @@ def test_component_builders_return_fresh_modules():
     [
         ("binary_cross_entropy", nn.BCELoss, nn.Sigmoid),
         ("binary_cross_entropy_with_logits", nn.BCEWithLogitsLoss, nn.Identity),
+        ("cross_entropy", nn.CrossEntropyLoss, nn.Identity),
         ("huber", nn.HuberLoss, nn.Identity),
         ("mean_absolute_error", nn.L1Loss, nn.Identity),
         ("mean_squared_error", nn.MSELoss, nn.Identity),
@@ -158,6 +182,21 @@ def test_task_components_follow_explicit_compatible_loss(
     assert isinstance(components.output_head, head_type)
 
 
+def test_multiclass_task_components_use_logits_loss_and_softmax_predictions():
+    components = build_task_components(
+        "classification",
+        classification_mode="multiclass",
+    )
+    logits = torch.tensor([[1.0, 2.0, 3.0], [0.0, -1.0, 1.0]])
+
+    assert isinstance(components.loss, nn.CrossEntropyLoss)
+    assert isinstance(components.loss_input_transform, nn.Identity)
+    assert isinstance(components.output_head, nn.Softmax)
+    assert components.output_head(logits).sum(dim=1).tolist() == pytest.approx(
+        [1.0, 1.0]
+    )
+
+
 @pytest.mark.parametrize(
     ("problem_mode", "loss_name"),
     [
@@ -183,6 +222,10 @@ def test_individual_default_builders_follow_problem_mode():
         nn.Identity,
     )
     assert isinstance(build_default_output_head("classification"), nn.Sigmoid)
+    assert isinstance(
+        build_default_output_head("classification", "multiclass"),
+        nn.Softmax,
+    )
     assert isinstance(build_default_output_head("regression"), nn.Identity)
 
 

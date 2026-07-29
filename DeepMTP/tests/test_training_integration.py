@@ -340,6 +340,88 @@ def test_tiny_cpu_training_with_learned_id_embeddings(tmp_path):
 @pytest.mark.filterwarnings(
     "ignore::DeepMTP.config.ConfigNormalizationWarning",
 )
+def test_tiny_cpu_multiclass_training_prediction_and_checkpoint(tmp_path):
+    scores = (np.arange(18)[:, np.newaxis] + np.arange(3)[np.newaxis, :]) % 3
+    train, val, test, data_info = data_process(
+        {"train": {"y": scores, "X_instance": None, "X_target": None}},
+        validation_setting="A",
+        shuffle=False,
+        classification_mode="multiclass",
+    )
+    config = generate_config(
+        validation_setting="A",
+        problem_mode="classification",
+        classification_mode=data_info["detected_classification_mode"],
+        num_classes=data_info["detected_num_classes"],
+        general_architecture_version="dot_product",
+        compute_mode="cpu",
+        num_workers=0,
+        train_batchsize=16,
+        val_batchsize=16,
+        num_epochs=1,
+        metrics=["accuracy"],
+        metrics_average=["micro"],
+        evaluate_val=True,
+        use_early_stopping=False,
+        save_model=False,
+        results_path=str(tmp_path),
+        experiment_name="multiclass",
+        instance_branch_architecture="EMBEDDING",
+        instance_branch_input_dim=data_info["instance_branch_input_dim"],
+        target_branch_architecture="EMBEDDING",
+        target_branch_input_dim=data_info["target_branch_input_dim"],
+        embedding_size=4,
+    )
+    model = DeepMTP(config)
+
+    validation_results = model.train(train, val, test)
+    _, predictions = model.predict(test, return_predictions=True)
+
+    assert isinstance(model.criterion, nn.CrossEntropyLoss)
+    assert isinstance(model.output_head, nn.Softmax)
+    assert model.deepMTP_model.output_dim == 3
+    assert "val_accuracy_micro" in validation_results
+    assert {
+        "predicted_probability",
+        "probability_class_0",
+        "probability_class_1",
+        "probability_class_2",
+    }.issubset(predictions.columns)
+    assert np.allclose(
+        predictions[
+            [
+                "probability_class_0",
+                "probability_class_1",
+                "probability_class_2",
+            ]
+        ].sum(axis=1),
+        1.0,
+    )
+
+    model.save_model()
+    checkpoint_path = Path(model.experiment_dir) / "model.pt"
+    restored = DeepMTP(
+        {
+            **config,
+            "experiment_name": "multiclass_restored",
+        },
+        checkpoint_dir=checkpoint_path,
+    )
+    _, restored_predictions = restored.predict(test, return_predictions=True)
+
+    assert checkpoint_path.is_file()
+    assert restored.configuration.classification_mode == "multiclass"
+    assert restored.configuration.num_classes == 3
+    assert np.allclose(
+        predictions.filter(like="probability_"),
+        restored_predictions.filter(like="probability_"),
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.filterwarnings(
+    "ignore::DeepMTP.config.ConfigNormalizationWarning",
+)
 def test_tiny_cpu_training_with_mixed_tabular_features_restores_state(tmp_path):
     scores = (np.arange(12)[:, np.newaxis] + np.arange(3)[np.newaxis, :]) % 2
     instance_features = pd.DataFrame(

@@ -8,6 +8,7 @@ from collections.abc import Mapping, MutableMapping
 from typing import Any, Literal, Protocol, TypeAlias, TypedDict, cast
 
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from DeepMTP._split_utils import validate_split_ratio as _validate_split_ratio
@@ -56,6 +57,8 @@ class DataInfo(TypedDict):
 
     detected_validation_setting: ValidationSetting
     detected_problem_mode: Literal["classification", "regression"]
+    detected_classification_mode: Literal["binary", "multiclass"] | None
+    detected_num_classes: int | None
     instance_branch_input_dim: int | None
     target_branch_input_dim: int | None
 
@@ -70,6 +73,77 @@ class Transformer(Protocol):
 def validate_split_ratio(ratio: object) -> dict[str, float]:
     """Validate and copy a train/validation/test split ratio mapping."""
     return _validate_split_ratio(ratio)
+
+
+def _validate_and_count_multiclass_classes(
+    data: Mapping[str, Any],
+    *,
+    num_classes: int | None,
+) -> int:
+    split_values = [
+        split["y"]["data"]["value"].to_numpy(dtype=float)
+        for split in data.values()
+        if isinstance(split, Mapping)
+        and isinstance(split.get("y"), Mapping)
+        and isinstance(split["y"].get("data"), pd.DataFrame)
+    ]
+    if not split_values:
+        raise ValueError("Cannot detect classes without interaction data.")
+    values = np.concatenate(split_values)
+    if (
+        not np.isfinite(values).all()
+        or not np.equal(values, np.floor(values)).all()
+        or (values < 0).any()
+    ):
+        raise ValueError(
+            "Multiclass targets must contain finite, zero-based integer class IDs."
+        )
+    integer_values = values.astype(np.int64)
+    inferred_num_classes = int(integer_values.max()) + 1
+    resolved_num_classes = inferred_num_classes if num_classes is None else num_classes
+    if (
+        isinstance(resolved_num_classes, bool)
+        or not isinstance(resolved_num_classes, int)
+        or resolved_num_classes < 3
+    ):
+        raise ValueError(
+            "num_classes must be an integer greater than or equal to 3 "
+            "for multiclass data."
+        )
+    observed_classes = set(integer_values.tolist())
+    expected_classes = set(range(resolved_num_classes))
+    if observed_classes != expected_classes:
+        missing_classes = sorted(expected_classes.difference(observed_classes))
+        unexpected_classes = sorted(observed_classes.difference(expected_classes))
+        details = []
+        if missing_classes:
+            details.append(f"missing {missing_classes}")
+        if unexpected_classes:
+            details.append(f"out of range {unexpected_classes}")
+        raise ValueError(
+            "Multiclass targets must collectively use every declared zero-based "
+            f"class ID; {', '.join(details)}."
+        )
+    return resolved_num_classes
+
+
+def _validate_multiclass_training_coverage(
+    train: ProcessedSplit,
+    *,
+    num_classes: int,
+) -> None:
+    interactions = train.get("y")
+    frame = interactions.get("data") if isinstance(interactions, Mapping) else None
+    if not isinstance(frame, pd.DataFrame):
+        raise TypeError("Training interactions must contain a pandas DataFrame.")
+    observed_classes = {int(value) for value in frame["value"].unique()}
+    expected_classes = set(range(num_classes))
+    missing_classes = expected_classes.difference(observed_classes)
+    if missing_classes:
+        raise ValueError(
+            "Multiclass training interactions must contain every declared class; "
+            f"missing {sorted(missing_classes)}."
+        )
 
 
 def normalize(row: Any, scaler: Transformer) -> Any:  # pragma: no cover
@@ -140,6 +214,22 @@ def _normalize_scaling_method(
         f"{parameter_name} must be 'MinMax', 'Standard', or None; "
         f"received {scaling_method!r}."
     )
+
+
+def _normalize_classification_mode(
+    classification_mode: str | None,
+) -> Literal["binary", "multiclass"] | None:
+    if classification_mode is None:
+        return None
+    if not isinstance(classification_mode, str):
+        raise TypeError("classification_mode must be a string or None.")
+    normalized_mode = classification_mode.lower()
+    if normalized_mode not in {"binary", "multiclass"}:
+        raise ValueError(
+            "classification_mode must be 'binary', 'multiclass', or None; "
+            f"received {classification_mode!r}."
+        )
+    return cast(Literal["binary", "multiclass"], normalized_mode)
 
 
 def _scale_feature_splits(
@@ -239,6 +329,8 @@ def data_process(
     scale_instance_features: str | None = None,
     scale_target_features: str | None = None,
     *,
+    classification_mode: str | None = None,
+    num_classes: int | None = None,
     progress: DataProgressObserver | None = None,
 ) -> tuple[ProcessedSplit, ProcessedSplit, ProcessedSplit, DataInfo]:
     """The main function that handles all the preprocessing steps and checks needed to prepare the dataset to be used by the model.
@@ -254,6 +346,11 @@ def data_process(
         print_mode (str, optional): The mode of printing. Two values are possible. If 'basic', the prints are just regural python prints. If 'dev' then a prefix is used so that the streamlit application can print more usefull messages. Defaults to 'basic'.
         scale_instance_features (str, optional): The scaler used for the instance features. Possible values are 'MinMax' for the MinMax scaler and 'Standard' for the standard scaler. Defaults to None.
         scale_target_features (str, optional): The scaler used for the target features. Possible values are 'MinMax' for the MinMax scaler and 'Standard' for the standard scaler. Defaults to None.
+        classification_mode (str, optional): Set to ``multiclass`` to interpret
+            zero-based integer scores as class IDs. Binary scores continue to
+            be detected automatically. Defaults to None.
+        num_classes (int, optional): Declared multiclass count. When omitted in
+            multiclass mode, it is inferred from all supplied score splits.
         progress (DataProgressObserver | None, optional): Receives verbose messages from the complete data-processing pipeline. Defaults to None.
 
     Returns:
@@ -276,6 +373,11 @@ def data_process(
         scale_target_features,
         "scale_target_features",
     )
+    classification_mode = _normalize_classification_mode(classification_mode)
+    if classification_mode != "multiclass" and num_classes is not None:
+        raise ValueError(
+            "num_classes is only valid when classification_mode='multiclass'."
+        )
 
     # check if at least one train dataset exists (Can be only the y_train)
     if data["train"]["y"] is None:
@@ -388,11 +490,18 @@ def data_process(
     )
 
     _emit_data_separator(verbose, print_mode, progress_observer)
+    detected_num_classes = (
+        _validate_and_count_multiclass_classes(data, num_classes=num_classes)
+        if classification_mode == "multiclass"
+        else None
+    )
     # get the type of the target variable.
     target_variable_type = check_target_variable_type(
         data,
         verbose=verbose,
         print_mode=print_mode,
+        classification_mode=classification_mode,
+        num_classes=detected_num_classes,
         progress=progress_observer,
     )
     _emit_data_message(
@@ -523,11 +632,20 @@ def data_process(
         target_branch_input_dim = data["train"]["X_target"]["num_features"]
     else:
         target_branch_input_dim = len(data["train"]["y"]["data"]["target_id"].unique())
+    detected_classification_mode: Literal["binary", "multiclass"] | None = (
+        target_variable_type
+        if target_variable_type in {"binary", "multiclass"}
+        else None
+    )
     data_info: DataInfo = {
         "detected_validation_setting": validation_setting,
         "detected_problem_mode": (
-            "classification" if target_variable_type == "binary" else "regression"
+            "classification"
+            if detected_classification_mode is not None
+            else "regression"
         ),
+        "detected_classification_mode": detected_classification_mode,
+        "detected_num_classes": detected_num_classes,
         "instance_branch_input_dim": instance_branch_input_dim,
         "target_branch_input_dim": target_branch_input_dim,
     }
@@ -560,6 +678,13 @@ def data_process(
         print_mode=print_mode,
         progress=progress_observer,
     )
+    if detected_classification_mode == "multiclass":
+        if detected_num_classes is None:  # pragma: no cover - inferred invariant
+            raise RuntimeError("Multiclass data has no detected class count.")
+        _validate_multiclass_training_coverage(
+            cast(ProcessedSplit, data["train"]),
+            num_classes=detected_num_classes,
+        )
 
     _scale_feature_splits(
         data,

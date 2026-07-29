@@ -83,6 +83,34 @@ def _encoder_contract(
     )
 
 
+@dataclass(frozen=True)
+class _TaskOutputSettings:
+    """Typed output width resolved at the legacy mapping boundary."""
+
+    output_dimension: int
+
+    @classmethod
+    def from_config(cls, config: ModelConfigInput) -> _TaskOutputSettings:
+        if isinstance(config, DeepMTPConfig):
+            return cls(output_dimension=config.output_dimension)
+        if not isinstance(config, Mapping):
+            raise TypeError("config must be a mapping or DeepMTPConfig.")
+        classification_mode = config.get("classification_mode")
+        if classification_mode != "multiclass":
+            return cls(output_dimension=1)
+        num_classes = config.get("num_classes")
+        if (
+            isinstance(num_classes, bool)
+            or not isinstance(num_classes, int)
+            or num_classes < 3
+        ):
+            raise ValueError(
+                "num_classes must be an integer greater than or equal to 3 "
+                "for multiclass classification."
+            )
+        return cls(output_dimension=num_classes)
+
+
 class TwoBranchDotProductModel(nn.Module):
     """Combine equal-sized branch embeddings with a dot product."""
 
@@ -113,6 +141,14 @@ class TwoBranchDotProductModel(nn.Module):
                 "Dot-product branches must declare the same output_dim; "
                 f"received {self.instance_output_dim} and {self.target_output_dim}."
             )
+        self.output_dim = _TaskOutputSettings.from_config(config).output_dimension
+        if self.output_dim > 1:
+            self.class_projection: nn.Linear | None = nn.Linear(
+                self.instance_output_dim,
+                self.output_dim,
+            )
+        else:
+            self.class_projection = None
 
     def forward(
         self,
@@ -131,10 +167,10 @@ class TwoBranchDotProductModel(nn.Module):
             branch="target",
             explicit_dimension=self.target_output_dim,
         )
-        return torch.unsqueeze(
-            (instance_embedding * target_embedding).sum(1),
-            1,
-        )
+        interaction_embedding = instance_embedding * target_embedding
+        if self.class_projection is not None:
+            return self.class_projection(interaction_embedding)
+        return torch.unsqueeze(interaction_embedding.sum(1), 1)
 
 
 class TwoBranchMLPModel(nn.Module):
@@ -163,11 +199,12 @@ class TwoBranchMLPModel(nn.Module):
             branch="target",
         )
         combined_dimension = self.instance_output_dim + self.target_output_dim
+        self.output_dim = _TaskOutputSettings.from_config(config).output_dimension
         settings = _CombinedMLPSettings.from_config(config)
         self.comb_branch = MLP(
             config,
             combined_dimension,
-            1,
+            self.output_dim,
             settings.nodes_per_layer,
             settings.num_layers,
             settings.dropout_rate,
@@ -225,7 +262,8 @@ class TwoBranchKroneckerModel(nn.Module):
             branch="target",
         )
         combined_dimension = self.instance_output_dim * self.target_output_dim
-        self.comb_branch = nn.Linear(combined_dimension, 1)
+        self.output_dim = _TaskOutputSettings.from_config(config).output_dimension
+        self.comb_branch = nn.Linear(combined_dimension, self.output_dim)
 
     def forward(
         self,

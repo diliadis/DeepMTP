@@ -27,6 +27,16 @@ class ScalarLogitModel(nn.Module):
         return self.logit.expand(instance_features.shape[0], 1)
 
 
+class MulticlassLinearModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(2, 3, bias=False)
+
+    def forward(self, instance_features, target_features):
+        features = torch.cat((instance_features, target_features), dim=1)
+        return self.linear(features)
+
+
 def make_batch(scores=(0.0, 1.0)):
     batch_size = len(scores)
     return {
@@ -161,6 +171,70 @@ def test_direct_bce_criterion_retains_probability_input_compatibility():
 
     assert output.losses == pytest.approx([100.0])
     assert output.predicted_values == pytest.approx([1.0])
+
+
+def test_multiclass_training_uses_class_ids_and_collects_softmax_probabilities():
+    model = MulticlassLinearModel()
+    with torch.no_grad():
+        model.linear.weight.copy_(
+            torch.tensor(
+                [
+                    [2.0, 0.0],
+                    [0.0, 2.0],
+                    [-2.0, -2.0],
+                ]
+            )
+        )
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.CrossEntropyLoss(),
+        device=torch.device("cpu"),
+        problem_mode="classification",
+        classification_mode="multiclass",
+        num_classes=3,
+        optimizer=optimizer,
+    )
+
+    output = engine.train_epoch(
+        [make_batch(scores=(0.0, 1.0))],
+        collect_predictions=True,
+    )
+
+    assert len(output.losses) == 1
+    assert output.true_values == [0, 1]
+    assert output.predicted_values == [0, 0]
+    assert len(output.class_probabilities) == 2
+    assert [sum(row) for row in output.class_probabilities] == pytest.approx([1.0, 1.0])
+
+
+def test_multiclass_training_rejects_scalar_model_outputs():
+    engine = TrainingEngine(
+        model=TinyTwoInputModel(),
+        criterion=nn.CrossEntropyLoss(),
+        device=torch.device("cpu"),
+        problem_mode="classification",
+        classification_mode="multiclass",
+        num_classes=3,
+    )
+
+    with pytest.raises(ValueError, match=r"\[batch, num_classes\]"):
+        engine.evaluate_epoch([make_batch(scores=(0.0, 1.0))])
+
+
+@pytest.mark.parametrize("scores", [(0.0, 1.5), (0.0, 3.0)])
+def test_multiclass_training_rejects_invalid_direct_target_ids(scores):
+    engine = TrainingEngine(
+        model=MulticlassLinearModel(),
+        criterion=nn.CrossEntropyLoss(),
+        device=torch.device("cpu"),
+        problem_mode="classification",
+        classification_mode="multiclass",
+        num_classes=3,
+    )
+
+    with pytest.raises(ValueError, match="integer class IDs"):
+        engine.evaluate_epoch([make_batch(scores=scores)])
 
 
 def test_training_engine_accepts_an_explicit_output_head():

@@ -11,17 +11,22 @@ from torch import nn
 
 from DeepMTP._registry import FactoryRegistry
 from DeepMTP.config import (
+    DEFAULT_LOSS_BY_CLASSIFICATION_MODE,
     DEFAULT_LOSS_BY_PROBLEM_MODE,
+    SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE,
     SUPPORTED_LOSSES_BY_PROBLEM_MODE,
 )
 
 __all__ = [
+    "DEFAULT_LOSS_BY_CLASSIFICATION_MODE",
     "DEFAULT_LOSS_BY_PROBLEM_MODE",
     "DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE",
+    "DEFAULT_OUTPUT_HEAD_BY_CLASSIFICATION_MODE",
     "DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE",
     "LOSS_INPUT_TRANSFORM_BY_LOSS",
     "LOSS_REGISTRY",
     "OUTPUT_HEAD_REGISTRY",
+    "SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE",
     "SUPPORTED_LOSSES_BY_PROBLEM_MODE",
     "LossFactory",
     "OutputHeadFactory",
@@ -46,6 +51,7 @@ LOSS_REGISTRY = FactoryRegistry[LossFactory](
         "binary_cross_entropy_with_logits": lambda: nn.BCEWithLogitsLoss(
             reduction="mean"
         ),
+        "cross_entropy": lambda: nn.CrossEntropyLoss(reduction="mean"),
         "huber": lambda: nn.HuberLoss(reduction="mean"),
         "mean_absolute_error": lambda: nn.L1Loss(reduction="mean"),
         "mean_squared_error": lambda: nn.MSELoss(reduction="mean"),
@@ -57,6 +63,7 @@ OUTPUT_HEAD_REGISTRY = FactoryRegistry[OutputHeadFactory](
     {
         "identity": nn.Identity,
         "sigmoid": nn.Sigmoid,
+        "softmax": lambda: nn.Softmax(dim=1),
     },
 )
 
@@ -64,6 +71,7 @@ LOSS_INPUT_TRANSFORM_BY_LOSS: Mapping[str, str] = MappingProxyType(
     {
         "binary_cross_entropy": "sigmoid",
         "binary_cross_entropy_with_logits": "identity",
+        "cross_entropy": "identity",
         "huber": "identity",
         "mean_absolute_error": "identity",
         "mean_squared_error": "identity",
@@ -81,6 +89,13 @@ DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE: Mapping[str, str] = MappingProxyType(
     {
         "classification": "sigmoid",
         "regression": "identity",
+    }
+)
+
+DEFAULT_OUTPUT_HEAD_BY_CLASSIFICATION_MODE: Mapping[str, str] = MappingProxyType(
+    {
+        "binary": "sigmoid",
+        "multiclass": "softmax",
     }
 )
 
@@ -112,14 +127,46 @@ def build_default_task_components(problem_mode: str) -> TaskComponents:
 def build_task_components(
     problem_mode: str,
     loss_name: str | None = None,
+    classification_mode: str | None = None,
 ) -> TaskComponents:
     """Build compatible loss and output modules for one problem mode."""
-    selected_loss = (
-        _default_component_name(DEFAULT_LOSS_BY_PROBLEM_MODE, problem_mode)
-        if loss_name is None
-        else loss_name
-    )
-    supported_losses = _supported_loss_names(problem_mode)
+    if problem_mode == "classification":
+        resolved_classification_mode = (
+            "binary" if classification_mode is None else classification_mode
+        )
+        try:
+            supported_losses = SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE[
+                resolved_classification_mode
+            ]
+        except KeyError:
+            raise ValueError(
+                "classification_mode must be 'binary' or 'multiclass'; "
+                f"received {resolved_classification_mode!r}."
+            ) from None
+        selected_loss = (
+            DEFAULT_LOSS_BY_CLASSIFICATION_MODE[resolved_classification_mode]
+            if loss_name is None
+            else loss_name
+        )
+        output_head = build_default_output_head(
+            problem_mode,
+            resolved_classification_mode,
+        )
+    else:
+        if problem_mode != "regression":
+            raise ValueError(
+                "problem_mode must be 'classification' or 'regression'; "
+                f"received {problem_mode!r}."
+            )
+        if classification_mode is not None:
+            raise ValueError("classification_mode must be None for regression.")
+        supported_losses = _supported_loss_names(problem_mode)
+        selected_loss = (
+            _default_component_name(DEFAULT_LOSS_BY_PROBLEM_MODE, problem_mode)
+            if loss_name is None
+            else loss_name
+        )
+        output_head = build_default_output_head(problem_mode)
     if selected_loss not in supported_losses:
         raise ValueError(
             f"loss={selected_loss!r} is incompatible with "
@@ -129,7 +176,7 @@ def build_task_components(
     return TaskComponents(
         loss=build_loss(selected_loss),
         loss_input_transform=build_loss_input_transform(selected_loss),
-        output_head=build_default_output_head(problem_mode),
+        output_head=output_head,
     )
 
 
@@ -160,8 +207,17 @@ def build_loss_input_transform(loss_name: str) -> nn.Module:
     return build_output_head(transform_name)
 
 
-def build_default_output_head(problem_mode: str) -> nn.Module:
+def build_default_output_head(
+    problem_mode: str,
+    classification_mode: str | None = None,
+) -> nn.Module:
     """Build the default registered output head for a problem mode."""
+    if problem_mode == "classification" and classification_mode is not None:
+        name = _default_component_name(
+            DEFAULT_OUTPUT_HEAD_BY_CLASSIFICATION_MODE,
+            classification_mode,
+        )
+        return build_output_head(name)
     name = _default_component_name(
         DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE,
         problem_mode,

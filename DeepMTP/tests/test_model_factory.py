@@ -62,6 +62,37 @@ def test_model_factory_builds_each_combination_architecture(
     assert output.shape == (2, 1)
 
 
+@pytest.mark.parametrize("architecture", ["dot_product", "mlp", "kronecker"])
+def test_model_factory_builds_multiclass_logits_for_every_architecture(
+    architecture,
+):
+    bundle = ModelFactory(
+        make_config(
+            general_architecture_version=architecture,
+            classification_mode="multiclass",
+            num_classes=4,
+        )
+    ).build()
+
+    output = bundle.model(torch.ones(2, 2), torch.ones(2, 3))
+
+    assert output.shape == (2, 4)
+    assert bundle.model.output_dim == 4
+
+
+def test_dot_product_adds_class_projection_only_for_multiclass_models():
+    binary_model = ModelFactory(make_config()).build().model
+    multiclass_model = (
+        ModelFactory(make_config(classification_mode="multiclass", num_classes=3))
+        .build()
+        .model
+    )
+
+    assert binary_model.class_projection is None
+    assert isinstance(multiclass_model.class_projection, nn.Linear)
+    assert multiclass_model.class_projection.out_features == 3
+
+
 def test_fusion_registry_exposes_each_supported_architecture():
     assert FUSION_REGISTRY.names == ("dot_product", "kronecker", "mlp")
     assert FUSION_REGISTRY.resolve("dot_product") is TwoBranchDotProductModel

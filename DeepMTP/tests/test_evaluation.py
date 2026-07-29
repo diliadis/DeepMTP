@@ -84,6 +84,45 @@ def test_evaluator_calculates_metrics_from_epoch_output():
     assert results["val_accuracy_micro"] == pytest.approx(1.0)
 
 
+def test_evaluator_calculates_multiclass_metrics_from_probability_vectors():
+    evaluator = Evaluator(
+        make_config(
+            classification_mode="multiclass",
+            num_classes=3,
+            metrics=[
+                "accuracy",
+                "hamming_loss",
+                "precision",
+                "recall",
+                "f1_score",
+                "auroc",
+                "aupr",
+            ],
+        )
+    )
+    output = EpochOutput(
+        true_values=[0, 1, 2, 0, 1, 2],
+        predicted_values=[0, 1, 2, 0, 1, 2],
+        class_probabilities=[
+            [0.90, 0.05, 0.05],
+            [0.05, 0.90, 0.05],
+            [0.05, 0.05, 0.90],
+            [0.80, 0.10, 0.10],
+            [0.10, 0.80, 0.10],
+            [0.10, 0.10, 0.80],
+        ],
+        instance_ids=[0, 1, 2, 3, 4, 5],
+        target_ids=[0, 0, 0, 0, 0, 0],
+    )
+
+    results = evaluator.evaluate("test", epoch=0, output=output)
+
+    assert results["test_accuracy_micro"] == pytest.approx(1.0)
+    assert results["test_hamming_loss_micro"] == pytest.approx(0.0)
+    for metric in ("precision", "recall", "f1_score", "auroc", "aupr"):
+        assert results[f"test_{metric}_micro"] == pytest.approx(1.0)
+
+
 def test_evaluator_uses_injected_progress_without_stdout(capsys):
     progress = RecordingEvaluationProgress()
     evaluator = Evaluator(
@@ -168,3 +207,31 @@ def test_prediction_frame_has_stable_columns_and_values():
         "true_values": 1.0,
         "predicted_values": 0.75,
     }
+
+
+def test_multiclass_prediction_frame_includes_winner_and_all_probabilities():
+    output = EpochOutput(
+        true_values=[2, 0],
+        predicted_values=[2, 0],
+        class_probabilities=[
+            [0.10, 0.20, 0.70],
+            [0.80, 0.15, 0.05],
+        ],
+        instance_ids=[4, 5],
+        target_ids=[9, 9],
+    )
+
+    predictions = Evaluator.predictions_frame(output)
+
+    assert list(predictions.columns) == [
+        "instance_id",
+        "target_id",
+        "true_values",
+        "predicted_values",
+        "predicted_probability",
+        "probability_class_0",
+        "probability_class_1",
+        "probability_class_2",
+    ]
+    assert predictions["predicted_probability"].tolist() == pytest.approx([0.7, 0.8])
+    assert predictions["probability_class_2"].tolist() == pytest.approx([0.7, 0.05])

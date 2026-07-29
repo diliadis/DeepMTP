@@ -121,6 +121,77 @@ def test_problem_modes_materialize_stable_default_losses(
     assert DeepMTPConfig.from_mapping(config).loss == expected_loss
 
 
+def test_multiclass_config_materializes_safe_defaults_and_output_width():
+    config = make_valid_config(
+        classification_mode="MULTICLASS",
+        num_classes=4,
+    )
+    normalized = DeepMTPConfig.from_mapping(config)
+
+    assert config["classification_mode"] == "multiclass"
+    assert config["loss"] == "cross_entropy"
+    assert config["multiclass_average"] == "macro"
+    assert normalized.num_classes == 4
+    assert normalized.output_dimension == 4
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        (
+            {"classification_mode": "multiclass", "num_classes": None},
+            "num_classes",
+        ),
+        (
+            {"classification_mode": "multiclass", "num_classes": 2},
+            "greater than or equal to 3",
+        ),
+        (
+            {
+                "classification_mode": "multiclass",
+                "num_classes": 3,
+                "loss": "binary_cross_entropy_with_logits",
+            },
+            "incompatible",
+        ),
+        (
+            {
+                "classification_mode": "multiclass",
+                "num_classes": 3,
+                "top_k": 2,
+            },
+            "top_k is not supported",
+        ),
+        (
+            {
+                "classification_mode": "multiclass",
+                "num_classes": 3,
+                "multiclass_average": "samples",
+            },
+            "multiclass_average",
+        ),
+        (
+            {"classification_mode": "binary", "num_classes": 3},
+            "num_classes is only valid",
+        ),
+        (
+            {
+                "problem_mode": "regression",
+                "metrics": ["MSE"],
+                "classification_mode": "binary",
+            },
+            "classification_mode must be None",
+        ),
+    ],
+)
+def test_multiclass_config_rejects_ambiguous_or_incompatible_options(
+    overrides,
+    message,
+):
+    with pytest.raises(ConfigValidationError, match=message):
+        make_valid_config(**overrides)
+
+
 @pytest.mark.parametrize("loss", ["mean_absolute_error", "huber"])
 def test_regression_accepts_configurable_losses(loss):
     config = make_valid_config(

@@ -891,3 +891,74 @@ def test_epilepsy_metrics_group_episodes_and_false_alarm_windows():
     assert results["f1_score_1"] == pytest.approx(4 / 9)
     assert results["f1_score_10"] == pytest.approx(4 / 7)
     assert results["f1_score_60"] == pytest.approx(2 / 3)
+
+
+@pytest.mark.parametrize(
+    ("class_average", "expected_precision"),
+    [
+        ("micro", 4 / 6),
+        ("macro", (1 / 2 + 2 / 3 + 1) / 3),
+        ("weighted", (1 / 2 + 2 / 3 + 1) / 3),
+    ],
+)
+def test_multiclass_metrics_use_configured_class_averaging(
+    class_average,
+    expected_precision,
+):
+    results = get_performance_results(
+        mode="test",
+        epoch_id=0,
+        instances_arr=[0, 1, 2, 3, 4, 5],
+        targets_arr=[0, 0, 0, 0, 0, 0],
+        true_values_arr=[0, 0, 1, 1, 2, 2],
+        pred_values_arr=[0, 1, 1, 1, 2, 0],
+        validation_setting="A",
+        problem_mode="classification",
+        metrics=["accuracy", "precision"],
+        averaging=["micro"],
+        classification_mode="multiclass",
+        num_classes=3,
+        multiclass_average=class_average,
+        class_probabilities_arr=[
+            [0.80, 0.10, 0.10],
+            [0.20, 0.70, 0.10],
+            [0.10, 0.80, 0.10],
+            [0.10, 0.75, 0.15],
+            [0.10, 0.10, 0.80],
+            [0.70, 0.10, 0.20],
+        ],
+    )
+
+    assert results["test_accuracy_micro"] == pytest.approx(4 / 6)
+    assert results["test_precision_micro"] == pytest.approx(expected_precision)
+
+
+@pytest.mark.parametrize(
+    ("probabilities", "message"),
+    [
+        ([[0.5, 0.5]], "shape"),
+        ([[0.5, 0.5, 0.5]], "sum to one"),
+        ([[0.5, -0.1, 0.6]], r"\[0, 1\]"),
+    ],
+)
+def test_multiclass_evaluation_rejects_invalid_probability_vectors(
+    probabilities,
+    message,
+):
+    with pytest.raises(ValueError, match=message):
+        get_performance_results(
+            mode="test",
+            epoch_id=0,
+            instances_arr=[0],
+            targets_arr=[0],
+            true_values_arr=[0],
+            pred_values_arr=[0],
+            validation_setting="A",
+            problem_mode="classification",
+            metrics=["accuracy"],
+            averaging=["micro"],
+            classification_mode="multiclass",
+            num_classes=3,
+            multiclass_average="macro",
+            class_probabilities_arr=probabilities,
+        )
