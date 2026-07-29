@@ -10,15 +10,22 @@ PEP 440-compatible version and Git tag, for example `0.1.0` and `v0.1.0`.
 ## One-time repository setup
 
 - Confirm the releaser can push tags and publish GitHub Releases.
-- Add a scoped PyPI API token to the GitHub Actions repository secret
-  `PYPI_API_TOKEN`. The token should be limited to the DeepMTP PyPI project.
+- Create a GitHub Actions environment named `pypi`. Restrict deployments to
+  tags matching `v*` and consider requiring maintainer approval.
+- In the DeepMTP project's PyPI publishing settings, add a trusted publisher
+  with owner `diliadis`, repository `DeepMTP`, workflow `publish.yml`, and
+  environment `pypi`. These values, including capitalization, must match the
+  GitHub repository and workflow exactly.
 - Protect the PyPI account with multi-factor authentication.
 - Keep the `publish.yml` workflow restricted to GitHub's `release: published`
   event.
 
-The current publishing workflow uses `PYPI_API_TOKEN`. Migrating it to PyPI
-Trusted Publishing should be handled as a separate infrastructure change and
-tested before removing the token.
+The publishing workflow uses PyPI Trusted Publishing. GitHub exchanges an OIDC
+identity for a short-lived, release-specific PyPI credential; the workflow does
+not read a repository API-token secret. Configure the GitHub environment and
+PyPI publisher before publishing a release. After the first successful trusted
+release, remove any historical `PYPI_API_TOKEN` GitHub secret and revoke the
+corresponding PyPI token.
 
 ## 1. Prepare the release
 
@@ -126,9 +133,13 @@ tagged commit to pass before publishing a GitHub Release.
   migration guide when behavior changed.
 - Mark a pre-release appropriately for alpha, beta, or release-candidate tags.
 - Publish the GitHub Release. This triggers `.github/workflows/publish.yml`.
-- Confirm the publish job built fresh distributions, passed strict metadata
-  validation, verified both artifact versions against the GitHub Release tag,
-  and uploaded both artifacts to PyPI.
+- Confirm the `Build and verify distributions` job built fresh distributions,
+  passed strict metadata validation, verified both artifact versions against
+  the GitHub Release tag, and uploaded the verified workflow artifact.
+- Approve the protected `pypi` environment deployment if approval is required.
+- Confirm the separate `Publish verified distributions to PyPI` job downloaded
+  that artifact, authenticated through Trusted Publishing, uploaded both
+  distributions, and generated publish attestations.
 
 Never run a second manual upload while the publishing workflow is active.
 

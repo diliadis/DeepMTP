@@ -282,7 +282,8 @@ def test_project_policies_are_complete_and_linked():
     assert "dimitrios.iliadis@ugent.be" in policies["SECURITY.md"]
     assert "Load only" in policies["SECURITY.md"]
     assert "`setuptools-scm`" in policies["RELEASING.md"]
-    assert "`PYPI_API_TOKEN`" in policies["RELEASING.md"]
+    assert "PyPI Trusted Publishing" in policies["RELEASING.md"]
+    assert "environment named `pypi`" in policies["RELEASING.md"]
     assert "python -m pytest" in policies["RELEASING.md"]
     assert "python -m pytest -m release_candidate" in policies["RELEASING.md"]
     assert "python -m twine check --strict" in policies["RELEASING.md"]
@@ -295,6 +296,7 @@ def test_project_policies_are_complete_and_linked():
     assert 'scripts/verify_release_artifacts.py "$RELEASE_TAG" dist/*' in (
         publish_workflow
     )
+    assert "PYPI_API_TOKEN" not in publish_workflow
     assert 'python: "3.13"' in ci_workflow
     assert 'python: "3.14"' in ci_workflow
     assert "python -m pip install -e . --group test" in ci_workflow
@@ -331,6 +333,33 @@ def test_project_policies_are_complete_and_linked():
     assert '"constraints/minimum.txt"' in dependabot_config
     assert dependabot_config.count('applies-to: "version-updates"') == 3
     assert 'applies-to: "security-updates"' not in dependabot_config
+
+
+def test_publish_workflow_isolates_trusted_publishing_permissions():
+    publish_workflow = (
+        _PROJECT_ROOT / ".github" / "workflows" / "publish.yml"
+    ).read_text(encoding="utf-8")
+    build_job, publish_job = publish_workflow.split("\n  pypi-publish:", maxsplit=1)
+
+    assert "permissions: {}" in publish_workflow
+    assert "\n  release-build:" in build_job
+    assert "contents: read" in build_job
+    assert "id-token: write" not in build_job
+    assert "actions/upload-artifact@" in build_job
+    assert "needs: release-build" in publish_job
+    assert "name: pypi" in publish_job
+    assert "id-token: write" in publish_job
+    assert "contents: read" not in publish_job
+    assert "actions/download-artifact@" in publish_job
+    assert "digest-mismatch: error" in publish_job
+    assert "pypa/gh-action-pypi-publish@" in publish_job
+    assert "packages-dir: dist/" in publish_job
+    assert "attestations: true" in publish_job
+    assert "actions/checkout@" not in publish_job
+    assert "actions/setup-python@" not in publish_job
+    assert "\n        run:" not in publish_job
+    assert "password:" not in publish_workflow
+    assert "secrets." not in publish_workflow
 
 
 def test_remote_workflow_actions_use_immutable_commit_pins():

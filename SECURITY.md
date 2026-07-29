@@ -70,6 +70,12 @@ GitHub Actions are pinned to immutable full commit SHAs, with the corresponding
 release tag retained as a comment for review. Dependabot should update both the
 commit and readable release annotation through focused pull requests.
 
+PyPI releases use Trusted Publishing instead of a long-lived repository secret.
+The release workflow builds and verifies distributions in an unprivileged job,
+then passes only those artifacts to a protected `pypi` environment. The
+publication job has the OIDC `id-token: write` permission but cannot check out
+the repository or run project build scripts.
+
 ## Disclosure
 
 Once a fix is ready, the maintainer and reporter should agree on a coordinated
