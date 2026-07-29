@@ -32,6 +32,8 @@ checkpoints.
   dependency series remains installable and passes the offline test suite.
 - Scoped weekly Dependabot updates for Python requirements, GitHub Actions, and
   pre-commit hooks, with minor and patch releases grouped for focused review.
+- Pull-request dependency review that rejects newly introduced
+  moderate-or-higher known vulnerabilities and reports patched versions.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 

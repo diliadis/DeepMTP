@@ -1,0 +1,28 @@
+name: Dependency review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Reject newly vulnerable dependencies
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: "moderate"
+          fail-on-scopes: "runtime, development, unknown"
+          license-check: false
+          show-patched-versions: true

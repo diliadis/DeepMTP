@@ -164,6 +164,8 @@ Exit criterion: there is only one implementation of training and HPO logic.
   job.
 - [x] Add scoped dependency-update automation for Python, GitHub Actions, and
   pre-commit hooks.
+- [x] Reject pull requests that introduce known moderate-or-higher dependency
+  vulnerabilities.
 - [x] Build and inspect wheel/sdist artifacts in CI.
 - [x] Add pre-commit hooks after the initial formatting migration.
 

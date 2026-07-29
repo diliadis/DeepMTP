@@ -259,6 +259,9 @@ def test_project_policies_are_complete_and_linked():
     ci_workflow = (_PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
+    dependency_review_workflow = (
+        _PROJECT_ROOT / ".github" / "workflows" / "dependency-review.yml"
+    ).read_text(encoding="utf-8")
     conda_environment = (_PROJECT_ROOT / "environment.yml").read_text(encoding="utf-8")
     readthedocs_config = (_PROJECT_ROOT / ".readthedocs.yaml").read_text(
         encoding="utf-8"
@@ -303,6 +306,15 @@ def test_project_policies_are_complete_and_linked():
     assert "scripts/smoke_test_installation.py" in ci_workflow
     assert "--require-wheel-install" in ci_workflow
     assert "working-directory: ${{ runner.temp }}" in ci_workflow
+    assert "actions/dependency-review-action@v5" in dependency_review_workflow
+    assert 'fail-on-severity: "moderate"' in dependency_review_workflow
+    assert (
+        'fail-on-scopes: "runtime, development, unknown"' in dependency_review_workflow
+    )
+    assert "license-check: false" in dependency_review_workflow
+    assert "contents: read" in dependency_review_workflow
+    assert "contents: write" not in dependency_review_workflow
+    assert "pull-requests: write" not in dependency_review_workflow
     assert "pip>=25.1" in conda_environment
     assert "- -e ." in conda_environment
     assert ".[dev]" not in conda_environment

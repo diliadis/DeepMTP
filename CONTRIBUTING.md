@@ -88,6 +88,12 @@ results, downloaded datasets, or model checkpoints. Follow
 [SECURITY.md](SECURITY.md) instead of opening a public issue for a suspected
 vulnerability.
 
+The `Review dependency changes` CI check rejects pull requests that introduce
+known moderate-or-higher vulnerabilities. Review its summary and update or
+remove the affected dependency instead of disabling the check. License policy
+is not enforced by this workflow; a future license gate must first define and
+document the project's accepted licenses.
+
 Maintainers should use [RELEASING.md](RELEASING.md) for the tag-driven release
 process. Release history and pending user-visible changes are recorded in
 [CHANGELOG.md](CHANGELOG.md).
