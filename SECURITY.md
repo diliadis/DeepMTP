@@ -66,6 +66,10 @@ bypassed accidentally. Existing dependency alerts should be triaged separately;
 the pull-request check is designed to prevent adding new known vulnerabilities,
 not to certify the complete historical dependency graph.
 
+GitHub Actions are pinned to immutable full commit SHAs, with the corresponding
+release tag retained as a comment for review. Dependabot should update both the
+commit and readable release annotation through focused pull requests.
+
 ## Disclosure
 
 Once a fix is ready, the maintainer and reporter should agree on a coordinated

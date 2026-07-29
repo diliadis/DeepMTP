@@ -306,7 +306,7 @@ def test_project_policies_are_complete_and_linked():
     assert "scripts/smoke_test_installation.py" in ci_workflow
     assert "--require-wheel-install" in ci_workflow
     assert "working-directory: ${{ runner.temp }}" in ci_workflow
-    assert "actions/dependency-review-action@v5" in dependency_review_workflow
+    assert "actions/dependency-review-action@" in dependency_review_workflow
     assert 'fail-on-severity: "moderate"' in dependency_review_workflow
     assert (
         'fail-on-scopes: "runtime, development, unknown"' in dependency_review_workflow
@@ -331,6 +331,32 @@ def test_project_policies_are_complete_and_linked():
     assert '"constraints/minimum.txt"' in dependabot_config
     assert dependabot_config.count('applies-to: "version-updates"') == 3
     assert 'applies-to: "security-updates"' not in dependabot_config
+
+
+def test_remote_workflow_actions_use_immutable_commit_pins():
+    action_reference = re.compile(
+        r"^\s*uses:\s+"
+        r"(?P<action>[^@\s]+)@"
+        r"(?P<commit>[0-9a-f]{40})"
+        r"\s+#\s+(?P<version>\S+)\s*$"
+    )
+    workflow_paths = sorted((_PROJECT_ROOT / ".github" / "workflows").glob("*.y*ml"))
+
+    assert workflow_paths
+    for workflow_path in workflow_paths:
+        uses_lines = [
+            line
+            for line in workflow_path.read_text(encoding="utf-8").splitlines()
+            if line.lstrip().startswith("uses:")
+        ]
+        for line in uses_lines:
+            reference = line.split("uses:", maxsplit=1)[1].strip()
+            if reference.startswith(("./", "docker://")):
+                continue
+            assert action_reference.fullmatch(line), (
+                f"{workflow_path.name} must pin remote action reference "
+                f"{reference!r} to a full commit SHA with a version comment"
+            )
 
 
 def test_dependency_metadata_separates_runtime_features_from_development_tools():
