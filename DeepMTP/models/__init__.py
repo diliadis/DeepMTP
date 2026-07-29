@@ -9,7 +9,9 @@ from DeepMTP.models.contracts import (
     encoder_output_dimension,
 )
 from DeepMTP.models.factory import (
+    FUSION_REGISTRY,
     BranchFactory,
+    FusionModelType,
     ModelBundle,
     ModelFactory,
     TwoBranchDotProductModel,
@@ -23,6 +25,8 @@ __all__ = [
     "BranchEncoder",
     "BranchModelInput",
     "ConvNet",
+    "FUSION_REGISTRY",
+    "FusionModelType",
     "IDEmbedding",
     "MLP",
     "ModelBundle",

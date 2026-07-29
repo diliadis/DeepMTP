@@ -9,6 +9,7 @@ architectures, and construction:
    from DeepMTP.models import (
        BranchEncoder,
        ConvNet,
+       FUSION_REGISTRY,
        MLP,
        ModelFactory,
        TabularEncoder,
@@ -45,6 +46,10 @@ Branch models
 
 Combination models and construction
 -----------------------------------
+
+``FUSION_REGISTRY`` resolves the built-in ``dot_product``, ``mlp``, and
+``kronecker`` combination models. ``ModelFactory`` uses this registry instead
+of maintaining a separate architecture conditional.
 
 .. automodule:: DeepMTP.models.factory
    :members:

@@ -18,6 +18,7 @@ from DeepMTP.models import (
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
 )
+from DeepMTP.runtime.components import build_default_task_components
 from DeepMTP.runtime.evaluation import Evaluator
 from DeepMTP.runtime.persistence import ExperimentStore
 from DeepMTP.runtime.presentation import (
@@ -171,16 +172,14 @@ class DeepMTP:
                         state[k] = v.to(self.device)
             self.progress.on_event(ProgressEvent("checkpoint_weights_completed"))
 
-        # initialize the loss function that will be used. BCE for classification tasks and MSE for regression tasks.
         problem_mode = self.configuration.problem_mode
         if problem_mode is None:
             raise RuntimeError(
                 "Trainer received an incomplete validated problem configuration."
             )
-        if problem_mode == "classification":
-            self.criterion = nn.BCELoss(reduction="mean")
-        else:
-            self.criterion = nn.MSELoss(reduction="mean")
+        task_components = build_default_task_components(problem_mode)
+        self.criterion = task_components.loss
+        self.output_head = task_components.output_head
 
         self.training_engine = TrainingEngine(
             model=self.deepMTP_model,
@@ -188,6 +187,7 @@ class DeepMTP:
             device=self.device,
             problem_mode=problem_mode,
             optimizer=self.optimizer,
+            output_head=self.output_head,
         )
         self.evaluator = Evaluator(
             self.configuration,

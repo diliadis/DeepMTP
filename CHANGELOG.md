@@ -45,6 +45,8 @@ checkpoints.
 - Mixed tabular branches with training-only numeric preprocessing, learned
   categorical embeddings, optional feature gating, structured batches, and
   checkpointed preprocessing state.
+- Typed registries for fusion models, task losses, and output heads, with
+  deterministic discovery and focused resolution errors.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 

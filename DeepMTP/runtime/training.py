@@ -11,6 +11,7 @@ import torch
 from torch import nn
 
 from DeepMTP.data.batches import MTPBatch
+from DeepMTP.runtime.components import build_default_output_head
 
 __all__ = ["EpochOutput", "TensorBatch", "TrainingEngine"]
 
@@ -69,6 +70,7 @@ class TrainingEngine:
         device: torch.device,
         problem_mode: str,
         optimizer: torch.optim.Optimizer | None = None,
+        output_head: nn.Module | None = None,
     ):
         if problem_mode not in {"classification", "regression"}:
             raise ValueError(
@@ -80,6 +82,14 @@ class TrainingEngine:
         self.device = device
         self.problem_mode = problem_mode
         self.optimizer = optimizer
+        self.output_head = (
+            output_head
+            if output_head is not None
+            else build_default_output_head(problem_mode)
+        )
+        if not isinstance(self.output_head, nn.Module):
+            raise TypeError("output_head must be a torch.nn.Module.")
+        self.output_head.to(device)
 
     def train_epoch(
         self,
@@ -165,12 +175,11 @@ class TrainingEngine:
             target_features = batch["target_features"].to(self.device)
             true_values = batch["score"].float().to(self.device)
 
-        predictions = torch.squeeze(
+        raw_predictions = torch.squeeze(
             self.model(instance_features, target_features),
             1,
         )
-        if self.problem_mode == "classification":
-            predictions = torch.sigmoid(predictions)
+        predictions = self.output_head(raw_predictions)
         return true_values, predictions
 
     def _validate_typed_input_kinds(self, batch: MTPBatch) -> None:

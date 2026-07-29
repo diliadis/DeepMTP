@@ -172,7 +172,7 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Add structured numeric/categorical batches for tabular encoders.
 - [ ] Add structured batch contracts for sequences and graphs when those
   encoders are introduced.
-- [ ] Separate fusion, output-head, and loss selection into registries.
+- [x] Separate fusion, output-head, and loss selection into registries.
 - [ ] Store all preprocessing metadata with checkpoints (tabular preprocessing
   is complete; legacy dense-scaler metadata remains).
 

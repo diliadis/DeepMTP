@@ -13,6 +13,7 @@ import DeepMTP.persistence as legacy_persistence
 import DeepMTP.presentation as legacy_presentation
 import DeepMTP.reporting as legacy_reporting
 import DeepMTP.runtime as runtime_api
+import DeepMTP.runtime.components as components_module
 import DeepMTP.runtime.evaluation as evaluation_module
 import DeepMTP.runtime.evaluation_progress as evaluation_progress_module
 import DeepMTP.runtime.persistence as persistence_module
@@ -30,6 +31,12 @@ def test_runtime_package_exposes_canonical_services():
             evaluation_progress_module.ConsoleEvaluationProgressObserver
         ),
         "ConsoleProgressObserver": presentation_module.ConsoleProgressObserver,
+        "DEFAULT_LOSS_BY_PROBLEM_MODE": (
+            components_module.DEFAULT_LOSS_BY_PROBLEM_MODE
+        ),
+        "DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE": (
+            components_module.DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE
+        ),
         "EvaluationAveraging": evaluation_progress_module.EvaluationAveraging,
         "EvaluationGroup": evaluation_progress_module.EvaluationGroup,
         "EvaluationPolicy": evaluation_module.EvaluationPolicy,
@@ -44,12 +51,16 @@ def test_runtime_package_exposes_canonical_services():
         "EpochOutput": training_module.EpochOutput,
         "ExperimentReporter": reporting_module.ExperimentReporter,
         "ExperimentStore": persistence_module.ExperimentStore,
+        "LOSS_REGISTRY": components_module.LOSS_REGISTRY,
+        "LossFactory": components_module.LossFactory,
         "NullEvaluationProgressObserver": (
             evaluation_progress_module.NullEvaluationProgressObserver
         ),
         "NullProgressObserver": presentation_module.NullProgressObserver,
         "NullReporter": reporting_module.NullReporter,
         "OptionalIntegrationError": reporting_module.OptionalIntegrationError,
+        "OUTPUT_HEAD_REGISTRY": components_module.OUTPUT_HEAD_REGISTRY,
+        "OutputHeadFactory": components_module.OutputHeadFactory,
         "ProgressEvent": presentation_module.ProgressEvent,
         "ProgressEventKind": presentation_module.ProgressEventKind,
         "ProgressObserver": presentation_module.ProgressObserver,
@@ -58,13 +69,21 @@ def test_runtime_package_exposes_canonical_services():
         "RunSummaries": presentation_module.RunSummaries,
         "TensorBoardReporter": reporting_module.TensorBoardReporter,
         "TensorBatch": training_module.TensorBatch,
+        "TaskComponents": components_module.TaskComponents,
         "TrainingEngine": training_module.TrainingEngine,
         "WandBReporter": reporting_module.WandBReporter,
+        "build_default_loss": components_module.build_default_loss,
+        "build_default_output_head": components_module.build_default_output_head,
+        "build_default_task_components": (
+            components_module.build_default_task_components
+        ),
         "build_evaluation_progress_observer": (
             evaluation_progress_module.build_evaluation_progress_observer
         ),
         "build_progress_observer": presentation_module.build_progress_observer,
         "build_reporter": reporting_module.build_reporter,
+        "build_loss": components_module.build_loss,
+        "build_output_head": components_module.build_output_head,
     }
 
     assert set(runtime_api.__all__) == set(expected_symbols)
