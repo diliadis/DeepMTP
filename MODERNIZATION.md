@@ -162,6 +162,8 @@ Exit criterion: there is only one implementation of training and HPO logic.
 - [x] Test supported Python versions on Linux, macOS, and Windows where useful.
 - [x] Verify the declared minimum dependency series in a dedicated Python 3.10
   job.
+- [x] Add scoped dependency-update automation for Python, GitHub Actions, and
+  pre-commit hooks.
 - [x] Build and inspect wheel/sdist artifacts in CI.
 - [x] Add pre-commit hooks after the initial formatting migration.
 

@@ -92,5 +92,11 @@ Maintainers should use [RELEASING.md](RELEASING.md) for the tag-driven release
 process. Release history and pending user-visible changes are recorded in
 [CHANGELOG.md](CHANGELOG.md).
 
+Dependabot checks Python requirements, GitHub Actions, and pre-commit hooks
+weekly. Minor and patch version updates are grouped; major and security updates
+remain separate for focused review. The tested lower-bound series in
+`constraints/minimum.txt` is intentionally excluded and must be updated
+together with `pyproject.toml` and its compatibility tests.
+
 The staged technical direction and remaining work are tracked in
 [MODERNIZATION.md](MODERNIZATION.md).

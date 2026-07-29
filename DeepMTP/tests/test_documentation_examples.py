@@ -263,6 +263,9 @@ def test_project_policies_are_complete_and_linked():
     readthedocs_config = (_PROJECT_ROOT / ".readthedocs.yaml").read_text(
         encoding="utf-8"
     )
+    dependabot_config = (_PROJECT_ROOT / ".github" / "dependabot.yml").read_text(
+        encoding="utf-8"
+    )
 
     for policy_name in policy_names:
         assert policy_name in readme or policy_name == "MIGRATION.rst"
@@ -306,6 +309,16 @@ def test_project_policies_are_complete_and_linked():
     assert "-e .[all]" not in conda_environment
     assert "python -m pip install -e . --group docs" in readthedocs_config
     assert "configuration: docs/source/conf.py" in readthedocs_config
+    assert re.findall(
+        r'package-ecosystem: "([^"]+)"',
+        dependabot_config,
+    ) == ["pip", "github-actions", "pre-commit"]
+    assert dependabot_config.count('interval: "weekly"') == 3
+    assert dependabot_config.count("default-days: 7") == 3
+    assert 'versioning-strategy: "increase-if-necessary"' in dependabot_config
+    assert '"constraints/minimum.txt"' in dependabot_config
+    assert dependabot_config.count('applies-to: "version-updates"') == 3
+    assert 'applies-to: "security-updates"' not in dependabot_config
 
 
 def test_dependency_metadata_separates_runtime_features_from_development_tools():

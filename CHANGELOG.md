@@ -30,6 +30,8 @@ checkpoints.
   MTL, and matrix-completion workloads.
 - A dedicated Python 3.10 CI job that verifies the advertised minimum
   dependency series remains installable and passes the offline test suite.
+- Scoped weekly Dependabot updates for Python requirements, GitHub Actions, and
+  pre-commit hooks, with minor and patch releases grouped for focused review.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 
