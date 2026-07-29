@@ -209,6 +209,24 @@ def test_readme_branch_configuration_examples_are_valid(
     assert config.target_branch_architecture == expected_target_architecture
 
 
+def test_readme_multiclass_configuration_example_is_valid():
+    example = _marked_python_example(
+        _PROJECT_ROOT / "README.md",
+        "multiclass-config-example",
+    )
+    namespace = {"__name__": "__main__"}
+
+    exec(compile(example, "README.md", "exec"), namespace)
+
+    data_info = namespace["data_info"]
+    config = namespace["config"]
+    assert data_info["detected_classification_mode"] == "multiclass"
+    assert data_info["detected_num_classes"] == 3
+    assert config.classification_mode == "multiclass"
+    assert config.num_classes == 3
+    assert config.loss == "cross_entropy"
+
+
 def test_hpo_documentation_example_runs_offline(monkeypatch, tmp_path):
     readme_example = _marked_python_example(
         _PROJECT_ROOT / "README.md",

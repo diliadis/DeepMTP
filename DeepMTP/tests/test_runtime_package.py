@@ -34,11 +34,17 @@ def test_runtime_package_exposes_canonical_services():
         "DEFAULT_LOSS_BY_PROBLEM_MODE": (
             components_module.DEFAULT_LOSS_BY_PROBLEM_MODE
         ),
+        "DEFAULT_LOSS_BY_CLASSIFICATION_MODE": (
+            components_module.DEFAULT_LOSS_BY_CLASSIFICATION_MODE
+        ),
         "DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE": (
             components_module.DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE
         ),
         "DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE": (
             components_module.DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE
+        ),
+        "DEFAULT_OUTPUT_HEAD_BY_CLASSIFICATION_MODE": (
+            components_module.DEFAULT_OUTPUT_HEAD_BY_CLASSIFICATION_MODE
         ),
         "EvaluationAveraging": evaluation_progress_module.EvaluationAveraging,
         "EvaluationGroup": evaluation_progress_module.EvaluationGroup,
@@ -75,6 +81,9 @@ def test_runtime_package_exposes_canonical_services():
         "RunSummaries": presentation_module.RunSummaries,
         "SUPPORTED_LOSSES_BY_PROBLEM_MODE": (
             components_module.SUPPORTED_LOSSES_BY_PROBLEM_MODE
+        ),
+        "SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE": (
+            components_module.SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE
         ),
         "TensorBoardReporter": reporting_module.TensorBoardReporter,
         "TensorBatch": training_module.TensorBatch,

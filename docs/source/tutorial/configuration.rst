@@ -19,10 +19,16 @@ In the code snippet above the function generate_config is shown without any spec
    * - **learning_rate**
      - The learning rate used to determine the step size at each iteration of the optimization process
    * - **loss**
-     - Training objective. Classification defaults to
-       ``binary_cross_entropy_with_logits``. Regression defaults to
-       ``mean_squared_error`` and also supports ``mean_absolute_error`` and
-       ``huber``.
+     - Training objective. Binary classification defaults to
+       ``binary_cross_entropy_with_logits``; multiclass classification uses
+       ``cross_entropy``. Regression defaults to ``mean_squared_error`` and
+       also supports ``mean_absolute_error`` and ``huber``.
+   * - **classification_mode**
+     - ``binary`` (the backward-compatible classification default) or
+       ``multiclass``
+   * - **num_classes**
+     - Number of mutually exclusive classes; required and at least 3 for
+       multiclass classification
    * - **decay**
      - The weight decay (L2 penalty) used by the Adam optimizer
    * - **compute_mode**
@@ -56,9 +62,13 @@ In the code snippet above the function generate_config is shown without any spec
      - The averaging strategy used to calculate metrics. The available options
        are ['macro', 'micro', 'instance']; validation setting A supports only
        ['micro'].
+   * - **multiclass_average**
+     - Class averaging for multiclass precision, recall, F1, AUROC, and AUPR:
+       ``micro``, ``macro`` (default), or ``weighted``
    * - **top_k**
      - Number of top predictions used to calculate grouped metric variants;
-       requires ``macro`` or ``instance`` averaging
+       requires ``macro`` or ``instance`` averaging and is unavailable for
+       multiclass classification
    * - **metric_to_optimize_early_stopping**
      - The metric that will be used for tracking by the early stopping routine. The value can be the **loss** or one of the available performance metrics.
    * - **metric_to_optimize_best_epoch_selection**
@@ -159,6 +169,13 @@ A **TABULAR** branch consumes a DataFrame with an ``id`` column plus the
 numeric and categorical columns in its explicit schema. Training-only
 normalization and imputation statistics are saved with the model. See
 :doc:`tabular_inputs` for the complete schema and an example.
+
+For mutually exclusive outcomes, set
+``classification_mode="multiclass"`` during both ``data_process`` and
+configuration, and pass the detected ``num_classes`` value. Multiclass labels
+are consecutive integer IDs beginning at zero. See
+:doc:`multiclass_classification` for the data, loss, metric, prediction, and
+checkpoint contract.
 
 RRMSE remains available through the low-level ``get_performance_results``
 utility for macro evaluation when a training mean is provided for every

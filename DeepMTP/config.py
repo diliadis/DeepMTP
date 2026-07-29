@@ -11,9 +11,12 @@ from typing import Any, Literal, TypeAlias, cast
 
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
 ProblemMode: TypeAlias = Literal["classification", "regression"]
+ClassificationMode: TypeAlias = Literal["binary", "multiclass"]
+MulticlassAverage: TypeAlias = Literal["micro", "macro", "weighted"]
 LossName: TypeAlias = Literal[
     "binary_cross_entropy",
     "binary_cross_entropy_with_logits",
+    "cross_entropy",
     "mean_squared_error",
     "mean_absolute_error",
     "huber",
@@ -52,12 +55,32 @@ DEFAULT_LOSS_BY_PROBLEM_MODE: Mapping[str, str] = MappingProxyType(
         "regression": "mean_squared_error",
     }
 )
+DEFAULT_LOSS_BY_CLASSIFICATION_MODE: Mapping[str, str] = MappingProxyType(
+    {
+        "binary": "binary_cross_entropy_with_logits",
+        "multiclass": "cross_entropy",
+    }
+)
+SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE: Mapping[str, frozenset[str]] = (
+    MappingProxyType(
+        {
+            "binary": frozenset(
+                {
+                    "binary_cross_entropy",
+                    "binary_cross_entropy_with_logits",
+                }
+            ),
+            "multiclass": frozenset({"cross_entropy"}),
+        }
+    )
+)
 SUPPORTED_LOSSES_BY_PROBLEM_MODE: Mapping[str, frozenset[str]] = MappingProxyType(
     {
         "classification": frozenset(
             {
                 "binary_cross_entropy",
                 "binary_cross_entropy_with_logits",
+                "cross_entropy",
             }
         ),
         "regression": frozenset(
@@ -198,6 +221,9 @@ class DeepMTPConfig:
     running_hpo: bool = False
     hpo_results_path: str = "./"
     additional_info: dict[str, Any] = field(default_factory=dict)
+    classification_mode: ClassificationMode | None = None
+    num_classes: int | None = None
+    multiclass_average: MulticlassAverage | None = None
 
     _extras: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _present_fields: set[str] | None = field(default=None, init=False, repr=False)
@@ -276,6 +302,15 @@ class DeepMTPConfig:
         else:
             self._extras[key] = value
 
+    @property
+    def output_dimension(self) -> int:
+        """Number of raw scores produced for each interaction."""
+        if self.classification_mode == "multiclass":
+            if self.num_classes is None:  # pragma: no cover - validated invariant
+                raise RuntimeError("Multiclass configuration has no class count.")
+            return self.num_classes
+        return 1
+
     def _normalize(self) -> None:
         if isinstance(self.validation_setting, str):
             self.validation_setting = cast(
@@ -284,11 +319,34 @@ class DeepMTPConfig:
             )
         if isinstance(self.problem_mode, str):
             self.problem_mode = cast(ProblemMode, self.problem_mode.lower())
+        if isinstance(self.classification_mode, str):
+            self.classification_mode = cast(
+                ClassificationMode,
+                self.classification_mode.lower(),
+            )
+        if self.problem_mode == "classification" and self.classification_mode is None:
+            self.classification_mode = "binary"
+        if isinstance(self.multiclass_average, str):
+            self.multiclass_average = cast(
+                MulticlassAverage,
+                self.multiclass_average.lower(),
+            )
+        if self.classification_mode == "multiclass" and self.multiclass_average is None:
+            self.multiclass_average = "macro"
         if isinstance(self.loss, str):
             self.loss = cast(LossName, self.loss.lower())
-        normalized_problem_mode = self.problem_mode
-        if self.loss is None and normalized_problem_mode is not None:
-            default_loss = DEFAULT_LOSS_BY_PROBLEM_MODE.get(normalized_problem_mode)
+        if self.loss is None:
+            if (
+                self.problem_mode == "classification"
+                and self.classification_mode is not None
+            ):
+                default_loss = DEFAULT_LOSS_BY_CLASSIFICATION_MODE.get(
+                    self.classification_mode
+                )
+            elif self.problem_mode is not None:
+                default_loss = DEFAULT_LOSS_BY_PROBLEM_MODE.get(self.problem_mode)
+            else:
+                default_loss = None
             if default_loss is not None:
                 self.loss = cast(LossName, default_loss)
         if isinstance(self.general_architecture_version, str):
@@ -324,13 +382,58 @@ class DeepMTPConfig:
                 "problem_mode must be 'classification' or 'regression'; "
                 f"received {self.problem_mode!r}."
             )
-        supported_losses = SUPPORTED_LOSSES_BY_PROBLEM_MODE[self.problem_mode]
+        if self.problem_mode == "classification":
+            if self.classification_mode not in {"binary", "multiclass"}:
+                raise ConfigValidationError(
+                    "classification_mode must be 'binary' or 'multiclass' for "
+                    "classification; "
+                    f"received {self.classification_mode!r}."
+                )
+            supported_losses = SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE[
+                self.classification_mode
+            ]
+        else:
+            if self.classification_mode is not None:
+                raise ConfigValidationError(
+                    "classification_mode must be None for regression; "
+                    f"received {self.classification_mode!r}."
+                )
+            supported_losses = SUPPORTED_LOSSES_BY_PROBLEM_MODE["regression"]
         if self.loss not in supported_losses:
             raise ConfigValidationError(
                 f"loss={self.loss!r} is incompatible with "
                 f"problem_mode={self.problem_mode!r}. Select one of "
                 f"{sorted(supported_losses)}."
             )
+        if self.classification_mode == "multiclass":
+            if (
+                isinstance(self.num_classes, bool)
+                or not isinstance(self.num_classes, int)
+                or self.num_classes < 3
+            ):
+                raise ConfigValidationError(
+                    "num_classes must be an integer greater than or equal to 3 "
+                    "for multiclass classification."
+                )
+            if self.multiclass_average not in {"micro", "macro", "weighted"}:
+                raise ConfigValidationError(
+                    "multiclass_average must be 'micro', 'macro', or 'weighted'; "
+                    f"received {self.multiclass_average!r}."
+                )
+            if self.top_k is not None:
+                raise ConfigValidationError(
+                    "top_k is not supported for multiclass classification because "
+                    "its existing meaning ranks interactions, not classes."
+                )
+        else:
+            if self.num_classes is not None:
+                raise ConfigValidationError(
+                    "num_classes is only valid for multiclass classification."
+                )
+            if self.multiclass_average is not None:
+                raise ConfigValidationError(
+                    "multiclass_average is only valid for multiclass classification."
+                )
         if self.general_architecture_version not in {
             "dot_product",
             "mlp",

@@ -33,7 +33,7 @@ __all__ = [
     "process_interaction_data",
 ]
 
-VariableType: TypeAlias = Literal["binary", "real-valued"]
+VariableType: TypeAlias = Literal["binary", "multiclass", "real-valued"]
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
 DatasetMapping: TypeAlias = Mapping[str, Any]
 
@@ -275,15 +275,39 @@ def check_interaction_files_column_type_format(
             )
 
 
-def check_variable_type(samples_arr: pd.DataFrame) -> VariableType:
-    """Checks the type of the target variable. This implementation is currently very simple. It has to be updated!!
+def check_variable_type(
+    samples_arr: pd.DataFrame,
+    *,
+    classification_mode: Literal["binary", "multiclass"] | None = None,
+    num_classes: int | None = None,
+) -> VariableType:
+    """Detect binary or real-valued scores, or validate declared class IDs.
 
     Args:
         samples_arr (numpy.array): A numpy array with the target variables
 
     Returns:
-        str: The type of the target variable. Possible values are 'real-valued' and 'binary'
+        str: ``binary``, ``multiclass``, or ``real-valued``.
+
+    Multiclass targets are intentionally opt-in because an integer-valued
+    regression target is otherwise indistinguishable from class IDs.
     """
+    if classification_mode not in {None, "binary", "multiclass"}:
+        raise ValueError("classification_mode must be 'binary', 'multiclass', or None.")
+    if classification_mode != "multiclass" and num_classes is not None:
+        raise ValueError(
+            "num_classes is only valid when classification_mode='multiclass'."
+        )
+    if classification_mode == "multiclass" and (
+        isinstance(num_classes, bool)
+        or (
+            num_classes is not None
+            and (not isinstance(num_classes, int) or num_classes < 3)
+        )
+    ):
+        raise ValueError(
+            "num_classes must be an integer greater than or equal to 3 when provided."
+        )
     if "value" not in samples_arr:
         raise ValueError("Interaction data must contain a 'value' column.")
     values = samples_arr["value"]
@@ -293,7 +317,31 @@ def check_variable_type(samples_arr: pd.DataFrame) -> VariableType:
         raise TypeError("Target values must be numeric.")
     if values.isna().any():
         raise ValueError("Target values cannot contain missing values.")
-    return "binary" if set(values).issubset({0, 1}) else "real-valued"
+    numeric_values = values.to_numpy(dtype=float)
+    if not np.isfinite(numeric_values).all():
+        raise ValueError("Target values must be finite.")
+    unique_values = np.unique(numeric_values)
+    is_binary = set(unique_values).issubset({0, 1})
+    if classification_mode == "binary":
+        if not is_binary:
+            raise ValueError("Binary classification targets must contain only 0 and 1.")
+        return "binary"
+    if classification_mode == "multiclass":
+        if not np.equal(numeric_values, np.floor(numeric_values)).all():
+            raise ValueError("Multiclass targets must contain integer class IDs.")
+        integer_values = numeric_values.astype(np.int64)
+        upper_bound = (
+            num_classes if num_classes is not None else integer_values.max() + 1
+        )
+        if (integer_values < 0).any() or (integer_values >= upper_bound).any():
+            raise ValueError(
+                "Multiclass targets must contain zero-based class IDs smaller "
+                f"than {upper_bound}."
+            )
+        return "multiclass"
+    if is_binary:
+        return "binary"
+    return "real-valued"
 
 
 def check_target_variable_type(
@@ -301,6 +349,8 @@ def check_target_variable_type(
     verbose: bool = False,
     print_mode: str = "basic",
     *,
+    classification_mode: Literal["binary", "multiclass"] | None = None,
+    num_classes: int | None = None,
     progress: DataProgressObserver | None = None,
 ) -> VariableType:
     """Checks the type of the target variable in the interaction data. If any inconsistencies are detected (like different id types between train and test interaction data), an exception is raised
@@ -314,7 +364,11 @@ def check_target_variable_type(
     """
     progress_observer = _resolve_data_progress(verbose, print_mode, progress)
     distinct_target_variable_type = {
-        check_variable_type(data[mode]["y"]["data"])
+        check_variable_type(
+            data[mode]["y"]["data"],
+            classification_mode=classification_mode,
+            num_classes=num_classes,
+        )
         for mode in ["train", "test", "val"]
         if data[mode]["y"] is not None
     }
@@ -329,6 +383,9 @@ def check_target_variable_type(
             )
         if len(distinct_target_variable_type) == 1:
             detected_type = next(iter(distinct_target_variable_type))
+        else:
+            detected_type = None
+        if detected_type is not None:
             if verbose:
                 _emit_data_operation_completed(
                     progress_observer,
@@ -347,7 +404,7 @@ def check_target_variable_type(
             + "Could not detect the type of target variables"
         )
     # return the detected type of target variable
-    return next(iter(distinct_target_variable_type))
+    return detected_type
 
 
 def _check_novel_entities(

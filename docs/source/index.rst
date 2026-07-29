@@ -22,6 +22,7 @@ Documentation
 	tutorial/migration
 	tutorial/loading_datasets
 	tutorial/configuration
+	tutorial/multiclass_classification
 	tutorial/tabular_inputs
 	tutorial/hpo
 	tutorial/demos

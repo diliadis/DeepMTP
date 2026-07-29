@@ -442,6 +442,53 @@ def test_check_variable_type(data_type):
         assert check_variable_type(data["train"]["y"]) == "real-valued"
 
 
+def test_multiclass_detection_is_explicit_to_avoid_integer_regression_ambiguity():
+    interactions = pd.DataFrame(
+        {
+            "instance_id": [0, 1, 2],
+            "target_id": [0, 0, 0],
+            "value": [0, 1, 2],
+        }
+    )
+
+    assert check_variable_type(interactions) == "real-valued"
+    assert (
+        check_variable_type(
+            interactions,
+            classification_mode="multiclass",
+            num_classes=3,
+        )
+        == "multiclass"
+    )
+
+
+def test_data_process_reports_declared_multiclass_contract():
+    scores = (np.arange(9)[:, np.newaxis] + np.arange(3)[np.newaxis, :]) % 3
+
+    _train, _val, _test, info = data_process(
+        {"train": {"y": scores}},
+        validation_setting="A",
+        shuffle=False,
+        classification_mode="multiclass",
+    )
+
+    assert info["detected_problem_mode"] == "classification"
+    assert info["detected_classification_mode"] == "multiclass"
+    assert info["detected_num_classes"] == 3
+
+
+def test_data_process_rejects_a_declared_class_missing_from_all_inputs():
+    scores = (np.arange(9)[:, np.newaxis] + np.arange(3)[np.newaxis, :]) % 3
+
+    with pytest.raises(ValueError, match="missing \\[3\\]"):
+        data_process(
+            {"train": {"y": scores}},
+            validation_setting="A",
+            classification_mode="multiclass",
+            num_classes=4,
+        )
+
+
 classification_df = pd.DataFrame(
     {"instance_id": [0, 1, 2, 3], "target_id": [0, 1, 2, 3], "value": [0, 1, 0, 1]}
 )

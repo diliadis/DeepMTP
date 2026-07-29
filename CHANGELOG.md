@@ -50,6 +50,10 @@ checkpoints.
 - Validated loss selection with mean squared error, mean absolute error, and
   Huber objectives for regression, plus an explicit legacy binary
   cross-entropy compatibility option.
+- Opt-in mutually exclusive multiclass classification using zero-based class
+  IDs, architecture-wide multi-logit output layers, cross-entropy training,
+  softmax predictions, class-averaged metrics, and per-class prediction
+  probabilities.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 
@@ -77,6 +81,9 @@ checkpoints.
 - Binary classification optimizes raw logits with `BCEWithLogitsLoss` for
   stable extreme-score gradients while metrics and predictions still receive
   sigmoid probabilities.
+- Integer-valued targets retain their historical regression interpretation
+  unless multiclass classification is declared explicitly during data
+  preparation.
 - Data preparation copies caller-owned input, isolates split randomness, fits
   feature scalers on training data only, and enforces split/entity invariants.
 - `DeepMTP.predict()` honors `return_predictions`; callers receive only metrics

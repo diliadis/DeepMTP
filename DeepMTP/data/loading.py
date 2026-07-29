@@ -141,6 +141,52 @@ def _validate_data_split(
     )
 
 
+def _validate_multiclass_scores(
+    config: DeepMTPConfig,
+    components: _DatasetComponents,
+    *,
+    parameter_name: str,
+    require_all_classes: bool,
+) -> None:
+    if config.classification_mode != "multiclass":
+        return
+    num_classes = config.num_classes
+    if num_classes is None:  # pragma: no cover - validated configuration invariant
+        raise RuntimeError("Multiclass configuration has no class count.")
+    frame = components.interactions.get("data")
+    if not isinstance(frame, pd.DataFrame):
+        raise TypeError(f"{parameter_name}['y']['data'] must be a pandas DataFrame.")
+    values = frame.get("value")
+    if values is None:
+        raise ValueError(
+            f"{parameter_name} interactions are missing the 'value' column."
+        )
+    if not pd.api.types.is_numeric_dtype(values):
+        raise TypeError(f"{parameter_name} multiclass labels must be numeric.")
+    numeric_values = values.to_numpy(dtype=float)
+    if (
+        not np.isfinite(numeric_values).all()
+        or not np.equal(numeric_values, np.floor(numeric_values)).all()
+    ):
+        raise ValueError(f"{parameter_name} multiclass labels must be finite integers.")
+    integer_values = numeric_values.astype(np.int64)
+    invalid_values = integer_values[
+        (integer_values < 0) | (integer_values >= num_classes)
+    ]
+    if invalid_values.size:
+        raise ValueError(
+            f"{parameter_name} multiclass labels must be in [0, {num_classes}); "
+            f"found {int(invalid_values[0])}."
+        )
+    if require_all_classes:
+        missing_classes = set(range(num_classes)).difference(integer_values.tolist())
+        if missing_classes:
+            raise ValueError(
+                "Training interactions must contain every multiclass label; "
+                f"missing {sorted(missing_classes)}."
+            )
+
+
 class BaseDataset(Dataset):
     """Resolve interaction rows to model-ready entity features."""
 
@@ -539,6 +585,24 @@ class DataLoaderFactory:
             test_data,
             parameter_name="test_data",
         )
+        _validate_multiclass_scores(
+            self.config,
+            train_components,
+            parameter_name="train_data",
+            require_all_classes=True,
+        )
+        _validate_multiclass_scores(
+            self.config,
+            validation_components,
+            parameter_name="validation_data",
+            require_all_classes=False,
+        )
+        _validate_multiclass_scores(
+            self.config,
+            test_components,
+            parameter_name="test_data",
+            require_all_classes=False,
+        )
         self._prepare_tabular_preprocessors(
             train_components,
             allow_fit=True,
@@ -564,6 +628,12 @@ class DataLoaderFactory:
     def for_prediction(self, data: Mapping[str, Any]) -> DataLoader:
         """Build a deterministic inference dataloader."""
         components = _validate_data_split(data, parameter_name="data")
+        _validate_multiclass_scores(
+            self.config,
+            components,
+            parameter_name="data",
+            require_all_classes=False,
+        )
         self._prepare_tabular_preprocessors(
             components,
             allow_fit=False,

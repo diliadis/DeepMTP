@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from DeepMTP.config import DeepMTPConfig
@@ -115,12 +116,16 @@ class Evaluator:
             scaler_per_target=None,
             top_k=self.config.top_k,
             progress=self.progress,
+            classification_mode=self.config.classification_mode,
+            num_classes=self.config.num_classes,
+            multiclass_average=self.config.multiclass_average,
+            class_probabilities_arr=output.class_probabilities,
         )
 
     @staticmethod
     def predictions_frame(output: EpochOutput) -> pd.DataFrame:
         """Build the stable tabular prediction result."""
-        return pd.DataFrame(
+        frame = pd.DataFrame(
             {
                 "instance_id": output.instance_ids,
                 "target_id": output.target_ids,
@@ -128,3 +133,20 @@ class Evaluator:
                 "predicted_values": output.predicted_values,
             }
         )
+        if not output.class_probabilities:
+            return frame
+
+        probabilities = np.asarray(output.class_probabilities, dtype=float)
+        if probabilities.ndim != 2 or probabilities.shape[0] != len(frame):
+            raise ValueError(
+                "class_probabilities must have one probability row per prediction."
+            )
+        if probabilities.shape[1] < 3:
+            raise ValueError(
+                "Multiclass prediction output must contain at least three classes."
+            )
+
+        frame["predicted_probability"] = probabilities.max(axis=1)
+        for class_id in range(probabilities.shape[1]):
+            frame[f"probability_class_{class_id}"] = probabilities[:, class_id]
+        return frame

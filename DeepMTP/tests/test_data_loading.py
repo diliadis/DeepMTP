@@ -51,6 +51,12 @@ def make_data():
     }
 
 
+def make_multiclass_data(values=(0, 1, 2, 0, 1, 2)):
+    data = make_data()
+    data["y"]["data"]["value"] = list(values)
+    return data
+
+
 def make_tabular_data(values=(10.0, 20.0, 30.0, 40.0)):
     data = make_data()
     data["X_instance"] = {
@@ -118,6 +124,32 @@ def test_training_loaders_use_configured_batches_and_device_settings():
     assert isinstance(batch, MTPBatch)
     assert isinstance(batch.instance_input, DenseBranchBatch)
     assert isinstance(batch.target_input, DenseBranchBatch)
+
+
+def test_multiclass_loaders_accept_integer_class_ids_and_preserve_score_dtype():
+    config = make_config(classification_mode="multiclass", num_classes=3)
+    data = make_multiclass_data()
+
+    dataloaders = DataLoaderFactory(config, "cpu").for_training(data, data, data)
+    batch = next(iter(dataloaders.train))
+
+    assert batch.score.dtype == torch.int64
+
+
+@pytest.mark.parametrize(
+    ("values", "message"),
+    [
+        ((0, 1, 1, 0, 1, 1), "missing \\[2\\]"),
+        ((0, 1, 2, 0, 1, 3), r"must be in \[0, 3\)"),
+        ((0, 1, 2, 0, 1, 1.5), "finite integers"),
+    ],
+)
+def test_multiclass_loaders_reject_invalid_training_labels(values, message):
+    config = make_config(classification_mode="multiclass", num_classes=3)
+    data = make_multiclass_data(values)
+
+    with pytest.raises(ValueError, match=message):
+        DataLoaderFactory(config, "cpu").for_training(data, data, data)
 
 
 @pytest.mark.parametrize(

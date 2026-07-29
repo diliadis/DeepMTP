@@ -27,6 +27,7 @@ _ALLOWED_CONFIG_LOOKUP_METHODS = {
     },
     Path("models/factory.py"): {
         ("_CombinedMLPSettings", "from_config"),
+        ("_TaskOutputSettings", "from_config"),
     },
     Path("runtime/reporting.py"): {
         ("_ReporterSettings", "from_config"),

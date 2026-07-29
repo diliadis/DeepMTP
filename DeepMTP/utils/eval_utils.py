@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Protocol, TypeAlias
+from typing import Any, Literal, Protocol, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -152,6 +152,10 @@ def _validate_evaluation_inputs(
     top_k: int | None,
     train_true_value: TrainingMeans | None,
     scaler_per_target: ScalerInput,
+    classification_mode: str | None,
+    num_classes: int | None,
+    multiclass_average: str | None,
+    class_probabilities: ArrayValues | None,
 ) -> None:
     lengths = {
         len(instances),
@@ -178,6 +182,84 @@ def _validate_evaluation_inputs(
             f"received {problem_mode!r}."
         )
     _validate_metrics(problem_mode, metrics)
+    if problem_mode == "classification":
+        if classification_mode not in {"binary", "multiclass"}:
+            raise ValueError(
+                "classification_mode must be 'binary' or 'multiclass'; "
+                f"received {classification_mode!r}."
+            )
+    elif classification_mode is not None:
+        raise ValueError(
+            "classification_mode is only valid when problem_mode='classification'."
+        )
+    if classification_mode == "multiclass":
+        unsupported_multiclass_metrics = set(metrics).intersection(EPILEPSY_METRICS)
+        if unsupported_multiclass_metrics:
+            raise ValueError(
+                "Epilepsy episode metrics are only defined for binary "
+                "classification; received "
+                f"{sorted(unsupported_multiclass_metrics)}."
+            )
+        if (
+            isinstance(num_classes, bool)
+            or not isinstance(num_classes, int)
+            or num_classes < 3
+        ):
+            raise ValueError(
+                "num_classes must be an integer greater than or equal to 3 "
+                "for multiclass evaluation."
+            )
+        if multiclass_average not in {"micro", "macro", "weighted"}:
+            raise ValueError(
+                "multiclass_average must be 'micro', 'macro', or 'weighted'; "
+                f"received {multiclass_average!r}."
+            )
+        if class_probabilities is None:
+            raise ValueError("Multiclass evaluation requires class probabilities.")
+        probability_array = np.asarray(class_probabilities, dtype=float)
+        if probability_array.shape != (len(true_values), num_classes):
+            raise ValueError(
+                "class probabilities must have shape [observations, num_classes]; "
+                f"received {probability_array.shape}."
+            )
+        if (
+            not np.isfinite(probability_array).all()
+            or (probability_array < 0).any()
+            or (probability_array > 1).any()
+            or not np.allclose(probability_array.sum(axis=1), 1.0, atol=1e-5)
+        ):
+            raise ValueError(
+                "Each multiclass probability row must contain finite values in "
+                "[0, 1] that sum to one."
+            )
+        for parameter_name, values in {
+            "true_values": true_values,
+            "predicted_values": predicted_values,
+        }.items():
+            values_array = np.asarray(values, dtype=float)
+            if (
+                not np.isfinite(values_array).all()
+                or not np.equal(values_array, np.floor(values_array)).all()
+                or (values_array < 0).any()
+                or (values_array >= num_classes).any()
+            ):
+                raise ValueError(
+                    f"{parameter_name} must contain integer class IDs in "
+                    f"[0, {num_classes})."
+                )
+        if top_k is not None:
+            raise ValueError("top_k is not supported for multiclass classification.")
+    else:
+        if num_classes is not None:
+            raise ValueError("num_classes is only valid for multiclass classification.")
+        if multiclass_average is not None:
+            raise ValueError(
+                "multiclass_average is only valid for multiclass classification."
+            )
+        if class_probabilities is not None and len(class_probabilities) > 0:
+            raise ValueError(
+                "class_probabilities are only valid for multiclass classification."
+            )
     unknown_averaging = set(averaging).difference({"micro", "macro", "instance"})
     if unknown_averaging:
         raise ValueError(
@@ -254,6 +336,10 @@ def get_performance_results(
     train_true_value: TrainingMeans | None = None,
     scaler_per_target: ScalerInput = None,
     progress: evaluation_progress_runtime.EvaluationProgressObserver | None = None,
+    classification_mode: str | None = None,
+    num_classes: int | None = None,
+    multiclass_average: str | None = None,
+    class_probabilities_arr: ArrayValues | None = None,
 ) -> MetricResults:
     """Calculates all the metrics using different averaging schemes
 
@@ -285,6 +371,11 @@ def get_performance_results(
     Returns:
         dict: A dictionary with key:value pairs of metric_name: metric_value
     """
+    resolved_classification_mode = (
+        "binary"
+        if problem_mode == "classification" and classification_mode is None
+        else classification_mode
+    )
     _validate_evaluation_inputs(
         instances_arr,
         targets_arr,
@@ -299,6 +390,10 @@ def get_performance_results(
         top_k,
         train_true_value,
         scaler_per_target,
+        resolved_classification_mode,
+        num_classes,
+        multiclass_average,
+        class_probabilities_arr,
     )
     progress_observer = (
         progress
@@ -307,6 +402,31 @@ def get_performance_results(
             verbose or per_target_verbose or per_instance_verbose
         )
     )
+    if resolved_classification_mode == "multiclass":
+        if (
+            num_classes is None
+            or multiclass_average is None
+            or class_probabilities_arr is None
+        ):
+            raise RuntimeError("Validated multiclass evaluation metadata is missing.")
+        return _get_multiclass_performance_results(
+            mode=mode,
+            instances=instances_arr,
+            targets=targets_arr,
+            true_values=true_values_arr,
+            predicted_values=pred_values_arr,
+            class_probabilities=class_probabilities_arr,
+            validation_setting=validation_setting,
+            metrics=metrics,
+            averaging=averaging,
+            num_classes=num_classes,
+            multiclass_average=multiclass_average,
+            return_detailed_macro=return_detailed_macro,
+            verbose=verbose,
+            per_target_verbose=per_target_verbose,
+            per_instance_verbose=per_instance_verbose,
+            progress=progress_observer,
+        )
     final_result: MetricResults = {}
     if mode != "":
         mode += "_"
@@ -647,6 +767,276 @@ def get_performance_results(
         )
 
     return final_result
+
+
+def _get_multiclass_performance_results(
+    *,
+    mode: str,
+    instances: ArrayValues,
+    targets: ArrayValues,
+    true_values: ArrayValues,
+    predicted_values: ArrayValues,
+    class_probabilities: ArrayValues,
+    validation_setting: str,
+    metrics: Sequence[str],
+    averaging: Sequence[str],
+    num_classes: int,
+    multiclass_average: str,
+    return_detailed_macro: bool,
+    verbose: bool,
+    per_target_verbose: bool,
+    per_instance_verbose: bool,
+    progress: evaluation_progress_runtime.EvaluationProgressObserver,
+) -> MetricResults:
+    """Evaluate mutually exclusive classes without changing binary semantics."""
+    mode_prefix = f"{mode}_" if mode else ""
+    probability_array = np.asarray(class_probabilities, dtype=float)
+    frame = pd.DataFrame(
+        {
+            "instance_id": instances,
+            "target_id": targets,
+            "true_values": np.asarray(true_values, dtype=np.int64),
+            "pred_values": np.asarray(predicted_values, dtype=np.int64),
+            "class_probabilities": list(probability_array),
+        }
+    )
+
+    if verbose:  # pragma: no cover
+        progress.on_event(
+            EvaluationProgressEvent(
+                "input_inspected",
+                nonzero_predictions=int(np.count_nonzero(probability_array)),
+                true_values_have_nan=False,
+                predicted_values_have_nan=False,
+            )
+        )
+        progress.on_event(
+            EvaluationProgressEvent("evaluation_started", mode=mode_prefix)
+        )
+
+    def evaluate_rows(rows: pd.DataFrame) -> MetricResults:
+        return _multiclass_evaluator(
+            rows,
+            metrics=metrics,
+            num_classes=num_classes,
+            multiclass_average=multiclass_average,
+        )
+
+    def emit_metrics(
+        results: Mapping[str, float],
+        scheme: Literal["micro", "macro", "instance"],
+    ) -> None:
+        if not verbose:  # pragma: no cover
+            return
+        for metric_name, metric_value in results.items():  # pragma: no cover
+            progress.on_event(
+                EvaluationProgressEvent(
+                    "metric_calculated",
+                    metric_name=metric_name,
+                    metric_value=metric_value,
+                    averaging=scheme,
+                )
+            )
+
+    final_result: MetricResults = {}
+    if validation_setting == "A":
+        results = evaluate_rows(frame)
+        final_result.update(
+            {
+                f"{mode_prefix}{metric_name}_micro": metric_value
+                for metric_name, metric_value in results.items()
+            }
+        )
+        emit_metrics(results, "micro")
+    else:
+        if "micro" in averaging:
+            results = evaluate_rows(frame)
+            final_result.update(
+                {
+                    f"{mode_prefix}{metric_name}_micro": metric_value
+                    for metric_name, metric_value in results.items()
+                }
+            )
+            emit_metrics(results, "micro")
+
+        if "macro" in averaging:
+            results_per_target = frame.groupby("target_id").apply(evaluate_rows)
+            if return_detailed_macro:
+                for target_id, target_results in results_per_target.items():
+                    final_result.update(
+                        {
+                            f"{mode_prefix}{metric_name}_target_{target_id}": value
+                            for metric_name, value in target_results.items()
+                        }
+                    )
+            if per_target_verbose:  # pragma: no cover
+                progress.on_event(
+                    EvaluationProgressEvent(
+                        "group_results_calculated",
+                        group="target",
+                        results=results_per_target,
+                    )
+                )
+            macro_results = results_per_target.apply(pd.Series).mean()
+            final_result.update(
+                {
+                    f"{mode_prefix}{metric_name}_macro": value
+                    for metric_name, value in macro_results.to_dict().items()
+                }
+            )
+            if verbose:  # pragma: no cover
+                progress.on_event(
+                    EvaluationProgressEvent(
+                        "aggregate_results_calculated",
+                        averaging="macro",
+                        results=macro_results,
+                    )
+                )
+
+        if "instance" in averaging:
+            results_per_instance = frame.groupby("instance_id").apply(evaluate_rows)
+            for instance_id, instance_results in results_per_instance.items():
+                final_result.update(
+                    {
+                        f"{mode_prefix}{metric_name}_instance_{instance_id}": value
+                        for metric_name, value in instance_results.items()
+                    }
+                )
+            if per_instance_verbose:  # pragma: no cover
+                progress.on_event(
+                    EvaluationProgressEvent(
+                        "group_results_calculated",
+                        group="instance",
+                        results=results_per_instance,
+                    )
+                )
+            instance_results = results_per_instance.apply(pd.Series).mean()
+            final_result.update(
+                {
+                    f"{mode_prefix}{metric_name}_instance": value
+                    for metric_name, value in instance_results.to_dict().items()
+                }
+            )
+            if verbose:  # pragma: no cover
+                progress.on_event(
+                    EvaluationProgressEvent(
+                        "aggregate_results_calculated",
+                        averaging="instance",
+                        results=instance_results,
+                    )
+                )
+
+    if verbose:  # pragma: no cover
+        progress.on_event(
+            EvaluationProgressEvent("evaluation_completed", mode=mode_prefix)
+        )
+    return final_result
+
+
+def _multiclass_evaluator(
+    rows: pd.DataFrame,
+    *,
+    metrics: Sequence[str],
+    num_classes: int,
+    multiclass_average: str,
+) -> MetricResults:
+    true_values = rows["true_values"].to_numpy(dtype=np.int64)
+    predicted_values = rows["pred_values"].to_numpy(dtype=np.int64)
+    probabilities = np.vstack(rows["class_probabilities"].to_numpy())
+    labels = np.arange(num_classes)
+    results: MetricResults = {}
+
+    if "accuracy" in metrics:
+        results["accuracy"] = float(accuracy_score(true_values, predicted_values))
+    if "recall" in metrics:
+        results["recall"] = float(
+            recall_score(
+                true_values,
+                predicted_values,
+                labels=labels,
+                average=multiclass_average,
+                zero_division=0,
+            )
+        )
+    if "precision" in metrics:
+        results["precision"] = float(
+            precision_score(
+                true_values,
+                predicted_values,
+                labels=labels,
+                average=multiclass_average,
+                zero_division=0,
+            )
+        )
+    if "f1_score" in metrics:
+        results["f1_score"] = float(
+            f1_score(
+                true_values,
+                predicted_values,
+                labels=labels,
+                average=multiclass_average,
+                zero_division=0,
+            )
+        )
+    if "hamming_loss" in metrics:
+        results["hamming_loss"] = float(hamming_loss(true_values, predicted_values))
+    if "auroc" in metrics:
+        results["auroc"] = _multiclass_probability_metric(
+            true_values,
+            probabilities,
+            metric="auroc",
+            average=multiclass_average,
+        )
+    if "aupr" in metrics:
+        results["aupr"] = _multiclass_probability_metric(
+            true_values,
+            probabilities,
+            metric="aupr",
+            average=multiclass_average,
+        )
+    return results
+
+
+def _multiclass_probability_metric(
+    true_values: np.ndarray,
+    probabilities: np.ndarray,
+    *,
+    metric: str,
+    average: str,
+) -> float:
+    one_hot = true_values[:, np.newaxis] == np.arange(probabilities.shape[1])
+
+    def binary_metric(binary_true: np.ndarray, scores: np.ndarray) -> float:
+        if np.unique(binary_true).size < 2:
+            return float("nan")
+        if metric == "auroc":
+            return float(roc_auc_score(binary_true, scores))
+        precision, recall, _thresholds = precision_recall_curve(
+            binary_true,
+            scores,
+        )
+        return float(auc(recall, precision))
+
+    if average == "micro":
+        return binary_metric(one_hot.reshape(-1), probabilities.reshape(-1))
+
+    per_class = np.asarray(
+        [
+            binary_metric(one_hot[:, class_id], probabilities[:, class_id])
+            for class_id in range(probabilities.shape[1])
+        ],
+        dtype=float,
+    )
+    valid = np.isfinite(per_class)
+    if not valid.any():
+        return float("nan")
+    if average == "weighted":
+        supports = one_hot.sum(axis=0).astype(float)
+        valid_supports = supports[valid]
+        if valid_supports.sum() == 0:
+            return float("nan")
+        return float(np.average(per_class[valid], weights=valid_supports))
+    return float(np.mean(per_class[valid]))
 
 
 # with micro-averaging you loose the notion of multiple-targets. You just simplify the problem and assume you are working with just one target. The train_true_value variable is only used for the calculation of the relative root mean squared error RRMSE.

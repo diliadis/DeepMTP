@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeAlias
 
 import torch
 from torch import nn
@@ -15,7 +15,7 @@ from DeepMTP.runtime.components import build_default_output_head
 
 __all__ = ["EpochOutput", "TensorBatch", "TrainingEngine"]
 
-TensorBatch = MTPBatch | Mapping[str, Any]
+TensorBatch: TypeAlias = MTPBatch | Mapping[str, Any]
 
 
 @dataclass
@@ -28,6 +28,7 @@ class EpochOutput:
     instance_ids: list[Any] = field(default_factory=list)
     target_ids: list[Any] = field(default_factory=list)
     loss_weights: list[int] = field(default_factory=list)
+    class_probabilities: list[list[float]] = field(default_factory=list)
 
     @property
     def mean_loss(self) -> float:
@@ -79,6 +80,8 @@ class TrainingEngine:
         optimizer: torch.optim.Optimizer | None = None,
         output_head: nn.Module | None = None,
         loss_input_transform: nn.Module | None = None,
+        classification_mode: str | None = None,
+        num_classes: int | None = None,
     ):
         if problem_mode not in {"classification", "regression"}:
             raise ValueError(
@@ -89,11 +92,43 @@ class TrainingEngine:
         self.criterion = criterion
         self.device = device
         self.problem_mode = problem_mode
+        self.classification_mode: str | None
+        self.num_classes: int | None
+        if problem_mode == "classification":
+            self.classification_mode = (
+                "binary" if classification_mode is None else classification_mode
+            )
+            if self.classification_mode not in {"binary", "multiclass"}:
+                raise ValueError(
+                    "classification_mode must be 'binary' or 'multiclass'; "
+                    f"received {self.classification_mode!r}."
+                )
+        else:
+            if classification_mode is not None:
+                raise ValueError("classification_mode must be None for regression.")
+            self.classification_mode = None
+        if self.classification_mode == "multiclass":
+            if (
+                isinstance(num_classes, bool)
+                or not isinstance(num_classes, int)
+                or num_classes < 3
+            ):
+                raise ValueError(
+                    "num_classes must be an integer greater than or equal to 3 "
+                    "for multiclass classification."
+                )
+            self.num_classes = num_classes
+        else:
+            if num_classes is not None:
+                raise ValueError(
+                    "num_classes is only valid for multiclass classification."
+                )
+            self.num_classes = None
         self.optimizer = optimizer
         self.output_head = (
             output_head
             if output_head is not None
-            else build_default_output_head(problem_mode)
+            else build_default_output_head(problem_mode, self.classification_mode)
         )
         if not isinstance(self.output_head, nn.Module):
             raise TypeError("output_head must be a torch.nn.Module.")
@@ -102,7 +137,10 @@ class TrainingEngine:
             if loss_input_transform is not None
             else (
                 nn.Identity()
-                if isinstance(criterion, nn.BCEWithLogitsLoss)
+                if isinstance(
+                    criterion,
+                    (nn.BCEWithLogitsLoss, nn.CrossEntropyLoss),
+                )
                 else self.output_head
             )
         )
@@ -132,7 +170,7 @@ class TrainingEngine:
             loss.backward()
             self.optimizer.step()
 
-            output.add_loss(loss.item(), observations=true_values.numel())
+            output.add_loss(loss.item(), observations=int(true_values.shape[0]))
             if collect_predictions:
                 predictions = self.output_head(raw_predictions)
                 self._collect_predictions(
@@ -163,7 +201,7 @@ class TrainingEngine:
                         loss = self.criterion(loss_predictions, true_values)
                         output.add_loss(
                             loss.item(),
-                            observations=true_values.numel(),
+                            observations=int(true_values.shape[0]),
                         )
                     if collect_predictions:
                         predictions = self.output_head(raw_predictions)
@@ -193,16 +231,43 @@ class TrainingEngine:
             )
             instance_features = device_batch.instance_input.values
             target_features = device_batch.target_input.values
-            true_values = device_batch.score.float()
+            score = device_batch.score
         else:
             instance_features = batch["instance_features"].to(self.device)
             target_features = batch["target_features"].to(self.device)
-            true_values = batch["score"].float().to(self.device)
+            score = batch["score"].to(self.device)
 
-        raw_predictions = torch.squeeze(
-            self.model(instance_features, target_features),
-            1,
-        )
+        if self.classification_mode == "multiclass":
+            score_values = score.float()
+            if (
+                score_values.ndim != 1
+                or not torch.isfinite(score_values).all()
+                or not torch.equal(score_values, torch.floor(score_values))
+                or self.num_classes is None
+                or (score_values < 0).any()
+                or (score_values >= self.num_classes).any()
+            ):
+                raise ValueError(
+                    "Multiclass targets must have shape [batch] and contain "
+                    f"integer class IDs in [0, {self.num_classes})."
+                )
+            true_values = score.long()
+        else:
+            true_values = score.float()
+        model_output = self.model(instance_features, target_features)
+        if self.classification_mode == "multiclass":
+            if (
+                model_output.ndim != 2
+                or self.num_classes is None
+                or model_output.shape[1] != self.num_classes
+            ):
+                raise ValueError(
+                    "Multiclass models must return shape [batch, num_classes]; "
+                    f"received {tuple(model_output.shape)}."
+                )
+            raw_predictions = model_output
+        else:
+            raw_predictions = torch.squeeze(model_output, 1)
         return true_values, raw_predictions
 
     def _validate_typed_input_kinds(self, batch: MTPBatch) -> None:
@@ -217,14 +282,19 @@ class TrainingEngine:
                     f"but the dataloader produced {branch_batch.kind!r} input."
                 )
 
-    @staticmethod
     def _collect_predictions(
+        self,
         output: EpochOutput,
         batch: TensorBatch,
         true_values: torch.Tensor,
         predictions: torch.Tensor,
     ) -> None:
         output.true_values.extend(true_values.detach().cpu().numpy())
-        output.predicted_values.extend(predictions.detach().cpu().numpy())
+        if self.classification_mode == "multiclass":
+            probability_rows = predictions.detach().cpu().numpy()
+            output.class_probabilities.extend(probability_rows.tolist())
+            output.predicted_values.extend(probability_rows.argmax(axis=1).tolist())
+        else:
+            output.predicted_values.extend(predictions.detach().cpu().numpy())
         output.instance_ids.extend(batch["instance_id"].detach().cpu().numpy())
         output.target_ids.extend(batch["target_id"].detach().cpu().numpy())
