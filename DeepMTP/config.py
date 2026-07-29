@@ -6,10 +6,18 @@ import re
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
+from types import MappingProxyType
 from typing import Any, Literal, TypeAlias, cast
 
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
 ProblemMode: TypeAlias = Literal["classification", "regression"]
+LossName: TypeAlias = Literal[
+    "binary_cross_entropy",
+    "binary_cross_entropy_with_logits",
+    "mean_squared_error",
+    "mean_absolute_error",
+    "huber",
+]
 GeneralArchitecture: TypeAlias = Literal["dot_product", "mlp", "kronecker"]
 BranchArchitecture: TypeAlias = Literal[
     "MLP",
@@ -38,6 +46,30 @@ RESNET_TRAINABLE_LAYERS = frozenset({"last", "layer4", "layer3", "layer2", "laye
 RESNET_DENSE_LAYER_COUNTS = frozenset({1, 2})
 _DEVICE_PATTERN = re.compile(r"^(cpu|cuda(?::\d+)?)$")
 
+DEFAULT_LOSS_BY_PROBLEM_MODE: Mapping[str, str] = MappingProxyType(
+    {
+        "classification": "binary_cross_entropy_with_logits",
+        "regression": "mean_squared_error",
+    }
+)
+SUPPORTED_LOSSES_BY_PROBLEM_MODE: Mapping[str, frozenset[str]] = MappingProxyType(
+    {
+        "classification": frozenset(
+            {
+                "binary_cross_entropy",
+                "binary_cross_entropy_with_logits",
+            }
+        ),
+        "regression": frozenset(
+            {
+                "huber",
+                "mean_absolute_error",
+                "mean_squared_error",
+            }
+        ),
+    }
+)
+
 
 class ConfigValidationError(ValueError):
     """Raised when a DeepMTP configuration is internally inconsistent."""
@@ -63,6 +95,7 @@ class DeepMTPConfig:
     validation_setting: ValidationSetting | None = None
     general_architecture_version: GeneralArchitecture | str = "dot_product"
     problem_mode: ProblemMode | None = None
+    loss: LossName | None = None
 
     learning_rate: float = 0.001
     decay: float = 0.0
@@ -251,6 +284,13 @@ class DeepMTPConfig:
             )
         if isinstance(self.problem_mode, str):
             self.problem_mode = cast(ProblemMode, self.problem_mode.lower())
+        if isinstance(self.loss, str):
+            self.loss = cast(LossName, self.loss.lower())
+        normalized_problem_mode = self.problem_mode
+        if self.loss is None and normalized_problem_mode is not None:
+            default_loss = DEFAULT_LOSS_BY_PROBLEM_MODE.get(normalized_problem_mode)
+            if default_loss is not None:
+                self.loss = cast(LossName, default_loss)
         if isinstance(self.general_architecture_version, str):
             self.general_architecture_version = (
                 self.general_architecture_version.lower()
@@ -283,6 +323,13 @@ class DeepMTPConfig:
             raise ConfigValidationError(
                 "problem_mode must be 'classification' or 'regression'; "
                 f"received {self.problem_mode!r}."
+            )
+        supported_losses = SUPPORTED_LOSSES_BY_PROBLEM_MODE[self.problem_mode]
+        if self.loss not in supported_losses:
+            raise ConfigValidationError(
+                f"loss={self.loss!r} is incompatible with "
+                f"problem_mode={self.problem_mode!r}. Select one of "
+                f"{sorted(supported_losses)}."
             )
         if self.general_architecture_version not in {
             "dot_product",

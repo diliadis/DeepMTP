@@ -18,7 +18,7 @@ from DeepMTP.models import (
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
 )
-from DeepMTP.runtime.components import build_default_task_components
+from DeepMTP.runtime.components import build_task_components
 from DeepMTP.runtime.evaluation import Evaluator
 from DeepMTP.runtime.persistence import ExperimentStore
 from DeepMTP.runtime.presentation import (
@@ -177,7 +177,10 @@ class DeepMTP:
             raise RuntimeError(
                 "Trainer received an incomplete validated problem configuration."
             )
-        task_components = build_default_task_components(problem_mode)
+        task_components = build_task_components(
+            problem_mode,
+            self.configuration.loss,
+        )
         self.criterion = task_components.loss
         self.loss_input_transform = task_components.loss_input_transform
         self.output_head = task_components.output_head

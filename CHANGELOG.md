@@ -47,6 +47,9 @@ checkpoints.
   checkpointed preprocessing state.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
+- Validated loss selection with mean squared error, mean absolute error, and
+  Huber objectives for regression, plus an explicit legacy binary
+  cross-entropy compatibility option.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 

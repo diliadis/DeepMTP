@@ -83,6 +83,7 @@ def test_typed_config_normalizes_public_names():
         {
             "validation_setting": "b",
             "problem_mode": "CLASSIFICATION",
+            "loss": "BINARY_CROSS_ENTROPY_WITH_LOGITS",
             "general_architecture_version": "DOT_PRODUCT",
             "instance_branch_architecture": "mlp",
             "target_branch_architecture": "mlp",
@@ -95,10 +96,64 @@ def test_typed_config_normalizes_public_names():
 
     assert normalized.validation_setting == "B"
     assert normalized.problem_mode == "classification"
+    assert normalized.loss == "binary_cross_entropy_with_logits"
     assert normalized.general_architecture_version == "dot_product"
     assert normalized.instance_branch_architecture == "MLP"
     assert normalized.metrics == ["accuracy"]
     assert normalized.metrics_average == ["macro"]
+
+
+@pytest.mark.parametrize(
+    ("problem_mode", "metrics", "expected_loss"),
+    [
+        ("classification", ["accuracy"], "binary_cross_entropy_with_logits"),
+        ("regression", ["MSE"], "mean_squared_error"),
+    ],
+)
+def test_problem_modes_materialize_stable_default_losses(
+    problem_mode,
+    metrics,
+    expected_loss,
+):
+    config = make_valid_config(problem_mode=problem_mode, metrics=metrics)
+
+    assert config["loss"] == expected_loss
+    assert DeepMTPConfig.from_mapping(config).loss == expected_loss
+
+
+@pytest.mark.parametrize("loss", ["mean_absolute_error", "huber"])
+def test_regression_accepts_configurable_losses(loss):
+    config = make_valid_config(
+        problem_mode="regression",
+        metrics=["MSE"],
+        loss=loss.upper(),
+    )
+
+    assert config["loss"] == loss
+    assert DeepMTPConfig.from_mapping(config).loss == loss
+
+
+@pytest.mark.parametrize(
+    ("problem_mode", "metrics", "loss"),
+    [
+        ("classification", ["accuracy"], "mean_squared_error"),
+        ("regression", ["MSE"], "binary_cross_entropy_with_logits"),
+        ("regression", ["MSE"], "unknown"),
+    ],
+)
+def test_losses_must_be_compatible_with_problem_mode(
+    problem_mode,
+    metrics,
+    loss,
+):
+    config = make_valid_config(problem_mode=problem_mode, metrics=metrics)
+    config["loss"] = loss
+
+    with pytest.raises(
+        ConfigValidationError,
+        match=rf"loss={loss!r} is incompatible",
+    ):
+        DeepMTPConfig.from_mapping(config)
 
 
 def test_typed_config_normalizes_and_accepts_id_embedding_branches():

@@ -54,6 +54,9 @@ def test_runtime_package_exposes_canonical_services():
         "EpochOutput": training_module.EpochOutput,
         "ExperimentReporter": reporting_module.ExperimentReporter,
         "ExperimentStore": persistence_module.ExperimentStore,
+        "LOSS_INPUT_TRANSFORM_BY_LOSS": (
+            components_module.LOSS_INPUT_TRANSFORM_BY_LOSS
+        ),
         "LOSS_REGISTRY": components_module.LOSS_REGISTRY,
         "LossFactory": components_module.LossFactory,
         "NullEvaluationProgressObserver": (
@@ -70,6 +73,9 @@ def test_runtime_package_exposes_canonical_services():
         "ReporterConfigInput": reporting_module.ReporterConfigInput,
         "RunHistory": presentation_module.RunHistory,
         "RunSummaries": presentation_module.RunSummaries,
+        "SUPPORTED_LOSSES_BY_PROBLEM_MODE": (
+            components_module.SUPPORTED_LOSSES_BY_PROBLEM_MODE
+        ),
         "TensorBoardReporter": reporting_module.TensorBoardReporter,
         "TensorBatch": training_module.TensorBatch,
         "TaskComponents": components_module.TaskComponents,
@@ -89,7 +95,9 @@ def test_runtime_package_exposes_canonical_services():
         "build_progress_observer": presentation_module.build_progress_observer,
         "build_reporter": reporting_module.build_reporter,
         "build_loss": components_module.build_loss,
+        "build_loss_input_transform": (components_module.build_loss_input_transform),
         "build_output_head": components_module.build_output_head,
+        "build_task_components": components_module.build_task_components,
     }
 
     assert set(runtime_api.__all__) == set(expected_symbols)

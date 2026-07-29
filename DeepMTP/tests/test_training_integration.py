@@ -52,11 +52,70 @@ class RecordingProgress:
     "ignore::DeepMTP.config.ConfigNormalizationWarning",
 )
 @pytest.mark.parametrize(
-    ("problem_mode", "metrics", "validation_setting"),
+    (
+        "problem_mode",
+        "metrics",
+        "validation_setting",
+        "loss_name",
+        "expected_loss_name",
+        "loss_type",
+        "loss_input_type",
+    ),
     [
-        ("classification", ["accuracy"], "B"),
-        ("regression", ["MSE"], "B"),
-        ("classification", ["accuracy"], "A"),
+        (
+            "classification",
+            ["accuracy"],
+            "B",
+            None,
+            "binary_cross_entropy_with_logits",
+            nn.BCEWithLogitsLoss,
+            nn.Identity,
+        ),
+        (
+            "regression",
+            ["MSE"],
+            "B",
+            None,
+            "mean_squared_error",
+            nn.MSELoss,
+            nn.Identity,
+        ),
+        (
+            "classification",
+            ["accuracy"],
+            "A",
+            None,
+            "binary_cross_entropy_with_logits",
+            nn.BCEWithLogitsLoss,
+            nn.Identity,
+        ),
+        (
+            "classification",
+            ["accuracy"],
+            "B",
+            "binary_cross_entropy",
+            "binary_cross_entropy",
+            nn.BCELoss,
+            nn.Sigmoid,
+        ),
+        (
+            "regression",
+            ["MSE"],
+            "B",
+            "mean_absolute_error",
+            "mean_absolute_error",
+            nn.L1Loss,
+            nn.Identity,
+        ),
+        (
+            "regression",
+            ["MSE"],
+            "B",
+            "huber",
+            "huber",
+            nn.HuberLoss,
+            nn.Identity,
+        ),
     ],
 )
 def test_tiny_cpu_training_and_prediction(
@@ -64,6 +123,10 @@ def test_tiny_cpu_training_and_prediction(
     problem_mode,
     metrics,
     validation_setting,
+    loss_name,
+    expected_loss_name,
+    loss_type,
+    loss_input_type,
 ):
     rng = np.random.default_rng(42)
     instance_features = rng.normal(size=(24, 3))
@@ -87,6 +150,7 @@ def test_tiny_cpu_training_and_prediction(
     config = generate_config(
         validation_setting=data_info["detected_validation_setting"],
         problem_mode=data_info["detected_problem_mode"],
+        loss=loss_name,
         general_architecture_version="dot_product",
         compute_mode="cpu",
         num_workers=0,
@@ -100,7 +164,7 @@ def test_tiny_cpu_training_and_prediction(
         use_early_stopping=False,
         save_model=False,
         results_path=str(tmp_path),
-        experiment_name=problem_mode,
+        experiment_name=loss_name or problem_mode,
         instance_branch_architecture="MLP",
         instance_branch_input_dim=data_info["instance_branch_input_dim"],
         instance_branch_params={
@@ -119,6 +183,7 @@ def test_tiny_cpu_training_and_prediction(
     )
     if validation_setting == "A":
         assert config["metrics_average"] == ["micro"]
+    assert config["loss"] == expected_loss_name
 
     model_config = (
         DeepMTPConfig.from_mapping(config)
@@ -130,12 +195,11 @@ def test_tiny_cpu_training_and_prediction(
     model = DeepMTP(model_config, reporter=reporter, progress=progress)
     assert isinstance(model.configuration, DeepMTPConfig)
     assert isinstance(model.config, dict)
-    assert isinstance(model.loss_input_transform, nn.Identity)
+    assert isinstance(model.criterion, loss_type)
+    assert isinstance(model.loss_input_transform, loss_input_type)
     if problem_mode == "classification":
-        assert isinstance(model.criterion, nn.BCEWithLogitsLoss)
         assert isinstance(model.output_head, nn.Sigmoid)
     else:
-        assert isinstance(model.criterion, nn.MSELoss)
         assert isinstance(model.output_head, nn.Identity)
     validation_results = model.train(train, val, test)
 

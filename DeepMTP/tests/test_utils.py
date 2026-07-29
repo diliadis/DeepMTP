@@ -15,6 +15,7 @@ def get_default_config_dict():
         "validation_setting": "B",
         "general_architecture_version": "dot_product",
         "problem_mode": "classification",
+        "loss": "binary_cross_entropy_with_logits",
         "learning_rate": 0.001,
         "decay": 0,
         "batch_norm": False,
@@ -395,6 +396,8 @@ def test_generate_config_fails(test_generate_config_fails_data, monkeypatch):
         with pytest.raises((AttributeError, ValueError)):
             original_config = get_default_config_dict()
             original_config.update(test_generate_config_fails_data["temp_config_data"])
+            if original_config["problem_mode"] == "regression":
+                original_config["loss"] = "mean_squared_error"
             config = generate_config(
                 instance_branch_input_dim=original_config["instance_branch_input_dim"],
                 target_branch_input_dim=original_config["target_branch_input_dim"],
@@ -472,6 +475,8 @@ def test_generate_config_fails(test_generate_config_fails_data, monkeypatch):
         try:
             original_config = get_default_config_dict()
             original_config.update(test_generate_config_fails_data["temp_config_data"])
+            if original_config["problem_mode"] == "regression":
+                original_config["loss"] = "mean_squared_error"
             config = generate_config(
                 instance_branch_input_dim=original_config["instance_branch_input_dim"],
                 target_branch_input_dim=original_config["target_branch_input_dim"],

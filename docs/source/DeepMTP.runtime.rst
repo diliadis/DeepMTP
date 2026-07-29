@@ -20,12 +20,18 @@ evaluation progress:
 Task components
 ---------------
 
-``LOSS_REGISTRY`` and ``OUTPUT_HEAD_REGISTRY`` expose the defaults selected for
-classification and regression. Binary classification sends raw model scores
-to ``BCEWithLogitsLoss`` and applies sigmoid only to values collected for
-metrics and prediction. Regression uses mean squared error and an identity
-output head. The component builders return fresh PyTorch modules for each
-trainer.
+``LOSS_REGISTRY`` and ``OUTPUT_HEAD_REGISTRY`` expose the components selected
+for classification and regression. Binary classification defaults to raw
+model scores and ``BCEWithLogitsLoss``; sigmoid is applied only to values
+collected for metrics and prediction. The explicit
+``binary_cross_entropy`` compatibility loss applies sigmoid before
+``BCELoss``.
+
+Regression supports ``mean_squared_error``, ``mean_absolute_error``, and
+``huber``. Every regression loss uses raw model output and an identity output
+head. ``build_task_components`` rejects task/loss combinations that do not
+share a defined contract, and every component builder returns a fresh PyTorch
+module for each trainer.
 
 .. automodule:: DeepMTP.runtime.components
    :members:

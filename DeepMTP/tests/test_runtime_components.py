@@ -6,14 +6,18 @@ from DeepMTP.runtime import (
     DEFAULT_LOSS_BY_PROBLEM_MODE,
     DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE,
     DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE,
+    LOSS_INPUT_TRANSFORM_BY_LOSS,
     LOSS_REGISTRY,
     OUTPUT_HEAD_REGISTRY,
+    SUPPORTED_LOSSES_BY_PROBLEM_MODE,
     build_default_loss,
     build_default_loss_input_transform,
     build_default_output_head,
     build_default_task_components,
     build_loss,
+    build_loss_input_transform,
     build_output_head,
+    build_task_components,
 )
 
 
@@ -21,6 +25,8 @@ def test_task_component_registries_expose_behavior_preserving_defaults():
     assert LOSS_REGISTRY.names == (
         "binary_cross_entropy",
         "binary_cross_entropy_with_logits",
+        "huber",
+        "mean_absolute_error",
         "mean_squared_error",
     )
     assert OUTPUT_HEAD_REGISTRY.names == ("identity", "sigmoid")
@@ -31,6 +37,28 @@ def test_task_component_registries_expose_behavior_preserving_defaults():
     assert dict(DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE) == {
         "classification": "identity",
         "regression": "identity",
+    }
+    assert dict(LOSS_INPUT_TRANSFORM_BY_LOSS) == {
+        "binary_cross_entropy": "sigmoid",
+        "binary_cross_entropy_with_logits": "identity",
+        "huber": "identity",
+        "mean_absolute_error": "identity",
+        "mean_squared_error": "identity",
+    }
+    assert dict(SUPPORTED_LOSSES_BY_PROBLEM_MODE) == {
+        "classification": frozenset(
+            {
+                "binary_cross_entropy",
+                "binary_cross_entropy_with_logits",
+            }
+        ),
+        "regression": frozenset(
+            {
+                "huber",
+                "mean_absolute_error",
+                "mean_squared_error",
+            }
+        ),
     }
     assert dict(DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE) == {
         "classification": "sigmoid",
@@ -48,6 +76,25 @@ def test_component_builders_return_fresh_modules():
     assert isinstance(first_head, nn.Sigmoid)
     assert first_loss is not second_loss
     assert first_head is not second_head
+
+
+@pytest.mark.parametrize(
+    ("loss_name", "loss_type", "input_transform_type"),
+    [
+        ("binary_cross_entropy", nn.BCELoss, nn.Sigmoid),
+        ("binary_cross_entropy_with_logits", nn.BCEWithLogitsLoss, nn.Identity),
+        ("huber", nn.HuberLoss, nn.Identity),
+        ("mean_absolute_error", nn.L1Loss, nn.Identity),
+        ("mean_squared_error", nn.MSELoss, nn.Identity),
+    ],
+)
+def test_registered_losses_select_their_required_input_transform(
+    loss_name,
+    loss_type,
+    input_transform_type,
+):
+    assert isinstance(build_loss(loss_name), loss_type)
+    assert isinstance(build_loss_input_transform(loss_name), input_transform_type)
 
 
 @pytest.mark.parametrize(
@@ -73,6 +120,55 @@ def test_default_task_components_follow_problem_mode(
 def test_default_task_components_reject_unknown_problem_modes():
     with pytest.raises(ValueError, match="problem_mode"):
         build_default_task_components("ranking")
+
+
+@pytest.mark.parametrize(
+    ("problem_mode", "loss_name", "loss_type", "loss_input_type", "head_type"),
+    [
+        (
+            "classification",
+            "binary_cross_entropy",
+            nn.BCELoss,
+            nn.Sigmoid,
+            nn.Sigmoid,
+        ),
+        (
+            "classification",
+            "binary_cross_entropy_with_logits",
+            nn.BCEWithLogitsLoss,
+            nn.Identity,
+            nn.Sigmoid,
+        ),
+        ("regression", "mean_squared_error", nn.MSELoss, nn.Identity, nn.Identity),
+        ("regression", "mean_absolute_error", nn.L1Loss, nn.Identity, nn.Identity),
+        ("regression", "huber", nn.HuberLoss, nn.Identity, nn.Identity),
+    ],
+)
+def test_task_components_follow_explicit_compatible_loss(
+    problem_mode,
+    loss_name,
+    loss_type,
+    loss_input_type,
+    head_type,
+):
+    components = build_task_components(problem_mode, loss_name)
+
+    assert isinstance(components.loss, loss_type)
+    assert isinstance(components.loss_input_transform, loss_input_type)
+    assert isinstance(components.output_head, head_type)
+
+
+@pytest.mark.parametrize(
+    ("problem_mode", "loss_name"),
+    [
+        ("classification", "huber"),
+        ("regression", "binary_cross_entropy_with_logits"),
+        ("regression", ""),
+    ],
+)
+def test_task_components_reject_incompatible_losses(problem_mode, loss_name):
+    with pytest.raises(ValueError, match="incompatible"):
+        build_task_components(problem_mode, loss_name)
 
 
 def test_individual_default_builders_follow_problem_mode():
@@ -111,3 +207,14 @@ def test_logits_loss_matches_probability_bce_for_moderate_scores():
     )
 
     assert stable_loss.item() == pytest.approx(probability_loss.item())
+
+
+def test_regression_losses_follow_documented_mean_reductions():
+    predictions = torch.tensor([0.0, 2.0, -3.0])
+    targets = torch.zeros(3)
+
+    mae = build_loss("mean_absolute_error")(predictions, targets)
+    huber = build_loss("huber")(predictions, targets)
+
+    assert mae.item() == pytest.approx(5 / 3)
+    assert huber.item() == pytest.approx(4 / 3)

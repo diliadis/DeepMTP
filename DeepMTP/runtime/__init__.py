@@ -4,8 +4,10 @@ from DeepMTP.runtime.components import (
     DEFAULT_LOSS_BY_PROBLEM_MODE,
     DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE,
     DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE,
+    LOSS_INPUT_TRANSFORM_BY_LOSS,
     LOSS_REGISTRY,
     OUTPUT_HEAD_REGISTRY,
+    SUPPORTED_LOSSES_BY_PROBLEM_MODE,
     LossFactory,
     OutputHeadFactory,
     TaskComponents,
@@ -14,7 +16,9 @@ from DeepMTP.runtime.components import (
     build_default_output_head,
     build_default_task_components,
     build_loss,
+    build_loss_input_transform,
     build_output_head,
+    build_task_components,
 )
 from DeepMTP.runtime.evaluation import EvaluationPolicy, Evaluator
 from DeepMTP.runtime.evaluation_progress import (
@@ -68,6 +72,7 @@ __all__ = [
     "EpochOutput",
     "ExperimentReporter",
     "ExperimentStore",
+    "LOSS_INPUT_TRANSFORM_BY_LOSS",
     "LOSS_REGISTRY",
     "LossFactory",
     "NullEvaluationProgressObserver",
@@ -82,6 +87,7 @@ __all__ = [
     "ReporterConfigInput",
     "RunHistory",
     "RunSummaries",
+    "SUPPORTED_LOSSES_BY_PROBLEM_MODE",
     "TensorBoardReporter",
     "TensorBatch",
     "TaskComponents",
@@ -93,7 +99,9 @@ __all__ = [
     "build_default_task_components",
     "build_evaluation_progress_observer",
     "build_loss",
+    "build_loss_input_transform",
     "build_output_head",
     "build_progress_observer",
     "build_reporter",
+    "build_task_components",
 ]

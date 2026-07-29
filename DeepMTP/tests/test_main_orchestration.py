@@ -355,6 +355,40 @@ def test_save_model_does_not_mutate_live_logging_config(tmp_path):
     assert checkpoint["config"]["use_tensorboard_logger"] is False
 
 
+def test_selected_loss_round_trips_through_checkpoint_config(tmp_path):
+    config = make_config(tmp_path, experiment_name="huber_source")
+    config.update(
+        {
+            "problem_mode": "regression",
+            "loss": "huber",
+        }
+    )
+    source = DeepMTP(config)
+    source.early_stopping(
+        {"val_loss": 0.25},
+        source.deepMTP_model,
+        0,
+        optimizer_state_dict=source.optimizer.state_dict(),
+    )
+
+    source.save_model()
+
+    checkpoint_path = Path(source.experiment_dir) / "model.pt"
+    checkpoint = ExperimentStore.load_checkpoint(checkpoint_path)
+    restored = DeepMTP(
+        {
+            "results_path": str(tmp_path),
+            "experiment_name": "huber_restored",
+        },
+        checkpoint_dir=checkpoint_path,
+    )
+
+    assert isinstance(source.criterion, torch.nn.HuberLoss)
+    assert checkpoint["config"]["loss"] == "huber"
+    assert restored.configuration.loss == "huber"
+    assert isinstance(restored.criterion, torch.nn.HuberLoss)
+
+
 def test_checkpoint_lifecycle_uses_injected_progress_without_stdout(
     tmp_path,
     capsys,

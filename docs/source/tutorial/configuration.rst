@@ -18,6 +18,11 @@ In the code snippet above the function generate_config is shown without any spec
      - The max number of epochs allowed for training
    * - **learning_rate**
      - The learning rate used to determine the step size at each iteration of the optimization process
+   * - **loss**
+     - Training objective. Classification defaults to
+       ``binary_cross_entropy_with_logits``. Regression defaults to
+       ``mean_squared_error`` and also supports ``mean_absolute_error`` and
+       ``huber``.
    * - **decay**
      - The weight decay (L2 penalty) used by the Adam optimizer
    * - **compute_mode**
@@ -230,6 +235,7 @@ Example of a generating a configuration::
         validation_setting = data_info['detected_validation_setting'],
         general_architecture_version = 'dot_product',
         problem_mode = data_info['detected_problem_mode'],
+        loss = 'mean_squared_error',
         learning_rate = 0.001,
         decay = 0,
         batch_norm = False,
