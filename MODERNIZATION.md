@@ -168,6 +168,8 @@ Exit criterion: there is only one implementation of training and HPO logic.
   vulnerabilities.
 - [x] Pin GitHub Actions to immutable commit SHAs while retaining readable
   release annotations.
+- [x] Publish releases through PyPI Trusted Publishing with verified artifact
+  handoff and job-scoped OIDC permissions.
 - [x] Build and inspect wheel/sdist artifacts in CI.
 - [x] Add pre-commit hooks after the initial formatting migration.
 

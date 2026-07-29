@@ -99,6 +99,10 @@ comment containing the corresponding release tag. Do not replace immutable
 pins with mutable branches or tags; allow Dependabot to propose reviewed pin
 updates.
 
+The PyPI publication job must remain separate from the release build, use the
+protected `pypi` environment, and receive only `id-token: write`. Do not add
+checkout, setup, build commands, or static API-token credentials to that job.
+
 Maintainers should use [RELEASING.md](RELEASING.md) for the tag-driven release
 process. Release history and pending user-visible changes are recorded in
 [CHANGELOG.md](CHANGELOG.md).
