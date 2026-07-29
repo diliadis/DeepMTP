@@ -94,6 +94,11 @@ remove the affected dependency instead of disabling the check. License policy
 is not enforced by this workflow; a future license gate must first define and
 document the project's accepted licenses.
 
+Remote GitHub Actions must use a full 40-character commit SHA followed by a
+comment containing the corresponding release tag. Do not replace immutable
+pins with mutable branches or tags; allow Dependabot to propose reviewed pin
+updates.
+
 Maintainers should use [RELEASING.md](RELEASING.md) for the tag-driven release
 process. Release history and pending user-visible changes are recorded in
 [CHANGELOG.md](CHANGELOG.md).

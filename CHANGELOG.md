@@ -34,6 +34,8 @@ checkpoints.
   pre-commit hooks, with minor and patch releases grouped for focused review.
 - Pull-request dependency review that rejects newly introduced
   moderate-or-higher known vulnerabilities and reports patched versions.
+- Immutable full-commit pins for GitHub Actions, with readable release
+  annotations and automated pinning-policy coverage.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 
