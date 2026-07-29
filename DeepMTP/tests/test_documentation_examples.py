@@ -1,6 +1,7 @@
 import ast
 import json
 import math
+import re
 import runpy
 import sys
 import textwrap
@@ -291,6 +292,8 @@ def test_project_policies_are_complete_and_linked():
     assert 'python: "3.13"' in ci_workflow
     assert 'python: "3.14"' in ci_workflow
     assert "python -m pip install -e . --group test" in ci_workflow
+    assert "--constraint constraints/minimum.txt" in ci_workflow
+    assert "python -m pip check" in ci_workflow
     assert "python -m pip install -e . --group quality" in ci_workflow
     assert "python -m pip install -e . --group docs" in ci_workflow
     assert "-m pip install dist/*.whl" in ci_workflow
@@ -329,6 +332,50 @@ def test_dependency_metadata_separates_runtime_features_from_development_tools()
         "build>=1.2",
         "twine>=6",
     ]
+
+
+def test_minimum_constraints_cover_direct_test_dependencies():
+    project_metadata = tomllib.loads(
+        (_PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    constraint_lines = (
+        (_PROJECT_ROOT / "constraints" / "minimum.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    constraints = {}
+    for raw_line in constraint_lines:
+        line = raw_line.split("#", maxsplit=1)[0].strip()
+        if not line:
+            continue
+        requirement = line.split(";", maxsplit=1)[0].strip()
+        name, version = requirement.split("==", maxsplit=1)
+        constraints[name.lower()] = version
+
+    direct_requirements = [
+        *project_metadata["project"]["dependencies"],
+        *project_metadata["dependency-groups"]["test"],
+    ]
+    direct_dependency_names = {
+        re.split(r"[<>=!~\s\[]", requirement, maxsplit=1)[0].lower()
+        for requirement in direct_requirements
+    }
+
+    assert set(constraints) == direct_dependency_names
+    assert constraints == {
+        "configspace": "1.2.2",
+        "liac-arff": "2.5.0",
+        "numpy": "1.23.5",
+        "pandas": "1.5.3",
+        "pillow": "9.5.0",
+        "prettytable": "3.3.0",
+        "pytest": "8.0.2",
+        "requests": "2.28.2",
+        "scikit-learn": "1.2.2",
+        "scipy": "1.9.3",
+        "tomli": "2.0.1",
+        "torch": "2.0.1",
+    }
 
 
 def test_sphinx_config_exposes_installed_distribution_version(monkeypatch):

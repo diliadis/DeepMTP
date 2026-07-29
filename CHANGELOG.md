@@ -28,6 +28,8 @@ checkpoints.
 - Offline, executable quick-start, training, dataset, and HPO examples.
 - A repeatable release-candidate matrix covering representative MLC, MTR, DP,
   MTL, and matrix-completion workloads.
+- A dedicated Python 3.10 CI job that verifies the advertised minimum
+  dependency series remains installable and passes the offline test suite.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 

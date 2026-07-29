@@ -43,6 +43,16 @@ python -m build
 python -m twine check --strict dist/*
 ```
 
+Reproduce the lower-bound compatibility job in a fresh Python 3.10
+environment:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e . --group test --constraint constraints/minimum.txt
+python -m pip check
+python -m pytest
+```
+
 The default test configuration excludes tests marked `network` and `slow`.
 Run a marked suite explicitly when its requirements are available:
 
