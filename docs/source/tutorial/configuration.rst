@@ -85,9 +85,12 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Instance branch architecture**
      -
    * - **instance_branch_architecture**
-     - The type of architecture that will be used in the instance branch. Currently, there are two available options, **MLP**: a basic fully connected feed-forward neural network is used, **CONV** a convolutional neural network is used
+     - The instance encoder: **MLP** for dense vectors, **CONV** for images,
+       **EMBEDDING** for zero-based IDs, or **CUSTOM** for a user-supplied
+       branch
    * - **instance_branch_input_dim**
-     - The input dimension of the instance branch
+     - The input feature dimension, or the number of instance IDs for an
+       **EMBEDDING** branch
    * - **instance_train_transforms**
      - The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures
    * - **instance_inference_transforms**
@@ -97,9 +100,12 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Target branch architecture**
      -
    * - **target_branch_architecture**
-     - The type of architecture that will be used in the target branch. Currently, there are two available options, **MLP**: a basic fully connected feed-forward neural network is used, **CONV** a convolutional neural network is used
+     - The target encoder: **MLP** for dense vectors, **CONV** for images,
+       **EMBEDDING** for zero-based IDs, or **CUSTOM** for a user-supplied
+       branch
    * - **target_branch_input_dim**
-     - The input dimension of the target branch
+     - The input feature dimension, or the number of target IDs for an
+       **EMBEDDING** branch
    * - **target_train_transforms**
      - The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures
    * - **target_inference_transforms**
@@ -117,7 +123,8 @@ In the code snippet above the function generate_config is shown without any spec
        ``comb_mlp_nodes_per_layer`` is an integer.
        (**Only used if general_architecture_version == mlp**)
    * - **embedding_size**
-     - The size of the embeddings outputted by the two branches. (**Only used if general_architecture_version == dot_product**)
+     - The output width of both branches for a dot-product model and of every
+       **EMBEDDING** branch
    * - **Pretrained models**
      -
    * - **load_pretrained_model**
@@ -130,6 +137,12 @@ In the code snippet above the function generate_config is shown without any spec
      - A dictionary that holds all other relevant info. Can be used as log adittional info for an experiment in wandb
    * - **validation_setting**
      - The validation setting of the specific example
+
+An **EMBEDDING** branch consumes entity IDs directly and does not accept side
+features. It is supported only when that entity axis is known at inference
+time: both branches in setting A, the target branch in setting B, and the
+instance branch in setting C. Setting D requires side-feature encoders for both
+axes.
 
 RRMSE remains available through the low-level ``get_performance_results``
 utility for macro evaluation when a training mean is provided for every

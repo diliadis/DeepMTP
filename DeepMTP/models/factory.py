@@ -11,7 +11,7 @@ import torch
 from torch import nn
 
 from DeepMTP.config import DeepMTPConfig
-from DeepMTP.models.branches import MLP, ConvNet
+from DeepMTP.models.branches import MLP, ConvNet, IDEmbedding
 
 __all__ = [
     "BranchFactory",
@@ -89,13 +89,21 @@ class TwoBranchMLPModel(nn.Module):
         config: ModelConfigInput,
         instance_branch_model: nn.Module,
         target_branch_model: nn.Module,
+        *,
+        instance_output_dim: int | None = None,
+        target_output_dim: int | None = None,
     ) -> None:
         super().__init__()
         self.instance_branch_model = instance_branch_model
         self.target_branch_model = target_branch_model
-        combined_dimension = (
-            instance_branch_model[0][-2].out_features
-            + target_branch_model[0][-2].out_features
+        combined_dimension = _branch_output_dimension(
+            instance_branch_model,
+            explicit_dimension=instance_output_dim,
+            branch="instance",
+        ) + _branch_output_dimension(
+            target_branch_model,
+            explicit_dimension=target_output_dim,
+            branch="target",
         )
         settings = _CombinedMLPSettings.from_config(config)
         self.comb_branch = MLP(
@@ -131,13 +139,21 @@ class TwoBranchKroneckerModel(nn.Module):
         config: ModelConfigInput,
         instance_branch_model: nn.Module,
         target_branch_model: nn.Module,
+        *,
+        instance_output_dim: int | None = None,
+        target_output_dim: int | None = None,
     ) -> None:
         super().__init__()
         self.instance_branch_model = instance_branch_model
         self.target_branch_model = target_branch_model
-        combined_dimension = (
-            instance_branch_model[0][-2].out_features
-            * target_branch_model[0][-2].out_features
+        combined_dimension = _branch_output_dimension(
+            instance_branch_model,
+            explicit_dimension=instance_output_dim,
+            branch="instance",
+        ) * _branch_output_dimension(
+            target_branch_model,
+            explicit_dimension=target_output_dim,
+            branch="target",
         )
         self.comb_branch = nn.Linear(combined_dimension, 1)
 
@@ -213,8 +229,15 @@ class ModelFactory:
         if self.config.general_architecture_version == "dot_product":
             return self.config.embedding_size, self.config.embedding_size
         return (
-            self._last_node_count(self.config.instance_branch_nodes_per_layer),
-            self._last_node_count(self.config.target_branch_nodes_per_layer),
+            self._branch_output_dimension("instance"),
+            self._branch_output_dimension("target"),
+        )
+
+    def _branch_output_dimension(self, branch: str) -> int:
+        if getattr(self.config, f"{branch}_branch_architecture") == "EMBEDDING":
+            return self.config.embedding_size
+        return self._last_node_count(
+            getattr(self.config, f"{branch}_branch_nodes_per_layer")
         )
 
     @staticmethod
@@ -248,6 +271,16 @@ class ModelFactory:
                 getattr(self.config, f"{branch}_branch_layers"),
                 getattr(self.config, f"dropout_rate_{branch}_branch"),
                 self.config.batch_norm,
+            )
+        if architecture == "EMBEDDING":
+            input_dim = getattr(self.config, f"{branch}_branch_input_dim")
+            if input_dim is None:
+                raise RuntimeError(
+                    f"Validated {branch} embedding configuration has no input size."
+                )
+            return IDEmbedding(
+                num_embeddings=input_dim,
+                embedding_dim=output_dim,
             )
         if architecture == "CONV":
             return ConvNet(
@@ -286,11 +319,49 @@ class ModelFactory:
             "kronecker": TwoBranchKroneckerModel,
         }
         model_type = model_types[architecture]
+        if model_type is TwoBranchDotProductModel:
+            return model_type(
+                self.config,
+                instance_branch,
+                target_branch,
+            )
         return model_type(
             self.config,
             instance_branch,
             target_branch,
         )
+
+
+def _branch_output_dimension(
+    model: nn.Module,
+    *,
+    explicit_dimension: int | None,
+    branch: str,
+) -> int:
+    """Resolve a branch output size without assuming a specific module layout."""
+    if explicit_dimension is not None:
+        return explicit_dimension
+    output_dimension = getattr(model, "output_dim", None)
+    if (
+        isinstance(output_dimension, int)
+        and not isinstance(output_dimension, bool)
+        and output_dimension > 0
+    ):
+        return output_dimension
+    try:
+        legacy_dimension = model[0][-2].out_features
+    except (AttributeError, IndexError, KeyError, TypeError) as error:
+        raise ValueError(
+            f"Could not determine the {branch} branch output dimension. "
+            "Set a positive output_dim attribute on custom branch modules."
+        ) from error
+    if (
+        isinstance(legacy_dimension, int)
+        and not isinstance(legacy_dimension, bool)
+        and legacy_dimension > 0
+    ):
+        return legacy_dimension
+    raise ValueError(f"{branch} branch output dimension must be a positive integer.")
 
 
 @contextmanager

@@ -196,7 +196,7 @@ class BaseDataset(Dataset):
                 self.instance_branch_input_dim,
                 "instance_branch_input_dim",
             )
-            self._validate_one_hot_ids(
+            self._validate_entity_ids(
                 id_column="instance_id",
                 input_dim=self.instance_branch_input_dim,
                 entity_name="Instance",
@@ -206,7 +206,7 @@ class BaseDataset(Dataset):
                 self.target_branch_input_dim,
                 "target_branch_input_dim",
             )
-            self._validate_one_hot_ids(
+            self._validate_entity_ids(
                 id_column="target_id",
                 input_dim=self.target_branch_input_dim,
                 entity_name="Target",
@@ -235,6 +235,12 @@ class BaseDataset(Dataset):
                     f"{entity_name} features are required for a CONV branch."
                 )
             return None
+        if architecture == "EMBEDDING":
+            raise ValueError(
+                f"{entity_name} side features cannot be supplied to an "
+                "EMBEDDING branch. Use an MLP, CONV, or CUSTOM branch when "
+                "side features are required."
+            )
 
         frame = source.get("data")
         if not isinstance(frame, pd.DataFrame):
@@ -266,7 +272,7 @@ class BaseDataset(Dataset):
             )
         return prepared_frame
 
-    def _validate_one_hot_ids(
+    def _validate_entity_ids(
         self,
         id_column: Literal["instance_id", "target_id"],
         input_dim: int,
@@ -280,7 +286,7 @@ class BaseDataset(Dataset):
             invalid_id = int(invalid_ids[0])
             raise ValueError(
                 f"{entity_name} IDs must be zero-based and smaller than "
-                f"{input_dim} when features are not supplied; found "
+                f"{input_dim} when ID-based inputs are used; found "
                 f"{invalid_id}. Remap the IDs or provide {entity_name.lower()} "
                 "features."
             )
@@ -315,10 +321,13 @@ class BaseDataset(Dataset):
                     instance_id, "features"
                 ]
         else:
-            instance_features_vec = np.zeros(
-                self.instance_branch_input_dim, dtype=np.float32
-            )
-            instance_features_vec[instance_id] = 1
+            if self.instance_branch_architecture == "EMBEDDING":
+                instance_features_vec = instance_id
+            else:
+                instance_features_vec = np.zeros(
+                    self.instance_branch_input_dim, dtype=np.float32
+                )
+                instance_features_vec[instance_id] = 1
 
         if self.target_features is not None:
             if self.target_branch_architecture == "CONV":
@@ -330,10 +339,13 @@ class BaseDataset(Dataset):
             else:
                 target_features_vec = self.target_features.loc[target_id, "features"]
         else:
-            target_features_vec = np.zeros(
-                self.target_branch_input_dim, dtype=np.float32
-            )
-            target_features_vec[target_id] = 1
+            if self.target_branch_architecture == "EMBEDDING":
+                target_features_vec = target_id
+            else:
+                target_features_vec = np.zeros(
+                    self.target_branch_input_dim, dtype=np.float32
+                )
+                target_features_vec[target_id] = 1
 
         return {
             "instance_id": instance_id,

@@ -5,6 +5,7 @@ import pytest
 
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.main import DeepMTP
+from DeepMTP.models import IDEmbedding
 from DeepMTP.utils.data_utils import data_process
 from DeepMTP.utils.utils import generate_config
 
@@ -202,3 +203,60 @@ def test_tiny_cpu_training_and_prediction(
             predictions["predicted_values"],
             restored_predictions["predicted_values"],
         )
+
+
+@pytest.mark.integration
+@pytest.mark.filterwarnings(
+    "ignore::DeepMTP.config.ConfigNormalizationWarning",
+)
+def test_tiny_cpu_training_with_learned_id_embeddings(tmp_path):
+    scores = (np.arange(24)[:, np.newaxis] + np.arange(4)[np.newaxis, :]) % 2
+    train, val, test, data_info = data_process(
+        {"train": {"y": scores, "X_instance": None, "X_target": None}},
+        validation_setting="A",
+    )
+    config = generate_config(
+        validation_setting="A",
+        problem_mode="classification",
+        general_architecture_version="dot_product",
+        compute_mode="cpu",
+        num_workers=0,
+        train_batchsize=16,
+        val_batchsize=16,
+        num_epochs=1,
+        metrics=["accuracy"],
+        metrics_average=["micro"],
+        evaluate_train=False,
+        evaluate_val=True,
+        use_early_stopping=False,
+        save_model=False,
+        results_path=str(tmp_path),
+        experiment_name="learned_ids",
+        instance_branch_architecture="EMBEDDING",
+        instance_branch_input_dim=data_info["instance_branch_input_dim"],
+        target_branch_architecture="EMBEDDING",
+        target_branch_input_dim=data_info["target_branch_input_dim"],
+        embedding_size=4,
+    )
+    model = DeepMTP(config)
+
+    validation_results = model.train(train, val, test)
+    _, predictions = model.predict(test, return_predictions=True)
+
+    assert isinstance(model.instance_branch_model, IDEmbedding)
+    assert isinstance(model.target_branch_model, IDEmbedding)
+    assert "val_loss" in validation_results
+    assert len(predictions) == len(test["y"]["data"])
+
+    model.save_model()
+    checkpoint_path = Path(model.experiment_dir) / "model.pt"
+    restored_config = dict(config)
+    restored_config["experiment_name"] = "learned_ids_restored"
+    restored_model = DeepMTP(restored_config, checkpoint_dir=checkpoint_path)
+    _, restored_predictions = restored_model.predict(test, return_predictions=True)
+
+    assert checkpoint_path.is_file()
+    assert np.allclose(
+        predictions["predicted_values"],
+        restored_predictions["predicted_values"],
+    )

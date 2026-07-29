@@ -11,7 +11,7 @@ from typing import Any, Literal, TypeAlias, cast
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
 ProblemMode: TypeAlias = Literal["classification", "regression"]
 GeneralArchitecture: TypeAlias = Literal["dot_product", "mlp", "kronecker"]
-BranchArchitecture: TypeAlias = Literal["MLP", "CONV", "CUSTOM"]
+BranchArchitecture: TypeAlias = Literal["MLP", "CONV", "CUSTOM", "EMBEDDING"]
 
 CLASSIFICATION_METRICS = frozenset(
     {
@@ -286,6 +286,7 @@ class DeepMTPConfig:
 
         self._validate_branch("instance")
         self._validate_branch("target")
+        self._validate_embedding_novelty()
         self._validate_combined_architecture()
 
         self._require_positive("learning_rate", self.learning_rate)
@@ -381,15 +382,16 @@ class DeepMTPConfig:
 
     def _validate_branch(self, branch: Literal["instance", "target"]) -> None:
         architecture = getattr(self, f"{branch}_branch_architecture")
-        if architecture not in {"MLP", "CONV", "CUSTOM"}:
+        if architecture not in {"MLP", "CONV", "CUSTOM", "EMBEDDING"}:
             raise ConfigValidationError(
-                f"{branch}_branch_architecture must be 'MLP', 'CONV', or "
-                f"'CUSTOM'; received {architecture!r}."
+                f"{branch}_branch_architecture must be 'MLP', 'CONV', "
+                f"'CUSTOM', or 'EMBEDDING'; received {architecture!r}."
             )
 
-        if architecture == "MLP":
+        if architecture in {"MLP", "EMBEDDING"}:
             input_dim = getattr(self, f"{branch}_branch_input_dim")
             self._require_positive_integer(f"{branch}_branch_input_dim", input_dim)
+        if architecture == "MLP":
             nodes = getattr(self, f"{branch}_branch_nodes_per_layer")
             layers = getattr(self, f"{branch}_branch_layers")
             self._validate_nodes(f"{branch}_branch_nodes_per_layer", nodes)
@@ -441,6 +443,25 @@ class DeepMTPConfig:
             ):
                 raise ConfigValidationError(
                     f"{branch}_branch_conv_architecture_dense_layers must be 1 or 2."
+                )
+
+    def _validate_embedding_novelty(self) -> None:
+        novelty_settings = {
+            "instance": {"B", "D"},
+            "target": {"C", "D"},
+        }
+        for branch, unsupported_settings in novelty_settings.items():
+            architecture = getattr(self, f"{branch}_branch_architecture")
+            if (
+                architecture == "EMBEDDING"
+                and self.validation_setting in unsupported_settings
+            ):
+                entity = "instances" if branch == "instance" else "targets"
+                raise ConfigValidationError(
+                    f"{branch}_branch_architecture='EMBEDDING' cannot represent "
+                    f"novel {entity} in validation setting "
+                    f"{self.validation_setting}. Use side features with an MLP, "
+                    "CONV, or CUSTOM branch."
                 )
 
     def _validate_combined_architecture(self) -> None:

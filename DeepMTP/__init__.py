@@ -22,6 +22,7 @@ from DeepMTP.hpo.progress import (
 )
 from DeepMTP.main import DeepMTP
 from DeepMTP.models import (
+    IDEmbedding,
     ModelBundle,
     ModelFactory,
     TwoBranchDotProductModel,
@@ -81,6 +82,7 @@ __all__ = [
     "HPOProgressObserver",
     "ConsoleHPOProgressObserver",
     "NullHPOProgressObserver",
+    "IDEmbedding",
     "ModelBundle",
     "ModelFactory",
     "TwoBranchDotProductModel",

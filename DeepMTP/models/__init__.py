@@ -1,6 +1,6 @@
 """Branch models, combination architectures, and model construction."""
 
-from DeepMTP.models.branches import MLP, ConvNet
+from DeepMTP.models.branches import MLP, ConvNet, IDEmbedding
 from DeepMTP.models.factory import (
     BranchFactory,
     ModelBundle,
@@ -14,6 +14,7 @@ from DeepMTP.models.factory import (
 __all__ = [
     "BranchFactory",
     "ConvNet",
+    "IDEmbedding",
     "MLP",
     "ModelBundle",
     "ModelFactory",

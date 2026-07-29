@@ -5,6 +5,7 @@ from torch import nn
 import DeepMTP.models.factory as model_factory
 from DeepMTP import (
     DeepMTPConfig,
+    IDEmbedding,
     ModelFactory,
     TwoBranchDotProductModel,
     TwoBranchKroneckerModel,
@@ -55,6 +56,52 @@ def test_model_factory_builds_each_combination_architecture(
     )
 
     assert isinstance(bundle.model, model_type)
+    assert output.shape == (2, 1)
+
+
+@pytest.mark.parametrize("architecture", ["dot_product", "mlp", "kronecker"])
+def test_model_factory_builds_id_embeddings_for_every_combination(architecture):
+    bundle = ModelFactory(
+        make_config(
+            validation_setting="A",
+            metrics_average=["micro"],
+            general_architecture_version=architecture,
+            instance_branch_architecture="EMBEDDING",
+            instance_branch_input_dim=4,
+            target_branch_architecture="EMBEDDING",
+            target_branch_input_dim=5,
+            embedding_size=3,
+        )
+    ).build()
+
+    output = bundle.model(
+        torch.tensor([0, 3], dtype=torch.int64),
+        torch.tensor([4, 1], dtype=torch.int64),
+    )
+
+    assert isinstance(bundle.instance_branch, IDEmbedding)
+    assert isinstance(bundle.target_branch, IDEmbedding)
+    assert bundle.instance_branch.embedding.weight.shape == (4, 3)
+    assert bundle.target_branch.embedding.weight.shape == (5, 3)
+    assert output.shape == (2, 1)
+
+
+def test_model_factory_supports_features_with_known_target_id_embeddings():
+    bundle = ModelFactory(
+        make_config(
+            general_architecture_version="mlp",
+            target_branch_architecture="EMBEDDING",
+            target_branch_input_dim=5,
+            embedding_size=3,
+        )
+    ).build()
+
+    output = bundle.model(
+        torch.ones(2, 2),
+        torch.tensor([4, 1], dtype=torch.int64),
+    )
+
+    assert isinstance(bundle.target_branch, IDEmbedding)
     assert output.shape == (2, 1)
 
 

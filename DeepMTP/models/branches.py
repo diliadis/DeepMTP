@@ -17,7 +17,7 @@ from DeepMTP.config import (
     DeepMTPConfig,
 )
 
-__all__ = ["ConvNet", "MLP", "ModelConfigInput"]
+__all__ = ["ConvNet", "IDEmbedding", "MLP", "ModelConfigInput"]
 
 ModelConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
 
@@ -98,6 +98,7 @@ class MLP(nn.Sequential):
             raise ValueError("output_dim must be a positive integer.")
         if not 0 <= dropout_rate < 1:
             raise ValueError("dropout_rate must be between 0 (inclusive) and 1.")
+        self.output_dim = output_dim
 
         if isinstance(nodes_per_layer, list):
             if not nodes_per_layer or any(nodes <= 0 for nodes in nodes_per_layer):
@@ -136,6 +137,31 @@ class MLP(nn.Sequential):
         for layer in self.predictor:
             v = layer(v)
         return v
+
+
+class IDEmbedding(nn.Module):
+    """Map zero-based entity IDs to trainable dense representations."""
+
+    def __init__(self, num_embeddings: int, embedding_dim: int) -> None:
+        super().__init__()
+        for name, value in {
+            "num_embeddings": num_embeddings,
+            "embedding_dim": embedding_dim,
+        }.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer.")
+        self.num_embeddings = num_embeddings
+        self.output_dim = embedding_dim
+        self.embedding = nn.Embedding(num_embeddings, embedding_dim)
+
+    def forward(self, entity_ids: torch.Tensor) -> torch.Tensor:
+        if not isinstance(entity_ids, torch.Tensor):
+            raise TypeError("entity_ids must be a torch.Tensor.")
+        if entity_ids.dtype not in {torch.int32, torch.int64}:
+            raise TypeError("entity_ids must use an integer tensor dtype.")
+        if entity_ids.ndim != 1:
+            raise ValueError("entity_ids must be a one-dimensional batch.")
+        return self.embedding(entity_ids)
 
 
 class ConvNet(nn.Sequential):
@@ -181,6 +207,7 @@ class ConvNet(nn.Sequential):
                 )
         if not isinstance(pretrained, bool):
             raise AttributeError("pretrained must be a boolean.")
+        self.output_dim = output_dim
 
         self.predictor = nn.ModuleList()
         models = _load_torchvision_models()

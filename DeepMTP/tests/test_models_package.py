@@ -18,6 +18,7 @@ def test_models_package_exposes_canonical_implementations():
     expected_symbols = {
         "BranchFactory": factory_module.BranchFactory,
         "ConvNet": branches_module.ConvNet,
+        "IDEmbedding": branches_module.IDEmbedding,
         "MLP": branches_module.MLP,
         "ModelBundle": factory_module.ModelBundle,
         "ModelFactory": factory_module.ModelFactory,
@@ -34,6 +35,7 @@ def test_models_package_exposes_canonical_implementations():
 
 def test_top_level_model_api_uses_canonical_implementations():
     for name in (
+        "IDEmbedding",
         "ModelBundle",
         "ModelFactory",
         "TwoBranchDotProductModel",
@@ -49,7 +51,7 @@ def test_top_level_model_api_uses_canonical_implementations():
         (
             legacy_branches,
             branches_module,
-            ("ConvNet", "MLP", "ModelConfigInput"),
+            ("ConvNet", "IDEmbedding", "MLP", "ModelConfigInput"),
         ),
         (
             legacy_factory,
@@ -98,6 +100,7 @@ def test_legacy_model_modules_are_definition_free_facades(legacy_module):
     [
         ("DeepMTP.branch_models", "MLP", branches_module.MLP),
         ("DeepMTP.branch_models", "ConvNet", branches_module.ConvNet),
+        ("DeepMTP.branch_models", "IDEmbedding", branches_module.IDEmbedding),
         (
             "DeepMTP.model_factory",
             "TwoBranchDotProductModel",
@@ -119,6 +122,7 @@ def test_historical_model_pickle_globals_resolve(
 def test_model_classes_report_their_canonical_module_names():
     assert branches_module.MLP.__module__ == "DeepMTP.models.branches"
     assert branches_module.ConvNet.__module__ == "DeepMTP.models.branches"
+    assert branches_module.IDEmbedding.__module__ == "DeepMTP.models.branches"
     assert factory_module.ModelFactory.__module__ == "DeepMTP.models.factory"
     assert factory_module.TwoBranchDotProductModel.__module__ == (
         "DeepMTP.models.factory"
