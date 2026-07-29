@@ -26,7 +26,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "more-itertools>=9",
     "numpy>=1.23",
     "pandas>=1.5",
     "pillow>=9",

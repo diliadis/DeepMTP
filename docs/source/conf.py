@@ -49,7 +49,6 @@ autodoc_mock_imports = [
     'torchvision',
     'tensorboard',
     'sklearn',
-    'more_itertools',
     'streamlit',
     'scipy',
     'torch',

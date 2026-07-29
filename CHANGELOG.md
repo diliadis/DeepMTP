@@ -41,6 +41,8 @@ checkpoints.
 - Multi-label dataset dumps are read directly with the standard library,
   removing the unnecessary `scikit-multilearn` runtime dependency while
   preserving the existing cache format.
+- Epilepsy metric grouping and false-alarm windows use NumPy and the standard
+  library instead of the single-purpose `more-itertools` dependency.
 - Configuration, data, model, training, evaluation, HPO, and persistence
   boundaries validate inputs earlier and report focused errors.
 - Data preparation copies caller-owned input, isolates split randomness, fits
