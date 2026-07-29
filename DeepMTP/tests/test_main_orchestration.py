@@ -10,7 +10,7 @@ import DeepMTP.main as main_module
 from DeepMTP import EpochOutput
 from DeepMTP.config import ConfigValidationError
 from DeepMTP.main import DeepMTP
-from DeepMTP.persistence import ExperimentStore
+from DeepMTP.runtime.persistence import ExperimentStore
 from DeepMTP.utils.model_utils import EarlyStopping
 
 

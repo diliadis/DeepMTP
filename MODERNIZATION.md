@@ -181,6 +181,30 @@ documented using repository commands.
 Exit criterion: documentation examples execute in CI and a release can be
 produced from a tagged commit without manual repository edits.
 
+## Phase 7 — Package layout
+
+- [x] Group HPO workers, optimizers, progress events, and structural types
+  under `DeepMTP.hpo` while preserving historical import and pickle paths.
+- [x] Group optional Streamlit adapters under a focused integration package
+  while preserving historical import and pickle paths.
+- [x] Group branch models and model construction under `DeepMTP.models` while
+  preserving historical import and pickle paths.
+- [x] Complete the `DeepMTP.runtime` package:
+  - [x] Group persistence, presentation, reporting, and evaluation-progress
+    services while preserving historical import and pickle paths.
+  - [x] Group numerical evaluation and training services while preserving
+    historical import and pickle paths.
+- [x] Complete the `DeepMTP.data` package:
+  - [x] Group model-ready loading and data-progress services while preserving
+    historical import and pickle paths.
+  - [x] Group interaction, feature, splitting, and preparation services while
+    preserving historical import and pickle paths.
+  - [x] Group built-in and downloadable dataset helpers while preserving
+    historical imports, pickle paths, and lazy optional dependencies.
+
+Exit criterion: package paths communicate ownership without breaking supported
+legacy imports or persisted artifacts.
+
 ## Definition of done for each change
 
 1. A failing regression test demonstrates the previous problem.

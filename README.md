@@ -58,6 +58,17 @@ pip install "DeepMTP[tracking]"   # TensorBoard and Weights & Biases
 pip install "DeepMTP[all]"        # every runtime integration
 ```
 
+Streamlit-specific trainers, optimizers, and progress observers live under the
+optional integration namespace:
+
+```python
+from DeepMTP.integrations.streamlit import (
+    DeepMTP as StreamlitDeepMTP,
+    HyperBand,
+    RandomSearch,
+)
+```
+
 ## Installing from Source
 
 ```bash
@@ -124,6 +135,13 @@ Using the formal definition above we can simplify the basic components that we n
 
 ## How does DeepMTP work??
 The DeepMTP framework is based on a flexible two branch neural network architecture that can be adapted to account for specific needs of the different MTP problem settings. The two branches are designed to take as input any available side information (features) for the instances and targets and then output two embedding vectors $p_{x}$ and $q_{t}$, respectively. The embedding can then be concatenated and passed through a series of fully-connected layers with a single output node (predicting the score of the instance-target pair). Alternatively, a more straightforward and less expensive approach replaces the series of fully-connected layers with a simple dot-product. In terms of the sizes allowed for the two embedding vectors $p_{x}$ and $q_{t}$, the MLP version allows for different sizes and the dot-product version requires the same size.  
+
+Reusable branch models, combined architectures, and the model factory are
+available from the focused model namespace:
+
+```python
+from DeepMTP.models import ConvNet, MLP, ModelFactory
+```
 
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="250"/></p>
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="250"/></p>
@@ -268,6 +286,9 @@ test_results, predictions = model.predict(test, return_predictions=True)
 <details>
 <summary> Loading one of the datasets offered natively by DeepMTP </summary>
 In the example above, the multi-label classification dataset is loaded my one of the built-in functions offered by the framework. More specifically the available functions are the following:
+
+Install the `datasets` extra and import loaders from `DeepMTP.data.datasets`.
+The historical `DeepMTP.dataset` path remains available for compatibility.
 
 |  Function  | Description |
 | :--- | :--- |
@@ -435,8 +456,7 @@ import ConfigSpace as CS
 import numpy as np
 
 from DeepMTP import DeepMTP, data_process
-from DeepMTP.hpo_worker import BaseWorker
-from DeepMTP.simple_hyperband import HyperBand
+from DeepMTP.hpo import BaseWorker, HyperBand
 
 rng = np.random.default_rng(42)
 scores = (

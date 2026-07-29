@@ -22,9 +22,9 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from DeepMTP.evaluation_progress import (
+from DeepMTP.runtime import evaluation_progress as evaluation_progress_runtime
+from DeepMTP.runtime.evaluation_progress import (
     EvaluationProgressEvent,
-    EvaluationProgressObserver,
     build_evaluation_progress_observer,
 )
 
@@ -254,7 +254,7 @@ def get_performance_results(
     return_detailed_macro: bool = False,
     train_true_value: TrainingMeans | None = None,
     scaler_per_target: ScalerInput = None,
-    progress: EvaluationProgressObserver | None = None,
+    progress: evaluation_progress_runtime.EvaluationProgressObserver | None = None,
 ) -> MetricResults:
     """Calculates all the metrics using different averaging schemes
 
@@ -659,7 +659,7 @@ def base_evaluator(
     train_true_value: TrainingMeans | None = None,
     verbose: bool = False,
     threshold: float = 0.5,
-    progress: EvaluationProgressObserver | None = None,
+    progress: evaluation_progress_runtime.EvaluationProgressObserver | None = None,
 ) -> MetricResults:
     """The function that actually calculates the different metrics
 

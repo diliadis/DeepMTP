@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from itertools import combinations
 from typing import Any, TypeAlias
 
-from DeepMTP.data_progress import (
+from DeepMTP.data.progress import (
     DataProgressEvent,
     DataProgressObserver,
     build_data_progress_observer,

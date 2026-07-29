@@ -13,10 +13,10 @@ import pytest
 from scipy import sparse
 from skmultilearn.dataset import save_dataset_dump
 
-import DeepMTP.dataset as dataset_module
+import DeepMTP.data.datasets as dataset_module
 from DeepMTP import DataProgressEvent, NullDataProgressObserver
 from DeepMTP._download_utils import DatasetDownloadError
-from DeepMTP.dataset import (
+from DeepMTP.data.datasets import (
     format_mtr_datasets,
     generate_dummy_dataset,
     generate_interaction_matrix,

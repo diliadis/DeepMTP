@@ -4,7 +4,7 @@ import pickle
 import pytest
 import torch
 
-from DeepMTP.persistence import ExperimentStore
+from DeepMTP.runtime.persistence import ExperimentStore
 
 
 def test_create_experiment_directory_is_nested_and_collision_safe(tmp_path):

@@ -4,8 +4,8 @@ import pytest
 import torch
 from torch import nn
 
-import DeepMTP.branch_models as branch_models
-from DeepMTP.branch_models import MLP, ConvNet
+import DeepMTP.models.branches as branch_models
+from DeepMTP.models import MLP, ConvNet
 
 
 class FakeResNet(nn.Module):

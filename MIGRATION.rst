@@ -68,14 +68,76 @@ Current style:
 
    from DeepMTP import DeepMTP, DeepMTPConfig, data_process
 
-Dataset loader functions such as ``load_process_MLC`` remain in
-``DeepMTP.dataset``. HPO code should import ``BaseWorker`` from
-``DeepMTP.hpo_worker`` and optimizers from their own modules:
+Data preparation, validation, splitting, model-ready loading, and progress
+services now live in ``DeepMTP.data``:
 
 .. code-block:: python
 
-   from DeepMTP.hpo_worker import BaseWorker
-   from DeepMTP.simple_hyperband import HyperBand
+   from DeepMTP.data import (
+       DataLoaderFactory,
+       DataProgressObserver,
+       TrainingDataLoaders,
+       data_process,
+   )
+
+The historical ``DeepMTP.interaction_data``, ``DeepMTP.feature_data``,
+``DeepMTP.data_splitting``, ``DeepMTP.data_preparation``,
+``DeepMTP.data_loading``, ``DeepMTP.data_progress``, and ``DeepMTP.dataset``
+paths remain compatibility facades. Existing public imports and pickled data
+objects continue to resolve.
+
+Built-in, generated, and downloadable dataset helpers use the dataset module:
+
+.. code-block:: python
+
+   from DeepMTP.data.datasets import load_process_MLC, process_dummy_MLC
+
+Importing ``DeepMTP`` or ``DeepMTP.data`` does not load dataset-specific
+dependencies. They are loaded only when ``DeepMTP.data.datasets`` or a lazy
+dataset export such as ``DeepMTP.data.load_process_MLC`` is accessed.
+
+New HPO code should use the focused ``DeepMTP.hpo`` package:
+
+.. code-block:: python
+
+   from DeepMTP.hpo import BaseWorker, HyperBand, RandomSearch
+
+The historical ``DeepMTP.hpo_worker``, ``DeepMTP.random_search``,
+``DeepMTP.simple_hyperband``, ``DeepMTP.hpo_progress``, and
+``DeepMTP.hpo_types`` module paths remain compatibility facades. Existing
+imports and persisted objects that refer to those paths continue to resolve.
+
+Reusable branch models, combined architectures, and model construction now
+live in ``DeepMTP.models``:
+
+.. code-block:: python
+
+   from DeepMTP.models import ConvNet, MLP, ModelFactory
+
+The historical ``DeepMTP.branch_models`` and ``DeepMTP.model_factory`` module
+paths remain compatibility facades. Existing imports and pickled model classes
+continue to resolve, while normal DeepMTP checkpoints remain unaffected because
+they store model state dictionaries rather than model objects.
+
+Numerical training, evaluation, and their runtime support services now live
+under ``DeepMTP.runtime``:
+
+.. code-block:: python
+
+   from DeepMTP.runtime import (
+       Evaluator,
+       ExperimentStore,
+       ProgressObserver,
+       TensorBoardReporter,
+       TrainingEngine,
+   )
+
+The historical ``DeepMTP.evaluation``, ``DeepMTP.training``,
+``DeepMTP.persistence``, ``DeepMTP.presentation``, ``DeepMTP.reporting``, and
+``DeepMTP.evaluation_progress`` paths remain compatibility facades. Existing
+imports and pickled runtime objects continue to resolve. The tested top-level
+imports such as ``from DeepMTP import Evaluator, TrainingEngine`` also remain
+stable.
 
 Configuration
 -------------
@@ -231,6 +293,21 @@ Optional integrations and offline runs
 Tracking, Streamlit, image models, HPO, and downloadable datasets are imported
 only when used. Missing integrations now produce a focused installation error
 instead of preventing ``import DeepMTP``.
+
+New Streamlit adapter imports use the optional integration namespace:
+
+.. code-block:: python
+
+   from DeepMTP.integrations.streamlit import (
+       DeepMTP as StreamlitDeepMTP,
+       HyperBand,
+       RandomSearch,
+   )
+
+The historical ``DeepMTP.main_streamlit``,
+``DeepMTP.random_search_streamlit``,
+``DeepMTP.simple_hyperband_streamlit``, and
+``DeepMTP.streamlit_adapter`` paths remain compatibility facades.
 
 Torchvision's explicit weights API may download pretrained weights on first
 use. For an offline convolutional experiment, disable pretrained weights on

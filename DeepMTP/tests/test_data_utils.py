@@ -6,13 +6,13 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
-import DeepMTP.data_preparation as data_preparation_module
-import DeepMTP.data_splitting as data_splitting_module
-import DeepMTP.feature_data as feature_data_module
-import DeepMTP.interaction_data as interaction_data_module
+import DeepMTP.data.features as feature_data_module
+import DeepMTP.data.interactions as interaction_data_module
+import DeepMTP.data.preparation as data_preparation_module
+import DeepMTP.data.splitting as data_splitting_module
 import DeepMTP.utils.data_utils as data_utils_module
 from DeepMTP import DataProgressEvent, NullDataProgressObserver
-from DeepMTP.dataset import (
+from DeepMTP.data.datasets import (
     generate_MTP_dataset,
     process_dummy_DP,
     process_dummy_MLC,
@@ -67,7 +67,7 @@ def test_interaction_helpers_have_a_focused_owner_and_legacy_aliases():
     for name in public_names:
         canonical = getattr(interaction_data_module, name)
         assert getattr(data_utils_module, name) is canonical
-        assert canonical.__module__ == "DeepMTP.interaction_data"
+        assert canonical.__module__ == "DeepMTP.data.interactions"
 
 
 def test_feature_helpers_have_a_focused_owner_and_legacy_aliases():
@@ -85,7 +85,7 @@ def test_feature_helpers_have_a_focused_owner_and_legacy_aliases():
     for name in owned_names:
         canonical = getattr(feature_data_module, name)
         assert getattr(data_utils_module, name) is canonical
-        assert canonical.__module__ == "DeepMTP.feature_data"
+        assert canonical.__module__ == "DeepMTP.data.features"
 
 
 def test_split_helpers_have_a_focused_owner_and_legacy_aliases():
@@ -105,7 +105,7 @@ def test_split_helpers_have_a_focused_owner_and_legacy_aliases():
     for name in owned_names:
         canonical = getattr(data_splitting_module, name)
         assert getattr(data_utils_module, name) is canonical
-        assert canonical.__module__ == "DeepMTP.data_splitting"
+        assert canonical.__module__ == "DeepMTP.data.splitting"
 
 
 def test_preparation_helpers_have_a_focused_owner_and_legacy_aliases():
@@ -124,7 +124,7 @@ def test_preparation_helpers_have_a_focused_owner_and_legacy_aliases():
     for name in owned_names:
         canonical = getattr(data_preparation_module, name)
         assert getattr(data_utils_module, name) is canonical
-        assert canonical.__module__ == "DeepMTP.data_preparation"
+        assert canonical.__module__ == "DeepMTP.data.preparation"
 
     assert data_utils_module.ProcessedSplit is data_preparation_module.ProcessedSplit
     assert data_utils_module.ScalingMethod is data_preparation_module.ScalingMethod

@@ -6,37 +6,37 @@ from DeepMTP.config import (
     ConfigValidationError,
     DeepMTPConfig,
 )
-from DeepMTP.data_loading import DataLoaderFactory, TrainingDataLoaders
-from DeepMTP.data_preparation import data_process
-from DeepMTP.data_progress import (
+from DeepMTP.data.loading import DataLoaderFactory, TrainingDataLoaders
+from DeepMTP.data.preparation import data_process
+from DeepMTP.data.progress import (
     ConsoleDataProgressObserver,
     DataProgressEvent,
     DataProgressObserver,
     NullDataProgressObserver,
 )
-from DeepMTP.evaluation import EvaluationPolicy, Evaluator
-from DeepMTP.evaluation_progress import (
-    ConsoleEvaluationProgressObserver,
-    EvaluationProgressEvent,
-    EvaluationProgressObserver,
-    NullEvaluationProgressObserver,
-)
-from DeepMTP.hpo_progress import (
+from DeepMTP.hpo.progress import (
     ConsoleHPOProgressObserver,
     HPOProgressEvent,
     HPOProgressObserver,
     NullHPOProgressObserver,
 )
 from DeepMTP.main import DeepMTP
-from DeepMTP.model_factory import (
+from DeepMTP.models import (
     ModelBundle,
     ModelFactory,
     TwoBranchDotProductModel,
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
 )
-from DeepMTP.persistence import ExperimentStore
-from DeepMTP.presentation import (
+from DeepMTP.runtime.evaluation import EvaluationPolicy, Evaluator
+from DeepMTP.runtime.evaluation_progress import (
+    ConsoleEvaluationProgressObserver,
+    EvaluationProgressEvent,
+    EvaluationProgressObserver,
+    NullEvaluationProgressObserver,
+)
+from DeepMTP.runtime.persistence import ExperimentStore
+from DeepMTP.runtime.presentation import (
     ConsoleProgressObserver,
     NullProgressObserver,
     ProgressEvent,
@@ -44,7 +44,7 @@ from DeepMTP.presentation import (
     RunHistory,
     RunSummaries,
 )
-from DeepMTP.reporting import (
+from DeepMTP.runtime.reporting import (
     CompositeReporter,
     ExperimentReporter,
     NullReporter,
@@ -52,7 +52,7 @@ from DeepMTP.reporting import (
     TensorBoardReporter,
     WandBReporter,
 )
-from DeepMTP.training import EpochOutput, TrainingEngine
+from DeepMTP.runtime.training import EpochOutput, TrainingEngine
 
 try:
     __version__ = version("DeepMTP")

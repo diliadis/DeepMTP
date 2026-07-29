@@ -52,6 +52,21 @@ checkpoints.
   pretrained weights for offline construction.
 - Streamlit training and HPO adapters reuse the same core implementations as
   non-Streamlit runs.
+- HPO workers, optimizers, progress events, and structural types now live in
+  the focused `DeepMTP.hpo` package. Historical module paths remain
+  compatibility facades for existing imports and persisted objects.
+- Optional Streamlit trainers, HPO wrappers, and progress renderers now live
+  under `DeepMTP.integrations.streamlit`, with historical root modules retained
+  as compatibility facades.
+- Branch networks, combination architectures, and model construction now live
+  under `DeepMTP.models`; historical model modules remain compatibility
+  facades.
+- Built-in dataset helpers, interaction normalization, feature validation,
+  splitting, preparation, model-ready loading, and data-progress services now
+  live under `DeepMTP.data`; historical modules remain compatibility facades.
+- Numerical training and evaluation, persistence, progress presentation,
+  reporting, and evaluation-progress services now live under
+  `DeepMTP.runtime`; historical modules remain compatibility facades.
 
 ### Fixed
 

@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-import DeepMTP.hpo_worker as hpo_worker
-from DeepMTP.hpo_worker import BaseWorker
+import DeepMTP.hpo.worker as hpo_worker
+from DeepMTP.hpo import BaseWorker
 
 
 class RecordingProgress:
