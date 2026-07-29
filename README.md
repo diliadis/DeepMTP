@@ -77,12 +77,20 @@ cd DeepMTP
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python -m pip install -e . --group dev
 python -m pytest
 ```
 
-Conda users can instead run `conda env create -f environment.yml`. Development
-commands and contribution expectations are documented in
+Conda users can instead bootstrap the environment and install the same
+development group:
+
+```bash
+conda env create -f environment.yml
+conda activate deepmtp
+python -m pip install --group dev
+```
+
+Development commands and contribution expectations are documented in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Upgrading an experiment from the published `0.0.22` release requires a few

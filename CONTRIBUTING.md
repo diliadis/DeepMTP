@@ -12,7 +12,17 @@ DeepMTP supports Python 3.10 and newer. From the repository root:
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python -m pip install -e . --group dev
+pre-commit install
+```
+
+Conda users can bootstrap the package and a compatible pip version, then
+install the same development group:
+
+```bash
+conda env create -f environment.yml
+conda activate deepmtp
+python -m pip install --group dev
 pre-commit install
 ```
 

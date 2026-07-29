@@ -10,6 +10,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib
+
 _PROJECT_ROOT = Path(__file__).parents[2]
 _DEMO_NOTEBOOKS = sorted((_PROJECT_ROOT / "DEMO").glob("*.ipynb"))
 _RELEASE_CANDIDATE_WORKLOADS = [
@@ -254,6 +259,9 @@ def test_project_policies_are_complete_and_linked():
         encoding="utf-8"
     )
     conda_environment = (_PROJECT_ROOT / "environment.yml").read_text(encoding="utf-8")
+    readthedocs_config = (_PROJECT_ROOT / ".readthedocs.yaml").read_text(
+        encoding="utf-8"
+    )
 
     for policy_name in policy_names:
         assert policy_name in readme or policy_name == "MIGRATION.rst"
@@ -282,12 +290,45 @@ def test_project_policies_are_complete_and_linked():
     )
     assert 'python: "3.13"' in ci_workflow
     assert 'python: "3.14"' in ci_workflow
+    assert "python -m pip install -e . --group test" in ci_workflow
+    assert "python -m pip install -e . --group quality" in ci_workflow
+    assert "python -m pip install -e . --group docs" in ci_workflow
     assert "-m pip install dist/*.whl" in ci_workflow
     assert "scripts/smoke_test_installation.py" in ci_workflow
     assert "--require-wheel-install" in ci_workflow
     assert "working-directory: ${{ runner.temp }}" in ci_workflow
-    assert "-e .[dev]" in conda_environment
+    assert "pip>=25.1" in conda_environment
+    assert "- -e ." in conda_environment
+    assert ".[dev]" not in conda_environment
     assert "-e .[all]" not in conda_environment
+    assert "python -m pip install -e . --group docs" in readthedocs_config
+    assert "configuration: docs/source/conf.py" in readthedocs_config
+
+
+def test_dependency_metadata_separates_runtime_features_from_development_tools():
+    project_metadata = tomllib.loads(
+        (_PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+
+    runtime_extras = project_metadata["project"]["optional-dependencies"]
+    dependency_groups = project_metadata["dependency-groups"]
+
+    assert set(runtime_extras) == {
+        "all",
+        "datasets",
+        "hpo",
+        "image",
+        "streamlit",
+        "tracking",
+    }
+    assert set(dependency_groups) == {"dev", "docs", "quality", "test"}
+    assert dependency_groups["dev"] == [
+        {"include-group": "test"},
+        {"include-group": "quality"},
+        {"include-group": "docs"},
+        "build>=1.2",
+        "twine>=6",
+    ]
 
 
 def test_sphinx_config_exposes_installed_distribution_version(monkeypatch):

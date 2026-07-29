@@ -3,6 +3,6 @@ channels:
   - conda-forge
 dependencies:
   - python=3.12
-  - pip
+  - pip>=25.1
   - pip:
-      - -e .[dev]
+      - -e .

@@ -155,8 +155,8 @@ Exit criterion: there is only one implementation of training and HPO logic.
 
 - [x] Move package metadata to the PEP 621 `[project]` table in
   `pyproject.toml`.
-- [x] Define dependency groups for development, testing, docs, and
-  optional integrations.
+- [x] Define runtime extras for optional integrations and standardized PEP 735
+  dependency groups for development, testing, quality checks, and docs.
 - [x] Add Ruff formatting/linting and a pragmatic type-checking baseline.
 - [x] Replace the legacy Travis configuration and old GitHub Actions workflow.
 - [x] Test supported Python versions on Linux, macOS, and Windows where useful.

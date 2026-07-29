@@ -21,8 +21,10 @@ checkpoints.
   TensorBoard, and Weights & Biases.
 - Per-branch dropout settings, top-k grouped metrics, isolated random seeds,
   and deterministic class undersampling.
-- Optional dependency groups for datasets, HPO, image models, Streamlit,
-  tracking, testing, quality checks, and documentation.
+- Optional runtime extras for datasets, HPO, image models, Streamlit, and
+  experiment tracking.
+- Standardized PEP 735 dependency groups for testing, quality checks,
+  documentation, and the complete development toolchain.
 - Offline, executable quick-start, training, dataset, and HPO examples.
 - A repeatable release-candidate matrix covering representative MLC, MTR, DP,
   MTL, and matrix-completion workloads.
@@ -36,6 +38,8 @@ checkpoints.
   the built wheel in an isolated environment.
 - Packaging uses the PEP 621 project table and derives versions from Git tags
   with `setuptools-scm`.
+- CI, contributor setup, Conda, and Read the Docs install unpublished
+  developer tooling from the standardized dependency groups.
 - Dataset downloaders, Torchvision, Streamlit, TensorBoard, Weights & Biases,
   and ConfigSpace are loaded only when their integrations are used.
 - Multi-label dataset dumps are read directly with the standard library,
