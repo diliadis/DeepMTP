@@ -85,12 +85,15 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Instance branch architecture**
      -
    * - **instance_branch_architecture**
-     - The instance encoder: **MLP** for dense vectors, **CONV** for images,
-       **EMBEDDING** for zero-based IDs, or **CUSTOM** for a user-supplied
-       branch
+     - The instance encoder: **MLP** for dense vectors, **TABULAR** for
+       explicit numeric and categorical columns, **CONV** for images,
+       **EMBEDDING** for zero-based IDs, or **CUSTOM** for a user-supplied branch
    * - **instance_branch_input_dim**
      - The input feature dimension, or the number of instance IDs for an
        **EMBEDDING** branch
+   * - **instance_branch_tabular_schema**
+     - Column names, category vocabularies, normalization, missing-value
+       policies, and optional feature gating for an instance **TABULAR** branch
    * - **instance_train_transforms**
      - The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures
    * - **instance_inference_transforms**
@@ -100,12 +103,15 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Target branch architecture**
      -
    * - **target_branch_architecture**
-     - The target encoder: **MLP** for dense vectors, **CONV** for images,
-       **EMBEDDING** for zero-based IDs, or **CUSTOM** for a user-supplied
-       branch
+     - The target encoder: **MLP** for dense vectors, **TABULAR** for explicit
+       numeric and categorical columns, **CONV** for images, **EMBEDDING** for
+       zero-based IDs, or **CUSTOM** for a user-supplied branch
    * - **target_branch_input_dim**
      - The input feature dimension, or the number of target IDs for an
        **EMBEDDING** branch
+   * - **target_branch_tabular_schema**
+     - Column names, category vocabularies, normalization, missing-value
+       policies, and optional feature gating for a target **TABULAR** branch
    * - **target_train_transforms**
      - The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures
    * - **target_inference_transforms**
@@ -143,6 +149,11 @@ features. It is supported only when that entity axis is known at inference
 time: both branches in setting A, the target branch in setting B, and the
 instance branch in setting C. Setting D requires side-feature encoders for both
 axes.
+
+A **TABULAR** branch consumes a DataFrame with an ``id`` column plus the
+numeric and categorical columns in its explicit schema. Training-only
+normalization and imputation statistics are saved with the model. See
+:doc:`tabular_inputs` for the complete schema and an example.
 
 RRMSE remains available through the low-level ``get_performance_results``
 utility for macro evaluation when a training mean is provided for every

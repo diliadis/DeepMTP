@@ -13,8 +13,10 @@ from torch import nn
 
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.data.batches import BranchInputKind
-from DeepMTP.models.branches import MLP, ConvNet, IDEmbedding
+from DeepMTP.data.tabular import TabularSchema
+from DeepMTP.models.branches import MLP, ConvNet, IDEmbedding, TabularEncoder
 from DeepMTP.models.contracts import (
+    BranchModelInput,
     encode_branch,
     encoder_input_kind,
     encoder_output_dimension,
@@ -111,8 +113,8 @@ class TwoBranchDotProductModel(nn.Module):
 
     def forward(
         self,
-        instance_features: torch.Tensor,
-        target_features: torch.Tensor,
+        instance_features: BranchModelInput,
+        target_features: BranchModelInput,
     ) -> torch.Tensor:
         instance_embedding = encode_branch(
             self.instance_branch_model,
@@ -172,8 +174,8 @@ class TwoBranchMLPModel(nn.Module):
 
     def forward(
         self,
-        instance_features: torch.Tensor,
-        target_features: torch.Tensor,
+        instance_features: BranchModelInput,
+        target_features: BranchModelInput,
     ) -> torch.Tensor:
         instance_embedding = encode_branch(
             self.instance_branch_model,
@@ -224,8 +226,8 @@ class TwoBranchKroneckerModel(nn.Module):
 
     def forward(
         self,
-        instance_features: torch.Tensor,
-        target_features: torch.Tensor,
+        instance_features: BranchModelInput,
+        target_features: BranchModelInput,
     ) -> torch.Tensor:
         instance_embedding = encode_branch(
             self.instance_branch_model,
@@ -367,6 +369,20 @@ class ModelFactory:
                 num_embeddings=input_dim,
                 embedding_dim=output_dim,
             )
+        if architecture == "TABULAR":
+            schema = TabularSchema.from_config(
+                getattr(self.config, f"{branch}_branch_tabular_schema"),
+                branch=branch,
+            )
+            return TabularEncoder(
+                self.config,
+                schema,
+                output_dim,
+                getattr(self.config, f"{branch}_branch_nodes_per_layer"),
+                getattr(self.config, f"{branch}_branch_layers"),
+                getattr(self.config, f"dropout_rate_{branch}_branch"),
+                self.config.batch_norm,
+            )
         if architecture == "CONV":
             return ConvNet(
                 self.config,
@@ -404,6 +420,7 @@ class ModelFactory:
             "MLP": "dense",
             "EMBEDDING": "id",
             "CONV": "image",
+            "TABULAR": "tabular",
             "CUSTOM": "custom",
         }
         expected_input_kind = expected_input_kinds[architecture]

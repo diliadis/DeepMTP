@@ -19,10 +19,23 @@ Batches
 
 Model-ready dataloaders return :class:`DeepMTP.data.batches.MTPBatch`. It is a
 mapping compatible with the historical tensor keys and also exposes typed
-dense, ID, image, or custom branch inputs. Calling ``batch.to(device)`` moves
-every component together.
+dense, ID, image, tabular, or custom branch inputs. Tabular inputs keep numeric
+and categorical tensors separate. Calling ``batch.to(device)`` moves every
+component together.
 
 .. automodule:: DeepMTP.data.batches
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Tabular preprocessing
+---------------------
+
+Tabular schemas declare numeric columns, category vocabularies, missing-value
+policies, and normalization. Fitted training statistics are serializable and
+are reused for validation, testing, and restored-model prediction.
+
+.. automodule:: DeepMTP.data.tabular
    :members:
    :undoc-members:
    :show-inheritance:

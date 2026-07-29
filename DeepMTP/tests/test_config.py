@@ -112,6 +112,68 @@ def test_typed_config_normalizes_and_accepts_id_embedding_branches():
     assert normalized.embedding_size == 5
 
 
+def test_generate_config_accepts_and_normalizes_a_tabular_branch_schema():
+    schema = {
+        "numeric_columns": ["age"],
+        "categorical_columns": {
+            "site": {
+                "categories": ["A", "B"],
+                "embedding_dim": 2,
+            }
+        },
+    }
+    config = make_valid_config(
+        instance_branch_architecture="TABULAR",
+        instance_branch_input_dim=None,
+        instance_branch_tabular_schema=schema,
+        instance_branch_params={
+            "instance_branch_nodes_per_layer": [6],
+        },
+    )
+
+    normalized = DeepMTPConfig.from_mapping(config)
+
+    assert normalized.instance_branch_architecture == "TABULAR"
+    assert normalized.instance_branch_input_dim is None
+    assert normalized.instance_branch_nodes_per_layer == [6]
+    assert normalized.instance_branch_tabular_schema == {
+        "numeric_columns": ["age"],
+        "categorical_columns": {
+            "site": {
+                "categories": ["A", "B"],
+                "embedding_dim": 2,
+            }
+        },
+        "numeric_normalization": "standard",
+        "numeric_missing": "mean",
+        "categorical_missing": "unknown",
+        "categorical_unknown": "unknown",
+        "feature_gating": False,
+    }
+
+
+def test_tabular_branch_requires_a_valid_schema_and_matching_saved_state():
+    config = make_valid_config()
+    config["instance_branch_architecture"] = "TABULAR"
+    config["instance_branch_tabular_schema"] = {
+        "numeric_columns": ["age"],
+        "categorical_columns": {},
+    }
+    config["instance_tabular_preprocessing_state"] = {
+        "numeric_columns": ["dose"],
+        "categorical_columns": [],
+        "numeric_fill_values": [0.0],
+        "numeric_offsets": [0.0],
+        "numeric_scales": [1.0],
+    }
+
+    with pytest.raises(
+        ConfigValidationError,
+        match="numeric columns do not match",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
 @pytest.mark.parametrize(
     ("branch", "validation_setting"),
     [

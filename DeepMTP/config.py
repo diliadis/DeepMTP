@@ -11,7 +11,13 @@ from typing import Any, Literal, TypeAlias, cast
 ValidationSetting: TypeAlias = Literal["A", "B", "C", "D"]
 ProblemMode: TypeAlias = Literal["classification", "regression"]
 GeneralArchitecture: TypeAlias = Literal["dot_product", "mlp", "kronecker"]
-BranchArchitecture: TypeAlias = Literal["MLP", "CONV", "CUSTOM", "EMBEDDING"]
+BranchArchitecture: TypeAlias = Literal[
+    "MLP",
+    "CONV",
+    "CUSTOM",
+    "EMBEDDING",
+    "TABULAR",
+]
 
 CLASSIFICATION_METRICS = frozenset(
     {
@@ -126,6 +132,8 @@ class DeepMTPConfig:
     instance_branch_conv_pretrained: bool = True
     instance_train_transforms: Any = None
     instance_inference_transforms: Any = None
+    instance_branch_tabular_schema: dict[str, Any] | None = None
+    instance_tabular_preprocessing_state: dict[str, Any] | None = None
 
     target_branch_architecture: BranchArchitecture | None = None
     use_target_features: bool = False
@@ -142,6 +150,8 @@ class DeepMTPConfig:
     target_branch_conv_pretrained: bool = True
     target_train_transforms: Any = None
     target_inference_transforms: Any = None
+    target_branch_tabular_schema: dict[str, Any] | None = None
+    target_tabular_preprocessing_state: dict[str, Any] | None = None
 
     comb_mlp_nodes_reducing_factor: int = 2
     comb_mlp_nodes_per_layer: list[int] | int = field(
@@ -382,21 +392,24 @@ class DeepMTPConfig:
 
     def _validate_branch(self, branch: Literal["instance", "target"]) -> None:
         architecture = getattr(self, f"{branch}_branch_architecture")
-        if architecture not in {"MLP", "CONV", "CUSTOM", "EMBEDDING"}:
+        if architecture not in {"MLP", "CONV", "CUSTOM", "EMBEDDING", "TABULAR"}:
             raise ConfigValidationError(
                 f"{branch}_branch_architecture must be 'MLP', 'CONV', "
-                f"'CUSTOM', or 'EMBEDDING'; received {architecture!r}."
+                f"'CUSTOM', 'EMBEDDING', or 'TABULAR'; received "
+                f"{architecture!r}."
             )
 
         if architecture in {"MLP", "EMBEDDING"}:
             input_dim = getattr(self, f"{branch}_branch_input_dim")
             self._require_positive_integer(f"{branch}_branch_input_dim", input_dim)
-        if architecture == "MLP":
+        if architecture in {"MLP", "TABULAR"}:
             nodes = getattr(self, f"{branch}_branch_nodes_per_layer")
             layers = getattr(self, f"{branch}_branch_layers")
             self._validate_nodes(f"{branch}_branch_nodes_per_layer", nodes)
             if isinstance(nodes, int):
                 self._require_positive_integer(f"{branch}_branch_layers", layers)
+        if architecture == "TABULAR":
+            self._validate_tabular_branch(branch)
         elif architecture == "CONV":
             conv_architecture = getattr(
                 self,
@@ -445,6 +458,39 @@ class DeepMTPConfig:
                     f"{branch}_branch_conv_architecture_dense_layers must be 1 or 2."
                 )
 
+    def _validate_tabular_branch(
+        self,
+        branch: Literal["instance", "target"],
+    ) -> None:
+        from DeepMTP.data.tabular import (
+            TabularPreprocessingState,
+            TabularSchema,
+        )
+
+        schema_field = f"{branch}_branch_tabular_schema"
+        try:
+            schema = TabularSchema.from_config(
+                getattr(self, schema_field),
+                branch=branch,
+            )
+        except (TypeError, ValueError) as exc:
+            raise ConfigValidationError(str(exc)) from exc
+        setattr(self, schema_field, schema.to_dict())
+
+        state_field = f"{branch}_tabular_preprocessing_state"
+        state = getattr(self, state_field)
+        if state is None:
+            return
+        try:
+            normalized_state = TabularPreprocessingState.from_config(
+                state,
+                schema=schema,
+                branch=branch,
+            )
+        except (TypeError, ValueError) as exc:
+            raise ConfigValidationError(str(exc)) from exc
+        setattr(self, state_field, normalized_state.to_dict())
+
     def _validate_embedding_novelty(self) -> None:
         novelty_settings = {
             "instance": {"B", "D"},
@@ -461,7 +507,7 @@ class DeepMTPConfig:
                     f"{branch}_branch_architecture='EMBEDDING' cannot represent "
                     f"novel {entity} in validation setting "
                     f"{self.validation_setting}. Use side features with an MLP, "
-                    "CONV, or CUSTOM branch."
+                    "TABULAR, CONV, or CUSTOM branch."
                 )
 
     def _validate_combined_architecture(self) -> None:
@@ -560,11 +606,14 @@ class DeepMTPConfig:
 def _copy_config_value(value: Any) -> Any:
     """Copy mutable containers without copying opaque user integrations."""
     if isinstance(value, dict):
-        return dict(value)
+        return {
+            _copy_config_value(key): _copy_config_value(item)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
-        return list(value)
+        return [_copy_config_value(item) for item in value]
     if isinstance(value, set):
-        return set(value)
+        return {_copy_config_value(item) for item in value}
     if isinstance(value, tuple):
-        return tuple(value)
+        return tuple(_copy_config_value(item) for item in value)
     return value

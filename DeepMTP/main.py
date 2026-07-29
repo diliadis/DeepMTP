@@ -355,6 +355,8 @@ class DeepMTP:
             val_data,
             test_data,
         )
+        if isinstance(self.configuration, DeepMTPConfig):
+            self.config = self.configuration.to_dict(include_defaults=True)
         train_dataloader = dataloaders.train
         val_dataloader = dataloaders.validation
         test_dataloader = dataloaders.test

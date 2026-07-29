@@ -12,6 +12,8 @@ from DeepMTP.data.batches import (
     ImageBranchBatch,
     MTPBatch,
     MTPBatchCollator,
+    TabularBranchBatch,
+    TabularInput,
     TensorBranchBatch,
 )
 from DeepMTP.data.features import (
@@ -64,6 +66,12 @@ from DeepMTP.data.progress import (
     build_data_progress_observer,
 )
 from DeepMTP.data.splitting import split_data
+from DeepMTP.data.tabular import (
+    CategoricalColumn,
+    TabularPreprocessingState,
+    TabularPreprocessor,
+    TabularSchema,
+)
 
 if TYPE_CHECKING:
     from DeepMTP.data.datasets import (
@@ -123,6 +131,7 @@ __all__ = [
     "BaseDataset",
     "BranchBatch",
     "BranchInputKind",
+    "CategoricalColumn",
     "ConsoleDataProgressObserver",
     "CustomBranchBatch",
     "DataInfo",
@@ -155,6 +164,11 @@ __all__ = [
     "ProcessedSplit",
     "SamplerMode",
     "ScalingMethod",
+    "TabularBranchBatch",
+    "TabularInput",
+    "TabularPreprocessingState",
+    "TabularPreprocessor",
+    "TabularSchema",
     "TrainingDataLoaders",
     "TensorBranchBatch",
     "Transformer",

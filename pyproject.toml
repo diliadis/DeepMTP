@@ -142,6 +142,7 @@ files = [
     "DeepMTP/data/preparation.py",
     "DeepMTP/data/progress.py",
     "DeepMTP/data/splitting.py",
+    "DeepMTP/data/tabular.py",
     "DeepMTP/data_loading.py",
     "DeepMTP/data_preparation.py",
     "DeepMTP/data_progress.py",

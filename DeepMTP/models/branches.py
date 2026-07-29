@@ -16,9 +16,16 @@ from DeepMTP.config import (
     RESNET_VERSIONS,
     DeepMTPConfig,
 )
-from DeepMTP.data.batches import BranchInputKind
+from DeepMTP.data.batches import BranchInputKind, TabularInput
+from DeepMTP.data.tabular import TabularSchema
 
-__all__ = ["ConvNet", "IDEmbedding", "MLP", "ModelConfigInput"]
+__all__ = [
+    "ConvNet",
+    "IDEmbedding",
+    "MLP",
+    "ModelConfigInput",
+    "TabularEncoder",
+]
 
 ModelConfigInput: TypeAlias = DeepMTPConfig | Mapping[str, Any]
 
@@ -167,6 +174,91 @@ class IDEmbedding(nn.Module):
         if entity_ids.ndim != 1:
             raise ValueError("entity_ids must be a one-dimensional batch.")
         return self.embedding(entity_ids)
+
+
+class TabularEncoder(nn.Module):
+    """Encode normalized numeric values and embedded categorical columns."""
+
+    input_kind: ClassVar[BranchInputKind] = "tabular"
+
+    def __init__(
+        self,
+        config: ModelConfigInput,
+        schema: TabularSchema,
+        output_dim: int,
+        nodes_per_layer: list[int] | int,
+        num_layers: int | None,
+        dropout_rate: float,
+        batch_norm: bool,
+    ) -> None:
+        super().__init__()
+        if not isinstance(schema, TabularSchema):
+            raise TypeError("schema must be a TabularSchema.")
+        if isinstance(output_dim, bool) or not isinstance(output_dim, int):
+            raise TypeError("output_dim must be an integer.")
+        if output_dim <= 0:
+            raise ValueError("output_dim must be a positive integer.")
+
+        self.schema = schema
+        self.output_dim = output_dim
+        self.numeric_width = len(schema.numeric_columns)
+        self.categorical_width = len(schema.categorical_columns)
+        self.category_embeddings = nn.ModuleList(
+            nn.Embedding(
+                num_embeddings=column.vocabulary_size,
+                embedding_dim=column.embedding_dim,
+            )
+            for column in schema.categorical_columns
+        )
+        if schema.feature_gating:
+            self.feature_gate = nn.Parameter(torch.zeros(schema.encoded_width))
+        else:
+            self.register_parameter("feature_gate", None)
+        self.projection = MLP(
+            config,
+            schema.encoded_width,
+            output_dim,
+            nodes_per_layer,
+            num_layers,
+            dropout_rate,
+            batch_norm,
+        )
+
+    def forward(self, values: TabularInput) -> torch.Tensor:
+        if not isinstance(values, TabularInput):
+            raise TypeError("TabularEncoder expects a TabularInput.")
+        if values.numeric.shape[1] != self.numeric_width:
+            raise ValueError(
+                "Tabular numeric input width does not match the schema: "
+                f"expected {self.numeric_width}, received "
+                f"{values.numeric.shape[1]}."
+            )
+        if values.categorical.shape[1] != self.categorical_width:
+            raise ValueError(
+                "Tabular categorical input width does not match the schema: "
+                f"expected {self.categorical_width}, received "
+                f"{values.categorical.shape[1]}."
+            )
+
+        encoded_parts = []
+        if self.numeric_width:
+            encoded_parts.append(values.numeric.float())
+        for column_index, embedding in enumerate(self.category_embeddings):
+            category_ids = values.categorical[:, column_index]
+            if category_ids.numel() and (
+                int(category_ids.min()) < 0
+                or int(category_ids.max()) >= embedding.num_embeddings
+            ):
+                raise ValueError(
+                    f"Categorical input column {column_index} contains an index "
+                    "outside its declared vocabulary."
+                )
+            encoded_parts.append(embedding(category_ids))
+
+        combined = torch.cat(encoded_parts, dim=1)
+        if self.feature_gate is not None:
+            combined = combined * (2 * torch.sigmoid(self.feature_gate))
+        return self.projection(combined)
 
 
 class ConvNet(nn.Sequential):

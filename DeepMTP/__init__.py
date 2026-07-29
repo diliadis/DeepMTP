@@ -14,6 +14,7 @@ from DeepMTP.data.progress import (
     DataProgressObserver,
     NullDataProgressObserver,
 )
+from DeepMTP.data.tabular import TabularSchema
 from DeepMTP.hpo.progress import (
     ConsoleHPOProgressObserver,
     HPOProgressEvent,
@@ -25,6 +26,7 @@ from DeepMTP.models import (
     IDEmbedding,
     ModelBundle,
     ModelFactory,
+    TabularEncoder,
     TwoBranchDotProductModel,
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
@@ -102,6 +104,8 @@ __all__ = [
     "TensorBoardReporter",
     "EpochOutput",
     "TrainingEngine",
+    "TabularEncoder",
+    "TabularSchema",
     "WandBReporter",
     "__version__",
     "data_process",

@@ -8,6 +8,8 @@ from DeepMTP.data import (
     ImageBranchBatch,
     MTPBatch,
     MTPBatchCollator,
+    TabularBranchBatch,
+    TabularInput,
 )
 
 
@@ -146,3 +148,50 @@ def test_collator_constructs_modality_specific_batches_and_float_dense_values():
 def test_collator_rejects_unknown_input_kinds():
     with pytest.raises(ValueError, match="instance_kind"):
         MTPBatchCollator(instance_kind="sparse", target_kind="id")
+
+
+def test_collator_preserves_structured_tabular_inputs():
+    collator = MTPBatchCollator(instance_kind="tabular", target_kind="dense")
+    items = [
+        {
+            "instance_id": 0,
+            "target_id": 1,
+            "instance_features": {
+                "numeric": torch.tensor([1.0, 2.0]),
+                "categorical": torch.tensor([1, 2]),
+            },
+            "target_features": torch.tensor([3.0]),
+            "score": 0,
+        },
+        {
+            "instance_id": 1,
+            "target_id": 0,
+            "instance_features": {
+                "numeric": torch.tensor([4.0, 5.0]),
+                "categorical": torch.tensor([0, 1]),
+            },
+            "target_features": torch.tensor([6.0]),
+            "score": 1,
+        },
+    ]
+
+    batch = collator(items)
+
+    assert isinstance(batch.instance_input, TabularBranchBatch)
+    assert isinstance(batch.instance_features, TabularInput)
+    assert batch.instance_features.numeric.shape == (2, 2)
+    assert batch.instance_features.categorical.dtype == torch.int64
+    assert isinstance(batch.target_input, DenseBranchBatch)
+
+
+def test_tabular_input_requires_aligned_typed_tensors():
+    with pytest.raises(ValueError, match="same batch size"):
+        TabularInput(
+            numeric=torch.ones(2, 1),
+            categorical=torch.ones(1, 1, dtype=torch.int64),
+        )
+    with pytest.raises(TypeError, match="integer"):
+        TabularInput(
+            numeric=torch.ones(2, 1),
+            categorical=torch.ones(2, 1),
+        )

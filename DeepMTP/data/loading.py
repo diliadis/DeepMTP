@@ -14,6 +14,10 @@ from torch.utils.data import DataLoader, Dataset, Sampler
 
 from DeepMTP.config import BranchArchitecture, DeepMTPConfig
 from DeepMTP.data.batches import BranchInputKind, MTPBatchCollator
+from DeepMTP.data.tabular import (
+    TabularPreprocessor,
+    TabularSchema,
+)
 
 __all__ = [
     "BaseDataset",
@@ -30,6 +34,7 @@ _BRANCH_INPUT_KINDS: dict[BranchArchitecture, BranchInputKind] = {
     "MLP": "dense",
     "EMBEDDING": "id",
     "CONV": "image",
+    "TABULAR": "tabular",
     "CUSTOM": "custom",
 }
 
@@ -147,6 +152,8 @@ class BaseDataset(Dataset):
         target_features: Mapping[str, Any] | None,
         instance_transform: Callable[[Image.Image], Any] | None = None,
         target_transform: Callable[[Image.Image], Any] | None = None,
+        instance_tabular_preprocessor: TabularPreprocessor | None = None,
+        target_tabular_preprocessor: TabularPreprocessor | None = None,
     ) -> None:
         settings = _DatasetModelSettings.from_config(config)
         self.config = (
@@ -160,6 +167,8 @@ class BaseDataset(Dataset):
         self.target_branch_architecture = settings.target_architecture
         self.instance_transform = instance_transform
         self.target_transform = target_transform
+        self.instance_tabular_preprocessor = instance_tabular_preprocessor
+        self.target_tabular_preprocessor = target_tabular_preprocessor
 
         triplet_data = data.get("data")
         if not isinstance(triplet_data, pd.DataFrame):
@@ -188,6 +197,7 @@ class BaseDataset(Dataset):
             id_column="instance_id",
             architecture=self.instance_branch_architecture,
             transform=instance_transform,
+            tabular_preprocessor=instance_tabular_preprocessor,
             entity_name="Instance",
         )
         self.target_features = self._prepare_feature_frame(
@@ -195,6 +205,7 @@ class BaseDataset(Dataset):
             id_column="target_id",
             architecture=self.target_branch_architecture,
             transform=target_transform,
+            tabular_preprocessor=target_tabular_preprocessor,
             entity_name="Target",
         )
 
@@ -234,19 +245,20 @@ class BaseDataset(Dataset):
         id_column: Literal["instance_id", "target_id"],
         architecture: object,
         transform: Callable[[Image.Image], Any] | None,
+        tabular_preprocessor: TabularPreprocessor | None,
         entity_name: Literal["Instance", "Target"],
     ) -> pd.DataFrame | None:
         if source is None:
-            if architecture == "CONV":
+            if architecture in {"CONV", "TABULAR"}:
                 raise ValueError(
-                    f"{entity_name} features are required for a CONV branch."
+                    f"{entity_name} features are required for a {architecture} branch."
                 )
             return None
         if architecture == "EMBEDDING":
             raise ValueError(
                 f"{entity_name} side features cannot be supplied to an "
-                "EMBEDDING branch. Use an MLP, CONV, or CUSTOM branch when "
-                "side features are required."
+                "EMBEDDING branch. Use an MLP, TABULAR, CONV, or CUSTOM branch "
+                "when side features are required."
             )
 
         frame = source.get("data")
@@ -259,17 +271,24 @@ class BaseDataset(Dataset):
         if frame["id"].isna().any() or frame["id"].duplicated().any():
             raise ValueError(f"{entity_name} feature IDs must be unique and non-null.")
 
-        value_column = "dir" if architecture == "CONV" else "features"
-        if value_column not in frame.columns:
-            raise ValueError(
-                f"{entity_name} features must contain a {value_column!r} column."
-            )
+        if architecture == "TABULAR":
+            if tabular_preprocessor is None:
+                raise RuntimeError(
+                    f"{entity_name} TABULAR branch has no fitted preprocessor."
+                )
+            prepared_frame = tabular_preprocessor.transform(frame)
+        else:
+            value_column = "dir" if architecture == "CONV" else "features"
+            if value_column not in frame.columns:
+                raise ValueError(
+                    f"{entity_name} features must contain a {value_column!r} column."
+                )
+            prepared_frame = frame.copy(deep=True).set_index("id", drop=False)
         if architecture == "CONV" and transform is None:
             raise ValueError(
                 f"{entity_name.lower()}_transform is required for a CONV branch."
             )
 
-        prepared_frame = frame.copy(deep=True).set_index("id", drop=False)
         interaction_ids = set(self.triplet_data[id_column])
         missing_ids = interaction_ids.difference(prepared_frame.index)
         if missing_ids:
@@ -494,6 +513,7 @@ class DataLoaderFactory:
     ) -> None:
         self.config = DeepMTPConfig.from_mapping(config)
         self.device = _normalize_device(device)
+        self._tabular_preprocessors: dict[str, TabularPreprocessor] = {}
 
     def for_training(
         self,
@@ -519,6 +539,10 @@ class DataLoaderFactory:
             test_data,
             parameter_name="test_data",
         )
+        self._prepare_tabular_preprocessors(
+            train_components,
+            allow_fit=True,
+        )
         return TrainingDataLoaders(
             train=self._build(
                 train_components,
@@ -539,11 +563,89 @@ class DataLoaderFactory:
 
     def for_prediction(self, data: Mapping[str, Any]) -> DataLoader:
         """Build a deterministic inference dataloader."""
+        components = _validate_data_split(data, parameter_name="data")
+        self._prepare_tabular_preprocessors(
+            components,
+            allow_fit=False,
+        )
         return self._build(
-            _validate_data_split(data, parameter_name="data"),
+            components,
             batch_size=self.config.val_batchsize,
             train=False,
         )
+
+    def _prepare_tabular_preprocessors(
+        self,
+        components: _DatasetComponents,
+        *,
+        allow_fit: bool,
+    ) -> None:
+        for branch, feature_source in {
+            "instance": components.instance_features,
+            "target": components.target_features,
+        }.items():
+            architecture = getattr(self.config, f"{branch}_branch_architecture")
+            if architecture != "TABULAR":
+                continue
+            schema = TabularSchema.from_config(
+                getattr(self.config, f"{branch}_branch_tabular_schema"),
+                branch=branch,
+            )
+            saved_state = getattr(
+                self.config,
+                f"{branch}_tabular_preprocessing_state",
+            )
+            if saved_state is not None:
+                self._tabular_preprocessors[branch] = TabularPreprocessor.from_state(
+                    schema,
+                    saved_state,
+                    branch=branch,
+                )
+                continue
+            if not allow_fit:
+                raise RuntimeError(
+                    f"{branch} TABULAR preprocessing has not been fitted. Train "
+                    "the model first or load a checkpoint containing "
+                    f"{branch}_tabular_preprocessing_state."
+                )
+            if feature_source is None:
+                raise ValueError(
+                    f"{branch.capitalize()} features are required to fit a "
+                    "TABULAR branch."
+                )
+            frame = feature_source.get("data")
+            if not isinstance(frame, pd.DataFrame):
+                raise TypeError(
+                    f"{branch.capitalize()} feature source must contain a "
+                    "pandas DataFrame."
+                )
+            if "id" not in frame:
+                raise ValueError(
+                    f"{branch.capitalize()} features must contain an 'id' column."
+                )
+            interaction_frame = components.interactions.get("data")
+            if not isinstance(interaction_frame, pd.DataFrame):
+                raise TypeError("Training interaction data must be a pandas DataFrame.")
+            id_column = "instance_id" if branch == "instance" else "target_id"
+            if id_column not in interaction_frame:
+                raise ValueError(f"Training interaction data is missing {id_column!r}.")
+            training_ids = set(interaction_frame[id_column])
+            fit_frame = frame.loc[frame["id"].isin(training_ids)]
+            if fit_frame.empty:
+                raise ValueError(
+                    f"{branch.capitalize()} tabular features contain no entities "
+                    "used by the training interactions."
+                )
+            preprocessor = TabularPreprocessor.fit(
+                fit_frame,
+                schema,
+                branch=branch,
+            )
+            self._tabular_preprocessors[branch] = preprocessor
+            self.config.set_runtime_value(
+                f"{branch}_tabular_preprocessing_state",
+                preprocessor.state.to_dict(),
+            )
 
     def _build(
         self,
@@ -567,6 +669,8 @@ class DataLoaderFactory:
                 if train
                 else self.config.target_inference_transforms
             ),
+            instance_tabular_preprocessor=self._tabular_preprocessors.get("instance"),
+            target_tabular_preprocessor=self._tabular_preprocessors.get("target"),
         )
         return DataLoader(
             dataset,

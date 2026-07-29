@@ -16,6 +16,7 @@ import DeepMTP.data.loading as loading_module
 import DeepMTP.data.preparation as preparation_module
 import DeepMTP.data.progress as progress_module
 import DeepMTP.data.splitting as splitting_module
+import DeepMTP.data.tabular as tabular_module
 import DeepMTP.data_loading as legacy_loading
 import DeepMTP.data_preparation as legacy_preparation
 import DeepMTP.data_progress as legacy_progress
@@ -31,6 +32,7 @@ def test_data_package_exposes_canonical_services():
         "BaseDataset": loading_module.BaseDataset,
         "BranchBatch": batches_module.BranchBatch,
         "BranchInputKind": batches_module.BranchInputKind,
+        "CategoricalColumn": tabular_module.CategoricalColumn,
         "ConsoleDataProgressObserver": progress_module.ConsoleDataProgressObserver,
         "CustomBranchBatch": batches_module.CustomBranchBatch,
         "DataInfo": preparation_module.DataInfo,
@@ -63,6 +65,11 @@ def test_data_package_exposes_canonical_services():
         "ProcessedSplit": preparation_module.ProcessedSplit,
         "SamplerMode": loading_module.SamplerMode,
         "ScalingMethod": preparation_module.ScalingMethod,
+        "TabularBranchBatch": batches_module.TabularBranchBatch,
+        "TabularInput": batches_module.TabularInput,
+        "TabularPreprocessingState": tabular_module.TabularPreprocessingState,
+        "TabularPreprocessor": tabular_module.TabularPreprocessor,
+        "TabularSchema": tabular_module.TabularSchema,
         "TrainingDataLoaders": loading_module.TrainingDataLoaders,
         "TensorBranchBatch": batches_module.TensorBranchBatch,
         "Transformer": preparation_module.Transformer,
