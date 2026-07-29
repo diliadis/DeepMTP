@@ -1,2 +1,0 @@
-# Run from the repository root. Documentation dependencies live in pyproject.toml.
--e .[docs]

@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol, TypeAlias
 
-import more_itertools as mit
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
@@ -854,9 +853,13 @@ def get_epilepsy_specific_metrics(
 
     results: MetricResults = {}
     # define consecutive epileptic moments
-    true_episodes = [
-        list(group) for group in mit.consecutive_groups(np.where(true_array == 1)[0])
-    ]
+    true_episodes: list[list[int]] = []
+    for positive_index in np.where(true_array == 1)[0]:
+        index = int(positive_index)
+        if not true_episodes or index != true_episodes[-1][-1] + 1:
+            true_episodes.append([index])
+        else:
+            true_episodes[-1].append(index)
 
     TP_OVLP = 0
     FN_OVLP = 0
@@ -881,10 +884,9 @@ def get_epilepsy_specific_metrics(
             ]
         )
 
-        # create chunks for consequtive observations using a user-defined window size
-        FP_chunks = list(mit.chunked(FPs, FP_window))
-        for c in FP_chunks:
-            if np.array(c).any():
+        # create chunks for consecutive observations using a user-defined window size
+        for chunk_start in range(0, len(FPs), FP_window):
+            if FPs[chunk_start : chunk_start + FP_window].any():
                 FP += 1
 
         if "sensitivity" in selected_metrics:

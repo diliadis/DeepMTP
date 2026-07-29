@@ -1,4 +1,5 @@
 import ast
+import bz2
 import hashlib
 import inspect
 import json
@@ -11,7 +12,6 @@ import numpy as np
 import pandas as pd
 import pytest
 from scipy import sparse
-from skmultilearn.dataset import save_dataset_dump
 
 import DeepMTP.data.datasets as dataset_module
 from DeepMTP import DataProgressEvent, NullDataProgressObserver
@@ -129,13 +129,14 @@ def write_mlc_dump(
     dataset_path = dataset_dir / f"{dataset_name}-{variant}.bz2"
     saved_features = sparse.csr_matrix(X) if sparse_matrices else X
     saved_labels = sparse.csr_matrix(y) if sparse_matrices else y
-    save_dataset_dump(
-        saved_features,
-        saved_labels,
-        [f"feature_{index}" for index in range(np.asarray(X).shape[1])],
-        [f"label_{index}" for index in range(np.asarray(y).shape[1])],
-        filename=str(dataset_path),
-    )
+    dataset_dump = {
+        "X": saved_features,
+        "y": saved_labels,
+        "features": [f"feature_{index}" for index in range(np.asarray(X).shape[1])],
+        "labels": [f"label_{index}" for index in range(np.asarray(y).shape[1])],
+    }
+    with bz2.BZ2File(dataset_path, "wb") as dataset_file:
+        pickle.dump(dataset_dump, dataset_file, protocol=pickle.HIGHEST_PROTOCOL)
     return dataset_path
 
 

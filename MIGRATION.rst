@@ -35,7 +35,7 @@ To test the current source checkout in an isolated environment:
    python -m venv .venv
    source .venv/bin/activate
    python -m pip install --upgrade pip
-   python -m pip install -e ".[dev]"
+   python -m pip install -e . --group dev
 
 Install only the runtime integrations used by an experiment:
 

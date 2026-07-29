@@ -872,3 +872,22 @@ def test_epilepsy_metrics_count_single_sample_episode_overlap():
     assert results["sensitivity_1"] == 1.0
     assert results["sensitivity_10"] == 1.0
     assert results["sensitivity_60"] == 1.0
+
+
+def test_epilepsy_metrics_group_episodes_and_false_alarm_windows():
+    results = get_epilepsy_specific_metrics(
+        y_true=[0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0],
+        y_pred=[1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1],
+    )
+
+    for window in (1, 10, 60):
+        assert results[f"sensitivity_{window}"] == pytest.approx(2 / 3)
+    assert results["false_alarm_rate_per_hour_1"] == 1200
+    assert results["false_alarm_rate_per_hour_10"] == 600
+    assert results["false_alarm_rate_per_hour_60"] == 300
+    assert results["positive_predictive_value_1"] == pytest.approx(1 / 3)
+    assert results["positive_predictive_value_10"] == 0.5
+    assert results["positive_predictive_value_60"] == pytest.approx(2 / 3)
+    assert results["f1_score_1"] == pytest.approx(4 / 9)
+    assert results["f1_score_10"] == pytest.approx(4 / 7)
+    assert results["f1_score_60"] == pytest.approx(2 / 3)

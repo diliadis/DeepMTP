@@ -52,6 +52,20 @@ intentionally extreme training configuration and normal CPU/GPU floating-point
 variation are generally ordinary robustness issues unless they cross a
 security boundary.
 
+## Dependency security
+
+Every pull request is checked for dependency changes. The dependency-review
+workflow rejects newly introduced vulnerabilities with moderate, high, or
+critical severity across runtime, development, and unknown dependency scopes.
+It reports the first patched version when GitHub's advisory data provides one.
+
+Repository administrators should keep the dependency graph, Dependabot alerts,
+and Dependabot security updates enabled. Require the `Review dependency
+changes` status check on the default branch so a failed review cannot be
+bypassed accidentally. Existing dependency alerts should be triaged separately;
+the pull-request check is designed to prevent adding new known vulnerabilities,
+not to certify the complete historical dependency graph.
+
 ## Disclosure
 
 Once a fix is ready, the maintainer and reporter should agree on a coordinated

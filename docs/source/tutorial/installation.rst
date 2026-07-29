@@ -51,7 +51,7 @@ environment::
   python -m venv .venv
   source .venv/bin/activate
   python -m pip install --upgrade pip
-  python -m pip install -e ".[dev]"
+  python -m pip install -e . --group dev
 
 Run the offline suite and quality checks::
 
@@ -60,7 +60,8 @@ Run the offline suite and quality checks::
   ruff format --check .
   mypy
 
-Conda users may create the equivalent environment from the repository root::
+Conda users may bootstrap an equivalent environment from the repository root::
 
   conda env create -f environment.yml
   conda activate deepmtp
+  python -m pip install --group dev

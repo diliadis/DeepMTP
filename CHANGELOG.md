@@ -21,11 +21,19 @@ checkpoints.
   TensorBoard, and Weights & Biases.
 - Per-branch dropout settings, top-k grouped metrics, isolated random seeds,
   and deterministic class undersampling.
-- Optional dependency groups for datasets, HPO, image models, Streamlit,
-  tracking, testing, quality checks, and documentation.
+- Optional runtime extras for datasets, HPO, image models, Streamlit, and
+  experiment tracking.
+- Standardized PEP 735 dependency groups for testing, quality checks,
+  documentation, and the complete development toolchain.
 - Offline, executable quick-start, training, dataset, and HPO examples.
 - A repeatable release-candidate matrix covering representative MLC, MTR, DP,
   MTL, and matrix-completion workloads.
+- A dedicated Python 3.10 CI job that verifies the advertised minimum
+  dependency series remains installable and passes the offline test suite.
+- Scoped weekly Dependabot updates for Python requirements, GitHub Actions, and
+  pre-commit hooks, with minor and patch releases grouped for focused review.
+- Pull-request dependency review that rejects newly introduced
+  moderate-or-higher known vulnerabilities and reports patched versions.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 
@@ -36,8 +44,15 @@ checkpoints.
   the built wheel in an isolated environment.
 - Packaging uses the PEP 621 project table and derives versions from Git tags
   with `setuptools-scm`.
+- CI, contributor setup, Conda, and Read the Docs install unpublished
+  developer tooling from the standardized dependency groups.
 - Dataset downloaders, Torchvision, Streamlit, TensorBoard, Weights & Biases,
   and ConfigSpace are loaded only when their integrations are used.
+- Multi-label dataset dumps are read directly with the standard library,
+  removing the unnecessary `scikit-multilearn` runtime dependency while
+  preserving the existing cache format.
+- Epilepsy metric grouping and false-alarm windows use NumPy and the standard
+  library instead of the single-purpose `more-itertools` dependency.
 - Configuration, data, model, training, evaluation, HPO, and persistence
   boundaries validate inputs earlier and report focused errors.
 - Data preparation copies caller-owned input, isolates split randomness, fits
@@ -70,6 +85,8 @@ checkpoints.
 
 ### Fixed
 
+- The Conda environment now installs the development toolchain instead of
+  unrelated optional runtime integrations.
 - Mean training loss is weighted correctly when the final batch has a
   different size.
 - Data splitting, feature alignment, entity novelty detection, samplers, and

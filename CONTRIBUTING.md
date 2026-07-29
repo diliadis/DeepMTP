@@ -12,7 +12,17 @@ DeepMTP supports Python 3.10 and newer. From the repository root:
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python -m pip install -e . --group dev
+pre-commit install
+```
+
+Conda users can bootstrap the package and a compatible pip version, then
+install the same development group:
+
+```bash
+conda env create -f environment.yml
+conda activate deepmtp
+python -m pip install --group dev
 pre-commit install
 ```
 
@@ -31,6 +41,16 @@ pre-commit run --all-files
 sphinx-build -W --keep-going -b html docs/source docs/_build/html
 python -m build
 python -m twine check --strict dist/*
+```
+
+Reproduce the lower-bound compatibility job in a fresh Python 3.10
+environment:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e . --group test --constraint constraints/minimum.txt
+python -m pip check
+python -m pytest
 ```
 
 The default test configuration excludes tests marked `network` and `slow`.
@@ -68,9 +88,21 @@ results, downloaded datasets, or model checkpoints. Follow
 [SECURITY.md](SECURITY.md) instead of opening a public issue for a suspected
 vulnerability.
 
+The `Review dependency changes` CI check rejects pull requests that introduce
+known moderate-or-higher vulnerabilities. Review its summary and update or
+remove the affected dependency instead of disabling the check. License policy
+is not enforced by this workflow; a future license gate must first define and
+document the project's accepted licenses.
+
 Maintainers should use [RELEASING.md](RELEASING.md) for the tag-driven release
 process. Release history and pending user-visible changes are recorded in
 [CHANGELOG.md](CHANGELOG.md).
+
+Dependabot checks Python requirements, GitHub Actions, and pre-commit hooks
+weekly. Minor and patch version updates are grouped; major and security updates
+remain separate for focused review. The tested lower-bound series in
+`constraints/minimum.txt` is intentionally excluded and must be updated
+together with `pyproject.toml` and its compatibility tests.
 
 The staged technical direction and remaining work are tracked in
 [MODERNIZATION.md](MODERNIZATION.md).

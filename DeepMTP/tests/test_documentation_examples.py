@@ -1,6 +1,7 @@
 import ast
 import json
 import math
+import re
 import runpy
 import sys
 import textwrap
@@ -9,6 +10,11 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
+    import tomli as tomllib
 
 _PROJECT_ROOT = Path(__file__).parents[2]
 _DEMO_NOTEBOOKS = sorted((_PROJECT_ROOT / "DEMO").glob("*.ipynb"))
@@ -253,6 +259,16 @@ def test_project_policies_are_complete_and_linked():
     ci_workflow = (_PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
+    dependency_review_workflow = (
+        _PROJECT_ROOT / ".github" / "workflows" / "dependency-review.yml"
+    ).read_text(encoding="utf-8")
+    conda_environment = (_PROJECT_ROOT / "environment.yml").read_text(encoding="utf-8")
+    readthedocs_config = (_PROJECT_ROOT / ".readthedocs.yaml").read_text(
+        encoding="utf-8"
+    )
+    dependabot_config = (_PROJECT_ROOT / ".github" / "dependabot.yml").read_text(
+        encoding="utf-8"
+    )
 
     for policy_name in policy_names:
         assert policy_name in readme or policy_name == "MIGRATION.rst"
@@ -281,10 +297,110 @@ def test_project_policies_are_complete_and_linked():
     )
     assert 'python: "3.13"' in ci_workflow
     assert 'python: "3.14"' in ci_workflow
+    assert "python -m pip install -e . --group test" in ci_workflow
+    assert "--constraint constraints/minimum.txt" in ci_workflow
+    assert "python -m pip check" in ci_workflow
+    assert "python -m pip install -e . --group quality" in ci_workflow
+    assert "python -m pip install -e . --group docs" in ci_workflow
     assert "-m pip install dist/*.whl" in ci_workflow
     assert "scripts/smoke_test_installation.py" in ci_workflow
     assert "--require-wheel-install" in ci_workflow
     assert "working-directory: ${{ runner.temp }}" in ci_workflow
+    assert "actions/dependency-review-action@v5" in dependency_review_workflow
+    assert 'fail-on-severity: "moderate"' in dependency_review_workflow
+    assert (
+        'fail-on-scopes: "runtime, development, unknown"' in dependency_review_workflow
+    )
+    assert "license-check: false" in dependency_review_workflow
+    assert "contents: read" in dependency_review_workflow
+    assert "contents: write" not in dependency_review_workflow
+    assert "pull-requests: write" not in dependency_review_workflow
+    assert "pip>=25.1" in conda_environment
+    assert "- -e ." in conda_environment
+    assert ".[dev]" not in conda_environment
+    assert "-e .[all]" not in conda_environment
+    assert "python -m pip install -e . --group docs" in readthedocs_config
+    assert "configuration: docs/source/conf.py" in readthedocs_config
+    assert re.findall(
+        r'package-ecosystem: "([^"]+)"',
+        dependabot_config,
+    ) == ["pip", "github-actions", "pre-commit"]
+    assert dependabot_config.count('interval: "weekly"') == 3
+    assert dependabot_config.count("default-days: 7") == 3
+    assert 'versioning-strategy: "increase-if-necessary"' in dependabot_config
+    assert '"constraints/minimum.txt"' in dependabot_config
+    assert dependabot_config.count('applies-to: "version-updates"') == 3
+    assert 'applies-to: "security-updates"' not in dependabot_config
+
+
+def test_dependency_metadata_separates_runtime_features_from_development_tools():
+    project_metadata = tomllib.loads(
+        (_PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+
+    runtime_extras = project_metadata["project"]["optional-dependencies"]
+    dependency_groups = project_metadata["dependency-groups"]
+
+    assert set(runtime_extras) == {
+        "all",
+        "datasets",
+        "hpo",
+        "image",
+        "streamlit",
+        "tracking",
+    }
+    assert set(dependency_groups) == {"dev", "docs", "quality", "test"}
+    assert dependency_groups["dev"] == [
+        {"include-group": "test"},
+        {"include-group": "quality"},
+        {"include-group": "docs"},
+        "build>=1.2",
+        "twine>=6",
+    ]
+
+
+def test_minimum_constraints_cover_direct_test_dependencies():
+    project_metadata = tomllib.loads(
+        (_PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    constraint_lines = (
+        (_PROJECT_ROOT / "constraints" / "minimum.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    constraints = {}
+    for raw_line in constraint_lines:
+        line = raw_line.split("#", maxsplit=1)[0].strip()
+        if not line:
+            continue
+        requirement = line.split(";", maxsplit=1)[0].strip()
+        name, version = requirement.split("==", maxsplit=1)
+        constraints[name.lower()] = version
+
+    direct_requirements = [
+        *project_metadata["project"]["dependencies"],
+        *project_metadata["dependency-groups"]["test"],
+    ]
+    direct_dependency_names = {
+        re.split(r"[<>=!~\s\[]", requirement, maxsplit=1)[0].lower()
+        for requirement in direct_requirements
+    }
+
+    assert set(constraints) == direct_dependency_names
+    assert constraints == {
+        "configspace": "1.2.2",
+        "liac-arff": "2.5.0",
+        "numpy": "1.23.5",
+        "pandas": "1.5.3",
+        "pillow": "9.5.0",
+        "prettytable": "3.3.0",
+        "pytest": "8.0.2",
+        "requests": "2.28.2",
+        "scikit-learn": "1.2.2",
+        "scipy": "1.9.3",
+        "tomli": "2.0.1",
+        "torch": "2.0.1",
+    }
 
 
 def test_sphinx_config_exposes_installed_distribution_version(monkeypatch):

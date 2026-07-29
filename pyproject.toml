@@ -26,7 +26,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "more-itertools>=9",
     "numpy>=1.23",
     "pandas>=1.5",
     "pillow>=9",
@@ -39,7 +38,6 @@ dependencies = [
 datasets = [
     "liac-arff>=2.5",
     "requests>=2.28",
-    "scikit-multilearn>=0.2",
     "scipy>=1.9",
 ]
 hpo = ["ConfigSpace>=1.2"]
@@ -49,13 +47,25 @@ tracking = [
     "tensorboard>=2.12",
     "wandb>=0.15",
 ]
+all = [
+    "ConfigSpace>=1.2",
+    "liac-arff>=2.5",
+    "requests>=2.28",
+    "scipy>=1.9",
+    "streamlit>=1.53.0",
+    "tensorboard>=2.12",
+    "torchvision>=0.15",
+    "wandb>=0.15",
+]
+
+[dependency-groups]
 test = [
     "ConfigSpace>=1.2",
     "liac-arff>=2.5",
     "pytest>=8,<10",
     "requests>=2.28",
-    "scikit-multilearn>=0.2",
     "scipy>=1.9",
+    "tomli>=2; python_version < '3.11'",
 ]
 quality = [
     "mypy>=1.16",
@@ -67,30 +77,11 @@ docs = [
     "sphinx-rtd-theme>=2,<4",
 ]
 dev = [
-    "ConfigSpace>=1.2",
+    { include-group = "test" },
+    { include-group = "quality" },
+    { include-group = "docs" },
     "build>=1.2",
-    "liac-arff>=2.5",
-    "mypy>=1.16",
-    "pre-commit>=4.6",
-    "pytest>=8,<10",
-    "requests>=2.28",
-    "ruff>=0.12",
-    "scikit-multilearn>=0.2",
-    "scipy>=1.9",
-    "sphinx>=7,<9",
-    "sphinx-rtd-theme>=2,<4",
     "twine>=6",
-]
-all = [
-    "ConfigSpace>=1.2",
-    "liac-arff>=2.5",
-    "requests>=2.28",
-    "scikit-multilearn>=0.2",
-    "scipy>=1.9",
-    "streamlit>=1.53.0",
-    "tensorboard>=2.12",
-    "torchvision>=0.15",
-    "wandb>=0.15",
 ]
 
 [project.urls]
