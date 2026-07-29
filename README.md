@@ -163,7 +163,9 @@ widths.
 
 For classification, the combined model produces logits.
 `BCEWithLogitsLoss` consumes those raw scores during training, while metrics
-and returned predictions receive sigmoid probabilities.
+and returned predictions receive sigmoid probabilities. Regression defaults
+to mean squared error and can instead optimize mean absolute error or Huber
+loss through the validated `loss` configuration field.
 
 Reusable branch models, combined architectures, and the model factory are
 available from the focused model namespace:
@@ -511,6 +513,7 @@ The table below summarizes the commonly configured public options.
 | **Training** ||
 | `validation_setting` | Generalization setting `A`, `B`, `C`, or `D` |
 | `problem_mode` | `classification` or `regression` |
+| `loss` | Training objective. Classification defaults to `binary_cross_entropy_with_logits`; regression defaults to `mean_squared_error` and also supports `mean_absolute_error` and `huber` |
 | `num_epochs` | The max number of epochs allowed for training |
 | `learning_rate` | The learning rate used to determine the step size at each iteration of the optimization process|
 | `decay` | The weight decay (L2 penalty) used by the Adam optimizer|
@@ -564,6 +567,24 @@ The table below summarizes the commonly configured public options.
 | `embedding_size` | The output width of both branches for a dot-product model and of every `EMBEDDING` branch |
 |  **Other**  ||
 | `additional_info` | Extra experiment metadata included in reporting |
+
+For example, Huber loss is less sensitive to large regression errors than mean
+squared error:
+
+```python
+config = DeepMTPConfig(
+    validation_setting="B",
+    problem_mode="regression",
+    loss="huber",
+    # branch configuration...
+)
+```
+
+The low-level loss registry also retains `binary_cross_entropy` for deliberate
+reproduction of the historical sigmoid-plus-`BCELoss` training path. New
+classification experiments should keep the stable
+`binary_cross_entropy_with_logits` default. Incompatible task/loss
+combinations are rejected during configuration validation.
 
 RRMSE remains available through the low-level
 `get_performance_results` utility for macro evaluation when a training mean is

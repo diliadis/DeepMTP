@@ -10,13 +10,19 @@ from typing import TypeAlias
 from torch import nn
 
 from DeepMTP._registry import FactoryRegistry
+from DeepMTP.config import (
+    DEFAULT_LOSS_BY_PROBLEM_MODE,
+    SUPPORTED_LOSSES_BY_PROBLEM_MODE,
+)
 
 __all__ = [
     "DEFAULT_LOSS_BY_PROBLEM_MODE",
     "DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE",
     "DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE",
+    "LOSS_INPUT_TRANSFORM_BY_LOSS",
     "LOSS_REGISTRY",
     "OUTPUT_HEAD_REGISTRY",
+    "SUPPORTED_LOSSES_BY_PROBLEM_MODE",
     "LossFactory",
     "OutputHeadFactory",
     "TaskComponents",
@@ -25,7 +31,9 @@ __all__ = [
     "build_default_output_head",
     "build_default_task_components",
     "build_loss",
+    "build_loss_input_transform",
     "build_output_head",
+    "build_task_components",
 ]
 
 LossFactory: TypeAlias = Callable[[], nn.Module]
@@ -38,6 +46,8 @@ LOSS_REGISTRY = FactoryRegistry[LossFactory](
         "binary_cross_entropy_with_logits": lambda: nn.BCEWithLogitsLoss(
             reduction="mean"
         ),
+        "huber": lambda: nn.HuberLoss(reduction="mean"),
+        "mean_absolute_error": lambda: nn.L1Loss(reduction="mean"),
         "mean_squared_error": lambda: nn.MSELoss(reduction="mean"),
     },
 )
@@ -50,10 +60,13 @@ OUTPUT_HEAD_REGISTRY = FactoryRegistry[OutputHeadFactory](
     },
 )
 
-DEFAULT_LOSS_BY_PROBLEM_MODE: Mapping[str, str] = MappingProxyType(
+LOSS_INPUT_TRANSFORM_BY_LOSS: Mapping[str, str] = MappingProxyType(
     {
-        "classification": "binary_cross_entropy_with_logits",
-        "regression": "mean_squared_error",
+        "binary_cross_entropy": "sigmoid",
+        "binary_cross_entropy_with_logits": "identity",
+        "huber": "identity",
+        "mean_absolute_error": "identity",
+        "mean_squared_error": "identity",
     }
 )
 
@@ -93,9 +106,29 @@ def build_output_head(name: str) -> nn.Module:
 
 def build_default_task_components(problem_mode: str) -> TaskComponents:
     """Build the behavior-preserving task components for a problem mode."""
+    return build_task_components(problem_mode)
+
+
+def build_task_components(
+    problem_mode: str,
+    loss_name: str | None = None,
+) -> TaskComponents:
+    """Build compatible loss and output modules for one problem mode."""
+    selected_loss = (
+        _default_component_name(DEFAULT_LOSS_BY_PROBLEM_MODE, problem_mode)
+        if loss_name is None
+        else loss_name
+    )
+    supported_losses = _supported_loss_names(problem_mode)
+    if selected_loss not in supported_losses:
+        raise ValueError(
+            f"loss={selected_loss!r} is incompatible with "
+            f"problem_mode={problem_mode!r}. Select one of "
+            f"{sorted(supported_losses)}."
+        )
     return TaskComponents(
-        loss=build_default_loss(problem_mode),
-        loss_input_transform=build_default_loss_input_transform(problem_mode),
+        loss=build_loss(selected_loss),
+        loss_input_transform=build_loss_input_transform(selected_loss),
         output_head=build_default_output_head(problem_mode),
     )
 
@@ -115,6 +148,18 @@ def build_default_loss_input_transform(problem_mode: str) -> nn.Module:
     return build_output_head(name)
 
 
+def build_loss_input_transform(loss_name: str) -> nn.Module:
+    """Build the transform applied before a selected registered loss."""
+    try:
+        transform_name = LOSS_INPUT_TRANSFORM_BY_LOSS[loss_name]
+    except KeyError:
+        available = ", ".join(
+            repr(name) for name in sorted(LOSS_INPUT_TRANSFORM_BY_LOSS)
+        )
+        raise KeyError(f"Unknown loss {loss_name!r}. Available: {available}.") from None
+    return build_output_head(transform_name)
+
+
 def build_default_output_head(problem_mode: str) -> nn.Module:
     """Build the default registered output head for a problem mode."""
     name = _default_component_name(
@@ -130,6 +175,16 @@ def _default_component_name(
 ) -> str:
     try:
         return names_by_problem_mode[problem_mode]
+    except KeyError:
+        raise ValueError(
+            "problem_mode must be 'classification' or 'regression'; "
+            f"received {problem_mode!r}."
+        ) from None
+
+
+def _supported_loss_names(problem_mode: str) -> frozenset[str]:
+    try:
+        return SUPPORTED_LOSSES_BY_PROBLEM_MODE[problem_mode]
     except KeyError:
         raise ValueError(
             "problem_mode must be 'classification' or 'regression'; "

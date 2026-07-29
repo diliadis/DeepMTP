@@ -180,8 +180,10 @@ reserved index zero unless their policy is configured as `error`.
 
 - [x] Use `BCEWithLogitsLoss` for numerically stable binary classification while
   applying sigmoid only for metrics and returned predictions.
-- Add a documented loss registry: binary cross-entropy, mean squared error,
-  mean absolute error, Huber, and optional ranking losses.
+- [x] Add documented configuration and registry support for binary
+  cross-entropy, mean squared error, mean absolute error, and Huber losses.
+- [ ] Add optional ranking losses after their sampling and validation-setting
+  semantics are defined.
 - Add explicit heads for binary, multiclass, ordinal, count, and bounded
   regression tasks.
 - Implement class/example weighting only with a tested definition for each

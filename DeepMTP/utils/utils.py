@@ -227,6 +227,7 @@ def generate_config(
     instance_branch_params: Mapping[str, Any] | None = None,
     target_branch_params: Mapping[str, Any] | None = None,
     hpo_results_path: str = "./",
+    loss: str | None = None,
 ) -> dict[str, Any]:
     """Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
 
@@ -234,6 +235,7 @@ def generate_config(
         validation_setting (str, optional): The validation setting of the given problem. The possible values are A, B, C, D. Defaults to None.
         general_architecture_version (str, optional): Enables a specific version of the general neural network architecture. Available options are: "mlp" for the mlp version, "dot_product" for the dot product version, "kronecker": for the kronecker product version. Default value if "dot_product"
         problem_mode (str, optional): The type of task for the given problem. The possible values are classification or regression. Defaults to None.
+        loss (str, optional): The training objective. Classification supports "binary_cross_entropy_with_logits" (default) and explicit legacy "binary_cross_entropy". Regression supports "mean_squared_error" (default), "mean_absolute_error", and "huber". Defaults to the stable objective for ``problem_mode``.
         learning_rate (float, optional): The learning rate that will be used during training. Defaults to 0.001.
         decay (float, optional): The weight decay (L2 penalty) used by the Adam optimizer . Defaults to 0.
         batch_norm (bool, optional): The option to use batch normalization between the fully connected layers in the two branches. Defaults to False.
@@ -341,6 +343,7 @@ def generate_config(
         "validation_setting": validation_setting,
         "general_architecture_version": general_architecture_version,
         "problem_mode": problem_mode,
+        "loss": loss,
         "learning_rate": learning_rate,
         "decay": decay,
         "batch_norm": batch_norm,

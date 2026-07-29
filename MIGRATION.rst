@@ -269,6 +269,15 @@ useful gradients for extreme incorrect scores. This can change optimization
 trajectories in saturated models; compare fixed-seed results when migrating a
 published experiment.
 
+The selected objective is now recorded as the canonical ``loss`` configuration
+value and retained in saved checkpoints. Regression defaults to
+``"mean_squared_error"`` and can opt into ``"mean_absolute_error"`` or
+``"huber"``. Classification defaults to
+``"binary_cross_entropy_with_logits"``. To reproduce the historical
+sigmoid-plus-``BCELoss`` path deliberately, select
+``loss="binary_cross_entropy"``; incompatible task/loss combinations fail
+during configuration validation.
+
 Checkpoints
 -----------
 
