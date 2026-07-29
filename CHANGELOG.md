@@ -70,6 +70,8 @@ checkpoints.
 
 ### Fixed
 
+- The Conda environment now installs the development toolchain instead of
+  unrelated optional runtime integrations.
 - Mean training loss is weighted correctly when the final batch has a
   different size.
 - Data splitting, feature alignment, entity novelty detection, samplers, and

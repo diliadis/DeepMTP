@@ -253,6 +253,7 @@ def test_project_policies_are_complete_and_linked():
     ci_workflow = (_PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
+    conda_environment = (_PROJECT_ROOT / "environment.yml").read_text(encoding="utf-8")
 
     for policy_name in policy_names:
         assert policy_name in readme or policy_name == "MIGRATION.rst"
@@ -285,6 +286,8 @@ def test_project_policies_are_complete_and_linked():
     assert "scripts/smoke_test_installation.py" in ci_workflow
     assert "--require-wheel-install" in ci_workflow
     assert "working-directory: ${{ runner.temp }}" in ci_workflow
+    assert "-e .[dev]" in conda_environment
+    assert "-e .[all]" not in conda_environment
 
 
 def test_sphinx_config_exposes_installed_distribution_version(monkeypatch):
