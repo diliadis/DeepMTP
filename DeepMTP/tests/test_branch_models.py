@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 import DeepMTP.models.branches as branch_models
-from DeepMTP.models import MLP, ConvNet
+from DeepMTP.models import MLP, ConvNet, IDEmbedding
 
 
 class FakeResNet(nn.Module):
@@ -112,6 +112,47 @@ def test_MLP(test_MLP_data):
     for idx, layer in enumerate(linear_layers):
         assert layer.in_features == calculated_nodes_per_layer[idx]
         assert layer.out_features == calculated_nodes_per_layer[idx + 1]
+
+
+def test_id_embedding_returns_trainable_rows_for_entity_ids():
+    model = IDEmbedding(num_embeddings=4, embedding_dim=3)
+    weights = torch.arange(12, dtype=torch.float32).reshape(4, 3)
+    with torch.no_grad():
+        model.embedding.weight.copy_(weights)
+
+    result = model(torch.tensor([3, 1, 0], dtype=torch.int64))
+
+    assert model.output_dim == 3
+    assert model.embedding.weight.requires_grad
+    assert torch.equal(result, weights[[3, 1, 0]])
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        ({"num_embeddings": 0, "embedding_dim": 2}, "num_embeddings"),
+        ({"num_embeddings": True, "embedding_dim": 2}, "num_embeddings"),
+        ({"num_embeddings": 2, "embedding_dim": -1}, "embedding_dim"),
+    ],
+)
+def test_id_embedding_rejects_invalid_dimensions(arguments, message):
+    with pytest.raises(ValueError, match=message):
+        IDEmbedding(**arguments)
+
+
+@pytest.mark.parametrize(
+    ("entity_ids", "exception", "message"),
+    [
+        (torch.tensor([0.0]), TypeError, "integer tensor dtype"),
+        (torch.tensor([[0]], dtype=torch.int64), ValueError, "one-dimensional"),
+        ([0], TypeError, "torch.Tensor"),
+    ],
+)
+def test_id_embedding_rejects_invalid_inputs(entity_ids, exception, message):
+    model = IDEmbedding(num_embeddings=2, embedding_dim=3)
+
+    with pytest.raises(exception, match=message):
+        model(entity_ids)
 
 
 def test_convnet_explains_how_to_install_image_dependencies(monkeypatch):

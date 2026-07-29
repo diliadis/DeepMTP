@@ -1,0 +1,180 @@
+# DeepMTP neural-network and input roadmap
+
+This roadmap proposes incremental extensions to DeepMTP's two-branch model.
+The order is intentional: each new input type should use a common branch
+contract instead of adding special cases to the trainer.
+
+## Design principles
+
+- Preserve the meaning of validation settings A–D.
+- Keep existing configurations and checkpoints working unless a change is
+  explicitly deprecated.
+- Make new behavior opt-in and validate incompatible combinations before
+  training.
+- Keep the core installation lightweight; specialized encoders should use
+  optional dependencies.
+- Add small unit tests and at least one CPU end-to-end test for every encoder,
+  fusion strategy, loss, and output head.
+
+## Prioritized input extensions
+
+### 1. Learned ID embeddings
+
+Status: implemented on `codex/learned-id-embeddings`.
+
+- [x] Add `EMBEDDING` as a built-in branch architecture.
+- [x] Pass integer IDs to `torch.nn.Embedding` without constructing dense
+  one-hot vectors.
+- [x] Support dot-product, MLP, and Kronecker combination architectures.
+- [x] Allow feature and ID branches to be mixed when the ID side is known at
+  inference time.
+- [x] Reject ID embeddings for an entity axis that is novel in the configured
+  validation setting.
+- [x] Keep the legacy one-hot behavior unchanged for existing MLP
+  configurations.
+- [x] Cover configuration, batching, model construction, training, prediction,
+  and public imports with tests.
+
+The public configuration is:
+
+```python
+config = generate_config(
+    validation_setting="A",
+    problem_mode="classification",
+    instance_branch_architecture="EMBEDDING",
+    instance_branch_input_dim=number_of_instances,
+    target_branch_architecture="EMBEDDING",
+    target_branch_input_dim=number_of_targets,
+    embedding_size=64,
+)
+```
+
+`instance_branch_input_dim` and `target_branch_input_dim` are vocabulary sizes
+for embedding branches. Interaction IDs must be zero-based integers in
+`[0, input_dim)`. `embedding_size` is the learned vector width.
+
+An ID embedding cannot infer a representation for an unseen entity. Therefore:
+
+| Validation setting | Instance ID embedding | Target ID embedding |
+|---|---:|---:|
+| A: known instances and targets | supported | supported |
+| B: novel instances | rejected | supported |
+| C: novel targets | supported | rejected |
+| D: novel instances and targets | rejected | rejected |
+
+Side features are rejected on an `EMBEDDING` branch to avoid silently ignoring
+data. A later hybrid encoder can combine ID and side-feature representations
+explicitly.
+
+### 2. Mixed tabular inputs
+
+- Add categorical-column embeddings alongside continuous features.
+- Define numeric normalization and missing-value policies in the saved
+  preprocessing state.
+- Support an explicit tabular schema rather than requiring each row to contain
+  one already-flattened vector.
+- Add feature-gating or attention for combining numeric, categorical, and ID
+  representations.
+
+### 3. Sparse high-dimensional inputs
+
+- Accept SciPy sparse matrices and PyTorch sparse tensors without densifying
+  the complete dataset.
+- Add sparse linear projection branches for fingerprints, bag-of-words, and
+  large indicator matrices.
+- Benchmark memory use and throughput against the dense MLP path.
+
+### 4. Sequence and pretrained-embedding inputs
+
+- Add padded or ragged token-sequence batches with attention masks.
+- Provide lightweight recurrent/1-D convolutional encoders and an optional
+  Transformer encoder.
+- Accept precomputed embeddings from domain models as ordinary dense features.
+- Add optional adapters for protein, chemical, and text foundation models
+  without making them core dependencies.
+
+### 5. Graph inputs
+
+- Define a graph batch adapter and optional graph neural-network branch.
+- Initially support precomputed molecular graph objects, then general
+  heterogeneous graphs if a concrete use case requires them.
+- Keep graph libraries in a separate optional dependency group.
+
+### 6. Time-series inputs
+
+- Represent values, timestamps, masks, and sequence lengths explicitly.
+- Add 1-D convolutional and Transformer-style temporal encoders.
+- Define leakage-safe temporal splitting and test it separately from settings
+  A–D.
+
+### 7. Multimodal and partially missing inputs
+
+- Introduce a composite branch that combines multiple encoders for one entity.
+- Support explicit masks for missing modalities.
+- Compare concatenation, gated fusion, and attention-based fusion.
+- Add modality dropout so models do not become unusable when an optional input
+  is absent.
+
+## Neural-network functionality
+
+### Common contracts
+
+- Define typed batch objects for dense vectors, IDs, sequences, images, and
+  graphs.
+- Give every branch an explicit output dimension and a shared encoder
+  protocol.
+- Separate branch construction, fusion, output heads, and loss selection into
+  registries.
+- Store preprocessing and encoder metadata with checkpoints.
+
+### Losses and output heads
+
+- Use `BCEWithLogitsLoss` for numerically stable binary classification while
+  applying sigmoid only for metrics and returned predictions.
+- Add a documented loss registry: binary cross-entropy, mean squared error,
+  mean absolute error, Huber, and optional ranking losses.
+- Add explicit heads for binary, multiclass, ordinal, count, and bounded
+  regression tasks.
+- Implement class/example weighting only with a tested definition for each
+  validation setting.
+
+### Fusion
+
+- Keep dot product, concatenation plus MLP, and Kronecker product as baselines.
+- Add bilinear fusion as a lower-cost interaction model.
+- Add gated fusion and cross-attention only after common branch contracts are
+  established.
+- Make dimensional requirements and parameter growth visible during
+  configuration validation.
+
+### Modern branch blocks
+
+- Add configurable activations, residual MLP blocks, layer normalization, and
+  initialization policies.
+- Replace architecture-specific dimension inspection with the common branch
+  output contract.
+- Add parameter-count and shape summaries for reproducibility.
+
+### Training performance
+
+- Add automatic mixed precision for supported CUDA devices.
+- Evaluate `torch.compile` as an opt-in optimization with an eager fallback.
+- Add gradient clipping and gradient accumulation.
+- Record device, precision, dependency, seed, and preprocessing metadata with
+  each experiment.
+
+## Suggested delivery order
+
+1. Learned ID embeddings.
+2. Formalize batch, encoder, fusion, loss, and output-head contracts.
+3. Mixed tabular inputs and precomputed embeddings.
+4. Numerically stable logits/loss handling and richer output heads.
+5. Sparse inputs.
+6. Sequence encoders.
+7. Hybrid and missing-modality support.
+8. Graph and time-series encoders, driven by concrete datasets.
+9. Performance features after correctness baselines are established.
+
+Each slice is complete when its invalid configurations fail early, its public
+behavior is documented, focused and end-to-end tests pass offline, type and
+format checks pass, and a saved model can be restored for prediction.

@@ -101,6 +101,49 @@ def test_typed_config_normalizes_public_names():
     assert normalized.metrics_average == ["macro"]
 
 
+def test_typed_config_normalizes_and_accepts_id_embedding_branches():
+    config = make_valid_config(target_branch_input_dim=7, embedding_size=5)
+    config["target_branch_architecture"] = "embedding"
+
+    normalized = DeepMTPConfig.from_mapping(config)
+
+    assert normalized.target_branch_architecture == "EMBEDDING"
+    assert normalized.target_branch_input_dim == 7
+    assert normalized.embedding_size == 5
+
+
+@pytest.mark.parametrize(
+    ("branch", "validation_setting"),
+    [
+        ("instance", "B"),
+        ("instance", "D"),
+        ("target", "C"),
+        ("target", "D"),
+    ],
+)
+def test_id_embeddings_reject_novel_entities(branch, validation_setting):
+    config = make_valid_config()
+    config["validation_setting"] = validation_setting
+    config[f"{branch}_branch_architecture"] = "EMBEDDING"
+
+    with pytest.raises(
+        ConfigValidationError,
+        match=rf"{branch}_branch_architecture='EMBEDDING'.*novel",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
+def test_id_embeddings_require_a_positive_vocabulary_size():
+    config = make_valid_config(target_branch_architecture="EMBEDDING")
+    config["target_branch_input_dim"] = 0
+
+    with pytest.raises(
+        ConfigValidationError,
+        match="target_branch_input_dim",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
 @pytest.mark.parametrize(
     ("field_name", "invalid_value"),
     [

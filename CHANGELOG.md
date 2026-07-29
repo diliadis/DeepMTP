@@ -38,6 +38,8 @@ checkpoints.
   annotations and automated pinning-policy coverage.
 - PyPI Trusted Publishing through an isolated OIDC-enabled publication job,
   with verified artifact handoff and publish attestations.
+- Trainable ID-embedding branches for known entity axes, including direct
+  integer-ID batching and validation-setting safeguards for novel entities.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 

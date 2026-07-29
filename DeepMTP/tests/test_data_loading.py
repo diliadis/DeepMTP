@@ -139,6 +139,50 @@ def test_prediction_loader_preserves_input_order():
     )
 
 
+def test_embedding_branches_emit_integer_ids_instead_of_one_hot_vectors():
+    data = make_data()
+    config = make_config(
+        validation_setting="A",
+        metrics_average=["micro"],
+        instance_branch_architecture="EMBEDDING",
+        target_branch_architecture="EMBEDDING",
+    )
+    dataset = BaseDataset(
+        config,
+        data["y"],
+        data["X_instance"],
+        data["X_target"],
+    )
+
+    item = dataset[2]
+    batch = next(iter(DataLoaderFactory(config, "cpu").for_prediction(data)))
+
+    assert item["instance_features"] == item["instance_id"] == 2
+    assert item["target_features"] == item["target_id"] == 2
+    assert batch["instance_features"].dtype == torch.int64
+    assert batch["target_features"].dtype == torch.int64
+    assert batch["instance_features"].ndim == 1
+    assert batch["target_features"].ndim == 1
+
+
+def test_embedding_branches_reject_side_features():
+    data = make_data()
+    data["X_target"] = {"data": pd.DataFrame({"id": [0]})}
+    config = make_config(target_branch_architecture="EMBEDDING")
+
+    with pytest.raises(ValueError, match="side features.*EMBEDDING"):
+        DataLoaderFactory(config, "cpu").for_prediction(data)
+
+
+def test_embedding_branches_reject_ids_outside_the_vocabulary():
+    data = make_data()
+    data["y"]["data"].loc[0, "target_id"] = 3
+    config = make_config(target_branch_architecture="EMBEDDING")
+
+    with pytest.raises(ValueError, match="Target IDs must be zero-based"):
+        DataLoaderFactory(config, "cpu").for_prediction(data)
+
+
 def test_training_loaders_select_transforms_by_phase():
     instance_train_transform = object()
     instance_inference_transform = object()

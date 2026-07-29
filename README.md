@@ -148,7 +148,7 @@ Reusable branch models, combined architectures, and the model factory are
 available from the focused model namespace:
 
 ```python
-from DeepMTP.models import ConvNet, MLP, ModelFactory
+from DeepMTP.models import ConvNet, IDEmbedding, MLP, ModelFactory
 ```
 
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="250"/></p>
@@ -179,6 +179,12 @@ To better explain how the neural networks adapts to different cases, we will sho
 
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_no_instance_or_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_no_instance_or_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
+
+Existing MLP configurations retain this one-hot behavior. For setting A,
+`branch_architecture="EMBEDDING"` provides an opt-in, memory-efficient
+alternative that learns a dense vector directly from each zero-based entity
+ID. ID embeddings are rejected on entity axes that are novel in settings B,
+C, or D because a lookup table cannot represent an unseen ID.
 
 </details>
 
@@ -360,21 +366,21 @@ In the code snippet above the function generate_config is shown without any spec
 | `dropout_rate_instance_branch` | The amount of dropout used in the layers of the instance branch  |
 | `dropout_rate_target_branch` | The amount of dropout used in the layers of the target branch |
 | **Instance branch architecture** ||
-| `instance_branch_architecture` | The type of architecture that will be used in the instance branch. Currently, there are two available options, `MLP`: a basic fully connected feed-forward neural network is used, `CONV` a convolutional neural network is used |
-| `instance_branch_input_dim` | The input dimension of the instance branch |
+| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `instance_branch_input_dim` | The input feature dimension, or the number of instance IDs for an `EMBEDDING` branch |
 | `instance_train_transforms` | The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures |
 | `instance_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `instance_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the instance branch. The include key-value pairs like the following: |
 |  **Target branch architecture**  ||
-| `target_branch_architecture` | The type of architecture that will be used in the target branch. Currently, there are two available options, `MLP`: a basic fully connected feed-forward neural network is used, `CONV` a convolutional neural network is used |
-| `target_branch_input_dim` | The input dimension of the target branch |
+| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `target_branch_input_dim` | The input feature dimension, or the number of target IDs for an `EMBEDDING` branch |
 | `target_train_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `target_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `target_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the target branch. |
 |  **Combination branch architecture**  ||
 | `comb_mlp_nodes_per_layer` | Positive layer widths for the combination branch. A list defines each layer; an integer repeats that width `comb_mlp_layers` times. Only used if `general_architecture_version == mlp` |
 | `comb_mlp_layers` | Positive number of repeated combination layers, required when `comb_mlp_nodes_per_layer` is an integer. Only used if `general_architecture_version == mlp` |
-| `embedding_size` | The size of the embeddings outputted by the two branches. (Only used if `general_architecture_version == dot_product`) |
+| `embedding_size` | The output width of both branches for a dot-product model and of every `EMBEDDING` branch |
 |  **Pretrained models**  ||
 | `load_pretrained_model` | Whether or not a pretrained model will be loaded |
 | `pretrained_model_path` | The path to the .pt file with the pretrained model (Only used if `load_pretrained_model == True`) |

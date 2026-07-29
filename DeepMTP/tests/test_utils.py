@@ -172,6 +172,16 @@ def test_generate_config_applies_documented_branch_defaults_silently(capsys):
     assert config["target_branch_nodes_per_layer"] == [10, 10, 10]
 
 
+def test_generate_config_preserves_embedding_width_for_non_dot_product_models():
+    config = generate_minimal_config(
+        general_architecture_version="mlp",
+        target_branch_architecture="EMBEDDING",
+        embedding_size=7,
+    )
+
+    assert config["embedding_size"] == 7
+
+
 def test_generate_config():
     original_config = get_default_config_dict()
 

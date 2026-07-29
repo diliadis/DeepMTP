@@ -265,9 +265,9 @@ def generate_config(
         save_model (bool, optional): Whether or not to save the model of the epoch with the best validation performance. Defaults to True.
         metric_to_optimize_early_stopping (str, optional): The metric that will be used for tracking by the early stopping routine. The value can be the loss or one of the available performance metrics.. Defaults to 'loss'.
         metric_to_optimize_best_epoch_selection (str, optional): The validation metric that will be used to determine the best configuration. The value can be the loss or one of the available performance metrics.. Defaults to 'loss'.
-        instance_branch_architecture (str, optional): The type of architecture that will be used in the instance branch. Currently, there are two available options, MLP: a basic fully connected feed-forward neural network is used, CONV a convolutional neural network is used. Defaults to None.
+        instance_branch_architecture (str, optional): The type of architecture used in the instance branch: MLP for dense side features, CONV for images, EMBEDDING for zero-based entity IDs, or CUSTOM for a user-supplied branch. Defaults to None.
         use_instance_features (bool, optional): Whether or not the instance features will be used. Defaults to False.
-        instance_branch_input_dim (int, optional): The input dimension of the instance branch. Defaults to None.
+        instance_branch_input_dim (int, optional): The input dimension of the instance branch, or the number of instance IDs for an EMBEDDING branch. Defaults to None.
         instance_branch_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the instance branch. Not currently implemented. Defaults to 2.
         instance_branch_nodes_per_layer (list, optional): Defines the number of nodes in the MLP version of the instance branch. if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used instance_branch_layers times. Defaults to [10, 10, 10].
         instance_branch_layers (int, optional): The number of layers in the MLP version of the instance branch. (Only used if instance_branch_nodes_per_layer is int). Defaults to None.
@@ -278,9 +278,9 @@ def generate_config(
         instance_branch_conv_architecture_dense_layers (int, optional): The number of replacement dense layers for a ResNet instance branch: 1 or 2. Defaults to 1.
         instance_branch_conv_architecture_last_layer_trained (str, optional): The earliest trainable ResNet block in the instance branch: 'last' or 'layer4' through 'layer1'. Defaults to 'last'.
         instance_branch_conv_pretrained (bool, optional): Whether to initialize an instance convolutional branch with torchvision's default pretrained weights. Set to False to construct the model without a network download. Defaults to True.
-        target_branch_architecture (str, optional): The type of architecture that will be used in the target branch. Currently, there are two available options, MLP: a basic fully connected feed-forward neural network is used, CONV a convolutional neural network is used. Defaults to None.
+        target_branch_architecture (str, optional): The type of architecture used in the target branch: MLP for dense side features, CONV for images, EMBEDDING for zero-based entity IDs, or CUSTOM for a user-supplied branch. Defaults to None.
         use_target_features (bool, optional): Whether or not the target features will be used. Defaults to False.. Defaults to False.
-        target_branch_input_dim (int, optional): The input dimension of the target branch. Defaults to None.
+        target_branch_input_dim (int, optional): The input dimension of the target branch, or the number of target IDs for an EMBEDDING branch. Defaults to None.
         target_branch_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the target branch. Not currently implemented. Defaults to 2.
         target_branch_nodes_per_layer (list, optional): Defines the number of nodes in the MLP version of the target branch. if list, each element defines the number of nodes in the corresponding layer. If int, the same number of nodes is used target_branch_layers times. Defaults to [10, 10, 10].
         target_branch_layers (_type_, optional): The number of layers in the MLP version of the target branch. (Only used if target_branch_nodes_per_layer is int). Defaults to None.
@@ -294,7 +294,7 @@ def generate_config(
         comb_mlp_nodes_reducing_factor (int, optional): The factor that will be used to create a smooth bottleneck in the combination MLP. (Only used if general_architecture_version in "mlp"). Not currently implemented. Defaults to 2.
         comb_mlp_nodes_per_layer (list or int, optional): Positive layer widths for the combination branch. If a list is provided, each element defines one layer. If an int is provided, the width is repeated ``comb_mlp_layers`` times. Used only when general_architecture_version is "mlp". Defaults to [10, 10, 10].
         comb_mlp_layers (int, optional): The positive number of repeated combination layers, required when comb_mlp_nodes_per_layer is an int. Used only when general_architecture_version is "mlp". Defaults to None.
-        embedding_size (int, optional): The size of the embeddings outputted by the two branches. (Only used if general_architecture_version in "dot_product"). Defaults to 100.
+        embedding_size (int, optional): The branch output size for dot-product models and for each EMBEDDING branch. Defaults to 100.
         eval_every_n_epochs (int, optional): The interval that indicates when the performance metrics are computed. Defaults to 10.
         load_pretrained_model (bool, optional): Whether or not a pretrained model will be loaded. Defaults to False.
         pretrained_model_path (str, optional): The path to the .pt file with the pretrained model (Only used if load_pretrained_model == True). Defaults to ''.
@@ -457,6 +457,11 @@ def generate_config(
         raise ValueError(
             "Value: " + str(general_architecture_version) + " is not a valid option"
         )
+    if "EMBEDDING" in {
+        instance_branch_architecture,
+        target_branch_architecture,
+    }:
+        base_config["embedding_size"] = embedding_size
 
     if instance_branch_architecture == "MLP":
         base_config.update(
@@ -501,6 +506,8 @@ def generate_config(
         ]:
             if parameter_name in instance_branch_params:
                 base_config[parameter_name] = instance_branch_params[parameter_name]
+    elif instance_branch_architecture == "EMBEDDING":
+        pass
     elif (
         instance_branch_architecture == "CUSTOM"
     ):  # this is still a work in progress but should do the trick, for now...
@@ -556,6 +563,8 @@ def generate_config(
         ]:
             if parameter_name in target_branch_params:
                 base_config[parameter_name] = target_branch_params[parameter_name]
+    elif target_branch_architecture == "EMBEDDING":
+        pass
     elif (
         target_branch_architecture == "CUSTOM"
     ):  # this is still a work in progress but should do the trick, for now...
