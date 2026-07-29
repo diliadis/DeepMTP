@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import bz2
 import json
 import os
 import pickle
@@ -17,7 +18,6 @@ import pandas as pd
 import scipy
 from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
-from skmultilearn.dataset import load_dataset_dump
 
 from DeepMTP._download_utils import (
     DatasetDownloadError,
@@ -791,8 +791,12 @@ def _ensure_mlc_cache(
 
 def _load_mlc_dump(dataset_path: Path) -> tuple[object, object]:
     try:
-        loaded = load_dataset_dump(str(dataset_path))
-        X, y, _, _ = loaded
+        with bz2.BZ2File(dataset_path, "rb") as dataset_file:
+            loaded = pickle.load(dataset_file)
+        if not isinstance(loaded, Mapping):
+            raise TypeError("Dataset dump must contain a mapping.")
+        X = loaded["X"]
+        y = loaded["y"]
     except (
         AttributeError,
         EOFError,

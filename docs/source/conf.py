@@ -45,7 +45,18 @@ extensions = [
     'sphinx.ext.napoleon',
 ]
 
-autodoc_mock_imports = ['torchvision', 'tensorboard', 'sklearn', 'more_itertools', 'streamlit', 'scipy', 'torch', 'arff', 'prettytable', 'skmultilearn', 'wandb']
+autodoc_mock_imports = [
+    'torchvision',
+    'tensorboard',
+    'sklearn',
+    'more_itertools',
+    'streamlit',
+    'scipy',
+    'torch',
+    'arff',
+    'prettytable',
+    'wandb',
+]
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']
