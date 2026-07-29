@@ -20,7 +20,7 @@ contract instead of adding special cases to the trainer.
 
 ### 1. Learned ID embeddings
 
-Status: implemented on `codex/learned-id-embeddings`.
+Status: implemented and merged.
 
 - [x] Add `EMBEDDING` as a built-in branch architecture.
 - [x] Pass integer IDs to `torch.nn.Embedding` without constructing dense
@@ -119,13 +119,18 @@ explicitly.
 
 ### Common contracts
 
-- Define typed batch objects for dense vectors, IDs, sequences, images, and
-  graphs.
-- Give every branch an explicit output dimension and a shared encoder
-  protocol.
-- Separate branch construction, fusion, output heads, and loss selection into
-  registries.
-- Store preprocessing and encoder metadata with checkpoints.
+- [x] Define typed tensor batch objects for dense vectors, IDs, images, and
+  custom branches.
+- [x] Preserve historical dataloader mapping keys through the typed
+  `MTPBatch` compatibility interface.
+- [x] Give every branch an explicit input kind, output dimension, and shared
+  encoder protocol.
+- [x] Validate encoder output rank, batch size, width, and dtype before fusion.
+- [x] Remove module-layout inspection from fusion construction.
+- [ ] Add structured batch contracts for sequences and graphs when those
+  encoders are introduced.
+- [ ] Separate fusion, output-head, and loss selection into registries.
+- [ ] Store preprocessing metadata with checkpoints.
 
 ### Losses and output heads
 
@@ -166,14 +171,15 @@ explicitly.
 ## Suggested delivery order
 
 1. Learned ID embeddings.
-2. Formalize batch, encoder, fusion, loss, and output-head contracts.
+2. Formalize batch and encoder contracts.
 3. Mixed tabular inputs and precomputed embeddings.
-4. Numerically stable logits/loss handling and richer output heads.
-5. Sparse inputs.
-6. Sequence encoders.
-7. Hybrid and missing-modality support.
-8. Graph and time-series encoders, driven by concrete datasets.
-9. Performance features after correctness baselines are established.
+4. Formalize fusion, loss, and output-head registries.
+5. Numerically stable logits/loss handling and richer output heads.
+6. Sparse inputs.
+7. Sequence encoders.
+8. Hybrid and missing-modality support.
+9. Graph and time-series encoders, driven by concrete datasets.
+10. Performance features after correctness baselines are established.
 
 Each slice is complete when its invalid configurations fail early, its public
 behavior is documented, focused and end-to-end tests pass offline, type and

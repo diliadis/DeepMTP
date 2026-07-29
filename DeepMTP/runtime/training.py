@@ -10,9 +10,11 @@ from typing import Any
 import torch
 from torch import nn
 
+from DeepMTP.data.batches import MTPBatch
+
 __all__ = ["EpochOutput", "TensorBatch", "TrainingEngine"]
 
-TensorBatch = Mapping[str, torch.Tensor]
+TensorBatch = MTPBatch | Mapping[str, torch.Tensor]
 
 
 @dataclass
@@ -149,9 +151,19 @@ class TrainingEngine:
         self,
         batch: TensorBatch,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        instance_features = batch["instance_features"].to(self.device)
-        target_features = batch["target_features"].to(self.device)
-        true_values = batch["score"].float().to(self.device)
+        if isinstance(batch, MTPBatch):
+            self._validate_typed_input_kinds(batch)
+            device_batch = batch.to(
+                self.device,
+                non_blocking=self.device.type == "cuda",
+            )
+            instance_features = device_batch.instance_input.values
+            target_features = device_batch.target_input.values
+            true_values = device_batch.score.float()
+        else:
+            instance_features = batch["instance_features"].to(self.device)
+            target_features = batch["target_features"].to(self.device)
+            true_values = batch["score"].float().to(self.device)
 
         predictions = torch.squeeze(
             self.model(instance_features, target_features),
@@ -160,6 +172,18 @@ class TrainingEngine:
         if self.problem_mode == "classification":
             predictions = torch.sigmoid(predictions)
         return true_values, predictions
+
+    def _validate_typed_input_kinds(self, batch: MTPBatch) -> None:
+        for branch, branch_batch in {
+            "instance": batch.instance_input,
+            "target": batch.target_input,
+        }.items():
+            expected_kind = getattr(self.model, f"{branch}_input_kind", None)
+            if expected_kind is not None and branch_batch.kind != expected_kind:
+                raise ValueError(
+                    f"{branch} branch model expects {expected_kind!r} input, "
+                    f"but the dataloader produced {branch_batch.kind!r} input."
+                )
 
     @staticmethod
     def _collect_predictions(

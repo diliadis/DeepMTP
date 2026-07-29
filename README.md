@@ -151,6 +151,20 @@ available from the focused model namespace:
 from DeepMTP.models import ConvNet, IDEmbedding, MLP, ModelFactory
 ```
 
+Model-ready dataloaders return a typed `MTPBatch`. It retains the historical
+dictionary keys while exposing modality-specific `instance_input` and
+`target_input` objects:
+
+```python
+from DeepMTP.data import DenseBranchBatch, IDBranchBatch, MTPBatch
+from DeepMTP.models import BranchEncoder
+```
+
+Every built-in encoder declares its input kind and output dimension. Fusion
+models validate that each encoder returns a floating tensor shaped
+`[batch_size, output_dim]`, producing focused errors before an invalid
+representation reaches the fusion operation.
+
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="250"/></p>
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="250"/></p>
 

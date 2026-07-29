@@ -5,6 +5,7 @@ import torch
 import DeepMTP.data.loading as data_loading_module
 import DeepMTP.utils.data_utils as legacy_data_utils
 from DeepMTP import DataLoaderFactory, DeepMTPConfig
+from DeepMTP.data import DenseBranchBatch, IDBranchBatch, MTPBatch
 from DeepMTP.data.loading import BaseDataset, MTPSampler
 
 
@@ -75,6 +76,10 @@ def test_training_loaders_use_configured_batches_and_device_settings():
     assert dataloaders.test.batch_size == 3
     assert not dataloaders.train.pin_memory
     assert len(dataloaders.train.dataset) == 6
+    batch = next(iter(dataloaders.validation))
+    assert isinstance(batch, MTPBatch)
+    assert isinstance(batch.instance_input, DenseBranchBatch)
+    assert isinstance(batch.target_input, DenseBranchBatch)
 
 
 @pytest.mark.parametrize(
@@ -163,6 +168,9 @@ def test_embedding_branches_emit_integer_ids_instead_of_one_hot_vectors():
     assert batch["target_features"].dtype == torch.int64
     assert batch["instance_features"].ndim == 1
     assert batch["target_features"].ndim == 1
+    assert isinstance(batch, MTPBatch)
+    assert isinstance(batch.instance_input, IDBranchBatch)
+    assert isinstance(batch.target_input, IDBranchBatch)
 
 
 def test_embedding_branches_reject_side_features():

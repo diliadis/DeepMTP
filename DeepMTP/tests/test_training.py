@@ -5,6 +5,7 @@ import torch
 from torch import nn
 
 from DeepMTP import EpochOutput, TrainingEngine
+from DeepMTP.data import DenseBranchBatch, MTPBatch
 
 
 class TinyTwoInputModel(nn.Module):
@@ -34,6 +35,17 @@ def make_batch(scores=(0.0, 1.0)):
         "instance_id": torch.arange(10, 10 + batch_size),
         "target_id": torch.arange(20, 20 + batch_size),
     }
+
+
+def make_typed_batch(scores=(0.0, 1.0)):
+    legacy_batch = make_batch(scores)
+    return MTPBatch(
+        instance_id=legacy_batch["instance_id"],
+        target_id=legacy_batch["target_id"],
+        instance_input=DenseBranchBatch(legacy_batch["instance_features"]),
+        target_input=DenseBranchBatch(legacy_batch["target_features"]),
+        score=legacy_batch["score"],
+    )
 
 
 def test_epoch_output_mean_loss():
@@ -91,6 +103,37 @@ def test_classification_train_epoch_updates_model_and_collects_probabilities():
     assert output.instance_ids == [10, 11]
     assert output.target_ids == [20, 21]
     assert all(0.0 <= prediction <= 1.0 for prediction in output.predicted_values)
+
+
+def test_training_engine_accepts_typed_batches():
+    model = TinyTwoInputModel()
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+    )
+
+    output = engine.evaluate_epoch([make_typed_batch(scores=(1.0, 2.0))])
+
+    assert output.true_values == [1.0, 2.0]
+    assert output.instance_ids == [10, 11]
+    assert output.target_ids == [20, 21]
+
+
+def test_training_engine_rejects_typed_input_kind_mismatches():
+    model = TinyTwoInputModel()
+    model.instance_input_kind = "id"
+    model.target_input_kind = "dense"
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+    )
+
+    with pytest.raises(ValueError, match="expects 'id'.*produced 'dense'"):
+        engine.evaluate_epoch([make_typed_batch()])
 
 
 def test_evaluate_epoch_does_not_update_model_and_restores_training_mode():

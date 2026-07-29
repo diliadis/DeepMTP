@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -11,7 +12,13 @@ import torch
 from torch import nn
 
 from DeepMTP.config import DeepMTPConfig
+from DeepMTP.data.batches import BranchInputKind
 from DeepMTP.models.branches import MLP, ConvNet, IDEmbedding
+from DeepMTP.models.contracts import (
+    encode_branch,
+    encoder_input_kind,
+    encoder_output_dimension,
+)
 
 __all__ = [
     "BranchFactory",
@@ -55,6 +62,22 @@ class _CombinedMLPSettings:
         )
 
 
+def _encoder_contract(
+    encoder: nn.Module,
+    *,
+    branch: str,
+    explicit_dimension: int | None,
+) -> tuple[int, BranchInputKind]:
+    return (
+        encoder_output_dimension(
+            encoder,
+            explicit_dimension=explicit_dimension,
+            branch=branch,
+        ),
+        encoder_input_kind(encoder, branch=branch),
+    )
+
+
 class TwoBranchDotProductModel(nn.Module):
     """Combine equal-sized branch embeddings with a dot product."""
 
@@ -63,18 +86,46 @@ class TwoBranchDotProductModel(nn.Module):
         config: ModelConfigInput,
         instance_branch_model: nn.Module,
         target_branch_model: nn.Module,
+        *,
+        instance_output_dim: int | None = None,
+        target_output_dim: int | None = None,
     ) -> None:
         super().__init__()
         self.instance_branch_model = instance_branch_model
         self.target_branch_model = target_branch_model
+        self.instance_output_dim, self.instance_input_kind = _encoder_contract(
+            instance_branch_model,
+            explicit_dimension=instance_output_dim,
+            branch="instance",
+        )
+        self.target_output_dim, self.target_input_kind = _encoder_contract(
+            target_branch_model,
+            explicit_dimension=target_output_dim,
+            branch="target",
+        )
+        if self.instance_output_dim != self.target_output_dim:
+            raise ValueError(
+                "Dot-product branches must declare the same output_dim; "
+                f"received {self.instance_output_dim} and {self.target_output_dim}."
+            )
 
     def forward(
         self,
         instance_features: torch.Tensor,
         target_features: torch.Tensor,
     ) -> torch.Tensor:
-        instance_embedding = self.instance_branch_model(instance_features)
-        target_embedding = self.target_branch_model(target_features)
+        instance_embedding = encode_branch(
+            self.instance_branch_model,
+            instance_features,
+            branch="instance",
+            explicit_dimension=self.instance_output_dim,
+        )
+        target_embedding = encode_branch(
+            self.target_branch_model,
+            target_features,
+            branch="target",
+            explicit_dimension=self.target_output_dim,
+        )
         return torch.unsqueeze(
             (instance_embedding * target_embedding).sum(1),
             1,
@@ -96,15 +147,17 @@ class TwoBranchMLPModel(nn.Module):
         super().__init__()
         self.instance_branch_model = instance_branch_model
         self.target_branch_model = target_branch_model
-        combined_dimension = _branch_output_dimension(
+        self.instance_output_dim, self.instance_input_kind = _encoder_contract(
             instance_branch_model,
             explicit_dimension=instance_output_dim,
             branch="instance",
-        ) + _branch_output_dimension(
+        )
+        self.target_output_dim, self.target_input_kind = _encoder_contract(
             target_branch_model,
             explicit_dimension=target_output_dim,
             branch="target",
         )
+        combined_dimension = self.instance_output_dim + self.target_output_dim
         settings = _CombinedMLPSettings.from_config(config)
         self.comb_branch = MLP(
             config,
@@ -122,8 +175,18 @@ class TwoBranchMLPModel(nn.Module):
         instance_features: torch.Tensor,
         target_features: torch.Tensor,
     ) -> torch.Tensor:
-        instance_embedding = self.instance_branch_model(instance_features)
-        target_embedding = self.target_branch_model(target_features)
+        instance_embedding = encode_branch(
+            self.instance_branch_model,
+            instance_features,
+            branch="instance",
+            explicit_dimension=self.instance_output_dim,
+        )
+        target_embedding = encode_branch(
+            self.target_branch_model,
+            target_features,
+            branch="target",
+            explicit_dimension=self.target_output_dim,
+        )
         combined_embedding = torch.cat(
             (instance_embedding, target_embedding),
             1,
@@ -146,15 +209,17 @@ class TwoBranchKroneckerModel(nn.Module):
         super().__init__()
         self.instance_branch_model = instance_branch_model
         self.target_branch_model = target_branch_model
-        combined_dimension = _branch_output_dimension(
+        self.instance_output_dim, self.instance_input_kind = _encoder_contract(
             instance_branch_model,
             explicit_dimension=instance_output_dim,
             branch="instance",
-        ) * _branch_output_dimension(
+        )
+        self.target_output_dim, self.target_input_kind = _encoder_contract(
             target_branch_model,
             explicit_dimension=target_output_dim,
             branch="target",
         )
+        combined_dimension = self.instance_output_dim * self.target_output_dim
         self.comb_branch = nn.Linear(combined_dimension, 1)
 
     def forward(
@@ -162,8 +227,18 @@ class TwoBranchKroneckerModel(nn.Module):
         instance_features: torch.Tensor,
         target_features: torch.Tensor,
     ) -> torch.Tensor:
-        instance_embedding = self.instance_branch_model(instance_features)
-        target_embedding = self.target_branch_model(target_features)
+        instance_embedding = encode_branch(
+            self.instance_branch_model,
+            instance_features,
+            branch="instance",
+            explicit_dimension=self.instance_output_dim,
+        )
+        target_embedding = encode_branch(
+            self.target_branch_model,
+            target_features,
+            branch="target",
+            explicit_dimension=self.target_output_dim,
+        )
         combined_embedding = torch.stack(
             [
                 torch.kron(instance_vector, target_vector)
@@ -214,10 +289,20 @@ class ModelFactory:
                 instance_output_dim,
                 instance_branch_factory,
             )
+            self._ensure_encoder_contract(
+                "instance",
+                instance_branch,
+                configured_output_dim=instance_output_dim,
+            )
             target_branch = self._build_branch(
                 "target",
                 target_output_dim,
                 target_branch_factory,
+            )
+            self._ensure_encoder_contract(
+                "target",
+                target_branch,
+                configured_output_dim=target_output_dim,
             )
             model = self._build_combined_model(
                 instance_branch,
@@ -307,6 +392,52 @@ class ModelFactory:
             )
         raise ValueError(f"Unsupported {branch} branch architecture: {architecture!r}.")
 
+    def _ensure_encoder_contract(
+        self,
+        branch: str,
+        encoder: nn.Module,
+        *,
+        configured_output_dim: int,
+    ) -> None:
+        architecture = getattr(self.config, f"{branch}_branch_architecture")
+        expected_input_kinds: dict[str, BranchInputKind] = {
+            "MLP": "dense",
+            "EMBEDDING": "id",
+            "CONV": "image",
+            "CUSTOM": "custom",
+        }
+        expected_input_kind = expected_input_kinds[architecture]
+        declared_input_kind = getattr(encoder, "input_kind", None)
+        if declared_input_kind is None:
+            encoder.input_kind = expected_input_kind
+        elif declared_input_kind != expected_input_kind:
+            raise ValueError(
+                f"{branch} branch encoder declares input_kind="
+                f"{declared_input_kind!r}, but {architecture} data requires "
+                f"{expected_input_kind!r}."
+            )
+
+        declared_output_dim = getattr(encoder, "output_dim", None)
+        if declared_output_dim is None:
+            if self.config.general_architecture_version == "dot_product":
+                declared_output_dim = configured_output_dim
+            else:
+                declared_output_dim = _infer_legacy_encoder_output_dimension(
+                    encoder,
+                    branch=branch,
+                )
+            encoder.output_dim = declared_output_dim
+        resolved_output_dim = encoder_output_dimension(encoder, branch=branch)
+        if (
+            self.config.general_architecture_version == "dot_product"
+            and resolved_output_dim != configured_output_dim
+        ):
+            raise ValueError(
+                f"{branch} branch encoder output_dim={resolved_output_dim} does "
+                f"not match embedding_size={configured_output_dim} required by "
+                "the dot-product architecture."
+            )
+
     def _build_combined_model(
         self,
         instance_branch: nn.Module,
@@ -332,36 +463,32 @@ class ModelFactory:
         )
 
 
-def _branch_output_dimension(
-    model: nn.Module,
+def _infer_legacy_encoder_output_dimension(
+    encoder: nn.Module,
     *,
-    explicit_dimension: int | None,
     branch: str,
 ) -> int:
-    """Resolve a branch output size without assuming a specific module layout."""
-    if explicit_dimension is not None:
-        return explicit_dimension
-    output_dimension = getattr(model, "output_dim", None)
-    if (
-        isinstance(output_dimension, int)
-        and not isinstance(output_dimension, bool)
-        and output_dimension > 0
-    ):
-        return output_dimension
-    try:
-        legacy_dimension = model[0][-2].out_features
-    except (AttributeError, IndexError, KeyError, TypeError) as error:
+    linear_layers = [
+        module
+        for module in encoder.modules()
+        if module is not encoder and isinstance(module, nn.Linear)
+    ]
+    if isinstance(encoder, nn.Linear):
+        linear_layers.append(encoder)
+    if not linear_layers:
         raise ValueError(
-            f"Could not determine the {branch} branch output dimension. "
-            "Set a positive output_dim attribute on custom branch modules."
-        ) from error
-    if (
-        isinstance(legacy_dimension, int)
-        and not isinstance(legacy_dimension, bool)
-        and legacy_dimension > 0
-    ):
-        return legacy_dimension
-    raise ValueError(f"{branch} branch output dimension must be a positive integer.")
+            f"{branch} custom branch encoder must declare a positive integer "
+            "output_dim."
+        )
+    inferred_dimension = int(linear_layers[-1].out_features)
+    warnings.warn(
+        f"Inferred output_dim={inferred_dimension} from the {branch} custom "
+        "branch's final Linear layer. Declare output_dim explicitly; structural "
+        "inference is deprecated.",
+        FutureWarning,
+        stacklevel=4,
+    )
+    return inferred_dimension
 
 
 @contextmanager

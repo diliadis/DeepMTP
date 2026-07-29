@@ -3,6 +3,17 @@
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
+from DeepMTP.data.batches import (
+    BranchBatch,
+    BranchInputKind,
+    CustomBranchBatch,
+    DenseBranchBatch,
+    IDBranchBatch,
+    ImageBranchBatch,
+    MTPBatch,
+    MTPBatchCollator,
+    TensorBranchBatch,
+)
 from DeepMTP.data.features import (
     FeatureInfo,
     cross_input_consistency_check_instances,
@@ -110,7 +121,10 @@ _DATASET_EXPORTS = frozenset(
 __all__ = [
     "ArrayFormat",
     "BaseDataset",
+    "BranchBatch",
+    "BranchInputKind",
     "ConsoleDataProgressObserver",
+    "CustomBranchBatch",
     "DataInfo",
     "DataLoaderFactory",
     "DataPrintMode",
@@ -124,9 +138,14 @@ __all__ = [
     "DatasetSplit",
     "DatasetValue",
     "DatasetVariant",
+    "DenseBranchBatch",
     "FeatureInfo",
     "InteractionInfo",
+    "IDBranchBatch",
+    "ImageBranchBatch",
     "MTPSampler",
+    "MTPBatch",
+    "MTPBatchCollator",
     "NoveltyInferenceWarning",
     "NullDataProgressObserver",
     "PrintMode",
@@ -137,6 +156,7 @@ __all__ = [
     "SamplerMode",
     "ScalingMethod",
     "TrainingDataLoaders",
+    "TensorBranchBatch",
     "Transformer",
     "ValidationSetting",
     "VariableType",

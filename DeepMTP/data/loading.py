@@ -13,6 +13,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, Dataset, Sampler
 
 from DeepMTP.config import BranchArchitecture, DeepMTPConfig
+from DeepMTP.data.batches import BranchInputKind, MTPBatchCollator
 
 __all__ = [
     "BaseDataset",
@@ -25,6 +26,12 @@ __all__ = [
 
 _DATA_SPLIT_KEYS = frozenset({"y", "X_instance", "X_target"})
 SamplerMode: TypeAlias = Literal["micro", "macro", "instance"]
+_BRANCH_INPUT_KINDS: dict[BranchArchitecture, BranchInputKind] = {
+    "MLP": "dense",
+    "EMBEDDING": "id",
+    "CONV": "image",
+    "CUSTOM": "custom",
+}
 
 
 class DatasetItem(TypedDict):
@@ -568,6 +575,20 @@ class DataLoaderFactory:
             num_workers=self.config.num_workers,
             pin_memory=self.device.type == "cuda",
             generator=self._generator() if train else None,
+            collate_fn=MTPBatchCollator(
+                instance_kind=_BRANCH_INPUT_KINDS[
+                    cast(
+                        BranchArchitecture,
+                        self.config.instance_branch_architecture,
+                    )
+                ],
+                target_kind=_BRANCH_INPUT_KINDS[
+                    cast(
+                        BranchArchitecture,
+                        self.config.target_branch_architecture,
+                    )
+                ],
+            ),
         )
 
     def _generator(self) -> torch.Generator | None:

@@ -14,6 +14,19 @@ progress events:
        data_process,
    )
 
+Batches
+-------
+
+Model-ready dataloaders return :class:`DeepMTP.data.batches.MTPBatch`. It is a
+mapping compatible with the historical tensor keys and also exposes typed
+dense, ID, image, or custom branch inputs. Calling ``batch.to(device)`` moves
+every component together.
+
+.. automodule:: DeepMTP.data.batches
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Dataset helpers
 ---------------
 
