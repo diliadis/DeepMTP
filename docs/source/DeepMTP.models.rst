@@ -29,5 +29,6 @@ Package contents
 
 .. automodule:: DeepMTP.models
    :members:
+   :no-index:
    :undoc-members:
    :show-inheritance:

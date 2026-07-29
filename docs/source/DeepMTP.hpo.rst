@@ -50,5 +50,6 @@ Package contents
 
 .. automodule:: DeepMTP.hpo
    :members:
+   :no-index:
    :undoc-members:
    :show-inheritance:

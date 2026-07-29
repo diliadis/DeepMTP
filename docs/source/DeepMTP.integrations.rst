@@ -54,5 +54,6 @@ Package contents
 
 .. automodule:: DeepMTP.integrations.streamlit
    :members:
+   :no-index:
    :undoc-members:
    :show-inheritance:
