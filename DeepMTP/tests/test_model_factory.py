@@ -13,6 +13,7 @@ from DeepMTP import (
     TwoBranchMLPModel,
 )
 from DeepMTP.data import TabularInput
+from DeepMTP.models import FUSION_REGISTRY
 
 
 def make_config(**overrides):
@@ -59,6 +60,21 @@ def test_model_factory_builds_each_combination_architecture(
 
     assert isinstance(bundle.model, model_type)
     assert output.shape == (2, 1)
+
+
+def test_fusion_registry_exposes_each_supported_architecture():
+    assert FUSION_REGISTRY.names == ("dot_product", "kronecker", "mlp")
+    assert FUSION_REGISTRY.resolve("dot_product") is TwoBranchDotProductModel
+    assert FUSION_REGISTRY.resolve("kronecker") is TwoBranchKroneckerModel
+    assert FUSION_REGISTRY.resolve("mlp") is TwoBranchMLPModel
+
+
+def test_fusion_registry_reports_available_architectures():
+    with pytest.raises(
+        KeyError,
+        match="Unknown fusion architecture 'bilinear'.*'dot_product', 'kronecker', 'mlp'",
+    ):
+        FUSION_REGISTRY.resolve("bilinear")
 
 
 @pytest.mark.parametrize("architecture", ["dot_product", "mlp", "kronecker"])

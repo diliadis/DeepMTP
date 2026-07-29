@@ -11,6 +11,7 @@ from typing import Any, TypeAlias
 import torch
 from torch import nn
 
+from DeepMTP._registry import FactoryRegistry
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.data.batches import BranchInputKind
 from DeepMTP.data.tabular import TabularSchema
@@ -24,6 +25,8 @@ from DeepMTP.models.contracts import (
 
 __all__ = [
     "BranchFactory",
+    "FUSION_REGISTRY",
+    "FusionModelType",
     "ModelBundle",
     "ModelConfigInput",
     "ModelFactory",
@@ -255,6 +258,22 @@ class TwoBranchKroneckerModel(nn.Module):
         return self.comb_branch(combined_embedding)
 
 
+FusionModelType: TypeAlias = (
+    type[TwoBranchDotProductModel]
+    | type[TwoBranchMLPModel]
+    | type[TwoBranchKroneckerModel]
+)
+
+FUSION_REGISTRY = FactoryRegistry[FusionModelType](
+    "fusion architecture",
+    {
+        "dot_product": TwoBranchDotProductModel,
+        "kronecker": TwoBranchKroneckerModel,
+        "mlp": TwoBranchMLPModel,
+    },
+)
+
+
 @dataclass(frozen=True)
 class ModelBundle:
     """The two branches and their combined model."""
@@ -461,18 +480,7 @@ class ModelFactory:
         target_branch: nn.Module,
     ) -> nn.Module:
         architecture = self.config.general_architecture_version
-        model_types = {
-            "dot_product": TwoBranchDotProductModel,
-            "mlp": TwoBranchMLPModel,
-            "kronecker": TwoBranchKroneckerModel,
-        }
-        model_type = model_types[architecture]
-        if model_type is TwoBranchDotProductModel:
-            return model_type(
-                self.config,
-                instance_branch,
-                target_branch,
-            )
+        model_type = FUSION_REGISTRY.resolve(architecture)
         return model_type(
             self.config,
             instance_branch,

@@ -21,6 +21,8 @@ def test_models_package_exposes_canonical_implementations():
         "BranchEncoder": contracts_module.BranchEncoder,
         "BranchModelInput": contracts_module.BranchModelInput,
         "ConvNet": branches_module.ConvNet,
+        "FUSION_REGISTRY": factory_module.FUSION_REGISTRY,
+        "FusionModelType": factory_module.FusionModelType,
         "IDEmbedding": branches_module.IDEmbedding,
         "MLP": branches_module.MLP,
         "ModelBundle": factory_module.ModelBundle,
