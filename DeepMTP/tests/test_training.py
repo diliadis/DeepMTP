@@ -105,6 +105,24 @@ def test_classification_train_epoch_updates_model_and_collects_probabilities():
     assert all(0.0 <= prediction <= 1.0 for prediction in output.predicted_values)
 
 
+def test_training_engine_accepts_an_explicit_output_head():
+    model = TinyTwoInputModel()
+    with torch.no_grad():
+        model.linear.weight.zero_()
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        output_head=nn.Sigmoid(),
+    )
+
+    output = engine.evaluate_epoch([make_batch(scores=(0.5, 0.5))])
+
+    assert output.predicted_values == pytest.approx([0.5, 0.5])
+    assert output.mean_loss == pytest.approx(0.0)
+
+
 def test_training_engine_accepts_typed_batches():
     model = TinyTwoInputModel()
     engine = TrainingEngine(

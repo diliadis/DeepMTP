@@ -130,6 +130,7 @@ python_version = "3.10"
 files = [
     "DeepMTP/__init__.py",
     "DeepMTP/_download_utils.py",
+    "DeepMTP/_registry.py",
     "DeepMTP/_split_utils.py",
     "DeepMTP/branch_models.py",
     "DeepMTP/config.py",
@@ -179,6 +180,7 @@ files = [
     "DeepMTP/random_search_streamlit.py",
     "DeepMTP/reporting.py",
     "DeepMTP/runtime/__init__.py",
+    "DeepMTP/runtime/components.py",
     "DeepMTP/runtime/evaluation.py",
     "DeepMTP/runtime/evaluation_progress.py",
     "DeepMTP/runtime/persistence.py",
@@ -210,6 +212,7 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 module = [
     "DeepMTP._download_utils",
+    "DeepMTP._registry",
     "DeepMTP._split_utils",
     "DeepMTP.config",
     "DeepMTP.branch_models",
@@ -255,6 +258,7 @@ module = [
     "DeepMTP.presentation",
     "DeepMTP.reporting",
     "DeepMTP.runtime",
+    "DeepMTP.runtime.components",
     "DeepMTP.runtime.evaluation",
     "DeepMTP.runtime.evaluation_progress",
     "DeepMTP.runtime.persistence",

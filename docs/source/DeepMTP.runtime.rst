@@ -10,10 +10,24 @@ evaluation progress:
    from DeepMTP.runtime import (
        Evaluator,
        ExperimentStore,
+       LOSS_REGISTRY,
+       OUTPUT_HEAD_REGISTRY,
        ProgressObserver,
        TensorBoardReporter,
        TrainingEngine,
    )
+
+Task components
+---------------
+
+``LOSS_REGISTRY`` and ``OUTPUT_HEAD_REGISTRY`` expose the behavior-preserving
+defaults selected for classification and regression. The component builders
+return fresh PyTorch modules for each trainer.
+
+.. automodule:: DeepMTP.runtime.components
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Evaluation
 ----------
