@@ -161,6 +161,10 @@ product to predict the score of the instance-target pair. Dot-product models
 require equal branch widths; the other fusion strategies can combine different
 widths.
 
+For classification, the combined model produces logits.
+`BCEWithLogitsLoss` consumes those raw scores during training, while metrics
+and returned predictions receive sigmoid probabilities.
+
 Reusable branch models, combined architectures, and the model factory are
 available from the focused model namespace:
 

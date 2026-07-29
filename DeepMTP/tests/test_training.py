@@ -18,6 +18,15 @@ class TinyTwoInputModel(nn.Module):
         return self.linear(features)
 
 
+class ScalarLogitModel(nn.Module):
+    def __init__(self, initial_logit):
+        super().__init__()
+        self.logit = nn.Parameter(torch.tensor(float(initial_logit)))
+
+    def forward(self, instance_features, target_features):
+        return self.logit.expand(instance_features.shape[0], 1)
+
+
 def make_batch(scores=(0.0, 1.0)):
     batch_size = len(scores)
     return {
@@ -103,6 +112,55 @@ def test_classification_train_epoch_updates_model_and_collects_probabilities():
     assert output.instance_ids == [10, 11]
     assert output.target_ids == [20, 21]
     assert all(0.0 <= prediction <= 1.0 for prediction in output.predicted_values)
+
+
+def test_bce_with_logits_preserves_gradient_for_extreme_wrong_predictions():
+    model = ScalarLogitModel(initial_logit=100.0)
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.BCEWithLogitsLoss(),
+        device=torch.device("cpu"),
+        problem_mode="classification",
+        optimizer=torch.optim.SGD(model.parameters(), lr=0.1),
+    )
+
+    output = engine.train_epoch(
+        [make_batch(scores=(0.0,))],
+        collect_predictions=True,
+    )
+
+    assert output.losses == pytest.approx([100.0])
+    assert model.logit.item() == pytest.approx(99.9)
+    assert output.predicted_values == pytest.approx([1.0])
+
+
+def test_bce_with_logits_returns_probabilities_during_evaluation():
+    model = ScalarLogitModel(initial_logit=-100.0)
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.BCEWithLogitsLoss(),
+        device=torch.device("cpu"),
+        problem_mode="classification",
+    )
+
+    output = engine.evaluate_epoch([make_batch(scores=(1.0,))])
+
+    assert output.losses == pytest.approx([100.0])
+    assert output.predicted_values == pytest.approx([0.0])
+
+
+def test_direct_bce_criterion_retains_probability_input_compatibility():
+    engine = TrainingEngine(
+        model=ScalarLogitModel(initial_logit=100.0),
+        criterion=nn.BCELoss(),
+        device=torch.device("cpu"),
+        problem_mode="classification",
+    )
+
+    output = engine.evaluate_epoch([make_batch(scores=(0.0,))])
+
+    assert output.losses == pytest.approx([100.0])
+    assert output.predicted_values == pytest.approx([1.0])
 
 
 def test_training_engine_accepts_an_explicit_output_head():

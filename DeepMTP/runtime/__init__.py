@@ -2,6 +2,7 @@
 
 from DeepMTP.runtime.components import (
     DEFAULT_LOSS_BY_PROBLEM_MODE,
+    DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE,
     DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE,
     LOSS_REGISTRY,
     OUTPUT_HEAD_REGISTRY,
@@ -9,6 +10,7 @@ from DeepMTP.runtime.components import (
     OutputHeadFactory,
     TaskComponents,
     build_default_loss,
+    build_default_loss_input_transform,
     build_default_output_head,
     build_default_task_components,
     build_loss,
@@ -54,6 +56,7 @@ __all__ = [
     "ConsoleEvaluationProgressObserver",
     "ConsoleProgressObserver",
     "DEFAULT_LOSS_BY_PROBLEM_MODE",
+    "DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE",
     "DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE",
     "EvaluationAveraging",
     "EvaluationGroup",
@@ -85,6 +88,7 @@ __all__ = [
     "TrainingEngine",
     "WandBReporter",
     "build_default_loss",
+    "build_default_loss_input_transform",
     "build_default_output_head",
     "build_default_task_components",
     "build_evaluation_progress_observer",

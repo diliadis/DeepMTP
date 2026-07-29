@@ -179,6 +179,7 @@ class DeepMTP:
             )
         task_components = build_default_task_components(problem_mode)
         self.criterion = task_components.loss
+        self.loss_input_transform = task_components.loss_input_transform
         self.output_head = task_components.output_head
 
         self.training_engine = TrainingEngine(
@@ -188,6 +189,7 @@ class DeepMTP:
             problem_mode=problem_mode,
             optimizer=self.optimizer,
             output_head=self.output_head,
+            loss_input_transform=self.loss_input_transform,
         )
         self.evaluator = Evaluator(
             self.configuration,
@@ -256,6 +258,8 @@ class DeepMTP:
                 criterion=self.criterion,
                 device=self.device,
                 problem_mode=problem_mode,
+                output_head=self.output_head,
+                loss_input_transform=self.loss_input_transform,
             )
         epoch_output = engine.evaluate_epoch(
             dataloader,
