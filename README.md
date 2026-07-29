@@ -148,7 +148,7 @@ Reusable branch models, combined architectures, and the model factory are
 available from the focused model namespace:
 
 ```python
-from DeepMTP.models import ConvNet, IDEmbedding, MLP, ModelFactory
+from DeepMTP.models import ConvNet, IDEmbedding, MLP, ModelFactory, TabularEncoder
 ```
 
 Model-ready dataloaders return a typed `MTPBatch`. It retains the historical
@@ -156,7 +156,12 @@ dictionary keys while exposing modality-specific `instance_input` and
 `target_input` objects:
 
 ```python
-from DeepMTP.data import DenseBranchBatch, IDBranchBatch, MTPBatch
+from DeepMTP.data import (
+    DenseBranchBatch,
+    IDBranchBatch,
+    MTPBatch,
+    TabularBranchBatch,
+)
 from DeepMTP.models import BranchEncoder
 ```
 
@@ -310,6 +315,53 @@ test_results, predictions = model.predict(test, return_predictions=True)
 ```
 <!-- quickstart-example:end -->
 
+## Mixed tabular inputs
+
+Use a `TABULAR` branch when entity side information contains both continuous
+measurements and categories. Pass a pandas DataFrame with a unique `id` column
+and declare the remaining columns explicitly:
+
+```python
+import pandas as pd
+
+instance_features = pd.DataFrame(
+    {
+        "id": [0, 1, 2],
+        "age": [22.0, None, 41.0],
+        "site": ["Ghent", "Paris", "Ghent"],
+    }
+)
+
+tabular_schema = {
+    "numeric_columns": ["age"],
+    "categorical_columns": {
+        "site": {
+            "categories": ["Ghent", "Paris"],
+            "embedding_dim": 2,
+        }
+    },
+    "numeric_normalization": "standard",
+    "numeric_missing": "mean",
+    "categorical_unknown": "unknown",
+    "feature_gating": True,
+}
+
+config = DeepMTPConfig(
+    # Other experiment settings omitted.
+    instance_branch_architecture="TABULAR",
+    instance_branch_tabular_schema=tabular_schema,
+    instance_branch_nodes_per_layer=[16],
+)
+```
+
+Numeric preprocessing is fitted only on the training entities. Its imputation
+and normalization statistics are stored in the experiment configuration and
+checkpoint, then reused for validation, testing, and restored-model
+prediction. Category index zero represents missing or unknown values by
+default. See the
+[mixed tabular input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/tabular_inputs.html)
+for policies and a complete configuration.
+
 ## Input data
 <details>
 <summary> Loading one of the datasets offered natively by DeepMTP </summary>
@@ -380,14 +432,16 @@ In the code snippet above the function generate_config is shown without any spec
 | `dropout_rate_instance_branch` | The amount of dropout used in the layers of the instance branch  |
 | `dropout_rate_target_branch` | The amount of dropout used in the layers of the target branch |
 | **Instance branch architecture** ||
-| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
 | `instance_branch_input_dim` | The input feature dimension, or the number of instance IDs for an `EMBEDDING` branch |
+| `instance_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for an instance `TABULAR` branch |
 | `instance_train_transforms` | The Pytorch compatible transforms that can be used on the training samples. Useful when using images with convolutional architectures |
 | `instance_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `instance_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the instance branch. The include key-value pairs like the following: |
 |  **Target branch architecture**  ||
-| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
 | `target_branch_input_dim` | The input feature dimension, or the number of target IDs for an `EMBEDDING` branch |
+| `target_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for a target `TABULAR` branch |
 | `target_train_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `target_inference_transforms` | The Pytorch compatible transforms that can be used on the validation and test samples. Useful when using images with convolutional architectures |
 | `target_branch_params` | A dictionary that holds all the hyperparameters needed to configure the architecture present in the target branch. |

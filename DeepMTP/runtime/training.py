@@ -14,7 +14,7 @@ from DeepMTP.data.batches import MTPBatch
 
 __all__ = ["EpochOutput", "TensorBatch", "TrainingEngine"]
 
-TensorBatch = MTPBatch | Mapping[str, torch.Tensor]
+TensorBatch = MTPBatch | Mapping[str, Any]
 
 
 @dataclass

@@ -18,10 +18,12 @@ __all__ = [
     "ImageBranchBatch",
     "MTPBatch",
     "MTPBatchCollator",
+    "TabularBranchBatch",
+    "TabularInput",
     "TensorBranchBatch",
 ]
 
-BranchInputKind: TypeAlias = Literal["dense", "id", "image", "custom"]
+BranchInputKind: TypeAlias = Literal["dense", "id", "image", "tabular", "custom"]
 
 
 @dataclass(frozen=True)
@@ -107,13 +109,107 @@ class CustomBranchBatch(TensorBranchBatch):
     kind: ClassVar[BranchInputKind] = "custom"
 
 
+@dataclass(frozen=True)
+class TabularInput:
+    """Numeric and categorical tensors consumed by a tabular encoder."""
+
+    numeric: torch.Tensor
+    categorical: torch.Tensor
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.numeric, torch.Tensor):
+            raise TypeError("Tabular numeric values must be a torch.Tensor.")
+        if not isinstance(self.categorical, torch.Tensor):
+            raise TypeError("Tabular categorical values must be a torch.Tensor.")
+        if self.numeric.ndim != 2:
+            raise ValueError(
+                "Tabular numeric values must have shape [batch, numeric_features]."
+            )
+        if self.categorical.ndim != 2:
+            raise ValueError(
+                "Tabular categorical values must have shape "
+                "[batch, categorical_features]."
+            )
+        if not torch.is_floating_point(self.numeric):
+            raise TypeError("Tabular numeric values must use a floating-point dtype.")
+        if self.categorical.dtype not in {torch.int32, torch.int64}:
+            raise TypeError(
+                "Tabular categorical values must use an integer tensor dtype."
+            )
+        if self.numeric.shape[0] != self.categorical.shape[0]:
+            raise ValueError(
+                "Tabular numeric and categorical tensors must have the same batch size."
+            )
+
+    @property
+    def batch_size(self) -> int:
+        """Number of observations in the structured input."""
+        return int(self.numeric.shape[0])
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> TabularInput:
+        """Move both tensors to one device."""
+        return TabularInput(
+            numeric=self.numeric.to(device, non_blocking=non_blocking),
+            categorical=self.categorical.to(device, non_blocking=non_blocking),
+        )
+
+    def pin_memory(self) -> TabularInput:
+        """Pin both tensors for asynchronous host-to-device transfer."""
+        return TabularInput(
+            numeric=self.numeric.pin_memory(),
+            categorical=self.categorical.pin_memory(),
+        )
+
+
+@dataclass(frozen=True)
+class TabularBranchBatch:
+    """A structured batch of numeric values and categorical indices."""
+
+    values: TabularInput
+    kind: ClassVar[BranchInputKind] = "tabular"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.values, TabularInput):
+            raise TypeError("Tabular branch values must be a TabularInput.")
+
+    @property
+    def batch_size(self) -> int:
+        """Number of observations represented by this branch batch."""
+        return self.values.batch_size
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> TabularBranchBatch:
+        """Move the structured input to one device."""
+        return replace(
+            self,
+            values=self.values.to(device, non_blocking=non_blocking),
+        )
+
+    def pin_memory(self) -> TabularBranchBatch:
+        """Pin both tensors in the structured input."""
+        return replace(self, values=self.values.pin_memory())
+
+
 BranchBatch: TypeAlias = (
-    DenseBranchBatch | IDBranchBatch | ImageBranchBatch | CustomBranchBatch
+    DenseBranchBatch
+    | IDBranchBatch
+    | ImageBranchBatch
+    | TabularBranchBatch
+    | CustomBranchBatch
 )
 
 
 @dataclass(frozen=True)
-class MTPBatch(Mapping[str, torch.Tensor]):
+class MTPBatch(Mapping[str, Any]):
     """A complete interaction batch with mapping compatibility.
 
     Attribute access exposes the typed branch inputs. Historical mapping keys
@@ -171,16 +267,16 @@ class MTPBatch(Mapping[str, torch.Tensor]):
         return int(self.score.shape[0])
 
     @property
-    def instance_features(self) -> torch.Tensor:
-        """Compatibility view of the instance branch tensor."""
+    def instance_features(self) -> torch.Tensor | TabularInput:
+        """Compatibility view of the instance branch input."""
         return self.instance_input.values
 
     @property
-    def target_features(self) -> torch.Tensor:
-        """Compatibility view of the target branch tensor."""
+    def target_features(self) -> torch.Tensor | TabularInput:
+        """Compatibility view of the target branch input."""
         return self.target_input.values
 
-    def __getitem__(self, key: str) -> torch.Tensor:
+    def __getitem__(self, key: str) -> Any:
         values = {
             "instance_id": self.instance_id,
             "target_id": self.target_id,
@@ -243,8 +339,10 @@ class MTPBatchCollator:
             "instance_kind": self.instance_kind,
             "target_kind": self.target_kind,
         }.items():
-            if kind not in {"dense", "id", "image", "custom"}:
-                raise ValueError(f"{name} must be 'dense', 'id', 'image', or 'custom'.")
+            if kind not in {"dense", "id", "image", "tabular", "custom"}:
+                raise ValueError(
+                    f"{name} must be 'dense', 'id', 'image', 'tabular', or 'custom'."
+                )
 
     def __call__(self, items: Sequence[Mapping[str, Any]]) -> MTPBatch:
         if not items:
@@ -253,18 +351,19 @@ class MTPBatchCollator:
         if not isinstance(collated, Mapping):
             raise TypeError("Dataset items must collate into a mapping.")
         tensors = {
-            key: _require_collated_tensor(collated, key) for key in MTPBatch._KEYS
+            key: _require_collated_tensor(collated, key)
+            for key in ("instance_id", "target_id", "score")
         }
         return MTPBatch(
             instance_id=tensors["instance_id"],
             target_id=tensors["target_id"],
             instance_input=_build_branch_batch(
                 self.instance_kind,
-                tensors["instance_features"],
+                _require_collated_value(collated, "instance_features"),
             ),
             target_input=_build_branch_batch(
                 self.target_kind,
-                tensors["target_features"],
+                _require_collated_value(collated, "target_features"),
             ),
             score=tensors["score"],
         )
@@ -286,10 +385,41 @@ def _require_collated_tensor(
     return value
 
 
+def _require_collated_value(
+    collated: Mapping[str, Any],
+    key: str,
+) -> Any:
+    try:
+        return collated[key]
+    except KeyError as error:
+        raise ValueError(f"Collated dataset items are missing {key!r}.") from error
+
+
 def _build_branch_batch(
     kind: BranchInputKind,
-    values: torch.Tensor,
+    values: Any,
 ) -> BranchBatch:
+    if kind == "tabular":
+        if not isinstance(values, Mapping):
+            raise TypeError(
+                "Collated tabular features must contain numeric and categorical "
+                "tensors."
+            )
+        numeric = _require_collated_tensor(values, "numeric")
+        categorical = _require_collated_tensor(values, "categorical")
+        if not torch.is_floating_point(numeric):
+            numeric = numeric.float()
+        return TabularBranchBatch(
+            TabularInput(
+                numeric=numeric,
+                categorical=categorical,
+            )
+        )
+    if not isinstance(values, torch.Tensor):
+        raise TypeError(
+            f"Collated {kind} branch features must be a torch.Tensor, "
+            f"not {type(values).__name__}."
+        )
     if kind in {"dense", "image"} and not torch.is_floating_point(values):
         values = values.float()
     if kind == "dense":

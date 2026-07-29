@@ -1,11 +1,13 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.main import DeepMTP
-from DeepMTP.models import IDEmbedding
+from DeepMTP.models import IDEmbedding, TabularEncoder
+from DeepMTP.runtime.persistence import ExperimentStore
 from DeepMTP.utils.data_utils import data_process
 from DeepMTP.utils.utils import generate_config
 
@@ -256,6 +258,107 @@ def test_tiny_cpu_training_with_learned_id_embeddings(tmp_path):
     _, restored_predictions = restored_model.predict(test, return_predictions=True)
 
     assert checkpoint_path.is_file()
+    assert np.allclose(
+        predictions["predicted_values"],
+        restored_predictions["predicted_values"],
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.filterwarnings(
+    "ignore::DeepMTP.config.ConfigNormalizationWarning",
+)
+def test_tiny_cpu_training_with_mixed_tabular_features_restores_state(tmp_path):
+    scores = (np.arange(12)[:, np.newaxis] + np.arange(3)[np.newaxis, :]) % 2
+    instance_features = pd.DataFrame(
+        {
+            "id": np.arange(12),
+            "measurement": [
+                1.0,
+                2.0,
+                np.nan,
+                4.0,
+                5.0,
+                6.0,
+                7.0,
+                8.0,
+                9.0,
+                10.0,
+                11.0,
+                12.0,
+            ],
+            "group": ["A", "B", "A"] * 4,
+        }
+    )
+    train, val, test, data_info = data_process(
+        {
+            "train": {
+                "y": scores,
+                "X_instance": instance_features,
+                "X_target": None,
+            }
+        },
+        validation_setting="B",
+        seed=7,
+    )
+    config = generate_config(
+        validation_setting=data_info["detected_validation_setting"],
+        problem_mode="classification",
+        general_architecture_version="dot_product",
+        compute_mode="cpu",
+        num_workers=0,
+        train_batchsize=16,
+        val_batchsize=16,
+        num_epochs=1,
+        metrics=["accuracy"],
+        metrics_average=["macro"],
+        evaluate_train=False,
+        evaluate_val=True,
+        use_early_stopping=False,
+        save_model=False,
+        results_path=str(tmp_path),
+        experiment_name="mixed_tabular",
+        instance_branch_architecture="TABULAR",
+        instance_branch_tabular_schema={
+            "numeric_columns": ["measurement"],
+            "categorical_columns": {
+                "group": {
+                    "categories": ["A", "B"],
+                    "embedding_dim": 2,
+                }
+            },
+            "numeric_normalization": "standard",
+            "numeric_missing": "mean",
+            "feature_gating": True,
+        },
+        instance_branch_params={
+            "instance_branch_nodes_per_layer": [4],
+        },
+        target_branch_architecture="EMBEDDING",
+        target_branch_input_dim=data_info["target_branch_input_dim"],
+        embedding_size=4,
+    )
+    model = DeepMTP(config)
+
+    model.train(train, val, test)
+    _, predictions = model.predict(test, return_predictions=True)
+    model.save_model()
+
+    checkpoint_path = Path(model.experiment_dir) / "model.pt"
+    checkpoint = ExperimentStore.load_checkpoint(checkpoint_path)
+    saved_state = checkpoint["config"]["instance_tabular_preprocessing_state"]
+    assert isinstance(model.instance_branch_model, TabularEncoder)
+    assert saved_state["numeric_columns"] == ["measurement"]
+    assert len(saved_state["numeric_fill_values"]) == 1
+
+    restored_config = dict(config)
+    restored_config["experiment_name"] = "mixed_tabular_restored"
+    restored_model = DeepMTP(restored_config, checkpoint_dir=checkpoint_path)
+    _, restored_predictions = restored_model.predict(test, return_predictions=True)
+
+    assert (
+        restored_model.configuration.instance_tabular_preprocessing_state == saved_state
+    )
     assert np.allclose(
         predictions["predicted_values"],
         restored_predictions["predicted_values"],

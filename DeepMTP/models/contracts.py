@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Protocol, TypeAlias, Union, runtime_checkable
 
 import torch
 from torch import nn
 
-from DeepMTP.data.batches import BranchInputKind
+from DeepMTP.data.batches import BranchInputKind, TabularInput
 
 __all__ = [
     "BranchEncoder",
+    "BranchModelInput",
     "encode_branch",
     "encoder_input_kind",
     "encoder_output_dimension",
 ]
+
+# Keep the tensor as a forward reference because Sphinx intentionally mocks
+# PyTorch while importing the API.
+BranchModelInput: TypeAlias = Union["torch.Tensor", TabularInput]  # noqa: UP007
 
 
 @runtime_checkable
@@ -24,7 +29,7 @@ class BranchEncoder(Protocol):
     input_kind: BranchInputKind
     output_dim: int
 
-    def __call__(self, values: torch.Tensor) -> torch.Tensor:
+    def __call__(self, values: BranchModelInput) -> torch.Tensor:
         """Encode one input batch as ``[batch, output_dim]``."""
         ...
 
@@ -51,26 +56,32 @@ def encoder_output_dimension(
 def encoder_input_kind(encoder: nn.Module, *, branch: str) -> BranchInputKind:
     """Return a validated declared encoder input modality."""
     kind = getattr(encoder, "input_kind", None)
-    if kind not in {"dense", "id", "image", "custom"}:
+    if kind not in {"dense", "id", "image", "tabular", "custom"}:
         raise ValueError(
             f"{branch} branch encoder must declare input_kind as "
-            "'dense', 'id', 'image', or 'custom'."
+            "'dense', 'id', 'image', 'tabular', or 'custom'."
         )
     return kind
 
 
 def encode_branch(
     encoder: nn.Module,
-    values: torch.Tensor,
+    values: BranchModelInput,
     *,
     branch: str,
     explicit_dimension: int | None = None,
 ) -> torch.Tensor:
     """Run one encoder and validate the common ``[batch, width]`` contract."""
-    if not isinstance(values, torch.Tensor):
-        raise TypeError(f"{branch} branch input must be a torch.Tensor.")
-    if values.ndim == 0:
-        raise ValueError(f"{branch} branch input must include a batch dimension.")
+    if isinstance(values, torch.Tensor):
+        if values.ndim == 0:
+            raise ValueError(f"{branch} branch input must include a batch dimension.")
+        input_batch_size = int(values.shape[0])
+    elif isinstance(values, TabularInput):
+        input_batch_size = values.batch_size
+    else:
+        raise TypeError(
+            f"{branch} branch input must be a torch.Tensor or TabularInput."
+        )
 
     encoded = encoder(values)
     if not isinstance(encoded, torch.Tensor):
@@ -80,10 +91,10 @@ def encode_branch(
             f"{branch} branch encoder must return shape [batch, output_dim]; "
             f"received {tuple(encoded.shape)}."
         )
-    if encoded.shape[0] != values.shape[0]:
+    if encoded.shape[0] != input_batch_size:
         raise ValueError(
             f"{branch} branch encoder changed the batch size from "
-            f"{values.shape[0]} to {encoded.shape[0]}."
+            f"{input_batch_size} to {encoded.shape[0]}."
         )
     expected_dimension = encoder_output_dimension(
         encoder,

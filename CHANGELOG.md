@@ -42,6 +42,9 @@ checkpoints.
   integer-ID batching and validation-setting safeguards for novel entities.
 - Typed model-ready batches and a shared branch-encoder contract for dense,
   ID, image, and custom inputs.
+- Mixed tabular branches with training-only numeric preprocessing, learned
+  categorical embeddings, optional feature gating, structured batches, and
+  checkpointed preprocessing state.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 

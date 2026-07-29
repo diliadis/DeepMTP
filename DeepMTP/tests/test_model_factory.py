@@ -7,10 +7,12 @@ from DeepMTP import (
     DeepMTPConfig,
     IDEmbedding,
     ModelFactory,
+    TabularEncoder,
     TwoBranchDotProductModel,
     TwoBranchKroneckerModel,
     TwoBranchMLPModel,
 )
+from DeepMTP.data import TabularInput
 
 
 def make_config(**overrides):
@@ -102,6 +104,38 @@ def test_model_factory_supports_features_with_known_target_id_embeddings():
     )
 
     assert isinstance(bundle.target_branch, IDEmbedding)
+    assert output.shape == (2, 1)
+
+
+@pytest.mark.parametrize("architecture", ["dot_product", "mlp", "kronecker"])
+def test_model_factory_builds_tabular_and_dense_branches_together(architecture):
+    bundle = ModelFactory(
+        make_config(
+            general_architecture_version=architecture,
+            instance_branch_architecture="TABULAR",
+            instance_branch_input_dim=None,
+            instance_branch_tabular_schema={
+                "numeric_columns": ["age"],
+                "categorical_columns": {
+                    "site": {
+                        "categories": ["A", "B"],
+                        "embedding_dim": 2,
+                    }
+                },
+            },
+        )
+    ).build()
+
+    output = bundle.model(
+        TabularInput(
+            numeric=torch.ones(2, 1),
+            categorical=torch.tensor([[1], [2]]),
+        ),
+        torch.ones(2, 3),
+    )
+
+    assert isinstance(bundle.instance_branch, TabularEncoder)
+    assert bundle.model.instance_input_kind == "tabular"
     assert output.shape == (2, 1)
 
 

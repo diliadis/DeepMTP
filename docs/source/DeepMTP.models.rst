@@ -6,7 +6,13 @@ architectures, and construction:
 
 .. code-block:: python
 
-   from DeepMTP.models import BranchEncoder, ConvNet, MLP, ModelFactory
+   from DeepMTP.models import (
+       BranchEncoder,
+       ConvNet,
+       MLP,
+       ModelFactory,
+       TabularEncoder,
+   )
 
 Encoder contracts
 -----------------
@@ -14,6 +20,10 @@ Encoder contracts
 All built-in branch encoders declare an input kind and output dimension. Their
 shared runtime contract requires a floating output shaped
 ``[batch_size, output_dim]``.
+
+Most encoders consume one tensor. ``TabularEncoder`` consumes a structured
+``TabularInput`` containing a floating numeric tensor and an integer
+categorical tensor while producing the same standardized encoder output.
 
 Custom branch factories should declare ``input_kind`` and ``output_dim`` on
 their returned module. For compatibility, the model factory can infer a

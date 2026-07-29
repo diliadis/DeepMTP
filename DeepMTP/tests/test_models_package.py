@@ -19,6 +19,7 @@ def test_models_package_exposes_canonical_implementations():
     expected_symbols = {
         "BranchFactory": factory_module.BranchFactory,
         "BranchEncoder": contracts_module.BranchEncoder,
+        "BranchModelInput": contracts_module.BranchModelInput,
         "ConvNet": branches_module.ConvNet,
         "IDEmbedding": branches_module.IDEmbedding,
         "MLP": branches_module.MLP,
@@ -27,6 +28,7 @@ def test_models_package_exposes_canonical_implementations():
         "TwoBranchDotProductModel": factory_module.TwoBranchDotProductModel,
         "TwoBranchKroneckerModel": factory_module.TwoBranchKroneckerModel,
         "TwoBranchMLPModel": factory_module.TwoBranchMLPModel,
+        "TabularEncoder": branches_module.TabularEncoder,
         "encode_branch": contracts_module.encode_branch,
         "encoder_input_kind": contracts_module.encoder_input_kind,
         "encoder_output_dimension": contracts_module.encoder_output_dimension,
@@ -56,7 +58,13 @@ def test_top_level_model_api_uses_canonical_implementations():
         (
             legacy_branches,
             branches_module,
-            ("ConvNet", "IDEmbedding", "MLP", "ModelConfigInput"),
+            (
+                "ConvNet",
+                "IDEmbedding",
+                "MLP",
+                "ModelConfigInput",
+                "TabularEncoder",
+            ),
         ),
         (
             legacy_factory,

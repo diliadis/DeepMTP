@@ -30,7 +30,7 @@ class FeatureInfo(TypedDict):
 
     data: pd.DataFrame
     num_features: int | None
-    info: Literal["numpy", "dataframe", "images"]
+    info: Literal["numpy", "dataframe", "images", "tabular"]
 
 
 def _feature_vector_size(features: pd.Series, entity_name: str) -> int:
@@ -93,17 +93,18 @@ def _process_entity_features(
             raise ValueError(
                 f"{entity_name.title()} features must contain at least one row."
             )
-        if set(feature_frame.columns) not in ({"id", "features"}, {"id", "dir"}):
+        if "id" not in feature_frame.columns or len(feature_frame.columns) < 2:
             raise ValueError(
                 f"Columns {list(feature_frame.columns)!r} in the {entity_name} "
-                "features dataframe are not recognized."
+                "features dataframe are not recognized. Expected an 'id' column "
+                "and at least one feature column."
             )
         if feature_frame["id"].isna().any():
             raise ValueError(f"{entity_name.title()} feature IDs cannot be missing.")
         if feature_frame["id"].duplicated().any():
             raise ValueError(f"{entity_name.title()} feature IDs must be unique.")
         feature_frame = feature_frame.set_index("id", drop=False)
-        if "features" in feature_frame:
+        if set(feature_frame.columns) == {"id", "features"}:
             feature_dimension = _feature_vector_size(
                 feature_frame["features"],
                 entity_name,
@@ -117,7 +118,7 @@ def _process_entity_features(
                 "num_features": feature_dimension,
                 "info": "dataframe",
             }
-        else:
+        elif set(feature_frame.columns) == {"id", "dir"}:
             if feature_frame["dir"].isna().any():
                 raise ValueError(
                     f"{entity_name.title()} feature directories cannot be missing."
@@ -127,11 +128,17 @@ def _process_entity_features(
                 "num_features": None,
                 "info": "images",
             }
+        else:
+            feature_info = {
+                "data": feature_frame,
+                "num_features": len(feature_frame.columns) - 1,
+                "info": "tabular",
+            }
     else:
         raise TypeError(
             f"Could not recognize the {entity_name} feature data. Expected a "
-            "two-dimensional NumPy array or a DataFrame with <id, features> "
-            "or <id, dir> columns."
+            "two-dimensional NumPy array or a DataFrame with an 'id' column "
+            "and feature columns."
         )
 
     if verbose:

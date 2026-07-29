@@ -1,8 +1,9 @@
 """Branch models, combination architectures, and model construction."""
 
-from DeepMTP.models.branches import MLP, ConvNet, IDEmbedding
+from DeepMTP.models.branches import MLP, ConvNet, IDEmbedding, TabularEncoder
 from DeepMTP.models.contracts import (
     BranchEncoder,
+    BranchModelInput,
     encode_branch,
     encoder_input_kind,
     encoder_output_dimension,
@@ -20,6 +21,7 @@ from DeepMTP.models.factory import (
 __all__ = [
     "BranchFactory",
     "BranchEncoder",
+    "BranchModelInput",
     "ConvNet",
     "IDEmbedding",
     "MLP",
@@ -28,6 +30,7 @@ __all__ = [
     "TwoBranchDotProductModel",
     "TwoBranchKroneckerModel",
     "TwoBranchMLPModel",
+    "TabularEncoder",
     "encode_branch",
     "encoder_input_kind",
     "encoder_output_dimension",

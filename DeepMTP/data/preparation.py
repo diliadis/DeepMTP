@@ -174,6 +174,12 @@ def _scale_feature_splits(
 
     train_frame = train_source["data"]
     if "features" not in train_frame.columns:
+        if "dir" not in train_frame.columns:
+            raise ValueError(
+                f"Legacy {entity_name} feature scaling cannot be applied to an "
+                "explicit tabular schema. Configure numeric_normalization in "
+                f"the {entity_name} TABULAR branch schema instead."
+            )
         _emit_data_message(
             verbose,
             print_mode,

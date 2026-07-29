@@ -5,7 +5,13 @@ import torch
 import DeepMTP.data.loading as data_loading_module
 import DeepMTP.utils.data_utils as legacy_data_utils
 from DeepMTP import DataLoaderFactory, DeepMTPConfig
-from DeepMTP.data import DenseBranchBatch, IDBranchBatch, MTPBatch
+from DeepMTP.data import (
+    DenseBranchBatch,
+    IDBranchBatch,
+    MTPBatch,
+    TabularBranchBatch,
+    TabularInput,
+)
 from DeepMTP.data.loading import BaseDataset, MTPSampler
 
 
@@ -43,6 +49,38 @@ def make_data():
         "X_instance": None,
         "X_target": None,
     }
+
+
+def make_tabular_data(values=(10.0, 20.0, 30.0, 40.0)):
+    data = make_data()
+    data["X_instance"] = {
+        "data": pd.DataFrame(
+            {
+                "id": [0, 1, 2, 3],
+                "measurement": list(values),
+                "group": ["A", "B", "A", "B"],
+            }
+        )
+    }
+    return data
+
+
+def make_tabular_config(**overrides):
+    return make_config(
+        instance_branch_architecture="TABULAR",
+        instance_branch_input_dim=None,
+        instance_branch_tabular_schema={
+            "numeric_columns": ["measurement"],
+            "categorical_columns": {
+                "group": {
+                    "categories": ["A", "B"],
+                    "embedding_dim": 2,
+                }
+            },
+            "numeric_normalization": "standard",
+        },
+        **overrides,
+    )
 
 
 def pair_order(dataloader):
@@ -189,6 +227,37 @@ def test_embedding_branches_reject_ids_outside_the_vocabulary():
 
     with pytest.raises(ValueError, match="Target IDs must be zero-based"):
         DataLoaderFactory(config, "cpu").for_prediction(data)
+
+
+def test_tabular_training_loader_fits_once_on_training_entities():
+    config = make_tabular_config()
+    factory = DataLoaderFactory(config, "cpu")
+    training = make_tabular_data((10.0, 20.0, 30.0, 40.0))
+    training["X_instance"]["data"].loc[4] = [4, 1000.0, "A"]
+    validation = make_tabular_data((100.0, 200.0, 300.0, 400.0))
+
+    dataloaders = factory.for_training(training, validation, validation)
+    batch = next(iter(dataloaders.validation))
+
+    assert isinstance(batch.instance_input, TabularBranchBatch)
+    assert isinstance(batch.instance_features, TabularInput)
+    assert factory.config.instance_tabular_preprocessing_state == {
+        "version": 1,
+        "numeric_columns": ["measurement"],
+        "categorical_columns": ["group"],
+        "numeric_fill_values": [25.0],
+        "numeric_offsets": [25.0],
+        "numeric_scales": pytest.approx([11.180339887498949]),
+    }
+    assert batch.instance_features.numeric.min() > 6
+    assert batch.instance_features.categorical.shape[1] == 1
+
+
+def test_tabular_prediction_requires_saved_training_preprocessing():
+    factory = DataLoaderFactory(make_tabular_config(), "cpu")
+
+    with pytest.raises(RuntimeError, match="preprocessing has not been fitted"):
+        factory.for_prediction(make_tabular_data())
 
 
 def test_training_loaders_select_transforms_by_phase():

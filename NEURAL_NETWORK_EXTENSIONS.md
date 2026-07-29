@@ -68,13 +68,50 @@ explicitly.
 
 ### 2. Mixed tabular inputs
 
-- Add categorical-column embeddings alongside continuous features.
-- Define numeric normalization and missing-value policies in the saved
+Status: implemented; pending merge.
+
+- [x] Add categorical-column embeddings alongside continuous features.
+- [x] Define numeric normalization and missing-value policies in the saved
   preprocessing state.
-- Support an explicit tabular schema rather than requiring each row to contain
+- [x] Support an explicit tabular schema rather than requiring each row to contain
   one already-flattened vector.
-- Add feature-gating or attention for combining numeric, categorical, and ID
+- [x] Add optional feature gating for combining numeric and categorical
   representations.
+- [x] Treat precomputed embeddings as ordinary dense MLP features without
+  introducing a redundant input type.
+
+The public schema declares numeric columns and fixed categorical vocabularies:
+
+```python
+config = generate_config(
+    validation_setting="B",
+    problem_mode="classification",
+    instance_branch_architecture="TABULAR",
+    instance_branch_tabular_schema={
+        "numeric_columns": ["age", "dose"],
+        "categorical_columns": {
+            "site": {
+                "categories": ["Ghent", "Paris", "London"],
+                "embedding_dim": 3,
+            }
+        },
+        "numeric_normalization": "standard",
+        "numeric_missing": "mean",
+        "categorical_missing": "unknown",
+        "categorical_unknown": "unknown",
+        "feature_gating": True,
+    },
+    target_branch_architecture="EMBEDDING",
+    target_branch_input_dim=number_of_targets,
+    embedding_size=32,
+)
+```
+
+Numeric statistics are fitted only on training entities and stored as
+`instance_tabular_preprocessing_state` or
+`target_tabular_preprocessing_state`. Validation, test, and restored-model
+prediction reuse that state. Missing and out-of-vocabulary categories use the
+reserved index zero unless their policy is configured as `error`.
 
 ### 3. Sparse high-dimensional inputs
 
@@ -127,10 +164,12 @@ explicitly.
   encoder protocol.
 - [x] Validate encoder output rank, batch size, width, and dtype before fusion.
 - [x] Remove module-layout inspection from fusion construction.
+- [x] Add structured numeric/categorical batches for tabular encoders.
 - [ ] Add structured batch contracts for sequences and graphs when those
   encoders are introduced.
 - [ ] Separate fusion, output-head, and loss selection into registries.
-- [ ] Store preprocessing metadata with checkpoints.
+- [ ] Store all preprocessing metadata with checkpoints (tabular preprocessing
+  is complete; legacy dense-scaler metadata remains).
 
 ### Losses and output heads
 
