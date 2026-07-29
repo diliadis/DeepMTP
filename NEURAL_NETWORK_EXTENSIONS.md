@@ -38,9 +38,12 @@ Status: implemented and merged.
 The public configuration is:
 
 ```python
-config = generate_config(
+from DeepMTP import DeepMTPConfig
+
+config = DeepMTPConfig(
     validation_setting="A",
     problem_mode="classification",
+    metrics_average=["micro"],
     instance_branch_architecture="EMBEDDING",
     instance_branch_input_dim=number_of_instances,
     target_branch_architecture="EMBEDDING",
@@ -68,7 +71,7 @@ explicitly.
 
 ### 2. Mixed tabular inputs
 
-Status: implemented; pending merge.
+Status: implemented and merged.
 
 - [x] Add categorical-column embeddings alongside continuous features.
 - [x] Define numeric normalization and missing-value policies in the saved
@@ -83,7 +86,9 @@ Status: implemented; pending merge.
 The public schema declares numeric columns and fixed categorical vocabularies:
 
 ```python
-config = generate_config(
+from DeepMTP import DeepMTPConfig
+
+config = DeepMTPConfig(
     validation_setting="B",
     problem_mode="classification",
     instance_branch_architecture="TABULAR",
