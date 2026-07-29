@@ -175,7 +175,7 @@ jobs:
             --output-dir "$RUNNER_TEMP/deepmtp-wheel-results"
 
       - name: Upload distributions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: deepmtp-distributions
           path: dist/*
