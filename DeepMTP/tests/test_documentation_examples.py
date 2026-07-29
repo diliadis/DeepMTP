@@ -187,6 +187,28 @@ def test_readme_quickstart_runs_offline(monkeypatch, tmp_path):
     assert (tmp_path / "results" / "quickstart" / "config.json").is_file()
 
 
+@pytest.mark.parametrize(
+    ("marker", "expected_instance_architecture", "expected_target_architecture"),
+    [
+        ("id-embedding-example", "EMBEDDING", "EMBEDDING"),
+        ("tabular-config-example", "TABULAR", "EMBEDDING"),
+    ],
+)
+def test_readme_branch_configuration_examples_are_valid(
+    marker,
+    expected_instance_architecture,
+    expected_target_architecture,
+):
+    example = _marked_python_example(_PROJECT_ROOT / "README.md", marker)
+    namespace = {"__name__": "__main__"}
+
+    exec(compile(example, "README.md", "exec"), namespace)
+
+    config = namespace["config"]
+    assert config.instance_branch_architecture == expected_instance_architecture
+    assert config.target_branch_architecture == expected_target_architecture
+
+
 def test_hpo_documentation_example_runs_offline(monkeypatch, tmp_path):
     readme_example = _marked_python_example(
         _PROJECT_ROOT / "README.md",
