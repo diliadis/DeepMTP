@@ -11,12 +11,14 @@ import DeepMTP.branch_models as legacy_branches
 import DeepMTP.model_factory as legacy_factory
 import DeepMTP.models as models_api
 import DeepMTP.models.branches as branches_module
+import DeepMTP.models.contracts as contracts_module
 import DeepMTP.models.factory as factory_module
 
 
 def test_models_package_exposes_canonical_implementations():
     expected_symbols = {
         "BranchFactory": factory_module.BranchFactory,
+        "BranchEncoder": contracts_module.BranchEncoder,
         "ConvNet": branches_module.ConvNet,
         "IDEmbedding": branches_module.IDEmbedding,
         "MLP": branches_module.MLP,
@@ -25,6 +27,9 @@ def test_models_package_exposes_canonical_implementations():
         "TwoBranchDotProductModel": factory_module.TwoBranchDotProductModel,
         "TwoBranchKroneckerModel": factory_module.TwoBranchKroneckerModel,
         "TwoBranchMLPModel": factory_module.TwoBranchMLPModel,
+        "encode_branch": contracts_module.encode_branch,
+        "encoder_input_kind": contracts_module.encoder_input_kind,
+        "encoder_output_dimension": contracts_module.encoder_output_dimension,
         "isolated_torch_seed": factory_module.isolated_torch_seed,
     }
 

@@ -172,6 +172,50 @@ def test_model_factory_supports_custom_branch_factories():
     )
 
     assert bundle.model(torch.ones(2, 2), torch.ones(2, 3)).shape == (2, 1)
+    assert bundle.instance_branch.input_kind == "custom"
+    assert bundle.instance_branch.output_dim == 3
+
+
+def test_non_dot_custom_branches_get_a_deprecated_compatibility_contract():
+    config = make_config(
+        general_architecture_version="mlp",
+        instance_branch_architecture="CUSTOM",
+        target_branch_architecture="CUSTOM",
+    )
+
+    with pytest.warns(FutureWarning, match="Declare output_dim explicitly"):
+        bundle = ModelFactory(config).build(
+            instance_branch_factory=lambda _config: nn.Linear(2, 6),
+            target_branch_factory=lambda _config: nn.Linear(3, 7),
+        )
+
+    assert bundle.instance_branch.output_dim == 6
+    assert bundle.target_branch.output_dim == 7
+    assert bundle.model(torch.ones(2, 2), torch.ones(2, 3)).shape == (2, 1)
+
+
+def test_encoder_contract_metadata_preserves_checkpoint_parameter_keys():
+    config = make_config(general_architecture_version="mlp")
+    original = ModelFactory(config).build()
+    state_dict = original.model.state_dict()
+    restored = ModelFactory(config).build()
+
+    restored.model.load_state_dict(state_dict, strict=True)
+
+    assert state_dict
+    assert all("input_kind" not in key for key in state_dict)
+    assert all("output_dim" not in key for key in state_dict)
+
+
+def test_custom_factory_rejects_an_input_kind_incompatible_with_configured_data():
+    class IDOnlyEncoder(nn.Linear):
+        input_kind = "id"
+        output_dim = 3
+
+    with pytest.raises(ValueError, match="MLP data requires 'dense'"):
+        ModelFactory(make_config()).build(
+            instance_branch_factory=lambda _config: IDOnlyEncoder(2, 3),
+        )
 
 
 def test_custom_architecture_requires_a_factory():

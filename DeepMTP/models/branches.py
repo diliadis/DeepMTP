@@ -4,7 +4,7 @@ import importlib
 from collections import OrderedDict
 from collections.abc import Mapping
 from types import ModuleType
-from typing import Any, TypeAlias, cast
+from typing import Any, ClassVar, TypeAlias, cast
 
 import torch
 from torch import nn
@@ -16,6 +16,7 @@ from DeepMTP.config import (
     RESNET_VERSIONS,
     DeepMTPConfig,
 )
+from DeepMTP.data.batches import BranchInputKind
 
 __all__ = ["ConvNet", "IDEmbedding", "MLP", "ModelConfigInput"]
 
@@ -80,6 +81,8 @@ def _configure_resnet_trainable_layers(
 class MLP(nn.Sequential):
     """A standard fully connected feed-forward neural network."""
 
+    input_kind: ClassVar[BranchInputKind] = "dense"
+
     def __init__(
         self,
         config: ModelConfigInput,
@@ -142,6 +145,8 @@ class MLP(nn.Sequential):
 class IDEmbedding(nn.Module):
     """Map zero-based entity IDs to trainable dense representations."""
 
+    input_kind: ClassVar[BranchInputKind] = "id"
+
     def __init__(self, num_embeddings: int, embedding_dim: int) -> None:
         super().__init__()
         for name, value in {
@@ -166,6 +171,8 @@ class IDEmbedding(nn.Module):
 
 class ConvNet(nn.Sequential):
     """A convolutional neural network that is based on resnet."""
+
+    input_kind: ClassVar[BranchInputKind] = "image"
 
     def __init__(
         self,

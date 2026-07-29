@@ -40,6 +40,8 @@ checkpoints.
   with verified artifact handoff and publish attestations.
 - Trainable ID-embedding branches for known entity axes, including direct
   integer-ID batching and validation-setting safeguards for novel entities.
+- Typed model-ready batches and a shared branch-encoder contract for dense,
+  ID, image, and custom inputs.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 
@@ -61,6 +63,9 @@ checkpoints.
   library instead of the single-purpose `more-itertools` dependency.
 - Configuration, data, model, training, evaluation, HPO, and persistence
   boundaries validate inputs earlier and report focused errors.
+- Dataloaders expose modality-specific branch inputs through a mapping-compatible
+  `MTPBatch`, and fusion models validate standardized encoder outputs without
+  inspecting internal module layouts.
 - Data preparation copies caller-owned input, isolates split randomness, fits
   feature scalers on training data only, and enforces split/entity invariants.
 - `DeepMTP.predict()` honors `return_predictions`; callers receive only metrics

@@ -8,6 +8,7 @@ import pytest
 
 import DeepMTP as deepmtp_api
 import DeepMTP.data as data_api
+import DeepMTP.data.batches as batches_module
 import DeepMTP.data.datasets as datasets_module
 import DeepMTP.data.features as features_module
 import DeepMTP.data.interactions as interactions_module
@@ -28,7 +29,10 @@ def test_data_package_exposes_canonical_services():
     expected_symbols = {
         "ArrayFormat": datasets_module.ArrayFormat,
         "BaseDataset": loading_module.BaseDataset,
+        "BranchBatch": batches_module.BranchBatch,
+        "BranchInputKind": batches_module.BranchInputKind,
         "ConsoleDataProgressObserver": progress_module.ConsoleDataProgressObserver,
+        "CustomBranchBatch": batches_module.CustomBranchBatch,
         "DataInfo": preparation_module.DataInfo,
         "DataLoaderFactory": loading_module.DataLoaderFactory,
         "DataPrintMode": progress_module.DataPrintMode,
@@ -42,9 +46,14 @@ def test_data_package_exposes_canonical_services():
         "DatasetSplit": datasets_module.DatasetSplit,
         "DatasetValue": datasets_module.DatasetValue,
         "DatasetVariant": datasets_module.DatasetVariant,
+        "DenseBranchBatch": batches_module.DenseBranchBatch,
         "FeatureInfo": features_module.FeatureInfo,
         "InteractionInfo": interactions_module.InteractionInfo,
+        "IDBranchBatch": batches_module.IDBranchBatch,
+        "ImageBranchBatch": batches_module.ImageBranchBatch,
         "MTPSampler": loading_module.MTPSampler,
+        "MTPBatch": batches_module.MTPBatch,
+        "MTPBatchCollator": batches_module.MTPBatchCollator,
         "NoveltyInferenceWarning": interactions_module.NoveltyInferenceWarning,
         "NullDataProgressObserver": progress_module.NullDataProgressObserver,
         "PrintMode": datasets_module.PrintMode,
@@ -55,6 +64,7 @@ def test_data_package_exposes_canonical_services():
         "SamplerMode": loading_module.SamplerMode,
         "ScalingMethod": preparation_module.ScalingMethod,
         "TrainingDataLoaders": loading_module.TrainingDataLoaders,
+        "TensorBranchBatch": batches_module.TensorBranchBatch,
         "Transformer": preparation_module.Transformer,
         "ValidationSetting": interactions_module.ValidationSetting,
         "VariableType": interactions_module.VariableType,
