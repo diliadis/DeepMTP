@@ -34,6 +34,9 @@ def test_runtime_package_exposes_canonical_services():
         "DEFAULT_LOSS_BY_PROBLEM_MODE": (
             components_module.DEFAULT_LOSS_BY_PROBLEM_MODE
         ),
+        "DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE": (
+            components_module.DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE
+        ),
         "DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE": (
             components_module.DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE
         ),
@@ -73,6 +76,9 @@ def test_runtime_package_exposes_canonical_services():
         "TrainingEngine": training_module.TrainingEngine,
         "WandBReporter": reporting_module.WandBReporter,
         "build_default_loss": components_module.build_default_loss,
+        "build_default_loss_input_transform": (
+            components_module.build_default_loss_input_transform
+        ),
         "build_default_output_head": components_module.build_default_output_head,
         "build_default_task_components": (
             components_module.build_default_task_components

@@ -260,6 +260,15 @@ instance for another run:
    second_model = DeepMTP(config)
    second_results = second_model.train(train, validation, test)
 
+Binary classification now passes raw model scores to
+``BCEWithLogitsLoss`` instead of applying sigmoid before ``BCELoss``. Returned
+predictions and metric inputs remain sigmoid probabilities, so their public
+range and shape are unchanged. The objectives are mathematically equivalent
+for ordinary scores, but the logits formulation retains finite losses and
+useful gradients for extreme incorrect scores. This can change optimization
+trajectories in saturated models; compare fixed-seed results when migrating a
+published experiment.
+
 Checkpoints
 -----------
 

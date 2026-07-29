@@ -20,9 +20,12 @@ evaluation progress:
 Task components
 ---------------
 
-``LOSS_REGISTRY`` and ``OUTPUT_HEAD_REGISTRY`` expose the behavior-preserving
-defaults selected for classification and regression. The component builders
-return fresh PyTorch modules for each trainer.
+``LOSS_REGISTRY`` and ``OUTPUT_HEAD_REGISTRY`` expose the defaults selected for
+classification and regression. Binary classification sends raw model scores
+to ``BCEWithLogitsLoss`` and applies sigmoid only to values collected for
+metrics and prediction. Regression uses mean squared error and an identity
+output head. The component builders return fresh PyTorch modules for each
+trainer.
 
 .. automodule:: DeepMTP.runtime.components
    :members:

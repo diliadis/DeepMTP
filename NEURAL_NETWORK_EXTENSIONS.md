@@ -178,7 +178,7 @@ reserved index zero unless their policy is configured as `error`.
 
 ### Losses and output heads
 
-- Use `BCEWithLogitsLoss` for numerically stable binary classification while
+- [x] Use `BCEWithLogitsLoss` for numerically stable binary classification while
   applying sigmoid only for metrics and returned predictions.
 - Add a documented loss registry: binary cross-entropy, mean squared error,
   mean absolute error, Huber, and optional ranking losses.

@@ -71,6 +71,9 @@ checkpoints.
 - Dataloaders expose modality-specific branch inputs through a mapping-compatible
   `MTPBatch`, and fusion models validate standardized encoder outputs without
   inspecting internal module layouts.
+- Binary classification optimizes raw logits with `BCEWithLogitsLoss` for
+  stable extreme-score gradients while metrics and predictions still receive
+  sigmoid probabilities.
 - Data preparation copies caller-owned input, isolates split randomness, fits
   feature scalers on training data only, and enforces split/entity invariants.
 - `DeepMTP.predict()` honors `return_predictions`; callers receive only metrics

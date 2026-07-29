@@ -13,6 +13,7 @@ from DeepMTP._registry import FactoryRegistry
 
 __all__ = [
     "DEFAULT_LOSS_BY_PROBLEM_MODE",
+    "DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE",
     "DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE",
     "LOSS_REGISTRY",
     "OUTPUT_HEAD_REGISTRY",
@@ -20,6 +21,7 @@ __all__ = [
     "OutputHeadFactory",
     "TaskComponents",
     "build_default_loss",
+    "build_default_loss_input_transform",
     "build_default_output_head",
     "build_default_task_components",
     "build_loss",
@@ -33,6 +35,9 @@ LOSS_REGISTRY = FactoryRegistry[LossFactory](
     "loss",
     {
         "binary_cross_entropy": lambda: nn.BCELoss(reduction="mean"),
+        "binary_cross_entropy_with_logits": lambda: nn.BCEWithLogitsLoss(
+            reduction="mean"
+        ),
         "mean_squared_error": lambda: nn.MSELoss(reduction="mean"),
     },
 )
@@ -47,8 +52,15 @@ OUTPUT_HEAD_REGISTRY = FactoryRegistry[OutputHeadFactory](
 
 DEFAULT_LOSS_BY_PROBLEM_MODE: Mapping[str, str] = MappingProxyType(
     {
-        "classification": "binary_cross_entropy",
+        "classification": "binary_cross_entropy_with_logits",
         "regression": "mean_squared_error",
+    }
+)
+
+DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE: Mapping[str, str] = MappingProxyType(
+    {
+        "classification": "identity",
+        "regression": "identity",
     }
 )
 
@@ -62,9 +74,10 @@ DEFAULT_OUTPUT_HEAD_BY_PROBLEM_MODE: Mapping[str, str] = MappingProxyType(
 
 @dataclass(frozen=True)
 class TaskComponents:
-    """Loss and output transformation selected for one problem mode."""
+    """Loss-input and user-output components selected for one problem mode."""
 
     loss: nn.Module
+    loss_input_transform: nn.Module
     output_head: nn.Module
 
 
@@ -82,6 +95,7 @@ def build_default_task_components(problem_mode: str) -> TaskComponents:
     """Build the behavior-preserving task components for a problem mode."""
     return TaskComponents(
         loss=build_default_loss(problem_mode),
+        loss_input_transform=build_default_loss_input_transform(problem_mode),
         output_head=build_default_output_head(problem_mode),
     )
 
@@ -90,6 +104,15 @@ def build_default_loss(problem_mode: str) -> nn.Module:
     """Build the default registered loss for a problem mode."""
     name = _default_component_name(DEFAULT_LOSS_BY_PROBLEM_MODE, problem_mode)
     return build_loss(name)
+
+
+def build_default_loss_input_transform(problem_mode: str) -> nn.Module:
+    """Build the transform applied to raw model scores before the loss."""
+    name = _default_component_name(
+        DEFAULT_LOSS_INPUT_TRANSFORM_BY_PROBLEM_MODE,
+        problem_mode,
+    )
+    return build_output_head(name)
 
 
 def build_default_output_head(problem_mode: str) -> nn.Module:

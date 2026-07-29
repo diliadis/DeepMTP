@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from torch import nn
 
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.main import DeepMTP
@@ -129,6 +130,13 @@ def test_tiny_cpu_training_and_prediction(
     model = DeepMTP(model_config, reporter=reporter, progress=progress)
     assert isinstance(model.configuration, DeepMTPConfig)
     assert isinstance(model.config, dict)
+    assert isinstance(model.loss_input_transform, nn.Identity)
+    if problem_mode == "classification":
+        assert isinstance(model.criterion, nn.BCEWithLogitsLoss)
+        assert isinstance(model.output_head, nn.Sigmoid)
+    else:
+        assert isinstance(model.criterion, nn.MSELoss)
+        assert isinstance(model.output_head, nn.Identity)
     validation_results = model.train(train, val, test)
 
     assert "val_loss" in validation_results

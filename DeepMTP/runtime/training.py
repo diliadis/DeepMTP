@@ -61,7 +61,14 @@ class EpochOutput:
 
 
 class TrainingEngine:
-    """Runs forward, backward, and collection logic independently of reporting."""
+    """Run numerical training and evaluation independently of reporting.
+
+    ``output_head`` transforms raw model scores for metrics and returned
+    predictions. ``loss_input_transform`` independently controls the values
+    consumed by ``criterion``. When it is omitted, ``BCEWithLogitsLoss`` sees
+    raw scores and other criteria retain the historical behavior of consuming
+    the output-head values.
+    """
 
     def __init__(
         self,
@@ -71,6 +78,7 @@ class TrainingEngine:
         problem_mode: str,
         optimizer: torch.optim.Optimizer | None = None,
         output_head: nn.Module | None = None,
+        loss_input_transform: nn.Module | None = None,
     ):
         if problem_mode not in {"classification", "regression"}:
             raise ValueError(
@@ -89,7 +97,19 @@ class TrainingEngine:
         )
         if not isinstance(self.output_head, nn.Module):
             raise TypeError("output_head must be a torch.nn.Module.")
+        self.loss_input_transform = (
+            loss_input_transform
+            if loss_input_transform is not None
+            else (
+                nn.Identity()
+                if isinstance(criterion, nn.BCEWithLogitsLoss)
+                else self.output_head
+            )
+        )
+        if not isinstance(self.loss_input_transform, nn.Module):
+            raise TypeError("loss_input_transform must be a torch.nn.Module.")
         self.output_head.to(device)
+        self.loss_input_transform.to(device)
 
     def train_epoch(
         self,
@@ -104,8 +124,9 @@ class TrainingEngine:
         self.model.train()
         output = EpochOutput()
         for batch in dataloader:
-            true_values, predictions = self._forward_batch(batch)
-            loss = self.criterion(predictions, true_values)
+            true_values, raw_predictions = self._forward_batch(batch)
+            loss_predictions = self.loss_input_transform(raw_predictions)
+            loss = self.criterion(loss_predictions, true_values)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -113,6 +134,7 @@ class TrainingEngine:
 
             output.add_loss(loss.item(), observations=true_values.numel())
             if collect_predictions:
+                predictions = self.output_head(raw_predictions)
                 self._collect_predictions(
                     output,
                     batch,
@@ -135,14 +157,16 @@ class TrainingEngine:
         try:
             with torch.no_grad():
                 for batch in dataloader:
-                    true_values, predictions = self._forward_batch(batch)
+                    true_values, raw_predictions = self._forward_batch(batch)
                     if calculate_loss:
-                        loss = self.criterion(predictions, true_values)
+                        loss_predictions = self.loss_input_transform(raw_predictions)
+                        loss = self.criterion(loss_predictions, true_values)
                         output.add_loss(
                             loss.item(),
                             observations=true_values.numel(),
                         )
                     if collect_predictions:
+                        predictions = self.output_head(raw_predictions)
                         self._collect_predictions(
                             output,
                             batch,
@@ -179,8 +203,7 @@ class TrainingEngine:
             self.model(instance_features, target_features),
             1,
         )
-        predictions = self.output_head(raw_predictions)
-        return true_values, predictions
+        return true_values, raw_predictions
 
     def _validate_typed_input_kinds(self, batch: MTPBatch) -> None:
         for branch, branch_batch in {
