@@ -21,8 +21,8 @@ common two-branch architecture.
 
 ### Current capabilities
 
-- Dense MLP, sparse, mixed tabular, token-sequence GRU and Conv1D, image,
-  learned ID-embedding, and custom branch encoders.
+- Dense MLP, sparse, mixed tabular, token-sequence GRU, Conv1D, and
+  Transformer, image, learned ID-embedding, and custom branch encoders.
 - Dot-product, concatenation-plus-MLP, and Kronecker-product fusion.
 - Validation settings A–D for known and novel instances and targets.
 - Binary and multiclass classification plus regression metrics, early
@@ -577,9 +577,10 @@ config = DeepMTPConfig(
     general_architecture_version="dot_product",
     instance_branch_architecture="SEQUENCE",
     instance_branch_input_dim=vocabulary_size,
-    instance_branch_sequence_encoder="conv1d",
+    instance_branch_sequence_encoder="transformer",
     instance_branch_sequence_embedding_dim=16,
-    instance_branch_sequence_conv_kernel_size=3,
+    instance_branch_sequence_transformer_num_heads=4,
+    instance_branch_sequence_transformer_feedforward_dim=64,
     instance_branch_sequence_num_layers=1,
     instance_branch_sequence_padding_idx=0,
     target_branch_architecture="MLP",
@@ -591,11 +592,11 @@ config = DeepMTPConfig(
 <!-- sequence-config-example:end -->
 
 The dataloader dynamically creates padded token IDs, attention masks, and
-original lengths. Choose `gru` for a packed recurrent encoder or `conv1d` for
-masked temporal convolutions and global max pooling. Both ignore padded
-positions and emit the same fixed-width branch representation expected by
-every existing fusion model. Raw sequences must be unpadded and cannot contain
-the configured padding ID. See the
+original lengths. Choose `gru` for recurrence, `conv1d` for masked temporal
+convolutions, or `transformer` for position-aware self-attention with masked
+mean pooling. All three ignore padded positions and emit the same fixed-width
+branch representation expected by every existing fusion model. Raw sequences
+must be unpadded and cannot contain the configured padding ID. See the
 [token-sequence input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/sequence_inputs.html)
 for the structured batch contract, configuration options, and compatibility
 details.
@@ -720,11 +721,13 @@ The table below summarizes the commonly configured public options.
 | **Instance branch architecture** ||
 | `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
 | `instance_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of instance IDs for an `EMBEDDING` branch |
-| `instance_branch_sequence_encoder` | Sequence encoder name: `gru` or `conv1d` |
+| `instance_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
 | `instance_branch_sequence_embedding_dim` | Trainable token embedding width for an instance `SEQUENCE` branch |
 | `instance_branch_sequence_output_dim` | Instance sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
 | `instance_branch_sequence_conv_kernel_size` | Positive odd Conv1D kernel width; used only when the sequence encoder is `conv1d` |
-| `instance_branch_sequence_num_layers` | Number of stacked GRU or Conv1D layers |
+| `instance_branch_sequence_transformer_num_heads` | Transformer attention-head count; the sequence embedding width must be divisible by this value |
+| `instance_branch_sequence_transformer_feedforward_dim` | Transformer feed-forward sublayer width |
+| `instance_branch_sequence_num_layers` | Number of stacked GRU, Conv1D, or Transformer layers |
 | `instance_branch_sequence_padding_idx` | Reserved non-negative padding token ID |
 | `instance_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for an instance `TABULAR` branch |
 | `instance_train_transforms` | PyTorch-compatible transforms for instance training samples, typically images |
@@ -732,11 +735,13 @@ The table below summarizes the commonly configured public options.
 |  **Target branch architecture**  ||
 | `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
 | `target_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of target IDs for an `EMBEDDING` branch |
-| `target_branch_sequence_encoder` | Sequence encoder name: `gru` or `conv1d` |
+| `target_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
 | `target_branch_sequence_embedding_dim` | Trainable token embedding width for a target `SEQUENCE` branch |
 | `target_branch_sequence_output_dim` | Target sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
 | `target_branch_sequence_conv_kernel_size` | Positive odd Conv1D kernel width; used only when the sequence encoder is `conv1d` |
-| `target_branch_sequence_num_layers` | Number of stacked GRU or Conv1D layers |
+| `target_branch_sequence_transformer_num_heads` | Transformer attention-head count; the sequence embedding width must be divisible by this value |
+| `target_branch_sequence_transformer_feedforward_dim` | Transformer feed-forward sublayer width |
+| `target_branch_sequence_num_layers` | Number of stacked GRU, Conv1D, or Transformer layers |
 | `target_branch_sequence_padding_idx` | Reserved non-negative padding token ID |
 | `target_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for a target `TABULAR` branch |
 | `target_train_transforms` | PyTorch-compatible transforms for target training samples, typically images |

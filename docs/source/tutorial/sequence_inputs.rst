@@ -84,9 +84,10 @@ It is not the maximum sequence length.
        metrics_average=["macro"],
        instance_branch_architecture="SEQUENCE",
        instance_branch_input_dim=vocabulary_size,
-       instance_branch_sequence_encoder="conv1d",
+       instance_branch_sequence_encoder="transformer",
        instance_branch_sequence_embedding_dim=64,
-       instance_branch_sequence_conv_kernel_size=3,
+       instance_branch_sequence_transformer_num_heads=4,
+       instance_branch_sequence_transformer_feedforward_dim=256,
        instance_branch_sequence_num_layers=1,
        instance_branch_sequence_padding_idx=0,
        target_branch_architecture="MLP",
@@ -95,19 +96,28 @@ It is not the maximum sequence length.
        embedding_size=32,
    )
 
-Two lightweight sequence encoders are available:
+Three lightweight sequence encoders are available:
 
 * ``"gru"`` packs valid tokens before applying a recurrent encoder.
 * ``"conv1d"`` applies same-width temporal convolutions, masks padded
   positions after every layer, and uses masked global max pooling.
+* ``"transformer"`` adds deterministic sinusoidal positions, applies
+  padding-aware self-attention, and uses masked mean pooling.
 
 ``instance_branch_sequence_num_layers`` and
 ``target_branch_sequence_num_layers`` control the number of stacked encoder
 layers. Conv1D kernel widths are configured separately for each branch with
 ``*_branch_sequence_conv_kernel_size`` and must be positive odd integers so
-the temporal width remains unchanged. The existing per-branch dropout setting
-applies between stacked GRU layers and to the GRU output, or after each Conv1D
-activation.
+the temporal width remains unchanged.
+
+Transformer attention heads and feed-forward widths are configured with
+``*_branch_sequence_transformer_num_heads`` and
+``*_branch_sequence_transformer_feedforward_dim``. The embedding width must be
+divisible by the head count. Sinusoidal positions are generated for the
+current batch width, so no maximum sequence length is stored in configuration.
+The existing per-branch dropout setting applies between stacked GRU layers
+and to the GRU output, after each Conv1D activation, or within Transformer
+attention and feed-forward sublayers.
 
 For dot-product fusion, the sequence output width is ``embedding_size`` so
 both branches match. For MLP and Kronecker fusion, configure
@@ -133,10 +143,12 @@ mask is left-aligned, each length equals the number of valid positions, valid
 positions do not contain the padding ID, and padded positions do.
 
 The GRU uses packed sequences. Conv1D explicitly resets padded positions after
-each temporal layer and excludes them from global pooling. Consequently,
-dynamic padding does not affect either encoder's entity representation. Both
-emit one fixed-width floating-point vector per entity and work with the
-existing dot-product, MLP, and Kronecker fusion models.
+each temporal layer and excludes them from global pooling. The Transformer
+passes the inverse attention mask to every self-attention layer and excludes
+padded outputs from mean pooling. Consequently, dynamic padding does not
+affect any encoder's entity representation. All three emit one fixed-width
+floating-point vector per entity and work with the existing dot-product, MLP,
+and Kronecker fusion models.
 
 Compatibility and checkpoints
 -----------------------------
@@ -150,7 +162,9 @@ Sequence configuration and encoder weights are stored in the existing
 checkpoint payload. Restore with the same encoder name, vocabulary size,
 padding ID, embedding width, layer count, and fusion settings. Conv1D
 checkpoints also retain their kernel width. Older GRU checkpoints omit that
-new field and load with its inert default.
+new field and load with its inert default. Transformer checkpoints additionally
+retain their head count and feed-forward width; older GRU and Conv1D
+checkpoints load with inactive defaults for those settings.
 
 Precomputed domain-model embeddings are already fixed-width dense vectors.
 Pass those through an ``MLP`` branch rather than treating them as token
