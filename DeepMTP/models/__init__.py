@@ -6,6 +6,7 @@ from DeepMTP.models.branches import (
     IDEmbedding,
     SequenceConv1DEncoder,
     SequenceGRUEncoder,
+    SequenceTransformerEncoder,
     SparseMLP,
     TabularEncoder,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "ModelFactory",
     "SequenceConv1DEncoder",
     "SequenceGRUEncoder",
+    "SequenceTransformerEncoder",
     "SparseMLP",
     "TwoBranchDotProductModel",
     "TwoBranchKroneckerModel",

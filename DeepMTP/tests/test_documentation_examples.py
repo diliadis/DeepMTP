@@ -209,7 +209,7 @@ def test_readme_branch_configuration_examples_are_valid(
     assert config.instance_branch_architecture == expected_instance_architecture
     assert config.target_branch_architecture == expected_target_architecture
     if marker == "sequence-config-example":
-        assert config.instance_branch_sequence_encoder == "conv1d"
+        assert config.instance_branch_sequence_encoder == "transformer"
 
 
 def test_readme_multiclass_configuration_example_is_valid():

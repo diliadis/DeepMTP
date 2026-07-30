@@ -176,8 +176,8 @@ A **SEQUENCE** branch consumes unpadded integer token rows. ``data_process``
 must receive ``instance_feature_kind="sequence"`` or
 ``target_feature_kind="sequence"`` for that axis. Batches carry dynamically
 padded IDs, attention masks, and original lengths. See :doc:`sequence_inputs`
-for vocabulary, padding, packed-GRU, masked-Conv1D, and checkpoint
-configuration.
+for vocabulary, padding, packed-GRU, masked-Conv1D, Transformer, and
+checkpoint configuration.
 
 For mutually exclusive outcomes, set
 ``classification_mode="multiclass"`` during both ``data_process`` and

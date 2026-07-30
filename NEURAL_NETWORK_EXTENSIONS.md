@@ -133,7 +133,7 @@ reserved index zero unless their policy is configured as `error`.
   lengths, including dynamic collation of variable-length rows.
 - [x] Provide a lightweight packed-GRU encoder.
 - [x] Add a mask-aware 1-D convolutional encoder.
-- [ ] Add an optional Transformer encoder.
+- [x] Add an optional position-aware Transformer encoder.
 - [x] Accept precomputed embeddings from domain models as ordinary dense
   features.
 - [ ] Add optional adapters for protein, chemical, and text foundation models
@@ -229,7 +229,7 @@ reserved index zero unless their policy is configured as `error`.
 4. Formalize fusion, loss, and output-head registries.
 5. Numerically stable logits/loss handling and richer output heads.
 6. Sparse inputs.
-7. Sequence encoders (GRU and 1-D convolution complete; Transformer pending).
+7. Sequence encoders (GRU, 1-D convolution, and Transformer complete).
 8. Hybrid and missing-modality support.
 9. Graph and time-series encoders, driven by concrete datasets.
 10. Performance features after correctness baselines are established.

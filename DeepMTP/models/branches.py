@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import math
 from collections import OrderedDict
 from collections.abc import Mapping
 from types import ModuleType
@@ -26,6 +27,7 @@ __all__ = [
     "ModelConfigInput",
     "SequenceConv1DEncoder",
     "SequenceGRUEncoder",
+    "SequenceTransformerEncoder",
     "SparseMLP",
     "TabularEncoder",
 ]
@@ -463,6 +465,151 @@ class SequenceConv1DEncoder(nn.Module):
             torch.finfo(encoded.dtype).min,
         )
         return masked.amax(dim=2)
+
+
+class SequenceTransformerEncoder(nn.Module):
+    """Encode padded token sequences with masked self-attention."""
+
+    input_kind: ClassVar[BranchInputKind] = "sequence"
+
+    def __init__(
+        self,
+        *,
+        vocabulary_size: int,
+        embedding_dim: int,
+        output_dim: int,
+        num_layers: int = 1,
+        num_heads: int = 4,
+        feedforward_dim: int = 256,
+        padding_idx: int = 0,
+        dropout_rate: float = 0.0,
+    ) -> None:
+        super().__init__()
+        for name, value in {
+            "vocabulary_size": vocabulary_size,
+            "embedding_dim": embedding_dim,
+            "output_dim": output_dim,
+            "num_layers": num_layers,
+            "num_heads": num_heads,
+            "feedforward_dim": feedforward_dim,
+        }.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer.")
+        if embedding_dim % num_heads != 0:
+            raise ValueError("embedding_dim must be divisible by num_heads.")
+        if (
+            isinstance(padding_idx, bool)
+            or not isinstance(padding_idx, int)
+            or padding_idx < 0
+            or padding_idx >= vocabulary_size
+        ):
+            raise ValueError(
+                "padding_idx must be a non-negative integer smaller than "
+                "vocabulary_size."
+            )
+        if not 0 <= dropout_rate < 1:
+            raise ValueError("dropout_rate must be between 0 (inclusive) and 1.")
+
+        self.vocabulary_size = vocabulary_size
+        self.embedding_dim = embedding_dim
+        self.output_dim = output_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.feedforward_dim = feedforward_dim
+        self.padding_idx = padding_idx
+        self.embedding = nn.Embedding(
+            num_embeddings=vocabulary_size,
+            embedding_dim=embedding_dim,
+            padding_idx=padding_idx,
+        )
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=embedding_dim,
+            nhead=num_heads,
+            dim_feedforward=feedforward_dim,
+            dropout=dropout_rate,
+            activation="gelu",
+            batch_first=True,
+        )
+        self.encoder = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=num_layers,
+            norm=nn.LayerNorm(embedding_dim),
+            enable_nested_tensor=False,
+        )
+        for layer in self.encoder.layers:
+            for parameter in layer.parameters():
+                if parameter.ndim > 1:
+                    nn.init.xavier_uniform_(parameter)
+        self.output_projection = nn.Linear(embedding_dim, output_dim)
+
+    @staticmethod
+    def _sinusoidal_position_encoding(
+        sequence_length: int,
+        embedding_dim: int,
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        positions = torch.arange(
+            sequence_length,
+            device=device,
+            dtype=torch.float32,
+        ).unsqueeze(1)
+        frequency_indices = torch.arange(
+            0,
+            embedding_dim,
+            2,
+            device=device,
+            dtype=torch.float32,
+        )
+        frequencies = torch.exp(
+            frequency_indices * (-math.log(10_000.0) / embedding_dim)
+        )
+        encoding = torch.zeros(
+            sequence_length,
+            embedding_dim,
+            device=device,
+            dtype=torch.float32,
+        )
+        encoding[:, 0::2] = torch.sin(positions * frequencies)
+        if embedding_dim > 1:
+            encoding[:, 1::2] = torch.cos(positions * frequencies[: embedding_dim // 2])
+        return encoding.to(dtype=dtype)
+
+    def forward(self, values: SequenceInput) -> torch.Tensor:
+        if not isinstance(values, SequenceInput):
+            raise TypeError("SequenceTransformerEncoder expects a SequenceInput.")
+        if values.padding_idx != self.padding_idx:
+            raise ValueError(
+                "Sequence input padding_idx does not match the encoder: "
+                f"expected {self.padding_idx}, received {values.padding_idx}."
+            )
+        token_ids = values.token_ids.long()
+        if token_ids.numel() and (
+            int(token_ids.min()) < 0 or int(token_ids.max()) >= self.vocabulary_size
+        ):
+            raise ValueError(
+                "Sequence token IDs contain an index outside the configured "
+                f"vocabulary [0, {self.vocabulary_size})."
+            )
+
+        attention_mask = values.attention_mask
+        embedded = self.embedding(token_ids) * math.sqrt(self.embedding_dim)
+        embedded = embedded + self._sinusoidal_position_encoding(
+            token_ids.shape[1],
+            self.embedding_dim,
+            device=embedded.device,
+            dtype=embedded.dtype,
+        )
+        embedded = embedded.masked_fill(~attention_mask.unsqueeze(-1), 0.0)
+        encoded = self.encoder(
+            embedded,
+            src_key_padding_mask=~attention_mask,
+        )
+        valid_token_mask = attention_mask.unsqueeze(-1).to(dtype=encoded.dtype)
+        pooled = (encoded * valid_token_mask).sum(dim=1)
+        pooled = pooled / values.lengths.unsqueeze(1).to(dtype=encoded.dtype)
+        return self.output_projection(pooled)
 
 
 class TabularEncoder(nn.Module):

@@ -12,6 +12,7 @@ from DeepMTP import (
     ModelFactory,
     SequenceConv1DEncoder,
     SequenceGRUEncoder,
+    SequenceTransformerEncoder,
 )
 from DeepMTP.config import ConfigValidationError
 from DeepMTP.data import (
@@ -41,6 +42,8 @@ def make_config(**overrides):
         "instance_branch_sequence_embedding_dim": 6,
         "instance_branch_sequence_output_dim": 7,
         "instance_branch_sequence_conv_kernel_size": 3,
+        "instance_branch_sequence_transformer_num_heads": 2,
+        "instance_branch_sequence_transformer_feedforward_dim": 12,
         "instance_branch_sequence_num_layers": 1,
         "instance_branch_sequence_padding_idx": 0,
         "target_branch_architecture": "MLP",
@@ -155,16 +158,24 @@ def test_sequence_config_normalizes_and_validates_encoder_options():
         instance_branch_sequence_encoder="CONV1D",
         instance_branch_sequence_conv_kernel_size=5,
     )
+    transformer_config = make_config(
+        instance_branch_sequence_encoder="TRANSFORMER",
+        instance_branch_sequence_transformer_num_heads=2,
+        instance_branch_sequence_transformer_feedforward_dim=24,
+    )
 
     assert config.instance_branch_architecture == "SEQUENCE"
     assert config.instance_branch_sequence_encoder == "gru"
     assert conv_config.instance_branch_sequence_encoder == "conv1d"
     assert conv_config.instance_branch_sequence_conv_kernel_size == 5
+    assert transformer_config.instance_branch_sequence_encoder == "transformer"
+    assert transformer_config.instance_branch_sequence_transformer_num_heads == 2
+    assert transformer_config.instance_branch_sequence_transformer_feedforward_dim == 24
 
     invalid_values = [
         (
-            {"instance_branch_sequence_encoder": "transformer"},
-            "must be 'conv1d' or 'gru'",
+            {"instance_branch_sequence_encoder": "attention"},
+            "must be 'conv1d', 'gru', or 'transformer'",
         ),
         ({"instance_branch_sequence_embedding_dim": 0}, "embedding_dim"),
         ({"instance_branch_sequence_output_dim": 0}, "output_dim"),
@@ -185,6 +196,27 @@ def test_sequence_config_normalizes_and_validates_encoder_options():
             },
             "must be odd",
         ),
+        (
+            {
+                "instance_branch_sequence_encoder": "transformer",
+                "instance_branch_sequence_transformer_num_heads": 0,
+            },
+            "transformer_num_heads",
+        ),
+        (
+            {
+                "instance_branch_sequence_encoder": "transformer",
+                "instance_branch_sequence_transformer_feedforward_dim": 0,
+            },
+            "transformer_feedforward_dim",
+        ),
+        (
+            {
+                "instance_branch_sequence_encoder": "transformer",
+                "instance_branch_sequence_transformer_num_heads": 4,
+            },
+            "must be divisible",
+        ),
     ]
     for overrides, message in invalid_values:
         with pytest.raises(ConfigValidationError, match=message):
@@ -199,6 +231,18 @@ def test_legacy_gru_config_defaults_the_new_conv_kernel_setting():
 
     assert restored.instance_branch_sequence_encoder == "gru"
     assert restored.instance_branch_sequence_conv_kernel_size == 3
+
+
+def test_legacy_sequence_config_defaults_inactive_transformer_settings():
+    legacy_config = make_config().to_dict(include_defaults=True)
+    legacy_config.pop("instance_branch_sequence_transformer_num_heads")
+    legacy_config.pop("instance_branch_sequence_transformer_feedforward_dim")
+
+    restored = DeepMTPConfig.from_mapping(legacy_config)
+
+    assert restored.instance_branch_sequence_encoder == "gru"
+    assert restored.instance_branch_sequence_transformer_num_heads == 4
+    assert restored.instance_branch_sequence_transformer_feedforward_dim == 256
 
 
 def test_sequence_collator_builds_dynamic_tokens_masks_and_lengths():
@@ -347,12 +391,64 @@ def test_sequence_conv1d_ignores_dynamic_padding_and_backpropagates():
     assert model.convolutions[0].weight.grad is not None
 
 
+def test_sequence_transformer_is_order_aware_and_ignores_dynamic_padding():
+    model = SequenceTransformerEncoder(
+        vocabulary_size=20,
+        embedding_dim=6,
+        output_dim=4,
+        num_layers=2,
+        num_heads=2,
+        feedforward_dim=12,
+        padding_idx=0,
+        dropout_rate=0.0,
+    )
+    model.eval()
+    short_batch = next(
+        iter(
+            DataLoaderFactory(make_config(), "cpu").for_prediction(
+                make_prediction_data([[1, 2], [3], [4], [5]])
+            )
+        )
+    ).instance_features
+    wide_batch = next(
+        iter(
+            DataLoaderFactory(make_config(), "cpu").for_prediction(
+                make_prediction_data([[1, 2], [3, 4, 5, 6], [7], [8]])
+            )
+        )
+    ).instance_features
+    reversed_batch = next(
+        iter(
+            DataLoaderFactory(make_config(), "cpu").for_prediction(
+                make_prediction_data([[2, 1], [3, 4, 5, 6], [7], [8]])
+            )
+        )
+    ).instance_features
+
+    short_output = model(short_batch)
+    wide_output = model(wide_batch)
+    reversed_output = model(reversed_batch)
+    wide_output.sum().backward()
+
+    assert short_output.shape == (2, 4)
+    assert torch.allclose(short_output[0], wide_output[0], atol=1e-6)
+    assert not torch.allclose(wide_output[0], reversed_output[0])
+    assert not torch.allclose(
+        model.encoder.layers[0].self_attn.in_proj_weight,
+        model.encoder.layers[1].self_attn.in_proj_weight,
+    )
+    assert model.embedding.weight.grad is not None
+    assert model.encoder.layers[0].self_attn.in_proj_weight.grad is not None
+    assert model.output_projection.weight.grad is not None
+
+
 @pytest.mark.parametrize("architecture", ["dot_product", "mlp", "kronecker"])
 @pytest.mark.parametrize(
     ("encoder_name", "encoder_type"),
     [
         ("gru", SequenceGRUEncoder),
         ("conv1d", SequenceConv1DEncoder),
+        ("transformer", SequenceTransformerEncoder),
     ],
 )
 def test_model_factory_combines_sequence_and_dense_branches(
@@ -389,6 +485,7 @@ def test_model_factory_combines_sequence_and_dense_branches(
     [
         ("gru", SequenceGRUEncoder),
         ("conv1d", SequenceConv1DEncoder),
+        ("transformer", SequenceTransformerEncoder),
     ],
 )
 def test_target_branch_accepts_sequence_features(encoder_name, encoder_type):
@@ -402,6 +499,8 @@ def test_target_branch_accepts_sequence_features(encoder_name, encoder_type):
         target_branch_sequence_embedding_dim=6,
         target_branch_sequence_output_dim=7,
         target_branch_sequence_encoder=encoder_name,
+        target_branch_sequence_transformer_num_heads=2,
+        target_branch_sequence_transformer_feedforward_dim=12,
         target_branch_sequence_padding_idx=0,
     )
     data = {
@@ -454,6 +553,7 @@ def test_sequence_loader_rejects_padding_and_out_of_vocabulary_tokens():
     [
         ("gru", SequenceGRUEncoder),
         ("conv1d", SequenceConv1DEncoder),
+        ("transformer", SequenceTransformerEncoder),
     ],
 )
 def test_tiny_cpu_sequence_training_prediction_and_checkpoint(
@@ -498,9 +598,11 @@ def test_tiny_cpu_sequence_training_prediction_and_checkpoint(
         instance_branch_input_dim=data_info["instance_branch_input_dim"],
         instance_branch_params={
             "instance_branch_sequence_encoder": encoder_name,
-            "instance_branch_sequence_embedding_dim": 5,
+            "instance_branch_sequence_embedding_dim": 6,
             "instance_branch_sequence_output_dim": 4,
             "instance_branch_sequence_conv_kernel_size": 3,
+            "instance_branch_sequence_transformer_num_heads": 2,
+            "instance_branch_sequence_transformer_feedforward_dim": 12,
             "instance_branch_sequence_num_layers": 1,
             "instance_branch_sequence_padding_idx": 0,
         },
@@ -527,6 +629,11 @@ def test_tiny_cpu_sequence_training_prediction_and_checkpoint(
     checkpoint = ExperimentStore.load_checkpoint(checkpoint_path)
     assert checkpoint["config"]["instance_branch_sequence_encoder"] == encoder_name
     assert checkpoint["config"]["instance_branch_sequence_conv_kernel_size"] == 3
+    assert checkpoint["config"]["instance_branch_sequence_transformer_num_heads"] == 2
+    assert (
+        checkpoint["config"]["instance_branch_sequence_transformer_feedforward_dim"]
+        == 12
+    )
     restored_config = dict(config)
     restored_config["experiment_name"] = f"sequence_{encoder_name}_restored"
     restored_model = DeepMTP(restored_config, checkpoint_dir=checkpoint_path)

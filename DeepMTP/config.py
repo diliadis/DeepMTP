@@ -196,6 +196,8 @@ class DeepMTPConfig:
     instance_branch_sequence_embedding_dim: int = 64
     instance_branch_sequence_output_dim: int = 64
     instance_branch_sequence_conv_kernel_size: int = 3
+    instance_branch_sequence_transformer_num_heads: int = 4
+    instance_branch_sequence_transformer_feedforward_dim: int = 256
     instance_branch_sequence_num_layers: int = 1
     instance_branch_sequence_padding_idx: int = 0
 
@@ -220,6 +222,8 @@ class DeepMTPConfig:
     target_branch_sequence_embedding_dim: int = 64
     target_branch_sequence_output_dim: int = 64
     target_branch_sequence_conv_kernel_size: int = 3
+    target_branch_sequence_transformer_num_heads: int = 4
+    target_branch_sequence_transformer_feedforward_dim: int = 256
     target_branch_sequence_num_layers: int = 1
     target_branch_sequence_padding_idx: int = 0
 
@@ -649,10 +653,10 @@ class DeepMTPConfig:
         branch: Literal["instance", "target"],
     ) -> None:
         encoder = getattr(self, f"{branch}_branch_sequence_encoder")
-        if encoder not in {"conv1d", "gru"}:
+        if encoder not in {"conv1d", "gru", "transformer"}:
             raise ConfigValidationError(
-                f"{branch}_branch_sequence_encoder must be 'conv1d' or 'gru'; "
-                f"received {encoder!r}."
+                f"{branch}_branch_sequence_encoder must be 'conv1d', 'gru', "
+                f"or 'transformer'; received {encoder!r}."
             )
         for suffix in (
             "embedding_dim",
@@ -680,6 +684,24 @@ class DeepMTPConfig:
                 raise ConfigValidationError(
                     f"{kernel_field} must be odd so temporal convolutions "
                     f"preserve sequence length; received {kernel_size}."
+                )
+        if encoder == "transformer":
+            heads_field = f"{branch}_branch_sequence_transformer_num_heads"
+            feedforward_field = f"{branch}_branch_sequence_transformer_feedforward_dim"
+            num_heads = getattr(self, heads_field)
+            self._require_positive_integer(heads_field, num_heads)
+            self._require_positive_integer(
+                feedforward_field,
+                getattr(self, feedforward_field),
+            )
+            embedding_dim = getattr(
+                self,
+                f"{branch}_branch_sequence_embedding_dim",
+            )
+            if embedding_dim % num_heads != 0:
+                raise ConfigValidationError(
+                    f"{branch}_branch_sequence_embedding_dim={embedding_dim} "
+                    f"must be divisible by {heads_field}={num_heads}."
                 )
 
     def _validate_tabular_branch(
