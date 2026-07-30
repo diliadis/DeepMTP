@@ -34,8 +34,8 @@ common two-branch architecture.
 - Typed configuration, model-ready batches, and early validation of invalid
   data or model combinations.
 
-The current development line contains substantial changes beyond the published
-`0.0.22` release. Read the [changelog](CHANGELOG.md) and
+DeepMTP 0.0.23 contains substantial changes beyond the previous `0.0.22`
+release. Read the [changelog](CHANGELOG.md) and
 [migration guide](MIGRATION.rst) before upgrading an existing experiment. The
 [neural-network roadmap](NEURAL_NETWORK_EXTENSIONS.md) tracks implemented and
 planned model extensions.
@@ -109,7 +109,7 @@ Development commands and contribution expectations are documented in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Upgrading an experiment from the published `0.0.22` release requires a few
-behavioral checks. See the [0.0.22 migration guide](MIGRATION.rst) for
+behavioral checks. See the [0.0.22 to 0.0.23 migration guide](MIGRATION.rst) for
 before-and-after examples covering configuration, data preparation,
 predictions, checkpoints, and optional integrations.
 

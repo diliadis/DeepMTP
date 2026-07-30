@@ -6,7 +6,9 @@ by their effect on users and maintainers.
 
 ## [Unreleased]
 
-This development line contains substantial changes from 0.0.22. Existing users
+## [0.0.23] - 2026-07-30
+
+This release contains substantial changes from 0.0.22. Existing users
 should read the [migration guide](MIGRATION.rst) before moving experiments or
 checkpoints.
 
@@ -100,6 +102,8 @@ checkpoints.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 - A weekly live-link check for every version-controlled Google Colab demo.
+- Automated wheel and source-distribution contract validation plus isolated
+  smoke imports for every optional runtime extra before artifacts are published.
 
 ### Changed
 
@@ -208,5 +212,6 @@ checkpoints.
 - Expanded the test workflow's operating-system and Python coverage.
 - Refreshed the Hyperband example and related worker configuration.
 
-[Unreleased]: https://github.com/diliadis/DeepMTP/compare/v0.0.22...HEAD
+[Unreleased]: https://github.com/diliadis/DeepMTP/compare/v0.0.23...HEAD
+[0.0.23]: https://github.com/diliadis/DeepMTP/compare/v0.0.22...v0.0.23
 [0.0.22]: https://github.com/diliadis/DeepMTP/releases/tag/v0.0.22
