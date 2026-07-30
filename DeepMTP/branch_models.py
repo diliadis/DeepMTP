@@ -5,6 +5,7 @@ from DeepMTP.models.branches import (
     ConvNet,
     IDEmbedding,
     ModelConfigInput,
+    SequenceGRUEncoder,
     SparseMLP,
     TabularEncoder,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "IDEmbedding",
     "MLP",
     "ModelConfigInput",
+    "SequenceGRUEncoder",
     "SparseMLP",
     "TabularEncoder",
 ]

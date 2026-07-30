@@ -19,6 +19,7 @@ from DeepMTP.models.branches import (
     MLP,
     ConvNet,
     IDEmbedding,
+    SequenceGRUEncoder,
     SparseMLP,
     TabularEncoder,
 )
@@ -384,8 +385,11 @@ class ModelFactory:
         )
 
     def _branch_output_dimension(self, branch: str) -> int:
-        if getattr(self.config, f"{branch}_branch_architecture") == "EMBEDDING":
+        architecture = getattr(self.config, f"{branch}_branch_architecture")
+        if architecture == "EMBEDDING":
             return self.config.embedding_size
+        if architecture == "SEQUENCE":
+            return int(getattr(self.config, f"{branch}_branch_sequence_output_dim"))
         return self._last_node_count(
             getattr(self.config, f"{branch}_branch_nodes_per_layer")
         )
@@ -442,6 +446,32 @@ class ModelFactory:
                 num_embeddings=input_dim,
                 embedding_dim=output_dim,
             )
+        if architecture == "SEQUENCE":
+            input_dim = getattr(self.config, f"{branch}_branch_input_dim")
+            if input_dim is None:
+                raise RuntimeError(
+                    f"Validated {branch} sequence configuration has no vocabulary size."
+                )
+            return SequenceGRUEncoder(
+                vocabulary_size=input_dim,
+                embedding_dim=getattr(
+                    self.config,
+                    f"{branch}_branch_sequence_embedding_dim",
+                ),
+                output_dim=output_dim,
+                num_layers=getattr(
+                    self.config,
+                    f"{branch}_branch_sequence_num_layers",
+                ),
+                padding_idx=getattr(
+                    self.config,
+                    f"{branch}_branch_sequence_padding_idx",
+                ),
+                dropout_rate=getattr(
+                    self.config,
+                    f"dropout_rate_{branch}_branch",
+                ),
+            )
         if architecture == "TABULAR":
             schema = TabularSchema.from_config(
                 getattr(self.config, f"{branch}_branch_tabular_schema"),
@@ -494,6 +524,7 @@ class ModelFactory:
             "SPARSE": "sparse",
             "EMBEDDING": "id",
             "CONV": "image",
+            "SEQUENCE": "sequence",
             "TABULAR": "tabular",
             "CUSTOM": "custom",
         }

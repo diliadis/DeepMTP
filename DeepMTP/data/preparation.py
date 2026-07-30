@@ -13,6 +13,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from DeepMTP._split_utils import validate_split_ratio as _validate_split_ratio
 from DeepMTP.data.features import (
+    FeatureKind,
     cross_input_consistency_check_instances,
     cross_input_consistency_check_targets,
     process_instance_features,
@@ -242,6 +243,7 @@ def _scale_feature_splits(
     verbose: bool,
     print_mode: str,
     progress: DataProgressObserver | None = None,
+    feature_kind: FeatureKind = None,
 ) -> None:
     if scaling_method is None:
         return
@@ -262,6 +264,13 @@ def _scale_feature_splits(
             level="warning",
         )
         return
+
+    if feature_kind == "sequence" or train_source.get("info") == "sequence":
+        raise ValueError(
+            f"{feature_key} uses token sequences, which cannot be combined with "
+            f"legacy {entity_name} feature scaling. Token IDs are categorical; "
+            "leave the scaling option unset."
+        )
 
     train_frame = train_source["data"]
     if "features" not in train_frame.columns:
@@ -339,6 +348,8 @@ def data_process(
     *,
     classification_mode: str | None = None,
     num_classes: int | None = None,
+    instance_feature_kind: FeatureKind = None,
+    target_feature_kind: FeatureKind = None,
     progress: DataProgressObserver | None = None,
 ) -> tuple[ProcessedSplit, ProcessedSplit, ProcessedSplit, DataInfo]:
     """The main function that handles all the preprocessing steps and checks needed to prepare the dataset to be used by the model.
@@ -359,6 +370,10 @@ def data_process(
             be detected automatically. Defaults to None.
         num_classes (int, optional): Declared multiclass count. When omitted in
             multiclass mode, it is inferred from all supplied score splits.
+        instance_feature_kind (str, optional): Set to ``sequence`` when instance
+            features are already-tokenized integer sequences. Defaults to None.
+        target_feature_kind (str, optional): Set to ``sequence`` when target
+            features are already-tokenized integer sequences. Defaults to None.
         progress (DataProgressObserver | None, optional): Receives verbose messages from the complete data-processing pipeline. Defaults to None.
 
     Returns:
@@ -596,18 +611,21 @@ def data_process(
         verbose=verbose,
         print_mode=print_mode,
         progress=progress_observer,
+        feature_kind=instance_feature_kind,
     )
     data["test"]["X_instance"] = process_instance_features(
         data["test"]["X_instance"],
         verbose=verbose,
         print_mode=print_mode,
         progress=progress_observer,
+        feature_kind=instance_feature_kind,
     )
     data["val"]["X_instance"] = process_instance_features(
         data["val"]["X_instance"],
         verbose=verbose,
         print_mode=print_mode,
         progress=progress_observer,
+        feature_kind=instance_feature_kind,
     )
     # process the target features
     data["train"]["X_target"] = process_target_features(
@@ -615,18 +633,21 @@ def data_process(
         verbose=verbose,
         print_mode=print_mode,
         progress=progress_observer,
+        feature_kind=target_feature_kind,
     )
     data["test"]["X_target"] = process_target_features(
         data["test"]["X_target"],
         verbose=verbose,
         print_mode=print_mode,
         progress=progress_observer,
+        feature_kind=target_feature_kind,
     )
     data["val"]["X_target"] = process_target_features(
         data["val"]["X_target"],
         verbose=verbose,
         print_mode=print_mode,
         progress=progress_observer,
+        feature_kind=target_feature_kind,
     )
 
     _emit_data_separator(verbose, print_mode, progress_observer)
@@ -702,6 +723,7 @@ def data_process(
         verbose=verbose,
         print_mode=print_mode,
         progress=progress_observer,
+        feature_kind=instance_feature_kind,
     )
     _scale_feature_splits(
         data,
@@ -711,6 +733,7 @@ def data_process(
         verbose=verbose,
         print_mode=print_mode,
         progress=progress_observer,
+        feature_kind=target_feature_kind,
     )
 
     return (

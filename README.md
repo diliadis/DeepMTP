@@ -21,8 +21,8 @@ common two-branch architecture.
 
 ### Current capabilities
 
-- Dense MLP, mixed tabular, image, learned ID-embedding, and custom branch
-  encoders.
+- Dense MLP, sparse, mixed tabular, token-sequence GRU, image, learned
+  ID-embedding, and custom branch encoders.
 - Dot-product, concatenation-plus-MLP, and Kronecker-product fusion.
 - Validation settings A–D for known and novel instances and targets.
 - Binary and multiclass classification plus regression metrics, early
@@ -539,6 +539,65 @@ silently densifying them; apply sparse-safe preprocessing upstream. See the
 for explicit-ID DataFrames, compatibility details, and the included memory and
 throughput benchmark.
 
+## Token-sequence inputs
+
+Use a `SEQUENCE` branch for already-tokenized proteins, chemical strings, or
+text. Declare the representation during data preparation so variable-length
+integer rows are preserved:
+
+```python
+instance_sequences = [[5, 12, 8], [7], [3, 14, 9, 6]]
+
+train, validation, test, data_info = data_process(
+    {
+        "train": {
+            "y": interaction_scores,
+            "X_instance": instance_sequences,
+            "X_target": None,
+        }
+    },
+    validation_setting="B",
+    instance_feature_kind="sequence",
+)
+```
+
+The configured input dimension is the complete vocabulary size, not the
+maximum sequence length:
+
+<!-- sequence-config-example:start -->
+```python
+from DeepMTP import DeepMTPConfig
+
+vocabulary_size = 32
+number_of_targets = 4
+
+config = DeepMTPConfig(
+    validation_setting="B",
+    problem_mode="classification",
+    general_architecture_version="dot_product",
+    instance_branch_architecture="SEQUENCE",
+    instance_branch_input_dim=vocabulary_size,
+    instance_branch_sequence_encoder="gru",
+    instance_branch_sequence_embedding_dim=16,
+    instance_branch_sequence_num_layers=1,
+    instance_branch_sequence_padding_idx=0,
+    target_branch_architecture="MLP",
+    target_branch_input_dim=number_of_targets,
+    target_branch_nodes_per_layer=[8],
+    embedding_size=8,
+)
+```
+<!-- sequence-config-example:end -->
+
+The dataloader dynamically creates padded token IDs, attention masks, and
+original lengths. The packed GRU ignores padded positions and emits the same
+fixed-width branch representation expected by every existing fusion model.
+Raw sequences must be unpadded and cannot contain the configured padding ID.
+See the
+[token-sequence input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/sequence_inputs.html)
+for the structured batch contract, configuration options, and compatibility
+details.
+
 ## Input data
 
 <details>
@@ -657,21 +716,31 @@ The table below summarizes the commonly configured public options.
 | `dropout_rate_instance_branch` | The amount of dropout used in the layers of the instance branch  |
 | `dropout_rate_target_branch` | The amount of dropout used in the layers of the target branch |
 | **Instance branch architecture** ||
-| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
-| `instance_branch_input_dim` | The dense or sparse input feature dimension, or the number of instance IDs for an `EMBEDDING` branch |
+| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `instance_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of instance IDs for an `EMBEDDING` branch |
+| `instance_branch_sequence_encoder` | Sequence encoder name; currently `gru` |
+| `instance_branch_sequence_embedding_dim` | Trainable token embedding width for an instance `SEQUENCE` branch |
+| `instance_branch_sequence_output_dim` | Instance sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
+| `instance_branch_sequence_num_layers` | Number of stacked GRU layers |
+| `instance_branch_sequence_padding_idx` | Reserved non-negative padding token ID |
 | `instance_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for an instance `TABULAR` branch |
 | `instance_train_transforms` | PyTorch-compatible transforms for instance training samples, typically images |
 | `instance_inference_transforms` | PyTorch-compatible transforms for instance validation and test samples |
 |  **Target branch architecture**  ||
-| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
-| `target_branch_input_dim` | The dense or sparse input feature dimension, or the number of target IDs for an `EMBEDDING` branch |
+| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `target_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of target IDs for an `EMBEDDING` branch |
+| `target_branch_sequence_encoder` | Sequence encoder name; currently `gru` |
+| `target_branch_sequence_embedding_dim` | Trainable token embedding width for a target `SEQUENCE` branch |
+| `target_branch_sequence_output_dim` | Target sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
+| `target_branch_sequence_num_layers` | Number of stacked GRU layers |
+| `target_branch_sequence_padding_idx` | Reserved non-negative padding token ID |
 | `target_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for a target `TABULAR` branch |
 | `target_train_transforms` | PyTorch-compatible transforms for target training samples, typically images |
 | `target_inference_transforms` | PyTorch-compatible transforms for target validation and test samples |
 |  **Combination branch architecture**  ||
 | `comb_mlp_nodes_per_layer` | Positive layer widths for the combination branch. A list defines each layer; an integer repeats that width `comb_mlp_layers` times. Only used if `general_architecture_version == mlp` |
 | `comb_mlp_layers` | Positive number of repeated combination layers, required when `comb_mlp_nodes_per_layer` is an integer. Only used if `general_architecture_version == mlp` |
-| `embedding_size` | The output width of both branches for a dot-product model and of every `EMBEDDING` branch |
+| `embedding_size` | The output width of both branches for a dot-product model, including `EMBEDDING` and `SEQUENCE` branches |
 |  **Other**  ||
 | `additional_info` | Extra experiment metadata included in reporting |
 

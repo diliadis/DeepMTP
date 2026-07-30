@@ -149,7 +149,7 @@ def test_collator_constructs_modality_specific_batches_and_float_dense_values():
 
 def test_collator_rejects_unknown_input_kinds():
     with pytest.raises(ValueError, match="instance_kind"):
-        MTPBatchCollator(instance_kind="sequence", target_kind="id")
+        MTPBatchCollator(instance_kind="audio", target_kind="id")
 
 
 @pytest.mark.parametrize(

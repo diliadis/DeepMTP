@@ -9,6 +9,7 @@ from typing import Any, ClassVar, Literal, TypeAlias, cast
 import torch
 from torch.utils.data import default_collate
 
+from DeepMTP.data.sequences import collate_sequence_rows
 from DeepMTP.data.sparse import (
     collate_sparse_rows,
     is_torch_sparse,
@@ -24,6 +25,8 @@ __all__ = [
     "ImageBranchBatch",
     "MTPBatch",
     "MTPBatchCollator",
+    "SequenceBranchBatch",
+    "SequenceInput",
     "SparseBranchBatch",
     "TabularBranchBatch",
     "TabularInput",
@@ -34,6 +37,7 @@ BranchInputKind: TypeAlias = Literal[
     "dense",
     "id",
     "image",
+    "sequence",
     "sparse",
     "tabular",
     "custom",
@@ -144,6 +148,143 @@ class CustomBranchBatch(TensorBranchBatch):
 
 
 @dataclass(frozen=True)
+class SequenceInput:
+    """Padded token IDs, attention mask, and original sequence lengths."""
+
+    token_ids: torch.Tensor
+    attention_mask: torch.Tensor
+    lengths: torch.Tensor
+    padding_idx: int = 0
+
+    def __post_init__(self) -> None:
+        for name, values in {
+            "token_ids": self.token_ids,
+            "attention_mask": self.attention_mask,
+            "lengths": self.lengths,
+        }.items():
+            if not isinstance(values, torch.Tensor):
+                raise TypeError(f"Sequence {name} must be a torch.Tensor.")
+        if self.token_ids.ndim != 2:
+            raise ValueError(
+                "Sequence token_ids must have shape [batch, sequence_length]."
+            )
+        if self.attention_mask.shape != self.token_ids.shape:
+            raise ValueError(
+                "Sequence attention_mask must have the same shape as token_ids."
+            )
+        if self.lengths.ndim != 1 or self.lengths.shape[0] != self.token_ids.shape[0]:
+            raise ValueError("Sequence lengths must have shape [batch].")
+        if self.token_ids.dtype not in {torch.int32, torch.int64}:
+            raise TypeError("Sequence token_ids must use an integer tensor dtype.")
+        if self.attention_mask.dtype != torch.bool:
+            raise TypeError("Sequence attention_mask must use torch.bool.")
+        if self.lengths.dtype not in {torch.int32, torch.int64}:
+            raise TypeError("Sequence lengths must use an integer tensor dtype.")
+        if (
+            isinstance(self.padding_idx, bool)
+            or not isinstance(self.padding_idx, int)
+            or self.padding_idx < 0
+        ):
+            raise ValueError("Sequence padding_idx must be a non-negative integer.")
+        if self.token_ids.shape[1] == 0:
+            raise ValueError("Sequence batches must include at least one token column.")
+        if self.lengths.numel() and (
+            int(self.lengths.min()) <= 0
+            or int(self.lengths.max()) > self.token_ids.shape[1]
+        ):
+            raise ValueError(
+                "Sequence lengths must be positive and no greater than the "
+                "padded sequence width."
+            )
+
+        expected_mask = torch.arange(
+            self.token_ids.shape[1],
+            device=self.lengths.device,
+        ).unsqueeze(0) < self.lengths.unsqueeze(1)
+        if not torch.equal(self.attention_mask, expected_mask):
+            raise ValueError(
+                "Sequence attention_mask must contain one left-aligned valid "
+                "position per declared token in lengths."
+            )
+        if (
+            self.token_ids.masked_select(self.attention_mask) == self.padding_idx
+        ).any():
+            raise ValueError(
+                "Sequence padding_idx cannot appear in valid token positions."
+            )
+        if (
+            self.token_ids.masked_select(~self.attention_mask) != self.padding_idx
+        ).any():
+            raise ValueError(
+                "Sequence padded token positions must contain padding_idx."
+            )
+
+    @property
+    def batch_size(self) -> int:
+        """Number of token sequences represented by this input."""
+        return int(self.token_ids.shape[0])
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> SequenceInput:
+        """Move every sequence tensor to one device."""
+        return SequenceInput(
+            token_ids=self.token_ids.to(device, non_blocking=non_blocking),
+            attention_mask=self.attention_mask.to(
+                device,
+                non_blocking=non_blocking,
+            ),
+            lengths=self.lengths.to(device, non_blocking=non_blocking),
+            padding_idx=self.padding_idx,
+        )
+
+    def pin_memory(self) -> SequenceInput:
+        """Pin every sequence tensor for asynchronous device transfer."""
+        return SequenceInput(
+            token_ids=self.token_ids.pin_memory(),
+            attention_mask=self.attention_mask.pin_memory(),
+            lengths=self.lengths.pin_memory(),
+            padding_idx=self.padding_idx,
+        )
+
+
+@dataclass(frozen=True)
+class SequenceBranchBatch:
+    """A structured batch consumed by a token-sequence encoder."""
+
+    values: SequenceInput
+    kind: ClassVar[BranchInputKind] = "sequence"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.values, SequenceInput):
+            raise TypeError("Sequence branch values must be a SequenceInput.")
+
+    @property
+    def batch_size(self) -> int:
+        """Number of observations represented by this branch batch."""
+        return self.values.batch_size
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> SequenceBranchBatch:
+        """Move the structured sequence input to one device."""
+        return replace(
+            self,
+            values=self.values.to(device, non_blocking=non_blocking),
+        )
+
+    def pin_memory(self) -> SequenceBranchBatch:
+        """Pin every tensor in the structured sequence input."""
+        return replace(self, values=self.values.pin_memory())
+
+
+@dataclass(frozen=True)
 class TabularInput:
     """Numeric and categorical tensors consumed by a tabular encoder."""
 
@@ -237,6 +378,7 @@ BranchBatch: TypeAlias = (
     DenseBranchBatch
     | IDBranchBatch
     | ImageBranchBatch
+    | SequenceBranchBatch
     | SparseBranchBatch
     | TabularBranchBatch
     | CustomBranchBatch
@@ -302,12 +444,12 @@ class MTPBatch(Mapping[str, Any]):
         return int(self.score.shape[0])
 
     @property
-    def instance_features(self) -> torch.Tensor | TabularInput:
+    def instance_features(self) -> torch.Tensor | SequenceInput | TabularInput:
         """Compatibility view of the instance branch input."""
         return self.instance_input.values
 
     @property
-    def target_features(self) -> torch.Tensor | TabularInput:
+    def target_features(self) -> torch.Tensor | SequenceInput | TabularInput:
         """Compatibility view of the target branch input."""
         return self.target_input.values
 
@@ -368,17 +510,37 @@ class MTPBatchCollator:
 
     instance_kind: BranchInputKind
     target_kind: BranchInputKind
+    instance_sequence_padding_idx: int = 0
+    target_sequence_padding_idx: int = 0
 
     def __post_init__(self) -> None:
         for name, kind in {
             "instance_kind": self.instance_kind,
             "target_kind": self.target_kind,
         }.items():
-            if kind not in {"dense", "id", "image", "sparse", "tabular", "custom"}:
+            if kind not in {
+                "dense",
+                "id",
+                "image",
+                "sequence",
+                "sparse",
+                "tabular",
+                "custom",
+            }:
                 raise ValueError(
-                    f"{name} must be 'dense', 'id', 'image', 'sparse', 'tabular', "
-                    "or 'custom'."
+                    f"{name} must be 'dense', 'id', 'image', 'sequence', "
+                    "'sparse', 'tabular', or 'custom'."
                 )
+        for name, padding_idx in {
+            "instance_sequence_padding_idx": self.instance_sequence_padding_idx,
+            "target_sequence_padding_idx": self.target_sequence_padding_idx,
+        }.items():
+            if (
+                isinstance(padding_idx, bool)
+                or not isinstance(padding_idx, int)
+                or padding_idx < 0
+            ):
+                raise ValueError(f"{name} must be a non-negative integer.")
 
     def __call__(self, items: Sequence[Mapping[str, Any]]) -> MTPBatch:
         if not items:
@@ -412,11 +574,21 @@ class MTPBatchCollator:
             target_id=tensors["target_id"],
             instance_input=_build_branch_batch(
                 self.instance_kind,
-                _collate_branch_values(self.instance_kind, instance_values),
+                _collate_branch_values(
+                    self.instance_kind,
+                    instance_values,
+                    padding_idx=self.instance_sequence_padding_idx,
+                ),
+                padding_idx=self.instance_sequence_padding_idx,
             ),
             target_input=_build_branch_batch(
                 self.target_kind,
-                _collate_branch_values(self.target_kind, target_values),
+                _collate_branch_values(
+                    self.target_kind,
+                    target_values,
+                    padding_idx=self.target_sequence_padding_idx,
+                ),
+                padding_idx=self.target_sequence_padding_idx,
             ),
             score=tensors["score"],
         )
@@ -441,16 +613,44 @@ def _require_collated_tensor(
 def _collate_branch_values(
     kind: BranchInputKind,
     values: Sequence[Any],
+    *,
+    padding_idx: int,
 ) -> Any:
     if kind == "sparse":
         return collate_sparse_rows(values)
+    if kind == "sequence":
+        token_ids, attention_mask, lengths = collate_sequence_rows(
+            values,
+            padding_idx=padding_idx,
+        )
+        return {
+            "token_ids": token_ids,
+            "attention_mask": attention_mask,
+            "lengths": lengths,
+        }
     return default_collate(values)
 
 
 def _build_branch_batch(
     kind: BranchInputKind,
     values: Any,
+    *,
+    padding_idx: int,
 ) -> BranchBatch:
+    if kind == "sequence":
+        if not isinstance(values, Mapping):
+            raise TypeError(
+                "Collated sequence features must contain token IDs, an attention "
+                "mask, and lengths."
+            )
+        return SequenceBranchBatch(
+            SequenceInput(
+                token_ids=_require_collated_tensor(values, "token_ids"),
+                attention_mask=_require_collated_tensor(values, "attention_mask"),
+                lengths=_require_collated_tensor(values, "lengths"),
+                padding_idx=padding_idx,
+            )
+        )
     if kind == "tabular":
         if not isinstance(values, Mapping):
             raise TypeError(

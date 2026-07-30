@@ -16,7 +16,7 @@ from DeepMTP.config import (
     RESNET_VERSIONS,
     DeepMTPConfig,
 )
-from DeepMTP.data.batches import BranchInputKind, TabularInput
+from DeepMTP.data.batches import BranchInputKind, SequenceInput, TabularInput
 from DeepMTP.data.tabular import TabularSchema
 
 __all__ = [
@@ -24,6 +24,7 @@ __all__ = [
     "IDEmbedding",
     "MLP",
     "ModelConfigInput",
+    "SequenceGRUEncoder",
     "SparseMLP",
     "TabularEncoder",
 ]
@@ -279,6 +280,89 @@ class IDEmbedding(nn.Module):
         if entity_ids.ndim != 1:
             raise ValueError("entity_ids must be a one-dimensional batch.")
         return self.embedding(entity_ids)
+
+
+class SequenceGRUEncoder(nn.Module):
+    """Encode padded token sequences with an embedding layer and GRU."""
+
+    input_kind: ClassVar[BranchInputKind] = "sequence"
+
+    def __init__(
+        self,
+        *,
+        vocabulary_size: int,
+        embedding_dim: int,
+        output_dim: int,
+        num_layers: int = 1,
+        padding_idx: int = 0,
+        dropout_rate: float = 0.0,
+    ) -> None:
+        super().__init__()
+        for name, value in {
+            "vocabulary_size": vocabulary_size,
+            "embedding_dim": embedding_dim,
+            "output_dim": output_dim,
+            "num_layers": num_layers,
+        }.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer.")
+        if (
+            isinstance(padding_idx, bool)
+            or not isinstance(padding_idx, int)
+            or padding_idx < 0
+            or padding_idx >= vocabulary_size
+        ):
+            raise ValueError(
+                "padding_idx must be a non-negative integer smaller than "
+                "vocabulary_size."
+            )
+        if not 0 <= dropout_rate < 1:
+            raise ValueError("dropout_rate must be between 0 (inclusive) and 1.")
+
+        self.vocabulary_size = vocabulary_size
+        self.output_dim = output_dim
+        self.num_layers = num_layers
+        self.padding_idx = padding_idx
+        self.embedding = nn.Embedding(
+            num_embeddings=vocabulary_size,
+            embedding_dim=embedding_dim,
+            padding_idx=padding_idx,
+        )
+        self.gru = nn.GRU(
+            input_size=embedding_dim,
+            hidden_size=output_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout_rate if num_layers > 1 else 0.0,
+        )
+        self.output_dropout = nn.Dropout(dropout_rate)
+
+    def forward(self, values: SequenceInput) -> torch.Tensor:
+        if not isinstance(values, SequenceInput):
+            raise TypeError("SequenceGRUEncoder expects a SequenceInput.")
+        if values.padding_idx != self.padding_idx:
+            raise ValueError(
+                "Sequence input padding_idx does not match the encoder: "
+                f"expected {self.padding_idx}, received {values.padding_idx}."
+            )
+        token_ids = values.token_ids.long()
+        if token_ids.numel() and (
+            int(token_ids.min()) < 0 or int(token_ids.max()) >= self.vocabulary_size
+        ):
+            raise ValueError(
+                "Sequence token IDs contain an index outside the configured "
+                f"vocabulary [0, {self.vocabulary_size})."
+            )
+
+        embedded = self.embedding(token_ids)
+        packed = nn.utils.rnn.pack_padded_sequence(
+            embedded,
+            values.lengths.detach().cpu(),
+            batch_first=True,
+            enforce_sorted=False,
+        )
+        _, hidden = self.gru(packed)
+        return self.output_dropout(hidden[-1])
 
 
 class TabularEncoder(nn.Module):

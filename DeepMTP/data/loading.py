@@ -14,6 +14,10 @@ from torch.utils.data import DataLoader, Dataset, Sampler
 
 from DeepMTP.config import BranchArchitecture, DeepMTPConfig
 from DeepMTP.data.batches import BranchInputKind, MTPBatchCollator
+from DeepMTP.data.sequences import (
+    normalize_sequence_rows,
+    sequence_object_array,
+)
 from DeepMTP.data.sparse import (
     is_sparse_value,
     normalize_sparse_rows,
@@ -40,6 +44,7 @@ _BRANCH_INPUT_KINDS: dict[BranchArchitecture, BranchInputKind] = {
     "SPARSE": "sparse",
     "EMBEDDING": "id",
     "CONV": "image",
+    "SEQUENCE": "sequence",
     "TABULAR": "tabular",
     "CUSTOM": "custom",
 }
@@ -81,6 +86,8 @@ class _DatasetModelSettings:
     target_input_dim: int | None
     instance_architecture: BranchArchitecture | None
     target_architecture: BranchArchitecture | None
+    instance_sequence_padding_idx: int
+    target_sequence_padding_idx: int
 
     @classmethod
     def from_config(
@@ -93,6 +100,10 @@ class _DatasetModelSettings:
                 target_input_dim=config.target_branch_input_dim,
                 instance_architecture=config.instance_branch_architecture,
                 target_architecture=config.target_branch_architecture,
+                instance_sequence_padding_idx=(
+                    config.instance_branch_sequence_padding_idx
+                ),
+                target_sequence_padding_idx=config.target_branch_sequence_padding_idx,
             )
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping or DeepMTPConfig.")
@@ -101,6 +112,14 @@ class _DatasetModelSettings:
             target_input_dim=config.get("target_branch_input_dim"),
             instance_architecture=config.get("instance_branch_architecture"),
             target_architecture=config.get("target_branch_architecture"),
+            instance_sequence_padding_idx=config.get(
+                "instance_branch_sequence_padding_idx",
+                0,
+            ),
+            target_sequence_padding_idx=config.get(
+                "target_branch_sequence_padding_idx",
+                0,
+            ),
         )
 
 
@@ -217,6 +236,8 @@ class BaseDataset(Dataset):
         self.target_branch_input_dim = settings.target_input_dim
         self.instance_branch_architecture = settings.instance_architecture
         self.target_branch_architecture = settings.target_architecture
+        self.instance_sequence_padding_idx = settings.instance_sequence_padding_idx
+        self.target_sequence_padding_idx = settings.target_sequence_padding_idx
         self.instance_transform = instance_transform
         self.target_transform = target_transform
         self.instance_tabular_preprocessor = instance_tabular_preprocessor
@@ -251,6 +272,7 @@ class BaseDataset(Dataset):
             input_dim=self.instance_branch_input_dim,
             transform=instance_transform,
             tabular_preprocessor=instance_tabular_preprocessor,
+            sequence_padding_idx=self.instance_sequence_padding_idx,
             entity_name="Instance",
         )
         self.target_features = self._prepare_feature_frame(
@@ -260,6 +282,7 @@ class BaseDataset(Dataset):
             input_dim=self.target_branch_input_dim,
             transform=target_transform,
             tabular_preprocessor=target_tabular_preprocessor,
+            sequence_padding_idx=self.target_sequence_padding_idx,
             entity_name="Target",
         )
 
@@ -301,10 +324,11 @@ class BaseDataset(Dataset):
         input_dim: object,
         transform: Callable[[Image.Image], Any] | None,
         tabular_preprocessor: TabularPreprocessor | None,
+        sequence_padding_idx: int,
         entity_name: Literal["Instance", "Target"],
     ) -> pd.DataFrame | None:
         if source is None:
-            if architecture in {"CONV", "SPARSE", "TABULAR"}:
+            if architecture in {"CONV", "SEQUENCE", "SPARSE", "TABULAR"}:
                 raise ValueError(
                     f"{entity_name} features are required for a {architecture} branch."
                 )
@@ -312,8 +336,8 @@ class BaseDataset(Dataset):
         if architecture == "EMBEDDING":
             raise ValueError(
                 f"{entity_name} side features cannot be supplied to an "
-                "EMBEDDING branch. Use an MLP, SPARSE, TABULAR, CONV, or CUSTOM "
-                "branch when side features are required."
+                "EMBEDDING branch. Use an MLP, SPARSE, SEQUENCE, TABULAR, CONV, "
+                "or CUSTOM branch when side features are required."
             )
 
         frame = source.get("data")
@@ -361,6 +385,24 @@ class BaseDataset(Dataset):
                 )
             prepared_frame = prepared_frame.copy(deep=False)
             prepared_frame["features"] = sparse_object_array(sparse_rows)
+        elif architecture == "SEQUENCE":
+            if (
+                isinstance(input_dim, bool)
+                or not isinstance(input_dim, int)
+                or input_dim <= 0
+            ):
+                raise ValueError(
+                    f"{entity_name.lower()}_branch_input_dim must be a positive "
+                    "integer vocabulary size for a SEQUENCE branch."
+                )
+            sequence_rows, _ = normalize_sequence_rows(
+                prepared_frame["features"].tolist(),
+                entity_name=entity_name.lower(),
+                vocabulary_size=input_dim,
+                padding_idx=sequence_padding_idx,
+            )
+            prepared_frame = prepared_frame.copy(deep=False)
+            prepared_frame["features"] = sequence_object_array(sequence_rows)
         elif architecture not in {"CONV", "TABULAR"} and any(
             is_sparse_value(value) for value in prepared_frame["features"]
         ):
@@ -800,6 +842,12 @@ class DataLoaderFactory:
                         self.config.target_branch_architecture,
                     )
                 ],
+                instance_sequence_padding_idx=(
+                    self.config.instance_branch_sequence_padding_idx
+                ),
+                target_sequence_padding_idx=(
+                    self.config.target_branch_sequence_padding_idx
+                ),
             ),
         )
 

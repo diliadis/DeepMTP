@@ -12,6 +12,8 @@ from DeepMTP.data.batches import (
     ImageBranchBatch,
     MTPBatch,
     MTPBatchCollator,
+    SequenceBranchBatch,
+    SequenceInput,
     SparseBranchBatch,
     TabularBranchBatch,
     TabularInput,
@@ -19,6 +21,7 @@ from DeepMTP.data.batches import (
 )
 from DeepMTP.data.features import (
     FeatureInfo,
+    FeatureKind,
     cross_input_consistency_check_instances,
     cross_input_consistency_check_targets,
     process_instance_features,
@@ -149,6 +152,7 @@ __all__ = [
     "DatasetValue",
     "DatasetVariant",
     "DenseBranchBatch",
+    "FeatureKind",
     "FeatureInfo",
     "InteractionInfo",
     "IDBranchBatch",
@@ -165,6 +169,8 @@ __all__ = [
     "ProcessedSplit",
     "SamplerMode",
     "ScalingMethod",
+    "SequenceBranchBatch",
+    "SequenceInput",
     "SparseBranchBatch",
     "TabularBranchBatch",
     "TabularInput",

@@ -48,6 +48,9 @@ checkpoints.
 - Sparse high-dimensional branches for SciPy matrices and PyTorch COO/CSR
   tensors, including sparse-preserving splitting and batching, sparse first
   projections, early modality/width validation, and checkpoint restoration.
+- Token-sequence branches with explicit vocabulary and padding configuration,
+  dynamically padded token IDs, attention masks, sequence lengths, packed GRU
+  encoding, early validation, and checkpoint restoration.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and

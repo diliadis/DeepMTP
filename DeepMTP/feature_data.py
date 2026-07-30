@@ -2,6 +2,7 @@
 
 from DeepMTP.data.features import (
     FeatureInfo,
+    FeatureKind,
     cross_input_consistency_check_instances,
     cross_input_consistency_check_targets,
     process_instance_features,
@@ -9,6 +10,7 @@ from DeepMTP.data.features import (
 )
 
 __all__ = [
+    "FeatureKind",
     "FeatureInfo",
     "cross_input_consistency_check_instances",
     "cross_input_consistency_check_targets",

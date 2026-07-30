@@ -100,12 +100,13 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Instance branch architecture**
      -
    * - **instance_branch_architecture**
-     - The instance encoder: **MLP** for dense vectors, **TABULAR** for
-       explicit numeric and categorical columns, **CONV** for images,
-       **EMBEDDING** for zero-based IDs, or **CUSTOM** for a user-supplied branch
+     - The instance encoder: **MLP** for dense vectors, **SPARSE** for sparse
+       vectors, **SEQUENCE** for token IDs, **TABULAR** for explicit numeric
+       and categorical columns, **CONV** for images, **EMBEDDING** for
+       zero-based IDs, or **CUSTOM** for a user-supplied branch
    * - **instance_branch_input_dim**
-     - The input feature dimension, or the number of instance IDs for an
-       **EMBEDDING** branch
+     - The input feature dimension, sequence vocabulary size, or number of
+       instance IDs for an **EMBEDDING** branch
    * - **instance_branch_tabular_schema**
      - Column names, category vocabularies, normalization, missing-value
        policies, and optional feature gating for an instance **TABULAR** branch
@@ -118,12 +119,13 @@ In the code snippet above the function generate_config is shown without any spec
    * - **Target branch architecture**
      -
    * - **target_branch_architecture**
-     - The target encoder: **MLP** for dense vectors, **TABULAR** for explicit
-       numeric and categorical columns, **CONV** for images, **EMBEDDING** for
+     - The target encoder: **MLP** for dense vectors, **SPARSE** for sparse
+       vectors, **SEQUENCE** for token IDs, **TABULAR** for explicit numeric
+       and categorical columns, **CONV** for images, **EMBEDDING** for
        zero-based IDs, or **CUSTOM** for a user-supplied branch
    * - **target_branch_input_dim**
-     - The input feature dimension, or the number of target IDs for an
-       **EMBEDDING** branch
+     - The input feature dimension, sequence vocabulary size, or number of
+       target IDs for an **EMBEDDING** branch
    * - **target_branch_tabular_schema**
      - Column names, category vocabularies, normalization, missing-value
        policies, and optional feature gating for a target **TABULAR** branch
@@ -169,6 +171,12 @@ A **TABULAR** branch consumes a DataFrame with an ``id`` column plus the
 numeric and categorical columns in its explicit schema. Training-only
 normalization and imputation statistics are saved with the model. See
 :doc:`tabular_inputs` for the complete schema and an example.
+
+A **SEQUENCE** branch consumes unpadded integer token rows. ``data_process``
+must receive ``instance_feature_kind="sequence"`` or
+``target_feature_kind="sequence"`` for that axis. Batches carry dynamically
+padded IDs, attention masks, and original lengths. See :doc:`sequence_inputs`
+for vocabulary, padding, GRU, and checkpoint configuration.
 
 For mutually exclusive outcomes, set
 ``classification_mode="multiclass"`` during both ``data_process`` and
