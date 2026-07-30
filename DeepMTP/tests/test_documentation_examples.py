@@ -22,9 +22,11 @@ _HPO_DEMO_NOTEBOOKS = {
     "hyperband_example.ipynb",
     "random_search_example.ipynb",
 }
-_COLAB_CORE_REQUIREMENT = "DeepMTP @ git+https://github.com/diliadis/DeepMTP.git@main"
+_COLAB_CORE_REQUIREMENT = (
+    "DeepMTP[datasets] @ git+https://github.com/diliadis/DeepMTP.git@main"
+)
 _COLAB_HPO_REQUIREMENT = (
-    "DeepMTP[hpo] @ git+https://github.com/diliadis/DeepMTP.git@main"
+    "DeepMTP[datasets,hpo] @ git+https://github.com/diliadis/DeepMTP.git@main"
 )
 _RELEASE_CANDIDATE_WORKLOADS = [
     pytest.param(

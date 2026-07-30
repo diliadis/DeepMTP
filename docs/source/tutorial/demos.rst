@@ -4,9 +4,9 @@ Demo notebooks
 The notebooks use small local datasets and are executed by the test suite.
 Each Colab link opens the version-controlled notebook rather than a separate
 copy. The first code cell detects a fresh Colab runtime and installs the
-matching DeepMTP source from the repository's ``main`` branch. Hyperband and
-random search install the ``hpo`` extra as part of that bootstrap. Local
-execution skips the bootstrap and uses the active environment.
+matching DeepMTP source and its ``datasets`` extra from the repository's
+``main`` branch. Hyperband and random search also install the ``hpo`` extra.
+Local execution skips the bootstrap and uses the active environment.
 
 The live endpoints are checked weekly. Maintainers can run the same check
 manually from the repository root:
