@@ -84,8 +84,9 @@ It is not the maximum sequence length.
        metrics_average=["macro"],
        instance_branch_architecture="SEQUENCE",
        instance_branch_input_dim=vocabulary_size,
-       instance_branch_sequence_encoder="gru",
+       instance_branch_sequence_encoder="conv1d",
        instance_branch_sequence_embedding_dim=64,
+       instance_branch_sequence_conv_kernel_size=3,
        instance_branch_sequence_num_layers=1,
        instance_branch_sequence_padding_idx=0,
        target_branch_architecture="MLP",
@@ -94,12 +95,22 @@ It is not the maximum sequence length.
        embedding_size=32,
    )
 
-The first sequence implementation supports ``"gru"``. The token embedding
-width and GRU layer count are branch-specific. The existing per-branch dropout
-setting applies to the GRU output and between stacked GRU layers.
+Two lightweight sequence encoders are available:
 
-For dot-product fusion, the GRU output width is ``embedding_size`` so both
-branches match. For MLP and Kronecker fusion, configure
+* ``"gru"`` packs valid tokens before applying a recurrent encoder.
+* ``"conv1d"`` applies same-width temporal convolutions, masks padded
+  positions after every layer, and uses masked global max pooling.
+
+``instance_branch_sequence_num_layers`` and
+``target_branch_sequence_num_layers`` control the number of stacked encoder
+layers. Conv1D kernel widths are configured separately for each branch with
+``*_branch_sequence_conv_kernel_size`` and must be positive odd integers so
+the temporal width remains unchanged. The existing per-branch dropout setting
+applies between stacked GRU layers and to the GRU output, or after each Conv1D
+activation.
+
+For dot-product fusion, the sequence output width is ``embedding_size`` so
+both branches match. For MLP and Kronecker fusion, configure
 ``instance_branch_sequence_output_dim`` or
 ``target_branch_sequence_output_dim``; the default is 64.
 
@@ -121,10 +132,11 @@ The collator pads only to the longest row in each batch. For sequences
 mask is left-aligned, each length equals the number of valid positions, valid
 positions do not contain the padding ID, and padded positions do.
 
-The GRU uses packed sequences, so padded positions do not affect encoded
-entity representations. It emits one fixed-width floating-point vector per
-entity and therefore works with the existing dot-product, MLP, and Kronecker
-fusion models.
+The GRU uses packed sequences. Conv1D explicitly resets padded positions after
+each temporal layer and excludes them from global pooling. Consequently,
+dynamic padding does not affect either encoder's entity representation. Both
+emit one fixed-width floating-point vector per entity and work with the
+existing dot-product, MLP, and Kronecker fusion models.
 
 Compatibility and checkpoints
 -----------------------------
@@ -135,8 +147,10 @@ scaling rejects token sequences because token IDs are categorical rather than
 continuous values.
 
 Sequence configuration and encoder weights are stored in the existing
-checkpoint payload. Restore with the same vocabulary size, padding ID,
-embedding width, layer count, and fusion settings.
+checkpoint payload. Restore with the same encoder name, vocabulary size,
+padding ID, embedding width, layer count, and fusion settings. Conv1D
+checkpoints also retain their kernel width. Older GRU checkpoints omit that
+new field and load with its inert default.
 
 Precomputed domain-model embeddings are already fixed-width dense vectors.
 Pass those through an ``MLP`` branch rather than treating them as token
