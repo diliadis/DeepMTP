@@ -186,8 +186,8 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Add a structured batch contract for sequences.
 - [x] Add a structured batch contract for graphs.
 - [x] Separate fusion, output-head, and loss selection into registries.
-- [ ] Store all preprocessing metadata with checkpoints (tabular preprocessing
-  is complete; legacy dense-scaler metadata remains).
+- [x] Store tabular and legacy dense-scaler preprocessing metadata with
+  checkpoints, including split provenance and validated replay helpers.
 
 ### Losses and output heads
 
@@ -228,8 +228,31 @@ reserved index zero unless their policy is configured as `error`.
 - Add automatic mixed precision for supported CUDA devices.
 - Evaluate `torch.compile` as an opt-in optimization with an eager fallback.
 - Add gradient clipping and gradient accumulation.
-- Record device, precision, dependency, seed, and preprocessing metadata with
-  each experiment.
+- [x] Record device, dtype, dependency, seed, source, training-result, and
+  preprocessing metadata with each saved experiment checkpoint.
+
+### Reproducibility and experiment tracking
+
+Status: reproducible checkpoints and W&B integration implemented.
+
+- [x] Add an optional versioned checkpoint manifest without changing the
+  historical three required payload keys.
+- [x] Capture fitted legacy dense scaling, tabular preprocessing references,
+  split provenance, environment versions, Git revision, parameter counts,
+  selected epoch, and final metrics.
+- [x] Replay saved dense transformations and reject incompatible split or
+  feature-width state before training.
+- [x] Organize W&B Runs with names, groups, job types, tags, notes, modes,
+  pinned configuration keys, epoch-aware metrics, summaries, and failure
+  status.
+- [x] Publish versioned W&B model Artifacts with aliases, input Artifact
+  lineage, optional Registry linking, and direct Artifact restoration.
+- [x] Add bounded prediction Tables plus classification confusion, ROC, and
+  precision-recall charts.
+- [ ] Add exact interrupted-training resume only after epoch-local RNG,
+  scheduler, scaler, and dataloader state have a stable contract.
+- [ ] Add a first-class sweep adapter only when it can share configuration
+  validation with the existing HPO APIs.
 
 ## Suggested delivery order
 
@@ -244,7 +267,8 @@ reserved index zero unless their policy is configured as `error`.
    fusion, attention fusion, and modality dropout (complete).
 9. Homogeneous molecular graph encoders (complete), followed by time-series
    encoders and heterogeneous graphs only when driven by concrete datasets.
-10. Performance features after correctness baselines are established.
+10. Reproducible checkpoints and W&B experiment lineage (complete).
+11. Performance features after correctness baselines are established.
 
 Each slice is complete when its invalid configurations fail early, its public
 behavior is documented, focused and end-to-end tests pass offline, type and

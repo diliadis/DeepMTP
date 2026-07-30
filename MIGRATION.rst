@@ -292,7 +292,11 @@ Checkpoints
 The historical checkpoint payload keys (``model_state_dict``,
 ``optimizer_state_dict``, and ``config``) are retained. Loading is explicitly
 mapped through the CPU before the model and optimizer are moved to the selected
-device.
+device. Newly saved trainer checkpoints also include an optional, versioned
+``metadata`` entry with preprocessing, split, training, environment, source,
+and tracking provenance. Older three-key checkpoints remain loadable and a
+direct ``ExperimentStore.save_checkpoint`` call without metadata retains the
+exact historical shape.
 
 Always pass the path by keyword:
 
@@ -319,6 +323,14 @@ Optional integrations and offline runs
 Tracking, Streamlit, image models, HPO, and downloadable datasets are imported
 only when used. Missing integrations now produce a focused installation error
 instead of preventing ``import DeepMTP``.
+
+The W&B integration uses the current Run, Artifact, and Registry APIs and now
+requires ``wandb>=0.27`` through the ``tracking`` extra. Configuration and
+metric logging remain enabled by setting both historical project fields.
+Source upload, prediction Tables, model Artifacts, input lineage, and Registry
+linking are separate opt-ins, so existing configurations do not begin
+uploading new content. Use ``wandb_mode="offline"`` for local capture;
+resolving input Artifacts and linking a Registry version require online mode.
 
 New Streamlit adapter imports use the optional integration namespace:
 

@@ -501,6 +501,7 @@ def test_minimum_constraints_cover_direct_test_dependencies():
         "tomli": "2.0.1",
         "torch": "2.0.1",
         "torch-geometric": "2.5.0",
+        "wandb": "0.27.2",
     }
 
 

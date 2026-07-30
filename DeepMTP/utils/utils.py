@@ -198,9 +198,28 @@ def generate_config(
     use_tensorboard_logger: bool = False,
     wandb_project_name: str | None = None,
     wandb_project_entity: str | None = None,
+    wandb_mode: str | None = None,
+    wandb_run_name: str | None = None,
+    wandb_group: str | None = None,
+    wandb_job_type: str = "train",
+    wandb_tags: Sequence[str] | None = None,
+    wandb_notes: str | None = None,
+    wandb_watch: str | None = "gradients",
+    wandb_watch_log_freq: int = 1000,
+    wandb_log_graph: bool = False,
+    wandb_log_code: bool = False,
+    wandb_log_model_artifact: bool = False,
+    wandb_model_artifact_name: str | None = None,
+    wandb_model_artifact_aliases: Sequence[str] | None = None,
+    wandb_input_artifacts: Sequence[str] | None = None,
+    wandb_registry_name: str | None = None,
+    wandb_registry_collection: str | None = None,
+    wandb_log_predictions: bool = False,
+    wandb_prediction_table_max_rows: int = 1000,
     results_path: str = "./results/",
     experiment_name: str | None = None,
     save_model: bool = True,
+    data_preparation_state: Mapping[str, Any] | None = None,
     metric_to_optimize_early_stopping: str = "loss",
     metric_to_optimize_best_epoch_selection: str = "loss",
     instance_branch_architecture: str | None = None,
@@ -270,9 +289,43 @@ def generate_config(
         use_tensorboard_logger (bool, optional): Whether or not to log results in Tensorboard. Defaults to False.
         wandb_project_name (str, optional): The name of the wandb project that the results of an experiment will be logged. Defaults to None.
         wandb_project_entity (str, optional): The user name of the wandb account. Defaults to None.
+        wandb_mode (str, optional): W&B mode: ``online``, ``offline``,
+            ``disabled``, or None to use the SDK/environment default.
+        wandb_run_name (str, optional): W&B display name for the run.
+        wandb_group (str, optional): W&B run group used to compare related runs.
+        wandb_job_type (str, optional): W&B job type. Defaults to ``train``.
+        wandb_tags (sequence, optional): Searchable W&B run tags.
+        wandb_notes (str, optional): Free-form W&B run notes.
+        wandb_watch (str, optional): Model monitoring level: ``gradients``,
+            ``parameters``, ``all``, or None. Defaults to ``gradients``.
+        wandb_watch_log_freq (int, optional): Positive model-monitoring
+            interval. Defaults to 1000.
+        wandb_log_graph (bool, optional): Include the model graph when
+            monitoring. Defaults to False.
+        wandb_log_code (bool, optional): Upload project source files through
+            ``Run.log_code``. Defaults to False.
+        wandb_log_model_artifact (bool, optional): Publish every saved DeepMTP
+            checkpoint, config, and summary as a versioned model Artifact.
+        wandb_model_artifact_name (str, optional): Explicit W&B model Artifact
+            name. Defaults to a normalized experiment-directory name.
+        wandb_model_artifact_aliases (sequence, optional): Artifact aliases.
+            Defaults to ``["latest", "best"]``.
+        wandb_input_artifacts (sequence, optional): Online W&B Artifact
+            references to mark as run inputs and capture data lineage.
+        wandb_registry_name (str, optional): Existing W&B Registry name for
+            linking a saved model Artifact. Requires online mode.
+        wandb_registry_collection (str, optional): Registry collection paired
+            with ``wandb_registry_name``.
+        wandb_log_predictions (bool, optional): Log a bounded test-prediction
+            Table and classification charts. Defaults to False.
+        wandb_prediction_table_max_rows (int, optional): Maximum rows sampled
+            into the W&B prediction Table. Defaults to 1000.
         results_path (str, optional): The path the all relevant information will be saved to. Defaults to './results/'.
         experiment_name (str, optional): The name of the current experiment. This name will be used to local save and the wandb save. Defaults to None.
         save_model (bool, optional): Whether or not to save the model of the epoch with the best validation performance. Defaults to True.
+        data_preparation_state (mapping, optional): Previously captured split
+            provenance and fitted dense-scaler state. Normally populated
+            automatically from the outputs of ``data_process``.
         metric_to_optimize_early_stopping (str, optional): The metric that will be used for tracking by the early stopping routine. The value can be the loss or one of the available performance metrics.. Defaults to 'loss'.
         metric_to_optimize_best_epoch_selection (str, optional): The validation metric that will be used to determine the best configuration. The value can be the loss or one of the available performance metrics.. Defaults to 'loss'.
         instance_branch_architecture (str, optional): The type of architecture used in the instance branch: MLP for dense side features, SPARSE for high-dimensional SciPy or PyTorch sparse features, GRAPH for PyTorch Geometric graphs, SEQUENCE for token IDs, TABULAR for explicit numeric and categorical columns, COMPOSITE for multiple named encoders, CONV for images, EMBEDDING for zero-based entity IDs, or CUSTOM for a user-supplied branch. Defaults to None.
@@ -338,6 +391,15 @@ def generate_config(
         [10, 10, 10] if comb_mlp_nodes_per_layer is None else comb_mlp_nodes_per_layer
     )
     additional_info = {} if additional_info is None else dict(additional_info)
+    wandb_tags = [] if wandb_tags is None else list(wandb_tags)
+    wandb_model_artifact_aliases = (
+        ["latest", "best"]
+        if wandb_model_artifact_aliases is None
+        else list(wandb_model_artifact_aliases)
+    )
+    wandb_input_artifacts = (
+        [] if wandb_input_artifacts is None else list(wandb_input_artifacts)
+    )
     instance_branch_params = (
         {} if instance_branch_params is None else dict(instance_branch_params)
     )
@@ -387,9 +449,30 @@ def generate_config(
         "use_tensorboard_logger": use_tensorboard_logger,
         "wandb_project_name": wandb_project_name,
         "wandb_project_entity": wandb_project_entity,
+        "wandb_mode": wandb_mode,
+        "wandb_run_name": wandb_run_name,
+        "wandb_group": wandb_group,
+        "wandb_job_type": wandb_job_type,
+        "wandb_tags": wandb_tags,
+        "wandb_notes": wandb_notes,
+        "wandb_watch": wandb_watch,
+        "wandb_watch_log_freq": wandb_watch_log_freq,
+        "wandb_log_graph": wandb_log_graph,
+        "wandb_log_code": wandb_log_code,
+        "wandb_log_model_artifact": wandb_log_model_artifact,
+        "wandb_model_artifact_name": wandb_model_artifact_name,
+        "wandb_model_artifact_aliases": wandb_model_artifact_aliases,
+        "wandb_input_artifacts": wandb_input_artifacts,
+        "wandb_registry_name": wandb_registry_name,
+        "wandb_registry_collection": wandb_registry_collection,
+        "wandb_log_predictions": wandb_log_predictions,
+        "wandb_prediction_table_max_rows": wandb_prediction_table_max_rows,
         "results_path": results_path,
         "experiment_name": experiment_name,
         "save_model": save_model,
+        "data_preparation_state": (
+            None if data_preparation_state is None else dict(data_preparation_state)
+        ),
         "instance_branch_input_dim": instance_branch_input_dim,
         "target_branch_input_dim": target_branch_input_dim,
         "eval_every_n_epochs": eval_every_n_epochs,

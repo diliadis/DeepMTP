@@ -16,16 +16,20 @@ import DeepMTP.runtime as runtime_api
 import DeepMTP.runtime.components as components_module
 import DeepMTP.runtime.evaluation as evaluation_module
 import DeepMTP.runtime.evaluation_progress as evaluation_progress_module
+import DeepMTP.runtime.metadata as metadata_module
 import DeepMTP.runtime.persistence as persistence_module
 import DeepMTP.runtime.presentation as presentation_module
 import DeepMTP.runtime.reporting as reporting_module
 import DeepMTP.runtime.training as training_module
+import DeepMTP.runtime.wandb as wandb_module
 import DeepMTP.training as legacy_training
 
 
 def test_runtime_package_exposes_canonical_services():
     expected_symbols = {
         "CHECKPOINT_KEYS": persistence_module.CHECKPOINT_KEYS,
+        "CHECKPOINT_FORMAT_VERSION": metadata_module.CHECKPOINT_FORMAT_VERSION,
+        "CHECKPOINT_METADATA_KEY": persistence_module.CHECKPOINT_METADATA_KEY,
         "CompositeReporter": reporting_module.CompositeReporter,
         "ConsoleEvaluationProgressObserver": (
             evaluation_progress_module.ConsoleEvaluationProgressObserver
@@ -77,6 +81,8 @@ def test_runtime_package_exposes_canonical_services():
         "ProgressEventKind": presentation_module.ProgressEventKind,
         "ProgressObserver": presentation_module.ProgressObserver,
         "ReporterConfigInput": reporting_module.ReporterConfigInput,
+        "ReporterModelArtifact": reporting_module.ReporterModelArtifact,
+        "ReporterPredictionTable": reporting_module.ReporterPredictionTable,
         "RunHistory": presentation_module.RunHistory,
         "RunSummaries": presentation_module.RunSummaries,
         "SUPPORTED_LOSSES_BY_PROBLEM_MODE": (
@@ -90,6 +96,8 @@ def test_runtime_package_exposes_canonical_services():
         "TaskComponents": components_module.TaskComponents,
         "TrainingEngine": training_module.TrainingEngine,
         "WandBReporter": reporting_module.WandBReporter,
+        "WandBCheckpoint": wandb_module.WandBCheckpoint,
+        "build_checkpoint_metadata": metadata_module.build_checkpoint_metadata,
         "build_default_loss": components_module.build_default_loss,
         "build_default_loss_input_transform": (
             components_module.build_default_loss_input_transform
@@ -107,6 +115,14 @@ def test_runtime_package_exposes_canonical_services():
         "build_loss_input_transform": (components_module.build_loss_input_transform),
         "build_output_head": components_module.build_output_head,
         "build_task_components": components_module.build_task_components,
+        "download_wandb_checkpoint": wandb_module.download_wandb_checkpoint,
+        "log_reporter_model_artifact": (reporting_module.log_reporter_model_artifact),
+        "log_reporter_predictions": reporting_module.log_reporter_predictions,
+        "log_reporter_summary": reporting_module.log_reporter_summary,
+        "mark_reporter_failed": reporting_module.mark_reporter_failed,
+        "reporter_runtime_metadata": reporting_module.reporter_runtime_metadata,
+        "update_reporter_config": reporting_module.update_reporter_config,
+        "validate_checkpoint_metadata": metadata_module.validate_checkpoint_metadata,
     }
 
     assert set(runtime_api.__all__) == set(expected_symbols)
@@ -133,9 +149,12 @@ def test_top_level_runtime_api_uses_canonical_implementations():
         "ProgressObserver",
         "RunHistory",
         "RunSummaries",
+        "ReporterModelArtifact",
+        "ReporterPredictionTable",
         "TensorBoardReporter",
         "TrainingEngine",
         "WandBReporter",
+        "WandBCheckpoint",
     ):
         assert getattr(deepmtp_api, name) is getattr(runtime_api, name)
 

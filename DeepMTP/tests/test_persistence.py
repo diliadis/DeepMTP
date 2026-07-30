@@ -4,6 +4,10 @@ import pickle
 import pytest
 import torch
 
+from DeepMTP.runtime.metadata import (
+    CHECKPOINT_FORMAT_VERSION,
+    build_checkpoint_metadata,
+)
 from DeepMTP.runtime.persistence import ExperimentStore
 
 
@@ -76,3 +80,73 @@ def test_checkpoint_load_validates_path_and_payload(tmp_path):
 
     with pytest.raises(ValueError, match="missing required keys"):
         ExperimentStore.load_checkpoint(invalid_path)
+
+
+def test_versioned_checkpoint_metadata_round_trips(tmp_path):
+    store = ExperimentStore.create(tmp_path, "run")
+    metadata = build_checkpoint_metadata(
+        {
+            "compute_mode": "cpu",
+            "random_seed": 17,
+            "validation_setting": "B",
+            "data_preparation_state": None,
+        },
+        effective_device="cpu",
+        training={"best_epoch": 3},
+        tracking={"wandb": {"run_id": "abc"}},
+    )
+
+    checkpoint_path = store.save_checkpoint(
+        model_state_dict={},
+        optimizer_state_dict={},
+        config={"compute_mode": "cpu"},
+        metadata=metadata,
+    )
+    checkpoint = ExperimentStore.load_checkpoint(checkpoint_path)
+
+    assert checkpoint["metadata"]["format_version"] == CHECKPOINT_FORMAT_VERSION
+    assert checkpoint["metadata"]["training"]["model_seed"] == 17
+    assert checkpoint["metadata"]["training"]["best_epoch"] == 3
+    assert checkpoint["metadata"]["tracking"]["wandb"]["run_id"] == "abc"
+    assert checkpoint["metadata"]["environment"]["effective_device"] == "cpu"
+    assert (
+        checkpoint["metadata"]["environment"]["torch_runtime"]["accelerator_name"]
+        is None
+    )
+
+
+def test_checkpoint_metadata_rejects_unknown_versions(tmp_path):
+    store = ExperimentStore.create(tmp_path, "run")
+
+    with pytest.raises(ValueError, match="format version"):
+        store.save_checkpoint(
+            model_state_dict={},
+            optimizer_state_dict={},
+            config={},
+            metadata={
+                "format_version": 999,
+                "preprocessing": {},
+                "training": {},
+                "environment": {},
+                "tracking": {},
+            },
+        )
+
+    checkpoint_path = tmp_path / "future.pt"
+    torch.save(
+        {
+            "model_state_dict": {},
+            "optimizer_state_dict": {},
+            "config": {},
+            "metadata": {
+                "format_version": 999,
+                "preprocessing": {},
+                "training": {},
+                "environment": {},
+                "tracking": {},
+            },
+        },
+        checkpoint_path,
+    )
+    with pytest.raises(ValueError, match="format version"):
+        ExperimentStore.load_checkpoint(checkpoint_path)

@@ -84,6 +84,19 @@ checkpoints.
   IDs, architecture-wide multi-logit output layers, cross-entropy training,
   softmax predictions, class-averaged metrics, and per-class prediction
   probabilities.
+- Versioned reproducibility manifests for saved checkpoints, including
+  training-only dense-scaler parameters, split provenance, selected metrics,
+  parameter counts, device/dtype and dependency information, Git revision, and
+  experiment-tracking identifiers.
+- Dense preprocessing state APIs for validation, checkpoint round trips,
+  transformation replay, and consistency checks across processed splits.
+- Modern W&B Run configuration with names, groups, job types, tags, notes,
+  online/offline/disabled modes, epoch-aware metric definitions, model
+  monitoring, pinned configuration, run summaries, source logging, and failure
+  status.
+- Opt-in W&B model Artifacts with aliases, input Artifact lineage, Registry
+  linking through `Run.link_artifact`, direct Artifact checkpoint restoration,
+  and bounded prediction Tables with classification charts.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
 
@@ -120,8 +133,11 @@ checkpoints.
   unless they explicitly request the prediction frame.
 - A trainer instance supports one training run. Create a new `DeepMTP` object
   for each additional run.
-- Checkpoints load through the CPU, use atomic persistence, and retain their
-  historical payload keys.
+- Checkpoints load through the CPU, use atomic persistence, retain their
+  historical three required payload keys, and add reproducibility metadata only
+  as an optional versioned entry.
+- The tracking extra now requires a current W&B 0.27 series or newer SDK for
+  the Run, Artifact, and Registry APIs.
 - Convolutional branches use Torchvision's explicit weights API and can disable
   pretrained weights for offline construction.
 - Streamlit training and HPO adapters reuse the same core implementations as

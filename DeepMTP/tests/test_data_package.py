@@ -14,6 +14,7 @@ import DeepMTP.data.features as features_module
 import DeepMTP.data.interactions as interactions_module
 import DeepMTP.data.loading as loading_module
 import DeepMTP.data.preparation as preparation_module
+import DeepMTP.data.preprocessing as preprocessing_module
 import DeepMTP.data.progress as progress_module
 import DeepMTP.data.splitting as splitting_module
 import DeepMTP.data.tabular as tabular_module
@@ -39,6 +40,8 @@ def test_data_package_exposes_canonical_services():
         "CompositeInput": batches_module.CompositeInput,
         "CustomBranchBatch": batches_module.CustomBranchBatch,
         "DataInfo": preparation_module.DataInfo,
+        "DATA_PREPARATION_STATE_KEY": (preprocessing_module.DATA_PREPARATION_STATE_KEY),
+        "DataPreparationState": preprocessing_module.DataPreparationState,
         "DataLoaderFactory": loading_module.DataLoaderFactory,
         "DataPrintMode": progress_module.DataPrintMode,
         "DataProgressEvent": progress_module.DataProgressEvent,
@@ -52,6 +55,9 @@ def test_data_package_exposes_canonical_services():
         "DatasetValue": datasets_module.DatasetValue,
         "DatasetVariant": datasets_module.DatasetVariant,
         "DenseBranchBatch": batches_module.DenseBranchBatch,
+        "DensePreprocessingState": preprocessing_module.DensePreprocessingState,
+        "DenseScalingMethod": preprocessing_module.DenseScalingMethod,
+        "DenseScalingState": preprocessing_module.DenseScalingState,
         "FeatureKind": features_module.FeatureKind,
         "FeatureComponentInfo": features_module.FeatureComponentInfo,
         "FeatureInfo": features_module.FeatureInfo,
@@ -125,6 +131,7 @@ def test_data_package_exposes_canonical_services():
         "process_interaction_data": interactions_module.process_interaction_data,
         "process_target_features": features_module.process_target_features,
         "split_data": splitting_module.split_data,
+        "transform_dense_features": preprocessing_module.transform_dense_features,
         "validate_split_ratio": preparation_module.validate_split_ratio,
     }
 
@@ -137,11 +144,15 @@ def test_top_level_data_api_uses_canonical_implementations():
     for name in (
         "ConsoleDataProgressObserver",
         "DataLoaderFactory",
+        "DataPreparationState",
         "DataProgressEvent",
         "DataProgressObserver",
         "NullDataProgressObserver",
         "TrainingDataLoaders",
+        "DensePreprocessingState",
+        "DenseScalingState",
         "data_process",
+        "transform_dense_features",
     ):
         assert getattr(deepmtp_api, name) is getattr(data_api, name)
 

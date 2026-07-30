@@ -22,6 +22,8 @@ Documentation
 	tutorial/migration
 	tutorial/loading_datasets
 	tutorial/configuration
+	tutorial/reproducible_checkpoints
+	tutorial/wandb_tracking
 	tutorial/multiclass_classification
 	tutorial/tabular_inputs
 	tutorial/sparse_inputs

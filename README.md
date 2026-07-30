@@ -860,11 +860,30 @@ The table below summarizes the commonly configured public options.
 | **Printing - Saving - Logging** ||
 | `verbose` | Whether to print training progress in the terminal |
 | `use_tensorboard_logger` | Whether to write TensorBoard event files |
-| `wandb_project_name` | Defines the name of the wandb project that the results of an experiment will be logged |
-| `wandb_project_entity` | Defines the user name of the wandb account |
+| `wandb_project_name` | W&B project name; set together with `wandb_project_entity` to enable W&B |
+| `wandb_project_entity` | W&B team or account entity |
+| `wandb_mode` | `online`, `offline`, `disabled`, or `None` to use the SDK/environment default |
+| `wandb_run_name` | Optional W&B display name |
+| `wandb_group` | Optional group for related runs |
+| `wandb_job_type` | W&B job type; defaults to `train` |
+| `wandb_tags` | Searchable W&B run tags |
+| `wandb_notes` | Free-form W&B run notes |
+| `wandb_watch` | Model monitoring: `gradients` (default), `parameters`, `all`, or `None` |
+| `wandb_watch_log_freq` | Positive model-monitoring interval |
+| `wandb_log_graph` | Include the model graph in W&B monitoring; opt-in |
+| `wandb_log_code` | Upload project source with `Run.log_code`; opt-in |
+| `wandb_log_model_artifact` | Publish saved checkpoint, config, and summary files as a versioned W&B model Artifact |
+| `wandb_model_artifact_name` | Optional explicit model Artifact name |
+| `wandb_model_artifact_aliases` | Model Artifact aliases; defaults to `["latest", "best"]` |
+| `wandb_input_artifacts` | Online Artifact references to mark as run inputs for lineage |
+| `wandb_registry_name` | Existing online W&B Registry to link the model version into |
+| `wandb_registry_collection` | Registry collection paired with `wandb_registry_name` |
+| `wandb_log_predictions` | Log a bounded test-prediction Table and classification charts; opt-in |
+| `wandb_prediction_table_max_rows` | Maximum sampled rows in the prediction Table; defaults to 1000 |
 | `results_path` | Parent directory for experiment artifacts |
 | `experiment_name` | Experiment subdirectory and reporting name |
 | `save_model` | Whether or not to save the model of the epoch with the best validation performance |
+| `data_preparation_state` | Split provenance and fitted dense-scaler state; normally captured automatically from `data_process` outputs |
 | **General architecture** ||
 | `general_architecture_version` | Fusion strategy: `mlp`, `dot_product`, or `kronecker`; defaults to `dot_product` |
 | `batch_norm` | Whether to use batch normalization between fully connected layers |
@@ -1027,7 +1046,56 @@ tensorboard --logdir results
 
 Set both `wandb_project_entity` and `wandb_project_name` to send configuration
 and metrics to a Weights & Biases project. Leaving both values as `None`
-disables the integration.
+disables the integration. DeepMTP defines `epoch` as the metric step, records
+best/test values in the run summary, reports parameter counts and failure
+status, and supports W&B's online, offline, and disabled modes.
+
+```python
+config = generate_config(
+    # model and training options...
+    wandb_project_entity="my-team",
+    wandb_project_name="deepmtp",
+    wandb_run_name="fingerprint-baseline",
+    wandb_group="ablations",
+    wandb_job_type="train",
+    wandb_tags=["sparse", "baseline"],
+    wandb_mode="online",
+    wandb_watch="gradients",
+    wandb_log_model_artifact=True,
+    wandb_model_artifact_aliases=["latest", "best"],
+    wandb_log_predictions=True,
+    wandb_prediction_table_max_rows=1000,
+)
+```
+
+Remote uploads with larger privacy or storage implications are opt-in:
+`wandb_log_code`, `wandb_log_model_artifact`, and
+`wandb_log_predictions` all default to `False`. Model Artifacts contain
+`model.pt` plus the saved configuration and summary. Input Artifact references
+can be declared through `wandb_input_artifacts` to capture lineage. In online
+mode, a model version can also be linked to an existing Registry collection:
+
+```python
+config["wandb_registry_name"] = "Models"
+config["wandb_registry_collection"] = "DeepMTP"
+```
+
+Restore a model from a W&B Artifact without manually downloading its files:
+
+```python
+model = DeepMTP.from_wandb_artifact(
+    "my-team/deepmtp/deepmtp-model:best",
+    {
+        "results_path": "./results",
+        "experiment_name": "restored",
+    },
+)
+```
+
+See the [W&B integration guide](docs/source/tutorial/wandb_tracking.rst) and
+[reproducible checkpoint guide](docs/source/tutorial/reproducible_checkpoints.rst)
+for lineage, Registry, offline-mode, preprocessing-replay, and compatibility
+details.
 
 <p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/wandb_screenshot.png" alt="logo" height="400"/></p>
 
