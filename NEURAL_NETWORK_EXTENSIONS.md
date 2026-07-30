@@ -127,13 +127,15 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Benchmark memory use and throughput against the dense MLP path with
   `scripts/benchmark_sparse_inputs.py`.
 
-### 4. Sequence and pretrained-embedding inputs
+### 4. Sequence and pretrained-embedding inputs (in progress)
 
-- Add padded or ragged token-sequence batches with attention masks.
-- Provide lightweight recurrent/1-D convolutional encoders and an optional
-  Transformer encoder.
-- Accept precomputed embeddings from domain models as ordinary dense features.
-- Add optional adapters for protein, chemical, and text foundation models
+- [x] Add padded token-sequence batches with attention masks and original
+  lengths, including dynamic collation of variable-length rows.
+- [x] Provide a lightweight packed-GRU encoder.
+- [ ] Add a 1-D convolutional encoder and an optional Transformer encoder.
+- [x] Accept precomputed embeddings from domain models as ordinary dense
+  features.
+- [ ] Add optional adapters for protein, chemical, and text foundation models
   without making them core dependencies.
 
 ### 5. Graph inputs
@@ -171,8 +173,9 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Validate encoder output rank, batch size, width, and dtype before fusion.
 - [x] Remove module-layout inspection from fusion construction.
 - [x] Add structured numeric/categorical batches for tabular encoders.
-- [ ] Add structured batch contracts for sequences and graphs when those
-  encoders are introduced.
+- [x] Add a structured batch contract for sequences.
+- [ ] Add a structured batch contract for graphs when graph encoders are
+  introduced.
 - [x] Separate fusion, output-head, and loss selection into registries.
 - [ ] Store all preprocessing metadata with checkpoints (tabular preprocessing
   is complete; legacy dense-scaler metadata remains).
@@ -225,7 +228,7 @@ reserved index zero unless their policy is configured as `error`.
 4. Formalize fusion, loss, and output-head registries.
 5. Numerically stable logits/loss handling and richer output heads.
 6. Sparse inputs.
-7. Sequence encoders.
+7. Sequence encoders (GRU complete; 1-D convolution and Transformer pending).
 8. Hybrid and missing-modality support.
 9. Graph and time-series encoders, driven by concrete datasets.
 10. Performance features after correctness baselines are established.

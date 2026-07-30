@@ -192,6 +192,7 @@ def test_readme_quickstart_runs_offline(monkeypatch, tmp_path):
     [
         ("id-embedding-example", "EMBEDDING", "EMBEDDING"),
         ("tabular-config-example", "TABULAR", "EMBEDDING"),
+        ("sequence-config-example", "SEQUENCE", "MLP"),
     ],
 )
 def test_readme_branch_configuration_examples_are_valid(
