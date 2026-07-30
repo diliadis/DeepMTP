@@ -10,6 +10,7 @@ from DeepMTP import (
     DeepMTP,
     DeepMTPConfig,
     ModelFactory,
+    SequenceConv1DEncoder,
     SequenceGRUEncoder,
 )
 from DeepMTP.config import ConfigValidationError
@@ -39,6 +40,7 @@ def make_config(**overrides):
         "instance_branch_input_dim": 20,
         "instance_branch_sequence_embedding_dim": 6,
         "instance_branch_sequence_output_dim": 7,
+        "instance_branch_sequence_conv_kernel_size": 3,
         "instance_branch_sequence_num_layers": 1,
         "instance_branch_sequence_padding_idx": 0,
         "target_branch_architecture": "MLP",
@@ -147,23 +149,56 @@ def test_data_process_marks_sequences_and_rejects_numeric_scaling():
         )
 
 
-def test_sequence_config_normalizes_and_validates_gru_options():
+def test_sequence_config_normalizes_and_validates_encoder_options():
     config = make_config(instance_branch_sequence_encoder="GRU")
+    conv_config = make_config(
+        instance_branch_sequence_encoder="CONV1D",
+        instance_branch_sequence_conv_kernel_size=5,
+    )
 
     assert config.instance_branch_architecture == "SEQUENCE"
     assert config.instance_branch_sequence_encoder == "gru"
+    assert conv_config.instance_branch_sequence_encoder == "conv1d"
+    assert conv_config.instance_branch_sequence_conv_kernel_size == 5
 
     invalid_values = [
-        ({"instance_branch_sequence_encoder": "transformer"}, "currently be 'gru'"),
+        (
+            {"instance_branch_sequence_encoder": "transformer"},
+            "must be 'conv1d' or 'gru'",
+        ),
         ({"instance_branch_sequence_embedding_dim": 0}, "embedding_dim"),
         ({"instance_branch_sequence_output_dim": 0}, "output_dim"),
         ({"instance_branch_sequence_num_layers": 0}, "num_layers"),
         ({"instance_branch_sequence_padding_idx": -1}, "padding_idx"),
         ({"instance_branch_sequence_padding_idx": 20}, "smaller"),
+        (
+            {
+                "instance_branch_sequence_encoder": "conv1d",
+                "instance_branch_sequence_conv_kernel_size": 0,
+            },
+            "conv_kernel_size",
+        ),
+        (
+            {
+                "instance_branch_sequence_encoder": "conv1d",
+                "instance_branch_sequence_conv_kernel_size": 2,
+            },
+            "must be odd",
+        ),
     ]
     for overrides, message in invalid_values:
         with pytest.raises(ConfigValidationError, match=message):
             make_config(**overrides)
+
+
+def test_legacy_gru_config_defaults_the_new_conv_kernel_setting():
+    legacy_config = make_config().to_dict(include_defaults=True)
+    legacy_config.pop("instance_branch_sequence_conv_kernel_size")
+
+    restored = DeepMTPConfig.from_mapping(legacy_config)
+
+    assert restored.instance_branch_sequence_encoder == "gru"
+    assert restored.instance_branch_sequence_conv_kernel_size == 3
 
 
 def test_sequence_collator_builds_dynamic_tokens_masks_and_lengths():
@@ -276,11 +311,59 @@ def test_sequence_gru_ignores_dynamic_padding_and_backpropagates():
     assert model.gru.weight_ih_l0.grad is not None
 
 
+def test_sequence_conv1d_ignores_dynamic_padding_and_backpropagates():
+    model = SequenceConv1DEncoder(
+        vocabulary_size=20,
+        embedding_dim=5,
+        output_dim=4,
+        num_layers=2,
+        kernel_size=3,
+        padding_idx=0,
+        dropout_rate=0.0,
+    )
+    model.eval()
+    short_batch = next(
+        iter(
+            DataLoaderFactory(make_config(), "cpu").for_prediction(
+                make_prediction_data([[1, 2], [3], [4], [5]])
+            )
+        )
+    ).instance_features
+    wide_batch = next(
+        iter(
+            DataLoaderFactory(make_config(), "cpu").for_prediction(
+                make_prediction_data([[1, 2], [3, 4, 5, 6], [7], [8]])
+            )
+        )
+    ).instance_features
+
+    short_output = model(short_batch)
+    wide_output = model(wide_batch)
+    wide_output.sum().backward()
+
+    assert short_output.shape == (2, 4)
+    assert torch.allclose(short_output[0], wide_output[0])
+    assert model.embedding.weight.grad is not None
+    assert model.convolutions[0].weight.grad is not None
+
+
 @pytest.mark.parametrize("architecture", ["dot_product", "mlp", "kronecker"])
-def test_model_factory_combines_sequence_and_dense_branches(architecture):
+@pytest.mark.parametrize(
+    ("encoder_name", "encoder_type"),
+    [
+        ("gru", SequenceGRUEncoder),
+        ("conv1d", SequenceConv1DEncoder),
+    ],
+)
+def test_model_factory_combines_sequence_and_dense_branches(
+    architecture,
+    encoder_name,
+    encoder_type,
+):
     config = make_config(
         general_architecture_version=architecture,
         comb_mlp_nodes_per_layer=[5],
+        instance_branch_sequence_encoder=encoder_name,
     )
     bundle = ModelFactory(config).build()
     batch = next(
@@ -293,7 +376,7 @@ def test_model_factory_combines_sequence_and_dense_branches(architecture):
 
     output = bundle.model(batch.instance_features, batch.target_features)
 
-    assert isinstance(bundle.instance_branch, SequenceGRUEncoder)
+    assert isinstance(bundle.instance_branch, encoder_type)
     assert bundle.model.instance_input_kind == "sequence"
     assert bundle.instance_branch.output_dim == (
         4 if architecture == "dot_product" else 7
@@ -301,7 +384,14 @@ def test_model_factory_combines_sequence_and_dense_branches(architecture):
     assert output.shape == (2, 1)
 
 
-def test_target_branch_accepts_sequence_features():
+@pytest.mark.parametrize(
+    ("encoder_name", "encoder_type"),
+    [
+        ("gru", SequenceGRUEncoder),
+        ("conv1d", SequenceConv1DEncoder),
+    ],
+)
+def test_target_branch_accepts_sequence_features(encoder_name, encoder_type):
     config = make_config(
         validation_setting="C",
         instance_branch_architecture="MLP",
@@ -311,6 +401,7 @@ def test_target_branch_accepts_sequence_features():
         target_branch_input_dim=20,
         target_branch_sequence_embedding_dim=6,
         target_branch_sequence_output_dim=7,
+        target_branch_sequence_encoder=encoder_name,
         target_branch_sequence_padding_idx=0,
     )
     data = {
@@ -331,16 +422,14 @@ def test_target_branch_accepts_sequence_features():
     }
 
     batch = next(iter(DataLoaderFactory(config, "cpu").for_prediction(data)))
-    output = (
-        ModelFactory(config)
-        .build()
-        .model(
-            batch.instance_features,
-            batch.target_features,
-        )
+    bundle = ModelFactory(config).build()
+    output = bundle.model(
+        batch.instance_features,
+        batch.target_features,
     )
 
     assert isinstance(batch.target_input, SequenceBranchBatch)
+    assert isinstance(bundle.target_branch, encoder_type)
     assert output.shape == (2, 1)
 
 
@@ -360,7 +449,18 @@ def test_sequence_loader_rejects_padding_and_out_of_vocabulary_tokens():
 @pytest.mark.filterwarnings(
     "ignore::DeepMTP.config.ConfigNormalizationWarning",
 )
-def test_tiny_cpu_sequence_training_prediction_and_checkpoint(tmp_path):
+@pytest.mark.parametrize(
+    ("encoder_name", "encoder_type"),
+    [
+        ("gru", SequenceGRUEncoder),
+        ("conv1d", SequenceConv1DEncoder),
+    ],
+)
+def test_tiny_cpu_sequence_training_prediction_and_checkpoint(
+    tmp_path,
+    encoder_name,
+    encoder_type,
+):
     sequences = [
         [index % 7 + 1, (index + 2) % 7 + 1][: index % 2 + 1] for index in range(16)
     ]
@@ -393,12 +493,14 @@ def test_tiny_cpu_sequence_training_prediction_and_checkpoint(tmp_path):
         use_early_stopping=False,
         save_model=False,
         results_path=str(tmp_path),
-        experiment_name="sequence",
+        experiment_name=f"sequence_{encoder_name}",
         instance_branch_architecture="SEQUENCE",
         instance_branch_input_dim=data_info["instance_branch_input_dim"],
         instance_branch_params={
+            "instance_branch_sequence_encoder": encoder_name,
             "instance_branch_sequence_embedding_dim": 5,
             "instance_branch_sequence_output_dim": 4,
+            "instance_branch_sequence_conv_kernel_size": 3,
             "instance_branch_sequence_num_layers": 1,
             "instance_branch_sequence_padding_idx": 0,
         },
@@ -416,16 +518,17 @@ def test_tiny_cpu_sequence_training_prediction_and_checkpoint(tmp_path):
     validation_results = model.train(train, validation, test)
     _, predictions = model.predict(test, return_predictions=True)
 
-    assert isinstance(model.instance_branch_model, SequenceGRUEncoder)
+    assert isinstance(model.instance_branch_model, encoder_type)
     assert "val_loss" in validation_results
     assert len(predictions) == len(test["y"]["data"])
 
     model.save_model()
     checkpoint_path = Path(model.experiment_dir) / "model.pt"
     checkpoint = ExperimentStore.load_checkpoint(checkpoint_path)
-    assert checkpoint["config"]["instance_branch_sequence_encoder"] == "gru"
+    assert checkpoint["config"]["instance_branch_sequence_encoder"] == encoder_name
+    assert checkpoint["config"]["instance_branch_sequence_conv_kernel_size"] == 3
     restored_config = dict(config)
-    restored_config["experiment_name"] = "sequence_restored"
+    restored_config["experiment_name"] = f"sequence_{encoder_name}_restored"
     restored_model = DeepMTP(restored_config, checkpoint_dir=checkpoint_path)
     _, restored_predictions = restored_model.predict(
         test,
@@ -436,3 +539,4 @@ def test_tiny_cpu_sequence_training_prediction_and_checkpoint(tmp_path):
         predictions["predicted_values"],
         restored_predictions["predicted_values"],
     )
+    assert isinstance(restored_model.instance_branch_model, encoder_type)

@@ -19,6 +19,7 @@ from DeepMTP.models.branches import (
     MLP,
     ConvNet,
     IDEmbedding,
+    SequenceConv1DEncoder,
     SequenceGRUEncoder,
     SparseMLP,
     TabularEncoder,
@@ -452,25 +453,43 @@ class ModelFactory:
                 raise RuntimeError(
                     f"Validated {branch} sequence configuration has no vocabulary size."
                 )
-            return SequenceGRUEncoder(
-                vocabulary_size=input_dim,
-                embedding_dim=getattr(
+            encoder_name = getattr(
+                self.config,
+                f"{branch}_branch_sequence_encoder",
+            )
+            encoder_kwargs = {
+                "vocabulary_size": input_dim,
+                "embedding_dim": getattr(
                     self.config,
                     f"{branch}_branch_sequence_embedding_dim",
                 ),
-                output_dim=output_dim,
-                num_layers=getattr(
+                "output_dim": output_dim,
+                "num_layers": getattr(
                     self.config,
                     f"{branch}_branch_sequence_num_layers",
                 ),
-                padding_idx=getattr(
+                "padding_idx": getattr(
                     self.config,
                     f"{branch}_branch_sequence_padding_idx",
                 ),
-                dropout_rate=getattr(
+                "dropout_rate": getattr(
                     self.config,
                     f"dropout_rate_{branch}_branch",
                 ),
+            }
+            if encoder_name == "gru":
+                return SequenceGRUEncoder(**encoder_kwargs)
+            if encoder_name == "conv1d":
+                return SequenceConv1DEncoder(
+                    **encoder_kwargs,
+                    kernel_size=getattr(
+                        self.config,
+                        f"{branch}_branch_sequence_conv_kernel_size",
+                    ),
+                )
+            raise RuntimeError(
+                f"Validated {branch} sequence configuration has unsupported "
+                f"encoder {encoder_name!r}."
             )
         if architecture == "TABULAR":
             schema = TabularSchema.from_config(

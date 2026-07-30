@@ -24,6 +24,7 @@ __all__ = [
     "IDEmbedding",
     "MLP",
     "ModelConfigInput",
+    "SequenceConv1DEncoder",
     "SequenceGRUEncoder",
     "SparseMLP",
     "TabularEncoder",
@@ -363,6 +364,105 @@ class SequenceGRUEncoder(nn.Module):
         )
         _, hidden = self.gru(packed)
         return self.output_dropout(hidden[-1])
+
+
+class SequenceConv1DEncoder(nn.Module):
+    """Encode padded token sequences with masked temporal convolutions."""
+
+    input_kind: ClassVar[BranchInputKind] = "sequence"
+
+    def __init__(
+        self,
+        *,
+        vocabulary_size: int,
+        embedding_dim: int,
+        output_dim: int,
+        num_layers: int = 1,
+        kernel_size: int = 3,
+        padding_idx: int = 0,
+        dropout_rate: float = 0.0,
+    ) -> None:
+        super().__init__()
+        for name, value in {
+            "vocabulary_size": vocabulary_size,
+            "embedding_dim": embedding_dim,
+            "output_dim": output_dim,
+            "num_layers": num_layers,
+        }.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer.")
+        if (
+            isinstance(kernel_size, bool)
+            or not isinstance(kernel_size, int)
+            or kernel_size <= 0
+            or kernel_size % 2 == 0
+        ):
+            raise ValueError("kernel_size must be a positive odd integer.")
+        if (
+            isinstance(padding_idx, bool)
+            or not isinstance(padding_idx, int)
+            or padding_idx < 0
+            or padding_idx >= vocabulary_size
+        ):
+            raise ValueError(
+                "padding_idx must be a non-negative integer smaller than "
+                "vocabulary_size."
+            )
+        if not 0 <= dropout_rate < 1:
+            raise ValueError("dropout_rate must be between 0 (inclusive) and 1.")
+
+        self.vocabulary_size = vocabulary_size
+        self.output_dim = output_dim
+        self.num_layers = num_layers
+        self.kernel_size = kernel_size
+        self.padding_idx = padding_idx
+        self.embedding = nn.Embedding(
+            num_embeddings=vocabulary_size,
+            embedding_dim=embedding_dim,
+            padding_idx=padding_idx,
+        )
+        convolution_widths = [embedding_dim] + [output_dim] * num_layers
+        self.convolutions = nn.ModuleList(
+            nn.Conv1d(
+                convolution_widths[layer_index],
+                convolution_widths[layer_index + 1],
+                kernel_size=kernel_size,
+                padding=kernel_size // 2,
+            )
+            for layer_index in range(num_layers)
+        )
+        self.activation = nn.GELU()
+        self.dropout = nn.Dropout(dropout_rate)
+
+    def forward(self, values: SequenceInput) -> torch.Tensor:
+        if not isinstance(values, SequenceInput):
+            raise TypeError("SequenceConv1DEncoder expects a SequenceInput.")
+        if values.padding_idx != self.padding_idx:
+            raise ValueError(
+                "Sequence input padding_idx does not match the encoder: "
+                f"expected {self.padding_idx}, received {values.padding_idx}."
+            )
+        token_ids = values.token_ids.long()
+        if token_ids.numel() and (
+            int(token_ids.min()) < 0 or int(token_ids.max()) >= self.vocabulary_size
+        ):
+            raise ValueError(
+                "Sequence token IDs contain an index outside the configured "
+                f"vocabulary [0, {self.vocabulary_size})."
+            )
+
+        attention_mask = values.attention_mask.unsqueeze(1)
+        encoded = self.embedding(token_ids).transpose(1, 2)
+        encoded = encoded.masked_fill(~attention_mask, 0.0)
+        for convolution in self.convolutions:
+            encoded = self.dropout(self.activation(convolution(encoded)))
+            encoded = encoded.masked_fill(~attention_mask, 0.0)
+
+        masked = encoded.masked_fill(
+            ~attention_mask,
+            torch.finfo(encoded.dtype).min,
+        )
+        return masked.amax(dim=2)
 
 
 class TabularEncoder(nn.Module):
