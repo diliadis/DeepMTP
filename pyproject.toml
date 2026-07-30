@@ -209,6 +209,7 @@ files = [
     "DeepMTP/utils/tests.py",
     "DeepMTP/utils/utils.py",
     "scripts/smoke_test_installation.py",
+    "scripts/check_colab_links.py",
     "scripts/verify_release_artifacts.py",
 ]
 check_untyped_defs = true

@@ -99,6 +99,7 @@ checkpoints.
   and bounded prediction Tables with classification charts.
 - Ruff, mypy, pre-commit, strict documentation builds, package artifact
   validation, and a cross-platform GitHub Actions test matrix.
+- A weekly live-link check for every version-controlled Google Colab demo.
 
 ### Changed
 
@@ -148,6 +149,9 @@ checkpoints.
 - Optional Streamlit trainers, HPO wrappers, and progress renderers now live
   under `DeepMTP.integrations.streamlit`, with historical root modules retained
   as compatibility facades.
+- Colab demos now bootstrap the matching `main` source in fresh runtimes, use
+  typed `DeepMTPConfig` examples, render repository images through stable
+  absolute URLs, and avoid repository-only validation helpers.
 - Branch networks, combination architectures, and model construction now live
   under `DeepMTP.models`; historical model modules remain compatibility
   facades.
