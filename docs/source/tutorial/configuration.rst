@@ -188,7 +188,10 @@ mapping, and each component declares its own input and output dimensions.
 sample-specific ``"gated"`` concatenation, or modality self-``"attention"``.
 Attention fusion uses the corresponding ``composite_attention_dim`` and
 ``composite_attention_num_heads`` branch settings. Components marked optional
-use explicit presence masks and learned missing representations. See
+use explicit presence masks and learned missing representations. The
+``instance_branch_composite_modality_dropout`` and
+``target_branch_composite_modality_dropout`` probabilities default to zero and
+temporarily hide present optional components during training only. See
 :doc:`composite_inputs` for configuration, fusion, validation-setting, batch,
 checkpoint, and missing-modality behavior.
 

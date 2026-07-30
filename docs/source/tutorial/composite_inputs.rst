@@ -60,6 +60,7 @@ order:
        metrics=["accuracy"],
        metrics_average=["macro"],
        instance_branch_architecture="COMPOSITE",
+       instance_branch_composite_modality_dropout=0.2,
        instance_branch_composite_components={
            "descriptors": {
                "architecture": "MLP",
@@ -260,6 +261,29 @@ source, or be included explicitly with a ``None`` feature value. Each supplied
 feature source must contain at least one present value for every optional
 component so DeepMTP can infer its input dimension.
 
+Modality dropout
+----------------
+
+Set ``instance_branch_composite_modality_dropout`` or
+``target_branch_composite_modality_dropout`` to a probability in ``[0, 1)`` to
+train a composite branch against temporary optional-component loss. The
+default is ``0.0`` and preserves the existing forward path.
+
+During training, every genuinely present optional component is independently
+dropped with the configured probability. Its encoded row is replaced by the
+same learned representation used for real missingness. Gated fusion receives
+the updated presence indicator, and attention fusion excludes the dropped
+component from keys and values while retaining it as a contextualized missing
+query. Concatenation receives the substituted representation directly.
+
+Required components are never dropped, and genuinely missing components are
+never made present. If a sample has only optional components and a random draw
+would remove all of its available inputs, DeepMTP retains the available
+component with the highest draw. A sample that is genuinely all-missing stays
+all-missing. Evaluation and prediction disable modality dropout and therefore
+use only the observed presence masks. PyTorch's seeded random-number stream
+controls the training draws.
+
 Supported components
 --------------------
 
@@ -333,10 +357,13 @@ dictionaries remain unchanged. A ``"gated"`` checkpoint stores its gate weights
 and fusion setting in the normal checkpoint payload. An ``"attention"``
 checkpoint also stores its component projections, self-attention block, layer
 normalization, fusion token, attention dimension, and head count.
+The branch-level modality-dropout options default to ``0.0`` and add no model
+parameters or state-dictionary keys. Their values are stored in the normal
+checkpoint configuration.
 
 Legacy feature scaling accepts only one dense representation and is therefore
 rejected for composite inputs. Scale dense components upstream; sparse and
 token components must remain unscaled.
 
-Modality dropout remains planned follow-up work. Nested composites and tabular,
-image, or custom components are not yet supported.
+Nested composites and tabular, image, or custom components are not yet
+supported.

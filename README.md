@@ -682,6 +682,8 @@ instance_branch_composite_components={
     "descriptors": descriptor_component,
     "tokens": {**token_component, "optional": True},
 }
+
+instance_branch_composite_modality_dropout=0.2
 ```
 
 Optional components carry explicit presence masks and use a checkpointed
@@ -689,8 +691,14 @@ learned representation for missing rows. Existing components remain required
 by default. Gated fusion includes the component-presence indicators in its gate
 input. Attention fusion masks missing components as keys and values while
 allowing their learned representations to query available modalities. An
-always-present fusion token keeps fully missing rows finite. Modality dropout
-remains planned. See the
+always-present fusion token keeps fully missing rows finite.
+
+The branch-level modality-dropout probability defaults to `0.0`. During
+training, it randomly replaces genuinely present optional components with
+their learned missing representations and updates the presence indicators used
+by gated or attention fusion. Required components are never dropped, and at
+least one genuinely available component is retained per sample. Evaluation and
+prediction use only the actual presence masks. See the
 [composite input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/composite_inputs.html)
 for the complete component, fusion, validation-setting, batching, and
 checkpoint contract.
@@ -819,6 +827,7 @@ The table below summarizes the commonly configured public options.
 | `instance_branch_composite_fusion` | Composite component fusion: `concat` (default), sample-specific `gated` concatenation, or modality self-`attention` |
 | `instance_branch_composite_attention_dim` | Shared positive projection width for composite attention fusion |
 | `instance_branch_composite_attention_num_heads` | Positive attention-head count; `instance_branch_composite_attention_dim` must be divisible by this value |
+| `instance_branch_composite_modality_dropout` | Training-only probability of replacing a present optional component with its learned missing representation; defaults to `0.0` |
 | `instance_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
 | `instance_branch_sequence_embedding_dim` | Trainable token embedding width for an instance `SEQUENCE` branch |
 | `instance_branch_sequence_output_dim` | Instance sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
@@ -837,6 +846,7 @@ The table below summarizes the commonly configured public options.
 | `target_branch_composite_fusion` | Composite component fusion: `concat` (default), sample-specific `gated` concatenation, or modality self-`attention` |
 | `target_branch_composite_attention_dim` | Shared positive projection width for composite attention fusion |
 | `target_branch_composite_attention_num_heads` | Positive attention-head count; `target_branch_composite_attention_dim` must be divisible by this value |
+| `target_branch_composite_modality_dropout` | Training-only probability of replacing a present optional component with its learned missing representation; defaults to `0.0` |
 | `target_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
 | `target_branch_sequence_embedding_dim` | Trainable token embedding width for a target `SEQUENCE` branch |
 | `target_branch_sequence_output_dim` | Target sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |

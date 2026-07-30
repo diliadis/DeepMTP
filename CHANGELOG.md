@@ -68,6 +68,9 @@ checkpoints.
 - Opt-in composite modality self-attention with unequal-width projections,
   missing-key masking, an all-missing fusion-token fallback, residual
   contextualization, and checkpoint restoration.
+- Training-only composite modality dropout for optional inputs, with learned
+  missing-representation substitution, fusion-aware presence masks, and a
+  per-sample available-modality fallback.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and

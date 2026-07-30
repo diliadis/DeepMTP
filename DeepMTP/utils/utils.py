@@ -530,6 +530,12 @@ def generate_config(
                 4,
             )
         )
+        base_config["instance_branch_composite_modality_dropout"] = (
+            instance_branch_params.get(
+                "instance_branch_composite_modality_dropout",
+                0.0,
+            )
+        )
     elif instance_branch_architecture == "SEQUENCE":
         sequence_defaults = {
             "instance_branch_sequence_encoder": "gru",
@@ -624,6 +630,12 @@ def generate_config(
             target_branch_params.get(
                 "target_branch_composite_attention_num_heads",
                 4,
+            )
+        )
+        base_config["target_branch_composite_modality_dropout"] = (
+            target_branch_params.get(
+                "target_branch_composite_modality_dropout",
+                0.0,
             )
         )
     elif target_branch_architecture == "SEQUENCE":

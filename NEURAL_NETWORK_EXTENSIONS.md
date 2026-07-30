@@ -153,7 +153,7 @@ reserved index zero unless their policy is configured as `error`.
 - Define leakage-safe temporal splitting and test it separately from settings
   A–D.
 
-### 7. Multimodal and partially missing inputs (in progress)
+### 7. Multimodal and partially missing inputs (complete)
 
 - [x] Introduce a composite branch that concatenates multiple named dense,
   sparse, sequence, or known-ID encoders for one entity.
@@ -162,7 +162,7 @@ reserved index zero unless their policy is configured as `error`.
   component widths.
 - [x] Add attention-based fusion and compare it with concatenation and gated
   fusion.
-- [ ] Add modality dropout so models do not become unusable when an optional input
+- [x] Add modality dropout so models do not become unusable when an optional input
   is absent.
 
 ## Neural-network functionality
@@ -237,7 +237,7 @@ reserved index zero unless their policy is configured as `error`.
 6. Sparse inputs.
 7. Sequence encoders (GRU, 1-D convolution, and Transformer complete).
 8. Hybrid input concatenation, learned missing-modality representations, gated
-   fusion, and attention fusion (complete), followed by modality dropout.
+   fusion, attention fusion, and modality dropout (complete).
 9. Graph and time-series encoders, driven by concrete datasets.
 10. Performance features after correctness baselines are established.
 

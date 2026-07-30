@@ -179,6 +179,7 @@ class CompositeEncoder(nn.Module):
         fusion: str = "concat",
         attention_dim: int = 64,
         attention_num_heads: int = 4,
+        modality_dropout: float = 0.0,
     ) -> None:
         super().__init__()
         if not isinstance(component_encoders, Mapping):
@@ -197,6 +198,15 @@ class CompositeEncoder(nn.Module):
             raise ValueError(
                 "Composite fusion must be 'attention', 'concat', or 'gated'; "
                 f"received {fusion!r}."
+            )
+        if (
+            isinstance(modality_dropout, bool)
+            or not isinstance(modality_dropout, (int, float))
+            or not 0 <= modality_dropout < 1
+        ):
+            raise ValueError(
+                "modality_dropout must be a number in the interval [0, 1); "
+                f"received {modality_dropout!r}."
             )
         if fusion == "attention":
             if (
@@ -256,6 +266,7 @@ class CompositeEncoder(nn.Module):
         self.component_output_dims = output_dimensions
         self.optional_components = normalized_optional_components
         self.fusion = fusion
+        self.modality_dropout = float(modality_dropout)
         self.missing_representations = nn.ParameterDict(
             {
                 name: nn.Parameter(torch.zeros(output_dimensions[name]))
@@ -326,12 +337,6 @@ class CompositeEncoder(nn.Module):
             )
             for name, encoder in self.component_encoders.items()
         ]
-        if self.fusion == "concat":
-            return torch.cat(
-                [encoded for _, encoded in encoded_components],
-                dim=1,
-            )
-
         presence = torch.stack(
             [
                 self._presence_mask(values[name], encoded)
@@ -339,6 +344,16 @@ class CompositeEncoder(nn.Module):
             ],
             dim=1,
         )
+        encoded_components, presence = self._apply_modality_dropout(
+            encoded_components,
+            presence,
+        )
+        if self.fusion == "concat":
+            return torch.cat(
+                [encoded for _, encoded in encoded_components],
+                dim=1,
+            )
+
         if self.fusion == "gated":
             gate_input = torch.cat(
                 [
@@ -359,6 +374,58 @@ class CompositeEncoder(nn.Module):
             )
 
         return self._attention_fusion(encoded_components, presence)
+
+    def _apply_modality_dropout(
+        self,
+        encoded_components: list[tuple[str, torch.Tensor]],
+        presence: torch.Tensor,
+    ) -> tuple[list[tuple[str, torch.Tensor]], torch.Tensor]:
+        if (
+            not self.training
+            or self.modality_dropout == 0
+            or not self.optional_components
+        ):
+            return encoded_components, presence
+
+        optional = torch.tensor(
+            [name in self.optional_components for name, _ in encoded_components],
+            dtype=torch.bool,
+            device=presence.device,
+        ).unsqueeze(0)
+        random_values = torch.rand(
+            presence.shape,
+            device=presence.device,
+        )
+        dropped = (random_values < self.modality_dropout) & presence & optional
+        effective_presence = presence & ~dropped
+
+        needs_fallback = presence.any(dim=1) & ~effective_presence.any(dim=1)
+        if needs_fallback.any():
+            fallback_candidates = presence & optional
+            fallback_indices = random_values.masked_fill(
+                ~fallback_candidates,
+                -1,
+            ).argmax(dim=1)
+            fallback_rows = needs_fallback.nonzero(as_tuple=False).squeeze(1)
+            effective_presence[fallback_rows, fallback_indices[fallback_rows]] = True
+
+        dropout_components: list[tuple[str, torch.Tensor]] = []
+        for index, (name, encoded) in enumerate(encoded_components):
+            if name not in self.optional_components:
+                dropout_components.append((name, encoded))
+                continue
+            missing = self.missing_representations[name].unsqueeze(0).expand_as(encoded)
+            dropout_components.append(
+                (
+                    name,
+                    torch.where(
+                        effective_presence[:, index : index + 1],
+                        encoded,
+                        missing,
+                    ),
+                )
+            )
+        return dropout_components, effective_presence
 
     @staticmethod
     def _presence_mask(values: Any, encoded: torch.Tensor) -> torch.Tensor:
