@@ -55,6 +55,8 @@ def test_data_package_exposes_canonical_services():
         "FeatureKind": features_module.FeatureKind,
         "FeatureComponentInfo": features_module.FeatureComponentInfo,
         "FeatureInfo": features_module.FeatureInfo,
+        "GraphBranchBatch": batches_module.GraphBranchBatch,
+        "GraphInput": batches_module.GraphInput,
         "InteractionInfo": interactions_module.InteractionInfo,
         "IDBranchBatch": batches_module.IDBranchBatch,
         "ImageBranchBatch": batches_module.ImageBranchBatch,

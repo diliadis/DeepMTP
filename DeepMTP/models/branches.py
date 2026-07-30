@@ -20,6 +20,7 @@ from DeepMTP.config import (
 from DeepMTP.data.batches import (
     BranchInputKind,
     CompositeInput,
+    GraphInput,
     MaskedComponentInput,
     SequenceInput,
     TabularInput,
@@ -35,6 +36,7 @@ __all__ = [
     "ConvNet",
     "CompositeEncoder",
     "IDEmbedding",
+    "GraphEncoder",
     "MLP",
     "ModelConfigInput",
     "SequenceConv1DEncoder",
@@ -66,6 +68,16 @@ def _load_torchvision_models() -> ModuleType:
         raise ModuleNotFoundError(
             "Image models require the optional 'image' dependencies. "
             "Install them with `pip install 'DeepMTP[image]'`."
+        ) from exc
+
+
+def _load_torch_geometric_nn() -> ModuleType:
+    try:
+        return importlib.import_module("torch_geometric.nn")
+    except ImportError as exc:
+        raise ModuleNotFoundError(
+            "Graph models require the optional 'graph' dependencies. "
+            "Install them with `pip install 'DeepMTP[graph]'`."
         ) from exc
 
 
@@ -164,6 +176,117 @@ class MLP(nn.Sequential):
         for layer in self.predictor:
             v = layer(v)
         return v
+
+
+class GraphEncoder(nn.Module):
+    """Encode homogeneous graphs with GIN/GINE message passing and pooling."""
+
+    input_kind: ClassVar[BranchInputKind] = "graph"
+
+    def __init__(
+        self,
+        *,
+        node_dim: int,
+        edge_dim: int | None,
+        hidden_dim: int,
+        output_dim: int,
+        num_layers: int = 2,
+        pooling: str = "mean",
+        use_edge_features: bool = True,
+        dropout_rate: float = 0.0,
+    ) -> None:
+        super().__init__()
+        for name, value in {
+            "node_dim": node_dim,
+            "hidden_dim": hidden_dim,
+            "output_dim": output_dim,
+            "num_layers": num_layers,
+        }.items():
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer.")
+        if edge_dim is not None and (
+            isinstance(edge_dim, bool) or not isinstance(edge_dim, int) or edge_dim <= 0
+        ):
+            raise ValueError("edge_dim must be None or a positive integer.")
+        if not isinstance(use_edge_features, bool):
+            raise TypeError("use_edge_features must be a boolean.")
+        if use_edge_features and edge_dim is None:
+            raise ValueError("edge_dim must be supplied when use_edge_features=True.")
+        pooling = pooling.lower() if isinstance(pooling, str) else pooling
+        if pooling not in {"max", "mean", "sum"}:
+            raise ValueError("pooling must be 'max', 'mean', or 'sum'.")
+        if (
+            isinstance(dropout_rate, bool)
+            or not isinstance(dropout_rate, (int, float))
+            or not 0 <= dropout_rate < 1
+        ):
+            raise ValueError("dropout_rate must be in the interval [0, 1).")
+
+        geometric_nn = _load_torch_geometric_nn()
+        self.node_dim = node_dim
+        self.edge_dim = edge_dim
+        self.output_dim = output_dim
+        self.use_edge_features = use_edge_features
+        self.node_projection = nn.Linear(node_dim, hidden_dim)
+        self.convolutions = nn.ModuleList()
+        for _ in range(num_layers):
+            update_network = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+            )
+            convolution = (
+                geometric_nn.GINEConv(update_network, edge_dim=edge_dim)
+                if use_edge_features
+                else geometric_nn.GINConv(update_network)
+            )
+            self.convolutions.append(convolution)
+        self.dropout = nn.Dropout(float(dropout_rate))
+        self.output_projection = nn.Linear(hidden_dim, output_dim)
+        self.pool = {
+            "max": geometric_nn.global_max_pool,
+            "mean": geometric_nn.global_mean_pool,
+            "sum": geometric_nn.global_add_pool,
+        }[pooling]
+
+    def forward(self, values: GraphInput) -> torch.Tensor:
+        if not isinstance(values, GraphInput):
+            raise TypeError("GraphEncoder expects a GraphInput.")
+        if values.node_features.shape[1] != self.node_dim:
+            raise ValueError(
+                "Graph node-feature width does not match the encoder: "
+                f"expected {self.node_dim}, received "
+                f"{values.node_features.shape[1]}."
+            )
+        if self.use_edge_features:
+            if values.edge_features is None:
+                raise ValueError(
+                    "Graph edge features are required by this GraphEncoder."
+                )
+            if values.edge_features.shape[1] != self.edge_dim:
+                raise ValueError(
+                    "Graph edge-feature width does not match the encoder: "
+                    f"expected {self.edge_dim}, received "
+                    f"{values.edge_features.shape[1]}."
+                )
+
+        hidden = self.node_projection(values.node_features)
+        for convolution in self.convolutions:
+            if self.use_edge_features:
+                hidden = convolution(
+                    hidden,
+                    values.edge_index,
+                    values.edge_features,
+                )
+            else:
+                hidden = convolution(hidden, values.edge_index)
+            hidden = self.dropout(torch.relu(hidden))
+        pooled = self.pool(
+            hidden,
+            values.graph_index,
+            size=values.num_graphs,
+        )
+        return self.output_projection(pooled)
 
 
 class CompositeEncoder(nn.Module):

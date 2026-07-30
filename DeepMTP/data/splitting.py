@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 
 from DeepMTP._split_utils import absolute_split_sizes as _absolute_split_sizes
 from DeepMTP._split_utils import validate_split_ratio
+from DeepMTP.data.graphs import copy_graph_value, is_graph_value
 from DeepMTP.data.interactions import DatasetMapping, ValidationSetting
 from DeepMTP.data.progress import (
     DataProgressObserver,
@@ -82,6 +83,8 @@ def _copy_feature_value(value: object) -> Any:
         return {
             name: _copy_feature_value(component) for name, component in value.items()
         }
+    if is_graph_value(value):
+        return copy_graph_value(value)
     return _copy_atomic_feature_value(value)
 
 

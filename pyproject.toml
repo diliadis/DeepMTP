@@ -41,6 +41,7 @@ datasets = [
     "scipy>=1.9",
 ]
 hpo = ["ConfigSpace>=1.2"]
+graph = ["torch-geometric>=2.5,<3"]
 image = ["torchvision>=0.15"]
 sparse = ["scipy>=1.9"]
 streamlit = ["streamlit>=1.53.0"]
@@ -55,6 +56,7 @@ all = [
     "scipy>=1.9",
     "streamlit>=1.53.0",
     "tensorboard>=2.12",
+    "torch-geometric>=2.5,<3",
     "torchvision>=0.15",
     "wandb>=0.15",
 ]
@@ -66,6 +68,7 @@ test = [
     "pytest>=8,<10",
     "requests>=2.28",
     "scipy>=1.9",
+    "torch-geometric>=2.5,<3",
     "tomli>=2; python_version < '3.11'",
 ]
 quality = [
@@ -139,6 +142,7 @@ files = [
     "DeepMTP/data/batches.py",
     "DeepMTP/data/datasets.py",
     "DeepMTP/data/features.py",
+    "DeepMTP/data/graphs.py",
     "DeepMTP/data/interactions.py",
     "DeepMTP/data/loading.py",
     "DeepMTP/data/preparation.py",
@@ -223,6 +227,7 @@ module = [
     "DeepMTP.data.batches",
     "DeepMTP.data.datasets",
     "DeepMTP.data.features",
+    "DeepMTP.data.graphs",
     "DeepMTP.data.interactions",
     "DeepMTP.data.loading",
     "DeepMTP.data.preparation",

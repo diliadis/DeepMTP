@@ -63,8 +63,12 @@ class DataInfo(TypedDict):
     detected_num_classes: int | None
     instance_branch_input_dim: int | None
     target_branch_input_dim: int | None
+    instance_branch_graph_edge_dim: int | None
+    target_branch_graph_edge_dim: int | None
     instance_branch_component_input_dims: dict[str, int | None] | None
     target_branch_component_input_dims: dict[str, int | None] | None
+    instance_branch_component_graph_edge_dims: dict[str, int | None] | None
+    target_branch_component_graph_edge_dims: dict[str, int | None] | None
 
 
 class Transformer(Protocol):
@@ -279,6 +283,13 @@ def _scale_feature_splits(
             f"{feature_key} uses token sequences, which cannot be combined with "
             f"legacy {entity_name} feature scaling. Token IDs are categorical; "
             "leave the scaling option unset."
+        )
+
+    if feature_kind == "graph" or train_source.get("info") == "graph":
+        raise ValueError(
+            f"{feature_key} uses graph features, which cannot be combined with "
+            f"legacy {entity_name} feature scaling. Preprocess graph node and "
+            "edge features upstream or leave the scaling option unset."
         )
 
     train_frame = train_source["data"]
@@ -668,6 +679,9 @@ def data_process(
     _emit_data_separator(verbose, print_mode, progress_observer)
     if data["train"]["X_instance"] is not None:
         instance_branch_input_dim = data["train"]["X_instance"]["num_features"]
+        instance_branch_graph_edge_dim = data["train"]["X_instance"].get(
+            "graph_edge_features"
+        )
         instance_components = data["train"]["X_instance"].get("components")
         instance_component_input_dims = (
             {
@@ -677,13 +691,26 @@ def data_process(
             if isinstance(instance_components, Mapping)
             else None
         )
+        instance_component_graph_edge_dims = (
+            {
+                name: component.get("graph_edge_features")
+                for name, component in instance_components.items()
+            }
+            if isinstance(instance_components, Mapping)
+            else None
+        )
     else:
         instance_branch_input_dim = len(
             data["train"]["y"]["data"]["instance_id"].unique()
         )
+        instance_branch_graph_edge_dim = None
         instance_component_input_dims = None
+        instance_component_graph_edge_dims = None
     if data["train"]["X_target"] is not None:
         target_branch_input_dim = data["train"]["X_target"]["num_features"]
+        target_branch_graph_edge_dim = data["train"]["X_target"].get(
+            "graph_edge_features"
+        )
         target_components = data["train"]["X_target"].get("components")
         target_component_input_dims = (
             {
@@ -693,9 +720,19 @@ def data_process(
             if isinstance(target_components, Mapping)
             else None
         )
+        target_component_graph_edge_dims = (
+            {
+                name: component.get("graph_edge_features")
+                for name, component in target_components.items()
+            }
+            if isinstance(target_components, Mapping)
+            else None
+        )
     else:
         target_branch_input_dim = len(data["train"]["y"]["data"]["target_id"].unique())
+        target_branch_graph_edge_dim = None
         target_component_input_dims = None
+        target_component_graph_edge_dims = None
     detected_classification_mode: Literal["binary", "multiclass"] | None = (
         target_variable_type
         if target_variable_type in {"binary", "multiclass"}
@@ -712,8 +749,14 @@ def data_process(
         "detected_num_classes": detected_num_classes,
         "instance_branch_input_dim": instance_branch_input_dim,
         "target_branch_input_dim": target_branch_input_dim,
+        "instance_branch_graph_edge_dim": instance_branch_graph_edge_dim,
+        "target_branch_graph_edge_dim": target_branch_graph_edge_dim,
         "instance_branch_component_input_dims": instance_component_input_dims,
         "target_branch_component_input_dims": target_component_input_dims,
+        "instance_branch_component_graph_edge_dims": (
+            instance_component_graph_edge_dims
+        ),
+        "target_branch_component_graph_edge_dims": target_component_graph_edge_dims,
     }
     data["info"] = data_info
 

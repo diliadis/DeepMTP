@@ -442,6 +442,7 @@ def test_dependency_metadata_separates_runtime_features_from_development_tools()
     assert set(runtime_extras) == {
         "all",
         "datasets",
+        "graph",
         "hpo",
         "image",
         "sparse",
@@ -499,6 +500,7 @@ def test_minimum_constraints_cover_direct_test_dependencies():
         "scipy": "1.9.3",
         "tomli": "2.0.1",
         "torch": "2.0.1",
+        "torch-geometric": "2.5.0",
     }
 
 

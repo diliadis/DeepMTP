@@ -19,6 +19,7 @@ from DeepMTP.models.branches import (
     MLP,
     CompositeEncoder,
     ConvNet,
+    GraphEncoder,
     IDEmbedding,
     SequenceConv1DEncoder,
     SequenceGRUEncoder,
@@ -405,6 +406,8 @@ class ModelFactory:
             return self.config.embedding_size
         if architecture == "SEQUENCE":
             return int(getattr(self.config, f"{branch}_branch_sequence_output_dim"))
+        if architecture == "GRAPH":
+            return int(getattr(self.config, f"{branch}_branch_graph_output_dim"))
         return self._last_node_count(
             getattr(self.config, f"{branch}_branch_nodes_per_layer")
         )
@@ -450,6 +453,37 @@ class ModelFactory:
                 getattr(self.config, f"{branch}_branch_layers"),
                 getattr(self.config, f"dropout_rate_{branch}_branch"),
                 self.config.batch_norm,
+            )
+        if architecture == "GRAPH":
+            input_dim = getattr(self.config, f"{branch}_branch_input_dim")
+            if input_dim is None:  # pragma: no cover - validated invariant
+                raise RuntimeError(
+                    f"Validated {branch} graph configuration has no node width."
+                )
+            return GraphEncoder(
+                node_dim=input_dim,
+                edge_dim=getattr(self.config, f"{branch}_branch_graph_edge_dim"),
+                hidden_dim=getattr(
+                    self.config,
+                    f"{branch}_branch_graph_hidden_dim",
+                ),
+                output_dim=output_dim,
+                num_layers=getattr(
+                    self.config,
+                    f"{branch}_branch_graph_num_layers",
+                ),
+                pooling=getattr(
+                    self.config,
+                    f"{branch}_branch_graph_pooling",
+                ),
+                use_edge_features=getattr(
+                    self.config,
+                    f"{branch}_branch_graph_use_edge_features",
+                ),
+                dropout_rate=getattr(
+                    self.config,
+                    f"dropout_rate_{branch}_branch",
+                ),
             )
         if architecture == "COMPOSITE":
             components = getattr(
@@ -619,6 +653,17 @@ class ModelFactory:
                 component["dropout_rate"],
                 component["batch_norm"],
             )
+        if architecture == "GRAPH":
+            return GraphEncoder(
+                node_dim=input_dim,
+                edge_dim=component["edge_dim"],
+                hidden_dim=component["hidden_dim"],
+                output_dim=output_dim,
+                num_layers=component["num_layers"],
+                pooling=component["pooling"],
+                use_edge_features=component["use_edge_features"],
+                dropout_rate=component["dropout_rate"],
+            )
         if architecture == "EMBEDDING":
             return IDEmbedding(
                 num_embeddings=input_dim,
@@ -665,6 +710,7 @@ class ModelFactory:
             "COMPOSITE": "composite",
             "EMBEDDING": "id",
             "CONV": "image",
+            "GRAPH": "graph",
             "SEQUENCE": "sequence",
             "TABULAR": "tabular",
             "CUSTOM": "custom",
