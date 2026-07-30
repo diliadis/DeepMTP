@@ -18,7 +18,7 @@ from DeepMTP.data.progress import (
     _emit_data_operation_completed_if_verbose,
     _emit_data_operation_started_if_verbose,
 )
-from DeepMTP.data.sparse import copy_feature_value
+from DeepMTP.data.sparse import copy_feature_value as _copy_atomic_feature_value
 
 __all__ = ["split_data"]
 
@@ -68,11 +68,19 @@ def _copy_feature_source(source: Mapping[str, Any]) -> dict[str, Any]:
         copied_frame = source_frame.copy(deep=True)
         if "features" in copied_frame:
             copied_frame["features"] = [
-                copy_feature_value(feature_vector)
+                _copy_feature_value(feature_vector)
                 for feature_vector in copied_frame["features"]
             ]
         copied_source["data"] = copied_frame
     return copied_source
+
+
+def _copy_feature_value(value: object) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            name: _copy_feature_value(component) for name, component in value.items()
+        }
+    return _copy_atomic_feature_value(value)
 
 
 def _detach_shared_feature_sources(data: MutableMapping[str, Any]) -> None:

@@ -63,6 +63,8 @@ class DataInfo(TypedDict):
     detected_num_classes: int | None
     instance_branch_input_dim: int | None
     target_branch_input_dim: int | None
+    instance_branch_component_input_dims: dict[str, int | None] | None
+    target_branch_component_input_dims: dict[str, int | None] | None
 
 
 class Transformer(Protocol):
@@ -265,6 +267,13 @@ def _scale_feature_splits(
         )
         return
 
+    if isinstance(feature_kind, Mapping) or train_source.get("info") == "composite":
+        raise ValueError(
+            f"{feature_key} uses composite features, which cannot be combined "
+            f"with one legacy {entity_name} feature scaler. Preprocess each "
+            "component upstream or leave the scaling option unset."
+        )
+
     if feature_kind == "sequence" or train_source.get("info") == "sequence":
         raise ValueError(
             f"{feature_key} uses token sequences, which cannot be combined with "
@@ -371,9 +380,13 @@ def data_process(
         num_classes (int, optional): Declared multiclass count. When omitted in
             multiclass mode, it is inferred from all supplied score splits.
         instance_feature_kind (str, optional): Set to ``sequence`` when instance
-            features are already-tokenized integer sequences. Defaults to None.
+            features are already-tokenized integer sequences. For composite
+            features, pass a mapping from component name to ``sequence`` or
+            ``None``. Defaults to None.
         target_feature_kind (str, optional): Set to ``sequence`` when target
-            features are already-tokenized integer sequences. Defaults to None.
+            features are already-tokenized integer sequences. For composite
+            features, pass a mapping from component name to ``sequence`` or
+            ``None``. Defaults to None.
         progress (DataProgressObserver | None, optional): Receives verbose messages from the complete data-processing pipeline. Defaults to None.
 
     Returns:
@@ -653,14 +666,34 @@ def data_process(
     _emit_data_separator(verbose, print_mode, progress_observer)
     if data["train"]["X_instance"] is not None:
         instance_branch_input_dim = data["train"]["X_instance"]["num_features"]
+        instance_components = data["train"]["X_instance"].get("components")
+        instance_component_input_dims = (
+            {
+                name: component["num_features"]
+                for name, component in instance_components.items()
+            }
+            if isinstance(instance_components, Mapping)
+            else None
+        )
     else:
         instance_branch_input_dim = len(
             data["train"]["y"]["data"]["instance_id"].unique()
         )
+        instance_component_input_dims = None
     if data["train"]["X_target"] is not None:
         target_branch_input_dim = data["train"]["X_target"]["num_features"]
+        target_components = data["train"]["X_target"].get("components")
+        target_component_input_dims = (
+            {
+                name: component["num_features"]
+                for name, component in target_components.items()
+            }
+            if isinstance(target_components, Mapping)
+            else None
+        )
     else:
         target_branch_input_dim = len(data["train"]["y"]["data"]["target_id"].unique())
+        target_component_input_dims = None
     detected_classification_mode: Literal["binary", "multiclass"] | None = (
         target_variable_type
         if target_variable_type in {"binary", "multiclass"}
@@ -677,6 +710,8 @@ def data_process(
         "detected_num_classes": detected_num_classes,
         "instance_branch_input_dim": instance_branch_input_dim,
         "target_branch_input_dim": target_branch_input_dim,
+        "instance_branch_component_input_dims": instance_component_input_dims,
+        "target_branch_component_input_dims": target_component_input_dims,
     }
     data["info"] = data_info
 

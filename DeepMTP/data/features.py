@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal, TypedDict, cast
 
 import numpy as np
@@ -30,6 +30,7 @@ from DeepMTP.data.sparse import (
 
 __all__ = [
     "FeatureKind",
+    "FeatureComponentInfo",
     "FeatureInfo",
     "cross_input_consistency_check_instances",
     "cross_input_consistency_check_targets",
@@ -37,7 +38,21 @@ __all__ = [
     "process_target_features",
 ]
 
-FeatureKind = Literal["sequence"] | None
+AtomicFeatureKind = Literal["sequence"] | None
+FeatureKind = AtomicFeatureKind | Mapping[str, AtomicFeatureKind]
+
+
+class FeatureComponentInfo(TypedDict):
+    """Representation metadata for one component of a composite feature."""
+
+    num_features: int | None
+    info: Literal[
+        "numpy",
+        "dataframe",
+        "sequence",
+        "scipy_sparse",
+        "torch_sparse",
+    ]
 
 
 class FeatureInfo(TypedDict):
@@ -53,7 +68,9 @@ class FeatureInfo(TypedDict):
         "tabular",
         "scipy_sparse",
         "torch_sparse",
+        "composite",
     ]
+    components: dict[str, FeatureComponentInfo] | None
 
 
 def _feature_vector_size(features: pd.Series, entity_name: str) -> int:
@@ -132,6 +149,106 @@ def _process_sequence_features(
         "data": feature_frame,
         "num_features": inferred_vocabulary_size,
         "info": "sequence",
+        "components": None,
+    }
+
+
+def _process_composite_features(
+    features: object,
+    *,
+    component_kinds: Mapping[str, AtomicFeatureKind],
+    entity_name: Literal["instance", "target"],
+) -> FeatureInfo:
+    if not isinstance(features, Mapping):
+        raise TypeError(
+            f"{entity_name.title()} composite features must be a mapping from "
+            "component names to feature collections."
+        )
+    if not component_kinds:
+        raise ValueError(
+            f"{entity_name.title()} composite features must contain at least "
+            "one side-feature component."
+        )
+    for name in component_kinds:
+        if not isinstance(name, str) or not name:
+            raise ValueError("Composite component names must be non-empty strings.")
+    if set(features) != set(component_kinds):
+        raise ValueError(
+            f"{entity_name.title()} composite feature sources and feature-kind "
+            "declarations must use the same names: expected "
+            f"{sorted(component_kinds)}, received {sorted(features)}."
+        )
+
+    processed_components: dict[str, FeatureInfo] = {}
+    component_metadata: dict[str, FeatureComponentInfo] = {}
+    for name, feature_kind in component_kinds.items():
+        if feature_kind not in {None, "sequence"}:
+            raise ValueError(
+                f"Composite component {name!r} feature kind must be 'sequence' "
+                f"or None; received {feature_kind!r}."
+            )
+        component = _process_entity_features(
+            features[name],
+            entity_name,
+            False,
+            "basic",
+            None,
+            feature_kind,
+        )
+        if component is None:
+            raise ValueError(
+                f"Composite component {name!r} must provide feature values."
+            )
+        if component["info"] not in {
+            "numpy",
+            "dataframe",
+            "sequence",
+            "scipy_sparse",
+            "torch_sparse",
+        }:
+            raise ValueError(
+                f"Composite component {name!r} uses unsupported representation "
+                f"{component['info']!r}. Composite branches currently support "
+                "dense, sparse, and token-sequence side features."
+            )
+        processed_components[name] = component
+        component_metadata[name] = {
+            "num_features": component["num_features"],
+            "info": component["info"],
+        }
+
+    indexed_frames = {
+        name: component["data"].set_index("id", drop=False)
+        for name, component in processed_components.items()
+    }
+    first_name = next(iter(component_kinds))
+    expected_ids = set(indexed_frames[first_name]["id"])
+    for name, frame in indexed_frames.items():
+        component_ids = set(frame["id"])
+        if component_ids != expected_ids:
+            missing_ids = sorted(expected_ids.difference(component_ids))
+            unexpected_ids = sorted(component_ids.difference(expected_ids))
+            raise ValueError(
+                f"Composite component {name!r} must describe the same "
+                f"{entity_name} IDs as {first_name!r}; missing {missing_ids}, "
+                f"unexpected {unexpected_ids}."
+            )
+
+    ordered_ids = indexed_frames[first_name]["id"].tolist()
+    feature_frame = pd.DataFrame({"id": ordered_ids})
+    feature_frame["features"] = [
+        {
+            name: indexed_frames[name].at[entity_id, "features"]
+            for name in component_kinds
+        }
+        for entity_id in ordered_ids
+    ]
+    feature_frame = feature_frame.set_index("id", drop=False)
+    return {
+        "data": feature_frame,
+        "num_features": None,
+        "info": "composite",
+        "components": component_metadata,
     }
 
 
@@ -153,13 +270,19 @@ def _process_entity_features(
             message=f"{entity_name.title()} features file: processing features... ",
         )
 
-    if feature_kind not in {None, "sequence"}:
+    if isinstance(feature_kind, Mapping):
+        feature_info = _process_composite_features(
+            features,
+            component_kinds=feature_kind,
+            entity_name=entity_name,
+        )
+    elif feature_kind not in {None, "sequence"}:
         raise ValueError(
-            f"{entity_name}_feature_kind must be 'sequence' or None; "
+            f"{entity_name}_feature_kind must be 'sequence', a component "
+            "mapping, or None; "
             f"received {feature_kind!r}."
         )
-
-    if feature_kind == "sequence":
+    elif feature_kind == "sequence":
         feature_info = _process_sequence_features(
             features,
             entity_name=entity_name,
@@ -178,6 +301,7 @@ def _process_entity_features(
                 Literal["scipy_sparse", "torch_sparse"],
                 f"{backend}_sparse",
             ),
+            "components": None,
         }
     elif isinstance(features, np.ndarray):
         if features.ndim != 2:
@@ -196,6 +320,7 @@ def _process_entity_features(
             "data": feature_frame,
             "num_features": int(features.shape[1]),
             "info": "numpy",
+            "components": None,
         }
     elif isinstance(features, pd.DataFrame):
         feature_frame = features.copy()
@@ -235,6 +360,7 @@ def _process_entity_features(
                         Literal["scipy_sparse", "torch_sparse"],
                         f"{backend}_sparse",
                     ),
+                    "components": None,
                 }
             else:
                 feature_dimension = _feature_vector_size(
@@ -249,6 +375,7 @@ def _process_entity_features(
                     "data": feature_frame,
                     "num_features": feature_dimension,
                     "info": "dataframe",
+                    "components": None,
                 }
         elif set(feature_frame.columns) == {"id", "dir"}:
             if feature_frame["dir"].isna().any():
@@ -259,12 +386,14 @@ def _process_entity_features(
                 "data": feature_frame,
                 "num_features": None,
                 "info": "images",
+                "components": None,
             }
         else:
             feature_info = {
                 "data": feature_frame,
                 "num_features": len(feature_frame.columns) - 1,
                 "info": "tabular",
+                "components": None,
             }
     else:
         raise TypeError(

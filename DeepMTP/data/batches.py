@@ -19,6 +19,8 @@ from DeepMTP.data.sparse import (
 __all__ = [
     "BranchBatch",
     "BranchInputKind",
+    "CompositeBranchBatch",
+    "CompositeInput",
     "CustomBranchBatch",
     "DenseBranchBatch",
     "IDBranchBatch",
@@ -41,6 +43,7 @@ BranchInputKind: TypeAlias = Literal[
     "sparse",
     "tabular",
     "custom",
+    "composite",
 ]
 
 
@@ -342,6 +345,81 @@ class TabularInput:
 
 
 @dataclass(frozen=True)
+class CompositeInput(Mapping[str, Any]):
+    """Named model inputs for multiple encoders on one entity axis."""
+
+    components: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.components, Mapping):
+            raise TypeError("Composite components must be a mapping.")
+        normalized_components = dict(self.components)
+        if len(normalized_components) < 2:
+            raise ValueError("Composite inputs must contain at least two components.")
+
+        batch_sizes: set[int] = set()
+        for name, values in normalized_components.items():
+            if not isinstance(name, str) or not name:
+                raise ValueError("Composite component names must be non-empty strings.")
+            if isinstance(values, torch.Tensor):
+                if values.ndim == 0:
+                    raise ValueError(
+                        f"Composite component {name!r} must include a batch dimension."
+                    )
+                batch_sizes.add(int(values.shape[0]))
+            elif isinstance(values, (SequenceInput, TabularInput)):
+                batch_sizes.add(values.batch_size)
+            else:
+                raise TypeError(
+                    f"Composite component {name!r} must be a torch.Tensor, "
+                    "SequenceInput, or TabularInput."
+                )
+        if len(batch_sizes) != 1:
+            raise ValueError(
+                "Every composite input component must have the same batch size; "
+                f"received {sorted(batch_sizes)}."
+            )
+        object.__setattr__(self, "components", normalized_components)
+
+    @property
+    def batch_size(self) -> int:
+        """Number of observations shared by every component."""
+        first = next(iter(self.components.values()))
+        if isinstance(first, torch.Tensor):
+            return int(first.shape[0])
+        return int(first.batch_size)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.components[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.components)
+
+    def __len__(self) -> int:
+        return len(self.components)
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> CompositeInput:
+        """Move every component to one device."""
+        return CompositeInput(
+            {
+                name: values.to(device, non_blocking=non_blocking)
+                for name, values in self.components.items()
+            }
+        )
+
+    def pin_memory(self) -> CompositeInput:
+        """Pin every component for asynchronous host-to-device transfer."""
+        return CompositeInput(
+            {name: values.pin_memory() for name, values in self.components.items()}
+        )
+
+
+@dataclass(frozen=True)
 class TabularBranchBatch:
     """A structured batch of numeric values and categorical indices."""
 
@@ -374,8 +452,42 @@ class TabularBranchBatch:
         return replace(self, values=self.values.pin_memory())
 
 
+@dataclass(frozen=True)
+class CompositeBranchBatch:
+    """A named collection of inputs consumed by a composite encoder."""
+
+    values: CompositeInput
+    kind: ClassVar[BranchInputKind] = "composite"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.values, CompositeInput):
+            raise TypeError("Composite branch values must be a CompositeInput.")
+
+    @property
+    def batch_size(self) -> int:
+        """Number of observations shared by every component."""
+        return self.values.batch_size
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> CompositeBranchBatch:
+        """Move every component to one device."""
+        return replace(
+            self,
+            values=self.values.to(device, non_blocking=non_blocking),
+        )
+
+    def pin_memory(self) -> CompositeBranchBatch:
+        """Pin every component in the structured input."""
+        return replace(self, values=self.values.pin_memory())
+
+
 BranchBatch: TypeAlias = (
-    DenseBranchBatch
+    CompositeBranchBatch
+    | DenseBranchBatch
     | IDBranchBatch
     | ImageBranchBatch
     | SequenceBranchBatch
@@ -444,12 +556,16 @@ class MTPBatch(Mapping[str, Any]):
         return int(self.score.shape[0])
 
     @property
-    def instance_features(self) -> torch.Tensor | SequenceInput | TabularInput:
+    def instance_features(
+        self,
+    ) -> torch.Tensor | CompositeInput | SequenceInput | TabularInput:
         """Compatibility view of the instance branch input."""
         return self.instance_input.values
 
     @property
-    def target_features(self) -> torch.Tensor | SequenceInput | TabularInput:
+    def target_features(
+        self,
+    ) -> torch.Tensor | CompositeInput | SequenceInput | TabularInput:
         """Compatibility view of the target branch input."""
         return self.target_input.values
 
@@ -512,6 +628,10 @@ class MTPBatchCollator:
     target_kind: BranchInputKind
     instance_sequence_padding_idx: int = 0
     target_sequence_padding_idx: int = 0
+    instance_component_kinds: Mapping[str, BranchInputKind] | None = None
+    target_component_kinds: Mapping[str, BranchInputKind] | None = None
+    instance_component_padding_indices: Mapping[str, int] | None = None
+    target_component_padding_indices: Mapping[str, int] | None = None
 
     def __post_init__(self) -> None:
         for name, kind in {
@@ -526,10 +646,11 @@ class MTPBatchCollator:
                 "sparse",
                 "tabular",
                 "custom",
+                "composite",
             }:
                 raise ValueError(
                     f"{name} must be 'dense', 'id', 'image', 'sequence', "
-                    "'sparse', 'tabular', or 'custom'."
+                    "'sparse', 'tabular', 'custom', or 'composite'."
                 )
         for name, padding_idx in {
             "instance_sequence_padding_idx": self.instance_sequence_padding_idx,
@@ -541,6 +662,26 @@ class MTPBatchCollator:
                 or padding_idx < 0
             ):
                 raise ValueError(f"{name} must be a non-negative integer.")
+        for branch, kind, component_kinds, padding_indices in (
+            (
+                "instance",
+                self.instance_kind,
+                self.instance_component_kinds,
+                self.instance_component_padding_indices,
+            ),
+            (
+                "target",
+                self.target_kind,
+                self.target_component_kinds,
+                self.target_component_padding_indices,
+            ),
+        ):
+            _validate_composite_collator_settings(
+                branch=branch,
+                kind=kind,
+                component_kinds=component_kinds,
+                padding_indices=padding_indices,
+            )
 
     def __call__(self, items: Sequence[Mapping[str, Any]]) -> MTPBatch:
         if not items:
@@ -578,8 +719,12 @@ class MTPBatchCollator:
                     self.instance_kind,
                     instance_values,
                     padding_idx=self.instance_sequence_padding_idx,
+                    component_kinds=self.instance_component_kinds,
+                    component_padding_indices=(self.instance_component_padding_indices),
                 ),
                 padding_idx=self.instance_sequence_padding_idx,
+                component_kinds=self.instance_component_kinds,
+                component_padding_indices=self.instance_component_padding_indices,
             ),
             target_input=_build_branch_batch(
                 self.target_kind,
@@ -587,8 +732,12 @@ class MTPBatchCollator:
                     self.target_kind,
                     target_values,
                     padding_idx=self.target_sequence_padding_idx,
+                    component_kinds=self.target_component_kinds,
+                    component_padding_indices=self.target_component_padding_indices,
                 ),
                 padding_idx=self.target_sequence_padding_idx,
+                component_kinds=self.target_component_kinds,
+                component_padding_indices=self.target_component_padding_indices,
             ),
             score=tensors["score"],
         )
@@ -615,7 +764,33 @@ def _collate_branch_values(
     values: Sequence[Any],
     *,
     padding_idx: int,
+    component_kinds: Mapping[str, BranchInputKind] | None = None,
+    component_padding_indices: Mapping[str, int] | None = None,
 ) -> Any:
+    if kind == "composite":
+        if component_kinds is None:  # pragma: no cover - collator invariant
+            raise RuntimeError("Composite collation has no component kinds.")
+        expected_names = set(component_kinds)
+        for row_index, value in enumerate(values):
+            if not isinstance(value, Mapping):
+                raise TypeError(f"Composite feature row {row_index} must be a mapping.")
+            if set(value) != expected_names:
+                raise ValueError(
+                    f"Composite feature row {row_index} must contain exactly "
+                    f"{sorted(expected_names)}; received {sorted(value)}."
+                )
+        return {
+            name: _collate_branch_values(
+                component_kind,
+                [value[name] for value in values],
+                padding_idx=(
+                    component_padding_indices.get(name, 0)
+                    if component_padding_indices is not None
+                    else 0
+                ),
+            )
+            for name, component_kind in component_kinds.items()
+        }
     if kind == "sparse":
         return collate_sparse_rows(values)
     if kind == "sequence":
@@ -636,7 +811,30 @@ def _build_branch_batch(
     values: Any,
     *,
     padding_idx: int,
+    component_kinds: Mapping[str, BranchInputKind] | None = None,
+    component_padding_indices: Mapping[str, int] | None = None,
 ) -> BranchBatch:
+    if kind == "composite":
+        if not isinstance(values, Mapping):
+            raise TypeError("Collated composite features must be a mapping.")
+        if component_kinds is None:  # pragma: no cover - collator invariant
+            raise RuntimeError("Composite batching has no component kinds.")
+        return CompositeBranchBatch(
+            CompositeInput(
+                {
+                    name: _build_branch_batch(
+                        component_kind,
+                        values[name],
+                        padding_idx=(
+                            component_padding_indices.get(name, 0)
+                            if component_padding_indices is not None
+                            else 0
+                        ),
+                    ).values
+                    for name, component_kind in component_kinds.items()
+                }
+            )
+        )
     if kind == "sequence":
         if not isinstance(values, Mapping):
             raise TypeError(
@@ -689,3 +887,57 @@ def _build_branch_batch(
     if kind == "image":
         return ImageBranchBatch(values)
     return CustomBranchBatch(values)
+
+
+def _validate_composite_collator_settings(
+    *,
+    branch: str,
+    kind: BranchInputKind,
+    component_kinds: Mapping[str, BranchInputKind] | None,
+    padding_indices: Mapping[str, int] | None,
+) -> None:
+    if kind != "composite":
+        if component_kinds is not None or padding_indices is not None:
+            raise ValueError(
+                f"{branch}_component settings require {branch}_kind='composite'."
+            )
+        return
+    if not isinstance(component_kinds, Mapping) or len(component_kinds) < 2:
+        raise ValueError(
+            f"{branch}_component_kinds must contain at least two components."
+        )
+    for name, component_kind in component_kinds.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("Composite component names must be non-empty strings.")
+        if component_kind == "composite":
+            raise ValueError("Nested composite components are not supported.")
+        if component_kind not in {
+            "dense",
+            "id",
+            "image",
+            "sequence",
+            "sparse",
+            "tabular",
+            "custom",
+        }:
+            raise ValueError(
+                f"Unsupported {branch} composite component kind {component_kind!r}."
+            )
+    if padding_indices is None:
+        return
+    unknown_names = set(padding_indices).difference(component_kinds)
+    if unknown_names:
+        raise ValueError(
+            f"{branch}_component_padding_indices contains unknown components: "
+            f"{sorted(unknown_names)}."
+        )
+    for name, padding_idx in padding_indices.items():
+        if (
+            isinstance(padding_idx, bool)
+            or not isinstance(padding_idx, int)
+            or padding_idx < 0
+        ):
+            raise ValueError(
+                f"Padding index for composite component {name!r} must be a "
+                "non-negative integer."
+            )

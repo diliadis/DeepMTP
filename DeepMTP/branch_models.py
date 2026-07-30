@@ -2,6 +2,7 @@
 
 from DeepMTP.models.branches import (
     MLP,
+    CompositeEncoder,
     ConvNet,
     IDEmbedding,
     ModelConfigInput,
@@ -14,6 +15,7 @@ from DeepMTP.models.branches import (
 
 __all__ = [
     "ConvNet",
+    "CompositeEncoder",
     "IDEmbedding",
     "MLP",
     "ModelConfigInput",

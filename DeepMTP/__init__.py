@@ -23,6 +23,7 @@ from DeepMTP.hpo.progress import (
 )
 from DeepMTP.main import DeepMTP
 from DeepMTP.models import (
+    CompositeEncoder,
     IDEmbedding,
     ModelBundle,
     ModelFactory,
@@ -70,6 +71,7 @@ __all__ = [
     "ConfigDeprecationWarning",
     "ConfigNormalizationWarning",
     "ConfigValidationError",
+    "CompositeEncoder",
     "DeepMTP",
     "DeepMTPConfig",
     "DataLoaderFactory",
