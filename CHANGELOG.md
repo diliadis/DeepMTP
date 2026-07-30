@@ -51,6 +51,8 @@ checkpoints.
 - Token-sequence branches with explicit vocabulary and padding configuration,
   dynamically padded token IDs, attention masks, sequence lengths, packed GRU
   encoding, early validation, and checkpoint restoration.
+- Mask-aware 1-D convolutional token-sequence encoders with configurable odd
+  kernel widths, stacked temporal layers, and global max pooling.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and

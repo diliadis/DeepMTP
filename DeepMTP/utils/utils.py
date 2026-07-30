@@ -513,6 +513,7 @@ def generate_config(
             "instance_branch_sequence_encoder": "gru",
             "instance_branch_sequence_embedding_dim": 64,
             "instance_branch_sequence_output_dim": 64,
+            "instance_branch_sequence_conv_kernel_size": 3,
             "instance_branch_sequence_num_layers": 1,
             "instance_branch_sequence_padding_idx": 0,
         }
@@ -588,6 +589,7 @@ def generate_config(
             "target_branch_sequence_encoder": "gru",
             "target_branch_sequence_embedding_dim": 64,
             "target_branch_sequence_output_dim": 64,
+            "target_branch_sequence_conv_kernel_size": 3,
             "target_branch_sequence_num_layers": 1,
             "target_branch_sequence_padding_idx": 0,
         }

@@ -27,6 +27,7 @@ def test_models_package_exposes_canonical_implementations():
         "MLP": branches_module.MLP,
         "ModelBundle": factory_module.ModelBundle,
         "ModelFactory": factory_module.ModelFactory,
+        "SequenceConv1DEncoder": branches_module.SequenceConv1DEncoder,
         "SequenceGRUEncoder": branches_module.SequenceGRUEncoder,
         "SparseMLP": branches_module.SparseMLP,
         "TwoBranchDotProductModel": factory_module.TwoBranchDotProductModel,
@@ -49,6 +50,7 @@ def test_top_level_model_api_uses_canonical_implementations():
         "IDEmbedding",
         "ModelBundle",
         "ModelFactory",
+        "SequenceConv1DEncoder",
         "SequenceGRUEncoder",
         "SparseMLP",
         "TwoBranchDotProductModel",
@@ -69,6 +71,7 @@ def test_top_level_model_api_uses_canonical_implementations():
                 "IDEmbedding",
                 "MLP",
                 "ModelConfigInput",
+                "SequenceConv1DEncoder",
                 "SequenceGRUEncoder",
                 "SparseMLP",
                 "TabularEncoder",
@@ -145,6 +148,9 @@ def test_model_classes_report_their_canonical_module_names():
     assert branches_module.SparseMLP.__module__ == "DeepMTP.models.branches"
     assert branches_module.ConvNet.__module__ == "DeepMTP.models.branches"
     assert branches_module.IDEmbedding.__module__ == "DeepMTP.models.branches"
+    assert branches_module.SequenceConv1DEncoder.__module__ == (
+        "DeepMTP.models.branches"
+    )
     assert branches_module.SequenceGRUEncoder.__module__ == ("DeepMTP.models.branches")
     assert factory_module.ModelFactory.__module__ == "DeepMTP.models.factory"
     assert factory_module.TwoBranchDotProductModel.__module__ == (

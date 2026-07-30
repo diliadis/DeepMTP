@@ -195,6 +195,7 @@ class DeepMTPConfig:
     instance_branch_sequence_encoder: str = "gru"
     instance_branch_sequence_embedding_dim: int = 64
     instance_branch_sequence_output_dim: int = 64
+    instance_branch_sequence_conv_kernel_size: int = 3
     instance_branch_sequence_num_layers: int = 1
     instance_branch_sequence_padding_idx: int = 0
 
@@ -218,6 +219,7 @@ class DeepMTPConfig:
     target_branch_sequence_encoder: str = "gru"
     target_branch_sequence_embedding_dim: int = 64
     target_branch_sequence_output_dim: int = 64
+    target_branch_sequence_conv_kernel_size: int = 3
     target_branch_sequence_num_layers: int = 1
     target_branch_sequence_padding_idx: int = 0
 
@@ -647,9 +649,9 @@ class DeepMTPConfig:
         branch: Literal["instance", "target"],
     ) -> None:
         encoder = getattr(self, f"{branch}_branch_sequence_encoder")
-        if encoder != "gru":
+        if encoder not in {"conv1d", "gru"}:
             raise ConfigValidationError(
-                f"{branch}_branch_sequence_encoder must currently be 'gru'; "
+                f"{branch}_branch_sequence_encoder must be 'conv1d' or 'gru'; "
                 f"received {encoder!r}."
             )
         for suffix in (
@@ -670,6 +672,15 @@ class DeepMTPConfig:
                 f"{branch}_branch_input_dim={vocabulary_size}; received "
                 f"{padding_idx}."
             )
+        if encoder == "conv1d":
+            kernel_field = f"{branch}_branch_sequence_conv_kernel_size"
+            kernel_size = getattr(self, kernel_field)
+            self._require_positive_integer(kernel_field, kernel_size)
+            if kernel_size % 2 == 0:
+                raise ConfigValidationError(
+                    f"{kernel_field} must be odd so temporal convolutions "
+                    f"preserve sequence length; received {kernel_size}."
+                )
 
     def _validate_tabular_branch(
         self,
