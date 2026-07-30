@@ -14,6 +14,11 @@ from torch.utils.data import DataLoader, Dataset, Sampler
 
 from DeepMTP.config import BranchArchitecture, DeepMTPConfig
 from DeepMTP.data.batches import BranchInputKind, MTPBatchCollator
+from DeepMTP.data.sparse import (
+    is_sparse_value,
+    normalize_sparse_rows,
+    sparse_object_array,
+)
 from DeepMTP.data.tabular import (
     TabularPreprocessor,
     TabularSchema,
@@ -32,6 +37,7 @@ _DATA_SPLIT_KEYS = frozenset({"y", "X_instance", "X_target"})
 SamplerMode: TypeAlias = Literal["micro", "macro", "instance"]
 _BRANCH_INPUT_KINDS: dict[BranchArchitecture, BranchInputKind] = {
     "MLP": "dense",
+    "SPARSE": "sparse",
     "EMBEDDING": "id",
     "CONV": "image",
     "TABULAR": "tabular",
@@ -242,6 +248,7 @@ class BaseDataset(Dataset):
             instance_features,
             id_column="instance_id",
             architecture=self.instance_branch_architecture,
+            input_dim=self.instance_branch_input_dim,
             transform=instance_transform,
             tabular_preprocessor=instance_tabular_preprocessor,
             entity_name="Instance",
@@ -250,6 +257,7 @@ class BaseDataset(Dataset):
             target_features,
             id_column="target_id",
             architecture=self.target_branch_architecture,
+            input_dim=self.target_branch_input_dim,
             transform=target_transform,
             tabular_preprocessor=target_tabular_preprocessor,
             entity_name="Target",
@@ -290,12 +298,13 @@ class BaseDataset(Dataset):
         *,
         id_column: Literal["instance_id", "target_id"],
         architecture: object,
+        input_dim: object,
         transform: Callable[[Image.Image], Any] | None,
         tabular_preprocessor: TabularPreprocessor | None,
         entity_name: Literal["Instance", "Target"],
     ) -> pd.DataFrame | None:
         if source is None:
-            if architecture in {"CONV", "TABULAR"}:
+            if architecture in {"CONV", "SPARSE", "TABULAR"}:
                 raise ValueError(
                     f"{entity_name} features are required for a {architecture} branch."
                 )
@@ -303,8 +312,8 @@ class BaseDataset(Dataset):
         if architecture == "EMBEDDING":
             raise ValueError(
                 f"{entity_name} side features cannot be supplied to an "
-                "EMBEDDING branch. Use an MLP, TABULAR, CONV, or CUSTOM branch "
-                "when side features are required."
+                "EMBEDDING branch. Use an MLP, SPARSE, TABULAR, CONV, or CUSTOM "
+                "branch when side features are required."
             )
 
         frame = source.get("data")
@@ -330,6 +339,35 @@ class BaseDataset(Dataset):
                     f"{entity_name} features must contain a {value_column!r} column."
                 )
             prepared_frame = frame.copy(deep=True).set_index("id", drop=False)
+        if architecture == "SPARSE":
+            sparse_rows, sparse_width, _ = normalize_sparse_rows(
+                prepared_frame["features"],
+                entity_name=entity_name.lower(),
+            )
+            if (
+                isinstance(input_dim, bool)
+                or not isinstance(input_dim, int)
+                or input_dim <= 0
+            ):
+                raise ValueError(
+                    f"{entity_name.lower()}_branch_input_dim must be a positive "
+                    "integer for a SPARSE branch."
+                )
+            if sparse_width != input_dim:
+                raise ValueError(
+                    f"{entity_name} sparse feature width does not match "
+                    f"{entity_name.lower()}_branch_input_dim: expected {input_dim}, "
+                    f"received {sparse_width}."
+                )
+            prepared_frame = prepared_frame.copy(deep=False)
+            prepared_frame["features"] = sparse_object_array(sparse_rows)
+        elif architecture not in {"CONV", "TABULAR"} and any(
+            is_sparse_value(value) for value in prepared_frame["features"]
+        ):
+            raise TypeError(
+                f"{entity_name} sparse features require "
+                f"{entity_name.lower()}_branch_architecture='SPARSE'."
+            )
         if architecture == "CONV" and transform is None:
             raise ValueError(
                 f"{entity_name.lower()}_transform is required for a CONV branch."

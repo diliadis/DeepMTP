@@ -275,7 +275,7 @@ def generate_config(
         save_model (bool, optional): Whether or not to save the model of the epoch with the best validation performance. Defaults to True.
         metric_to_optimize_early_stopping (str, optional): The metric that will be used for tracking by the early stopping routine. The value can be the loss or one of the available performance metrics.. Defaults to 'loss'.
         metric_to_optimize_best_epoch_selection (str, optional): The validation metric that will be used to determine the best configuration. The value can be the loss or one of the available performance metrics.. Defaults to 'loss'.
-        instance_branch_architecture (str, optional): The type of architecture used in the instance branch: MLP for dense side features, TABULAR for explicit numeric and categorical columns, CONV for images, EMBEDDING for zero-based entity IDs, or CUSTOM for a user-supplied branch. Defaults to None.
+        instance_branch_architecture (str, optional): The type of architecture used in the instance branch: MLP for dense side features, SPARSE for high-dimensional SciPy or PyTorch sparse features, TABULAR for explicit numeric and categorical columns, CONV for images, EMBEDDING for zero-based entity IDs, or CUSTOM for a user-supplied branch. Defaults to None.
         use_instance_features (bool, optional): Whether or not the instance features will be used. Defaults to False.
         instance_branch_input_dim (int, optional): The input dimension of the instance branch, or the number of instance IDs for an EMBEDDING branch. Defaults to None.
         instance_branch_tabular_schema (mapping, optional): Numeric columns, categorical vocabularies, missing-value policies, normalization, and optional feature gating for an instance TABULAR branch.
@@ -289,7 +289,7 @@ def generate_config(
         instance_branch_conv_architecture_dense_layers (int, optional): The number of replacement dense layers for a ResNet instance branch: 1 or 2. Defaults to 1.
         instance_branch_conv_architecture_last_layer_trained (str, optional): The earliest trainable ResNet block in the instance branch: 'last' or 'layer4' through 'layer1'. Defaults to 'last'.
         instance_branch_conv_pretrained (bool, optional): Whether to initialize an instance convolutional branch with torchvision's default pretrained weights. Set to False to construct the model without a network download. Defaults to True.
-        target_branch_architecture (str, optional): The type of architecture used in the target branch: MLP for dense side features, TABULAR for explicit numeric and categorical columns, CONV for images, EMBEDDING for zero-based entity IDs, or CUSTOM for a user-supplied branch. Defaults to None.
+        target_branch_architecture (str, optional): The type of architecture used in the target branch: MLP for dense side features, SPARSE for high-dimensional SciPy or PyTorch sparse features, TABULAR for explicit numeric and categorical columns, CONV for images, EMBEDDING for zero-based entity IDs, or CUSTOM for a user-supplied branch. Defaults to None.
         use_target_features (bool, optional): Whether or not the target features will be used. Defaults to False.. Defaults to False.
         target_branch_input_dim (int, optional): The input dimension of the target branch, or the number of target IDs for an EMBEDDING branch. Defaults to None.
         target_branch_tabular_schema (mapping, optional): Numeric columns, categorical vocabularies, missing-value policies, normalization, and optional feature gating for a target TABULAR branch.
@@ -487,7 +487,7 @@ def generate_config(
     }:
         base_config["embedding_size"] = embedding_size
 
-    if instance_branch_architecture in {"MLP", "TABULAR"}:
+    if instance_branch_architecture in {"MLP", "SPARSE", "TABULAR"}:
         base_config.update(
             {
                 "instance_branch_nodes_per_layer": [10, 10, 10],
@@ -549,7 +549,7 @@ def generate_config(
             + " is not a valid name for the architecture in the instance branch"
         )
 
-    if target_branch_architecture in {"MLP", "TABULAR"}:
+    if target_branch_architecture in {"MLP", "SPARSE", "TABULAR"}:
         base_config.update(
             {
                 "target_branch_nodes_per_layer": [10, 10, 10],

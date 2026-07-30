@@ -36,6 +36,7 @@ from DeepMTP.data.progress import (
     _emit_data_separator,
     _resolve_data_progress,
 )
+from DeepMTP.data.sparse import is_sparse_value
 from DeepMTP.data.splitting import split_data
 
 __all__ = [
@@ -283,6 +284,13 @@ def _scale_feature_splits(
             level="warning",
         )
         return
+
+    if any(is_sparse_value(value) for value in train_frame["features"]):
+        raise ValueError(
+            f"{feature_key} uses sparse features, which cannot be combined with "
+            f"legacy {entity_name} feature scaling without densifying them. "
+            "Preprocess sparse values upstream or leave the scaling option unset."
+        )
 
     _emit_data_operation_started_if_verbose(
         verbose,

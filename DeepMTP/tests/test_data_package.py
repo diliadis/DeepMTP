@@ -65,6 +65,7 @@ def test_data_package_exposes_canonical_services():
         "ProcessedSplit": preparation_module.ProcessedSplit,
         "SamplerMode": loading_module.SamplerMode,
         "ScalingMethod": preparation_module.ScalingMethod,
+        "SparseBranchBatch": batches_module.SparseBranchBatch,
         "TabularBranchBatch": batches_module.TabularBranchBatch,
         "TabularInput": batches_module.TabularInput,
         "TabularPreprocessingState": tabular_module.TabularPreprocessingState,

@@ -9,6 +9,12 @@ from typing import Any, ClassVar, Literal, TypeAlias, cast
 import torch
 from torch.utils.data import default_collate
 
+from DeepMTP.data.sparse import (
+    collate_sparse_rows,
+    is_torch_sparse,
+    pin_sparse_tensor,
+)
+
 __all__ = [
     "BranchBatch",
     "BranchInputKind",
@@ -18,12 +24,20 @@ __all__ = [
     "ImageBranchBatch",
     "MTPBatch",
     "MTPBatchCollator",
+    "SparseBranchBatch",
     "TabularBranchBatch",
     "TabularInput",
     "TensorBranchBatch",
 ]
 
-BranchInputKind: TypeAlias = Literal["dense", "id", "image", "tabular", "custom"]
+BranchInputKind: TypeAlias = Literal[
+    "dense",
+    "id",
+    "image",
+    "sparse",
+    "tabular",
+    "custom",
+]
 
 
 @dataclass(frozen=True)
@@ -101,6 +115,26 @@ class ImageBranchBatch(TensorBranchBatch):
             )
         if not torch.is_floating_point(self.values):
             raise TypeError("Image branch values must use a floating-point dtype.")
+
+
+class SparseBranchBatch(TensorBranchBatch):
+    """A sparse feature batch shaped ``[batch, features]``."""
+
+    kind: ClassVar[BranchInputKind] = "sparse"
+
+    def _validate_values(self) -> None:
+        if not is_torch_sparse(self.values):
+            raise TypeError(
+                "Sparse branch values must use PyTorch COO or CSR sparse layout."
+            )
+        if self.values.ndim != 2:
+            raise ValueError("Sparse branch values must have shape [batch, features].")
+        if not torch.is_floating_point(self.values):
+            raise TypeError("Sparse branch values must use a floating-point dtype.")
+
+    def pin_memory(self) -> SparseBranchBatch:
+        """Pin sparse indices and values for asynchronous device transfer."""
+        return replace(self, values=pin_sparse_tensor(self.values))
 
 
 class CustomBranchBatch(TensorBranchBatch):
@@ -203,6 +237,7 @@ BranchBatch: TypeAlias = (
     DenseBranchBatch
     | IDBranchBatch
     | ImageBranchBatch
+    | SparseBranchBatch
     | TabularBranchBatch
     | CustomBranchBatch
 )
@@ -339,15 +374,33 @@ class MTPBatchCollator:
             "instance_kind": self.instance_kind,
             "target_kind": self.target_kind,
         }.items():
-            if kind not in {"dense", "id", "image", "tabular", "custom"}:
+            if kind not in {"dense", "id", "image", "sparse", "tabular", "custom"}:
                 raise ValueError(
-                    f"{name} must be 'dense', 'id', 'image', 'tabular', or 'custom'."
+                    f"{name} must be 'dense', 'id', 'image', 'sparse', 'tabular', "
+                    "or 'custom'."
                 )
 
     def __call__(self, items: Sequence[Mapping[str, Any]]) -> MTPBatch:
         if not items:
             raise ValueError("Cannot collate an empty collection of dataset items.")
-        collated = default_collate(items)
+        core_items = []
+        instance_values = []
+        target_values = []
+        for item in items:
+            if not isinstance(item, Mapping):
+                raise TypeError("Dataset items must be mappings.")
+            try:
+                core_items.append(
+                    {key: item[key] for key in ("instance_id", "target_id", "score")}
+                )
+                instance_values.append(item["instance_features"])
+                target_values.append(item["target_features"])
+            except KeyError as error:
+                raise ValueError(
+                    f"Dataset items are missing required field {error.args[0]!r}."
+                ) from error
+
+        collated = default_collate(core_items)
         if not isinstance(collated, Mapping):
             raise TypeError("Dataset items must collate into a mapping.")
         tensors = {
@@ -359,11 +412,11 @@ class MTPBatchCollator:
             target_id=tensors["target_id"],
             instance_input=_build_branch_batch(
                 self.instance_kind,
-                _require_collated_value(collated, "instance_features"),
+                _collate_branch_values(self.instance_kind, instance_values),
             ),
             target_input=_build_branch_batch(
                 self.target_kind,
-                _require_collated_value(collated, "target_features"),
+                _collate_branch_values(self.target_kind, target_values),
             ),
             score=tensors["score"],
         )
@@ -385,14 +438,13 @@ def _require_collated_tensor(
     return value
 
 
-def _require_collated_value(
-    collated: Mapping[str, Any],
-    key: str,
+def _collate_branch_values(
+    kind: BranchInputKind,
+    values: Sequence[Any],
 ) -> Any:
-    try:
-        return collated[key]
-    except KeyError as error:
-        raise ValueError(f"Collated dataset items are missing {key!r}.") from error
+    if kind == "sparse":
+        return collate_sparse_rows(values)
+    return default_collate(values)
 
 
 def _build_branch_batch(
@@ -415,6 +467,14 @@ def _build_branch_batch(
                 categorical=categorical,
             )
         )
+    if kind == "sparse":
+        if not isinstance(values, torch.Tensor):
+            raise TypeError(
+                "Collated sparse branch features must be a PyTorch sparse tensor."
+            )
+        if not torch.is_floating_point(values):
+            values = values.float()
+        return SparseBranchBatch(values)
     if not isinstance(values, torch.Tensor):
         raise TypeError(
             f"Collated {kind} branch features must be a torch.Tensor, "

@@ -7,7 +7,6 @@ from collections.abc import Mapping, MutableMapping
 from itertools import combinations
 from typing import Any, Literal
 
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -19,6 +18,7 @@ from DeepMTP.data.progress import (
     _emit_data_operation_completed_if_verbose,
     _emit_data_operation_started_if_verbose,
 )
+from DeepMTP.data.sparse import copy_feature_value
 
 __all__ = ["split_data"]
 
@@ -68,7 +68,7 @@ def _copy_feature_source(source: Mapping[str, Any]) -> dict[str, Any]:
         copied_frame = source_frame.copy(deep=True)
         if "features" in copied_frame:
             copied_frame["features"] = [
-                np.asarray(feature_vector).copy()
+                copy_feature_value(feature_vector)
                 for feature_vector in copied_frame["features"]
             ]
         copied_source["data"] = copied_frame

@@ -7,6 +7,7 @@ from DeepMTP import (
     DeepMTPConfig,
     IDEmbedding,
     ModelFactory,
+    SparseMLP,
     TabularEncoder,
     TwoBranchDotProductModel,
     TwoBranchKroneckerModel,
@@ -183,6 +184,29 @@ def test_model_factory_builds_tabular_and_dense_branches_together(architecture):
 
     assert isinstance(bundle.instance_branch, TabularEncoder)
     assert bundle.model.instance_input_kind == "tabular"
+    assert output.shape == (2, 1)
+
+
+@pytest.mark.parametrize("architecture", ["dot_product", "mlp", "kronecker"])
+def test_model_factory_builds_sparse_and_dense_branches_together(architecture):
+    bundle = ModelFactory(
+        make_config(
+            general_architecture_version=architecture,
+            instance_branch_architecture="SPARSE",
+            instance_branch_input_dim=5,
+            instance_branch_nodes_per_layer=[4],
+        )
+    ).build()
+
+    output = bundle.model(
+        torch.tensor(
+            [[0.0, 1.0, 0.0, 2.0, 0.0], [3.0, 0.0, 0.0, 0.0, 4.0]]
+        ).to_sparse(),
+        torch.ones(2, 3),
+    )
+
+    assert isinstance(bundle.instance_branch, SparseMLP)
+    assert bundle.model.instance_input_kind == "sparse"
     assert output.shape == (2, 1)
 
 

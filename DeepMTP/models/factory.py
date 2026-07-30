@@ -15,7 +15,13 @@ from DeepMTP._registry import FactoryRegistry
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.data.batches import BranchInputKind
 from DeepMTP.data.tabular import TabularSchema
-from DeepMTP.models.branches import MLP, ConvNet, IDEmbedding, TabularEncoder
+from DeepMTP.models.branches import (
+    MLP,
+    ConvNet,
+    IDEmbedding,
+    SparseMLP,
+    TabularEncoder,
+)
 from DeepMTP.models.contracts import (
     BranchModelInput,
     encode_branch,
@@ -416,6 +422,16 @@ class ModelFactory:
                 getattr(self.config, f"dropout_rate_{branch}_branch"),
                 self.config.batch_norm,
             )
+        if architecture == "SPARSE":
+            return SparseMLP(
+                self.config,
+                getattr(self.config, f"{branch}_branch_input_dim"),
+                output_dim,
+                getattr(self.config, f"{branch}_branch_nodes_per_layer"),
+                getattr(self.config, f"{branch}_branch_layers"),
+                getattr(self.config, f"dropout_rate_{branch}_branch"),
+                self.config.batch_norm,
+            )
         if architecture == "EMBEDDING":
             input_dim = getattr(self.config, f"{branch}_branch_input_dim")
             if input_dim is None:
@@ -475,6 +491,7 @@ class ModelFactory:
         architecture = getattr(self.config, f"{branch}_branch_architecture")
         expected_input_kinds: dict[str, BranchInputKind] = {
             "MLP": "dense",
+            "SPARSE": "sparse",
             "EMBEDDING": "id",
             "CONV": "image",
             "TABULAR": "tabular",
