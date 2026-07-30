@@ -514,6 +514,10 @@ def generate_config(
         base_config["instance_branch_composite_components"] = (
             instance_branch_params.get("instance_branch_composite_components")
         )
+        base_config["instance_branch_composite_fusion"] = instance_branch_params.get(
+            "instance_branch_composite_fusion",
+            "concat",
+        )
     elif instance_branch_architecture == "SEQUENCE":
         sequence_defaults = {
             "instance_branch_sequence_encoder": "gru",
@@ -595,6 +599,10 @@ def generate_config(
     elif target_branch_architecture == "COMPOSITE":
         base_config["target_branch_composite_components"] = target_branch_params.get(
             "target_branch_composite_components"
+        )
+        base_config["target_branch_composite_fusion"] = target_branch_params.get(
+            "target_branch_composite_fusion",
+            "concat",
         )
     elif target_branch_architecture == "SEQUENCE":
         sequence_defaults = {

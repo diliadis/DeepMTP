@@ -167,7 +167,7 @@ class MLP(nn.Sequential):
 
 
 class CompositeEncoder(nn.Module):
-    """Concatenate standardized outputs from named component encoders."""
+    """Fuse standardized outputs from named component encoders."""
 
     input_kind: ClassVar[BranchInputKind] = "composite"
 
@@ -176,6 +176,7 @@ class CompositeEncoder(nn.Module):
         component_encoders: Mapping[str, nn.Module],
         *,
         optional_components: Collection[str] = (),
+        fusion: str = "concat",
     ) -> None:
         super().__init__()
         if not isinstance(component_encoders, Mapping):
@@ -190,6 +191,10 @@ class CompositeEncoder(nn.Module):
         ):
             raise TypeError("optional_components must be a collection of names.")
         normalized_optional_components = frozenset(optional_components)
+        if fusion not in {"concat", "gated"}:
+            raise ValueError(
+                f"Composite fusion must be 'concat' or 'gated'; received {fusion!r}."
+            )
 
         normalized_encoders: OrderedDict[str, nn.Module] = OrderedDict()
         output_dimensions: dict[str, int] = {}
@@ -224,6 +229,7 @@ class CompositeEncoder(nn.Module):
         self.component_input_kinds = input_kinds
         self.component_output_dims = output_dimensions
         self.optional_components = normalized_optional_components
+        self.fusion = fusion
         self.missing_representations = nn.ParameterDict(
             {
                 name: nn.Parameter(torch.zeros(output_dimensions[name]))
@@ -232,6 +238,14 @@ class CompositeEncoder(nn.Module):
             }
         )
         self.output_dim = sum(output_dimensions.values())
+        self.gate_network = (
+            nn.Linear(
+                self.output_dim + len(normalized_encoders),
+                len(normalized_encoders),
+            )
+            if fusion == "gated"
+            else None
+        )
 
     def forward(self, values: CompositeInput) -> torch.Tensor:
         if not isinstance(values, CompositeInput):
@@ -243,10 +257,48 @@ class CompositeEncoder(nn.Module):
                 f"expected {sorted(expected_names)}, received {sorted(values)}."
             )
         encoded_components = [
-            self._encode_component(name, encoder, values[name])
+            (
+                name,
+                self._encode_component(name, encoder, values[name]),
+            )
             for name, encoder in self.component_encoders.items()
         ]
-        return torch.cat(encoded_components, dim=1)
+        if self.fusion == "concat":
+            return torch.cat(
+                [encoded for _, encoded in encoded_components],
+                dim=1,
+            )
+
+        presence = torch.cat(
+            [
+                self._presence_feature(values[name], encoded)
+                for name, encoded in encoded_components
+            ],
+            dim=1,
+        )
+        gate_input = torch.cat(
+            [*[encoded for _, encoded in encoded_components], presence],
+            dim=1,
+        )
+        if self.gate_network is None:  # pragma: no cover - constructor invariant
+            raise RuntimeError("Gated composite fusion has no gate network.")
+        gates = torch.sigmoid(self.gate_network(gate_input))
+        return torch.cat(
+            [
+                encoded * gates[:, index : index + 1]
+                for index, (_, encoded) in enumerate(encoded_components)
+            ],
+            dim=1,
+        )
+
+    @staticmethod
+    def _presence_feature(values: Any, encoded: torch.Tensor) -> torch.Tensor:
+        if not isinstance(values, MaskedComponentInput):
+            return encoded.new_ones((encoded.shape[0], 1))
+        return values.presence_mask.to(
+            device=encoded.device,
+            dtype=encoded.dtype,
+        ).unsqueeze(1)
 
     def _encode_component(
         self,
