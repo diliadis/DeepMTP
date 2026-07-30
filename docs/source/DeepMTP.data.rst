@@ -19,9 +19,9 @@ Batches
 
 Model-ready dataloaders return :class:`DeepMTP.data.batches.MTPBatch`. It is a
 mapping compatible with the historical tensor keys and also exposes typed
-dense, sparse, ID, image, sequence, tabular, composite, or custom branch
-inputs. Sparse inputs use PyTorch COO or CSR tensors; tabular and sequence
-inputs remain structured; composite inputs keep named component values
+dense, graph, sparse, ID, image, sequence, tabular, composite, or custom branch
+inputs. Graph, tabular, and sequence inputs remain structured; sparse inputs
+use PyTorch COO or CSR tensors; composite inputs keep named component values
 together. Optional composite components carry their present sub-batch and a
 full-batch Boolean mask. Calling ``batch.to(device)`` moves every component
 together.
@@ -66,6 +66,18 @@ Features
 --------
 
 .. automodule:: DeepMTP.data.features
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Graph utilities
+---------------
+
+PyTorch Geometric is imported only when graph inputs are used. Its ``Data``
+objects are validated, cloned, and converted to DeepMTP's graph batch
+contract.
+
+.. automodule:: DeepMTP.data.graphs
    :members:
    :undoc-members:
    :show-inheritance:

@@ -139,12 +139,17 @@ reserved index zero unless their policy is configured as `error`.
 - [ ] Add optional adapters for protein, chemical, and text foundation models
   without making them core dependencies.
 
-### 5. Graph inputs
+### 5. Graph inputs (homogeneous molecular graphs completed)
 
-- Define a graph batch adapter and optional graph neural-network branch.
-- Initially support precomputed molecular graph objects, then general
-  heterogeneous graphs if a concrete use case requires them.
-- Keep graph libraries in a separate optional dependency group.
+- [x] Define a typed graph batch adapter and optional graph neural-network
+  branch.
+- [x] Support precomputed homogeneous molecular
+  ``torch_geometric.data.Data`` objects.
+- [x] Provide GIN for node-only graphs and GINE for molecular edge features,
+  with configurable graph-level pooling.
+- [x] Support graph encoders as required or optional composite components.
+- [x] Keep PyTorch Geometric in a separate optional dependency group.
+- [ ] Add heterogeneous graphs only if a concrete dataset requires them.
 
 ### 6. Time-series inputs
 
@@ -179,8 +184,7 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Remove module-layout inspection from fusion construction.
 - [x] Add structured numeric/categorical batches for tabular encoders.
 - [x] Add a structured batch contract for sequences.
-- [ ] Add a structured batch contract for graphs when graph encoders are
-  introduced.
+- [x] Add a structured batch contract for graphs.
 - [x] Separate fusion, output-head, and loss selection into registries.
 - [ ] Store all preprocessing metadata with checkpoints (tabular preprocessing
   is complete; legacy dense-scaler metadata remains).
@@ -238,7 +242,8 @@ reserved index zero unless their policy is configured as `error`.
 7. Sequence encoders (GRU, 1-D convolution, and Transformer complete).
 8. Hybrid input concatenation, learned missing-modality representations, gated
    fusion, attention fusion, and modality dropout (complete).
-9. Graph and time-series encoders, driven by concrete datasets.
+9. Homogeneous molecular graph encoders (complete), followed by time-series
+   encoders and heterogeneous graphs only when driven by concrete datasets.
 10. Performance features after correctness baselines are established.
 
 Each slice is complete when its invalid configurations fail early, its public

@@ -11,6 +11,7 @@ architectures, and construction:
        CompositeEncoder,
        ConvNet,
        FUSION_REGISTRY,
+       GraphEncoder,
        MLP,
        ModelFactory,
        SparseMLP,
@@ -26,6 +27,8 @@ shared runtime contract requires a floating output shaped
 
 Most encoders consume one tensor. ``SparseMLP`` consumes a PyTorch COO or CSR
 sparse tensor and produces a dense representation after its first projection.
+``GraphEncoder`` consumes a structured ``GraphInput`` and applies GIN or GINE
+message passing followed by graph-level pooling.
 ``TabularEncoder`` consumes a structured
 ``TabularInput`` containing a floating numeric tensor and an integer
 categorical tensor while producing the same standardized encoder output.

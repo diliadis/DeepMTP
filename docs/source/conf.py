@@ -52,6 +52,7 @@ autodoc_mock_imports = [
     'streamlit',
     'scipy',
     'torch',
+    'torch_geometric',
     'arff',
     'prettytable',
     'wandb',
