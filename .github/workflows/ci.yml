@@ -160,11 +160,17 @@ jobs:
       - name: Inspect distribution metadata
         run: python -m twine check --strict dist/*
 
-      - name: Install wheel in an isolated environment
+      - name: Verify distribution contract
+        run: python scripts/verify_release_artifacts.py --contract-only dist/*
+
+      - name: Install wheel and optional extras in an isolated environment
         run: |
           python -m venv "$RUNNER_TEMP/deepmtp-wheel-smoke"
           "$RUNNER_TEMP/deepmtp-wheel-smoke/bin/python" -m pip install --upgrade pip
-          "$RUNNER_TEMP/deepmtp-wheel-smoke/bin/python" -m pip install dist/*.whl
+          for wheel in dist/*.whl; do
+            "$RUNNER_TEMP/deepmtp-wheel-smoke/bin/python" -m pip install "${wheel}[all]"
+          done
+          "$RUNNER_TEMP/deepmtp-wheel-smoke/bin/python" -m pip check
 
       - name: Run installed-wheel CPU smoke test
         working-directory: ${{ runner.temp }}
@@ -173,6 +179,13 @@ jobs:
             "$GITHUB_WORKSPACE/scripts/smoke_test_installation.py" \
             --require-wheel-install \
             --output-dir "$RUNNER_TEMP/deepmtp-wheel-results"
+
+      - name: Smoke test installed optional integrations
+        working-directory: ${{ runner.temp }}
+        run: |
+          "$RUNNER_TEMP/deepmtp-wheel-smoke/bin/python" \
+            "$GITHUB_WORKSPACE/scripts/smoke_test_optional_extras.py" \
+            --require-wheel-install
 
       - name: Upload distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

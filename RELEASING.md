@@ -64,6 +64,7 @@ pre-commit run --all-files --show-diff-on-failure
 sphinx-build -W --keep-going -b html docs/source docs/_build/html
 python -m build --outdir dist/preflight
 python -m twine check --strict dist/preflight/*
+python scripts/verify_release_artifacts.py --contract-only dist/preflight/*
 ```
 
 The status command must produce no output before and after the checks. A
@@ -71,7 +72,8 @@ development-version suffix is expected before the release tag exists. This
 preflight build catches packaging failures before tagging; it is not uploaded.
 The release-candidate run must report all five workloads as passed.
 
-Inspect the preflight wheel and source distribution:
+The distribution-contract verifier checks the preflight wheel and source
+distribution automatically:
 
 - Wheel metadata has the expected name, version, Python requirement,
   dependencies, extras, license, and project URLs.
@@ -80,6 +82,8 @@ Inspect the preflight wheel and source distribution:
   guide, contributor guide, security policy, release checklist, documentation,
   demos, and build metadata.
 - `python -m twine check --strict` reports both distributions as valid.
+- Package name, Python requirement, license, project URLs, runtime extras, and
+  wheel/sdist versions agree with the supported public contract.
 
 ## 3. Tag and validate the release artifacts
 
@@ -107,10 +111,15 @@ Test the tagged wheel, rather than the source checkout, in a new environment:
 ```bash
 python -m venv dist/release-smoke
 dist/release-smoke/bin/python -m pip install --upgrade pip
-dist/release-smoke/bin/python -m pip install dist/vX.Y.Z/*.whl
+for wheel in dist/vX.Y.Z/*.whl; do
+  dist/release-smoke/bin/python -m pip install "${wheel}[all]"
+done
+dist/release-smoke/bin/python -m pip check
 dist/release-smoke/bin/python scripts/smoke_test_installation.py \
   --require-wheel-install \
   --output-dir dist/release-smoke-results
+dist/release-smoke/bin/python scripts/smoke_test_optional_extras.py \
+  --require-wheel-install
 ```
 
 On Windows, use `dist\release-smoke\Scripts\python.exe`. The script refuses a
@@ -135,7 +144,8 @@ tagged commit to pass before publishing a GitHub Release.
 - Publish the GitHub Release. This triggers `.github/workflows/publish.yml`.
 - Confirm the `Build and verify distributions` job built fresh distributions,
   passed strict metadata validation, verified both artifact versions against
-  the GitHub Release tag, and uploaded the verified workflow artifact.
+  the GitHub Release tag, installed every runtime extra, passed both installed
+  smoke tests, and uploaded the verified workflow artifact.
 - Approve the protected `pypi` environment deployment if approval is required.
 - Confirm the separate `Publish verified distributions to PyPI` job downloaded
   that artifact, authenticated through Trusted Publishing, uploaded both
@@ -149,8 +159,10 @@ Never run a second manual upload while the publishing workflow is active.
 - Install the exact version from PyPI in another clean environment:
 
   ```bash
-  python -m pip install "DeepMTP==X.Y.Z"
+  python -m pip install "DeepMTP[all]==X.Y.Z"
+  python -m pip check
   python -c "import DeepMTP; print(DeepMTP.__version__)"
+  python scripts/smoke_test_optional_extras.py --require-wheel-install
   ```
 
 - Repeat the offline CPU smoke test against the PyPI installation.

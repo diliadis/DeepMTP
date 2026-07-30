@@ -9,12 +9,75 @@ from scripts.verify_release_artifacts import (
     ReleaseArtifactError,
     main,
     release_version_from_tag,
+    verify_distribution_contract,
     verify_release_artifacts,
 )
 
+_EXTRAS = (
+    "all",
+    "datasets",
+    "graph",
+    "hpo",
+    "image",
+    "sparse",
+    "streamlit",
+    "tracking",
+)
+_PROJECT_URLS = (
+    ("Documentation", "https://deepmtp.readthedocs.io/"),
+    ("Issues", "https://github.com/diliadis/DeepMTP/issues"),
+    ("Repository", "https://github.com/diliadis/DeepMTP"),
+)
+_REQUIRED_WHEEL_FILES = {
+    "DeepMTP/__init__.py",
+    "DeepMTP/config.py",
+    "DeepMTP/data/__init__.py",
+    "DeepMTP/hpo/__init__.py",
+    "DeepMTP/integrations/streamlit/__init__.py",
+    "DeepMTP/main.py",
+    "DeepMTP/models/__init__.py",
+    "DeepMTP/runtime/__init__.py",
+}
+_REQUIRED_SDIST_FILES = {
+    ".github/workflows/ci.yml",
+    ".github/workflows/publish.yml",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "DEMO/main_example_MLC.ipynb",
+    "LICENSE.md",
+    "MIGRATION.rst",
+    "README.md",
+    "RELEASING.md",
+    "SECURITY.md",
+    "docs/source/index.rst",
+    "pyproject.toml",
+    "scripts/smoke_test_installation.py",
+    "scripts/smoke_test_optional_extras.py",
+    "scripts/verify_release_artifacts.py",
+}
 
-def _metadata(name: str, version: str) -> bytes:
-    return (f"Metadata-Version: 2.4\nName: {name}\nVersion: {version}\n\n").encode()
+
+def _metadata(
+    name: str,
+    version: str,
+    *,
+    requires_python: str = ">=3.10",
+    extras: tuple[str, ...] = _EXTRAS,
+    project_urls: tuple[tuple[str, str], ...] = _PROJECT_URLS,
+    license_expression: str = "MIT",
+) -> bytes:
+    lines = [
+        "Metadata-Version: 2.4",
+        f"Name: {name}",
+        f"Version: {version}",
+        f"Requires-Python: {requires_python}",
+        f"License-Expression: {license_expression}",
+        *(f"Project-URL: {label}, {url}" for label, url in project_urls),
+        *(f"Provides-Extra: {extra}" for extra in extras),
+        "",
+        "",
+    ]
+    return "\n".join(lines).encode()
 
 
 def _write_wheel(
@@ -22,12 +85,28 @@ def _write_wheel(
     *,
     name: str = "DeepMTP",
     version: str = "0.1.0",
+    requires_python: str = ">=3.10",
+    extras: tuple[str, ...] = _EXTRAS,
+    project_urls: tuple[tuple[str, str], ...] = _PROJECT_URLS,
+    omit_file: str | None = None,
+    include_tests: bool = False,
 ) -> Path:
     path = directory / f"deepmtp-{version}-py3-none-any.whl"
     with ZipFile(path, mode="w", compression=ZIP_DEFLATED) as archive:
+        wheel_files = _REQUIRED_WHEEL_FILES - {omit_file}
+        for wheel_file in sorted(wheel_files):
+            archive.writestr(wheel_file, b"")
+        if include_tests:
+            archive.writestr("DeepMTP/tests/test_packaging.py", b"")
         archive.writestr(
             f"deepmtp-{version}.dist-info/METADATA",
-            _metadata(name, version),
+            _metadata(
+                name,
+                version,
+                requires_python=requires_python,
+                extras=extras,
+                project_urls=project_urls,
+            ),
         )
     return path
 
@@ -37,9 +116,19 @@ def _write_sdist(
     *,
     name: str = "DeepMTP",
     version: str = "0.1.0",
+    requires_python: str = ">=3.10",
+    extras: tuple[str, ...] = _EXTRAS,
+    project_urls: tuple[tuple[str, str], ...] = _PROJECT_URLS,
+    omit_file: str | None = None,
 ) -> Path:
     path = directory / f"deepmtp-{version}.tar.gz"
-    metadata = _metadata(name, version)
+    metadata = _metadata(
+        name,
+        version,
+        requires_python=requires_python,
+        extras=extras,
+        project_urls=project_urls,
+    )
     metadata_info = tarfile.TarInfo(f"deepmtp-{version}/PKG-INFO")
     metadata_info.size = len(metadata)
     egg_info = tarfile.TarInfo(f"deepmtp-{version}/DeepMTP.egg-info/PKG-INFO")
@@ -47,6 +136,10 @@ def _write_sdist(
     with tarfile.open(path, mode="w:gz") as archive:
         archive.addfile(metadata_info, BytesIO(metadata))
         archive.addfile(egg_info, BytesIO(metadata))
+        for project_file in sorted(_REQUIRED_SDIST_FILES - {omit_file}):
+            file_info = tarfile.TarInfo(f"deepmtp-{version}/{project_file}")
+            file_info.size = 0
+            archive.addfile(file_info, BytesIO())
     return path
 
 
@@ -70,6 +163,15 @@ def test_release_artifacts_match_exact_release_tag(
     ]
 
     assert verify_release_artifacts(release_tag, artifacts) == version
+
+
+def test_distribution_contract_accepts_development_versions(tmp_path):
+    artifacts = [
+        _write_wheel(tmp_path, version="0.1.1.dev3+gabc123"),
+        _write_sdist(tmp_path, version="0.1.1.dev3+gabc123"),
+    ]
+
+    assert verify_distribution_contract(artifacts) == "0.1.1.dev3+gabc123"
 
 
 @pytest.mark.parametrize(
@@ -98,9 +200,19 @@ def test_release_artifacts_reject_non_release_versions(tmp_path, artifact_versio
         verify_release_artifacts("v0.1.0", artifacts)
 
 
-def test_release_artifacts_reject_mismatched_version(tmp_path):
+def test_distribution_contract_rejects_mismatched_versions(tmp_path):
     artifacts = [
         _write_wheel(tmp_path, version="0.1.0"),
+        _write_sdist(tmp_path, version="0.1.1"),
+    ]
+
+    with pytest.raises(ReleaseArtifactError, match="same version"):
+        verify_release_artifacts("v0.1.0", artifacts)
+
+
+def test_release_artifacts_reject_version_that_differs_from_tag(tmp_path):
+    artifacts = [
+        _write_wheel(tmp_path, version="0.1.1"),
         _write_sdist(tmp_path, version="0.1.1"),
     ]
 
@@ -125,6 +237,61 @@ def test_release_artifacts_reject_other_distribution_name(tmp_path):
         verify_release_artifacts("v0.1.0", artifacts)
 
 
+@pytest.mark.parametrize(
+    ("artifact_kind", "metadata_override", "message"),
+    [
+        ("wheel", {"requires_python": ">=3.11"}, "Requires-Python"),
+        ("wheel", {"extras": ("all", "datasets")}, "extras do not match"),
+        ("sdist", {"project_urls": ()}, "project URLs"),
+    ],
+)
+def test_distribution_contract_rejects_incomplete_metadata(
+    tmp_path,
+    artifact_kind,
+    metadata_override,
+    message,
+):
+    wheel_options = metadata_override if artifact_kind == "wheel" else {}
+    sdist_options = metadata_override if artifact_kind == "sdist" else {}
+    artifacts = [
+        _write_wheel(tmp_path, **wheel_options),
+        _write_sdist(tmp_path, **sdist_options),
+    ]
+
+    with pytest.raises(ReleaseArtifactError, match=message):
+        verify_distribution_contract(artifacts)
+
+
+def test_distribution_contract_rejects_missing_runtime_file(tmp_path):
+    artifacts = [
+        _write_wheel(tmp_path, omit_file="DeepMTP/config.py"),
+        _write_sdist(tmp_path),
+    ]
+
+    with pytest.raises(ReleaseArtifactError, match="DeepMTP/config.py"):
+        verify_distribution_contract(artifacts)
+
+
+def test_distribution_contract_rejects_tests_in_wheel(tmp_path):
+    artifacts = [
+        _write_wheel(tmp_path, include_tests=True),
+        _write_sdist(tmp_path),
+    ]
+
+    with pytest.raises(ReleaseArtifactError, match="must not contain DeepMTP/tests"):
+        verify_distribution_contract(artifacts)
+
+
+def test_distribution_contract_rejects_missing_sdist_policy(tmp_path):
+    artifacts = [
+        _write_wheel(tmp_path),
+        _write_sdist(tmp_path, omit_file="MIGRATION.rst"),
+    ]
+
+    with pytest.raises(ReleaseArtifactError, match="MIGRATION.rst"):
+        verify_distribution_contract(artifacts)
+
+
 def test_release_artifact_cli_reports_success(tmp_path, capsys):
     artifacts = [
         _write_wheel(tmp_path),
@@ -133,6 +300,16 @@ def test_release_artifact_cli_reports_success(tmp_path, capsys):
 
     assert main(["v0.1.0", *(str(path) for path in artifacts)]) == 0
     assert "Verified DeepMTP 0.1.0" in capsys.readouterr().out
+
+
+def test_distribution_contract_cli_reports_success(tmp_path, capsys):
+    artifacts = [
+        _write_wheel(tmp_path, version="0.1.1.dev3+gabc123"),
+        _write_sdist(tmp_path, version="0.1.1.dev3+gabc123"),
+    ]
+
+    assert main(["--contract-only", *(str(path) for path in artifacts)]) == 0
+    assert "distribution contract" in capsys.readouterr().out
 
 
 def test_release_artifact_cli_reports_failure(tmp_path, capsys):
