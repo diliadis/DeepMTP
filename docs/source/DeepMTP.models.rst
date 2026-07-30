@@ -8,6 +8,7 @@ architectures, and construction:
 
    from DeepMTP.models import (
        BranchEncoder,
+       CompositeEncoder,
        ConvNet,
        FUSION_REGISTRY,
        MLP,
@@ -28,6 +29,8 @@ sparse tensor and produces a dense representation after its first projection.
 ``TabularEncoder`` consumes a structured
 ``TabularInput`` containing a floating numeric tensor and an integer
 categorical tensor while producing the same standardized encoder output.
+``CompositeEncoder`` consumes a named ``CompositeInput``, validates every
+child encoder output, and concatenates the representations in declared order.
 
 Custom branch factories should declare ``input_kind`` and ``output_dim`` on
 their returned module. For compatibility, the model factory can infer a

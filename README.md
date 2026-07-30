@@ -157,8 +157,9 @@ The practical questions for a multi-target prediction problem are:
 DeepMTP maps an instance and a target through separate branch encoders,
 producing representation vectors $p_x$ and $q_t$. A branch can consume dense
 features, sparse high-dimensional vectors, explicitly declared numeric and
-categorical columns, images, zero-based entity IDs, or a custom input type. The
-two representations are
+categorical columns, token sequences, images, zero-based entity IDs, named
+combinations of those representations, or a custom input type. The two
+representations are
 combined with a dot product, concatenation followed by an MLP, or a Kronecker
 product to predict the score of the instance-target pair. Dot-product models
 require equal branch widths; the other fusion strategies can combine different
@@ -176,6 +177,7 @@ available from the focused model namespace:
 
 ```python
 from DeepMTP.models import (
+    CompositeEncoder,
     ConvNet,
     IDEmbedding,
     MLP,
@@ -191,6 +193,7 @@ dictionary keys while exposing modality-specific `instance_input` and
 
 ```python
 from DeepMTP.data import (
+    CompositeBranchBatch,
     DenseBranchBatch,
     IDBranchBatch,
     MTPBatch,
@@ -601,6 +604,64 @@ must be unpadded and cannot contain the configured padding ID. See the
 for the structured batch contract, configuration options, and compatibility
 details.
 
+## Composite inputs
+
+Use a `COMPOSITE` branch when one entity has multiple representations, such as
+dense descriptors plus a token sequence:
+
+```python
+train, validation, test, data_info = data_process(
+    {
+        "train": {
+            "y": interaction_scores,
+            "X_instance": {
+                "descriptors": descriptor_matrix,
+                "tokens": token_sequences,
+            },
+            "X_target": None,
+        }
+    },
+    validation_setting="B",
+    instance_feature_kind={
+        "descriptors": None,
+        "tokens": "sequence",
+    },
+)
+
+component_dims = data_info["instance_branch_component_input_dims"]
+config = DeepMTPConfig(
+    validation_setting="B",
+    problem_mode="classification",
+    metrics=["accuracy"],
+    metrics_average=["macro"],
+    instance_branch_architecture="COMPOSITE",
+    instance_branch_composite_components={
+        "descriptors": {
+            "architecture": "MLP",
+            "input_dim": component_dims["descriptors"],
+            "output_dim": 16,
+        },
+        "tokens": {
+            "architecture": "SEQUENCE",
+            "input_dim": component_dims["tokens"],
+            "output_dim": 16,
+            "embedding_dim": 16,
+        },
+    },
+    target_branch_architecture="MLP",
+    target_branch_input_dim=number_of_targets,
+    target_branch_nodes_per_layer=[32],
+    embedding_size=32,
+)
+```
+
+Composite branches currently concatenate named dense, sparse, sequence, and
+known-ID encoder outputs. Every side-feature component is required; explicit
+missing-modality masks and modality dropout remain planned. See the
+[composite input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/composite_inputs.html)
+for the complete component, validation-setting, batching, and checkpoint
+contract.
+
 ## Input data
 
 <details>
@@ -719,8 +780,9 @@ The table below summarizes the commonly configured public options.
 | `dropout_rate_instance_branch` | The amount of dropout used in the layers of the instance branch  |
 | `dropout_rate_target_branch` | The amount of dropout used in the layers of the target branch |
 | **Instance branch architecture** ||
-| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
 | `instance_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of instance IDs for an `EMBEDDING` branch |
+| `instance_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, and encoder options |
 | `instance_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
 | `instance_branch_sequence_embedding_dim` | Trainable token embedding width for an instance `SEQUENCE` branch |
 | `instance_branch_sequence_output_dim` | Instance sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
@@ -733,8 +795,9 @@ The table below summarizes the commonly configured public options.
 | `instance_train_transforms` | PyTorch-compatible transforms for instance training samples, typically images |
 | `instance_inference_transforms` | PyTorch-compatible transforms for instance validation and test samples |
 |  **Target branch architecture**  ||
-| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
 | `target_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of target IDs for an `EMBEDDING` branch |
+| `target_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, and encoder options |
 | `target_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
 | `target_branch_sequence_embedding_dim` | Trainable token embedding width for a target `SEQUENCE` branch |
 | `target_branch_sequence_output_dim` | Target sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
@@ -749,7 +812,7 @@ The table below summarizes the commonly configured public options.
 |  **Combination branch architecture**  ||
 | `comb_mlp_nodes_per_layer` | Positive layer widths for the combination branch. A list defines each layer; an integer repeats that width `comb_mlp_layers` times. Only used if `general_architecture_version == mlp` |
 | `comb_mlp_layers` | Positive number of repeated combination layers, required when `comb_mlp_nodes_per_layer` is an integer. Only used if `general_architecture_version == mlp` |
-| `embedding_size` | The output width of both branches for a dot-product model, including `EMBEDDING` and `SEQUENCE` branches |
+| `embedding_size` | The output width of both branches for a dot-product model; for a `COMPOSITE` branch it must equal the sum of component output widths |
 |  **Other**  ||
 | `additional_info` | Extra experiment metadata included in reporting |
 

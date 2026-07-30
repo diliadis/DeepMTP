@@ -56,6 +56,9 @@ checkpoints.
 - Position-aware Transformer token-sequence encoders with padding-aware
   self-attention, configurable heads and feed-forward widths, and masked mean
   pooling.
+- Composite entity branches that combine named dense, sparse, token-sequence,
+  and known-ID encoders through validated concatenation, including structured
+  batching, validation-setting safeguards, and checkpoint restoration.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and
