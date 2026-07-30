@@ -44,6 +44,7 @@ Install only the runtime integrations used by an experiment:
    python -m pip install -e ".[datasets]"   # downloadable benchmark datasets
    python -m pip install -e ".[hpo]"        # ConfigSpace
    python -m pip install -e ".[image]"      # Torchvision models and transforms
+   python -m pip install -e ".[sparse]"     # SciPy sparse inputs
    python -m pip install -e ".[streamlit]"  # Streamlit adapters
    python -m pip install -e ".[tracking]"   # TensorBoard and Weights & Biases
    python -m pip install -e ".[all]"        # all runtime integrations
@@ -95,6 +96,13 @@ Built-in, generated, and downloadable dataset helpers use the dataset module:
 Importing ``DeepMTP`` or ``DeepMTP.data`` does not load dataset-specific
 dependencies. They are loaded only when ``DeepMTP.data.datasets`` or a lazy
 dataset export such as ``DeepMTP.data.load_process_MLC`` is accessed.
+
+Sparse branches are a new opt-in architecture and require no migration for
+existing dense experiments. Use ``SPARSE`` only when passing SciPy sparse
+matrices or PyTorch COO/CSR tensors; existing ``MLP`` configurations and
+checkpoint parameter keys are unchanged. The sparse adapter resolves SciPy
+dynamically, and direct SciPy input support is declared through the ``sparse``
+extra.
 
 New HPO code should use the focused ``DeepMTP.hpo`` package:
 

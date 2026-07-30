@@ -21,8 +21,8 @@ checkpoints.
   TensorBoard, and Weights & Biases.
 - Per-branch dropout settings, top-k grouped metrics, isolated random seeds,
   and deterministic class undersampling.
-- Optional runtime extras for datasets, HPO, image models, Streamlit, and
-  experiment tracking.
+- Optional runtime extras for datasets, HPO, image models, SciPy sparse inputs,
+  Streamlit, and experiment tracking.
 - Standardized PEP 735 dependency groups for testing, quality checks,
   documentation, and the complete development toolchain.
 - Offline, executable quick-start, training, dataset, and HPO examples.
@@ -45,6 +45,9 @@ checkpoints.
 - Mixed tabular branches with training-only numeric preprocessing, learned
   categorical embeddings, optional feature gating, structured batches, and
   checkpointed preprocessing state.
+- Sparse high-dimensional branches for SciPy matrices and PyTorch COO/CSR
+  tensors, including sparse-preserving splitting and batching, sparse first
+  projections, early modality/width validation, and checkpoint restoration.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and

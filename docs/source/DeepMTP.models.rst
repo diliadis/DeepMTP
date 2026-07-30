@@ -12,6 +12,7 @@ architectures, and construction:
        FUSION_REGISTRY,
        MLP,
        ModelFactory,
+       SparseMLP,
        TabularEncoder,
    )
 
@@ -22,7 +23,9 @@ All built-in branch encoders declare an input kind and output dimension. Their
 shared runtime contract requires a floating output shaped
 ``[batch_size, output_dim]``.
 
-Most encoders consume one tensor. ``TabularEncoder`` consumes a structured
+Most encoders consume one tensor. ``SparseMLP`` consumes a PyTorch COO or CSR
+sparse tensor and produces a dense representation after its first projection.
+``TabularEncoder`` consumes a structured
 ``TabularInput`` containing a floating numeric tensor and an integer
 categorical tensor while producing the same standardized encoder output.
 

@@ -19,9 +19,9 @@ Batches
 
 Model-ready dataloaders return :class:`DeepMTP.data.batches.MTPBatch`. It is a
 mapping compatible with the historical tensor keys and also exposes typed
-dense, ID, image, tabular, or custom branch inputs. Tabular inputs keep numeric
-and categorical tensors separate. Calling ``batch.to(device)`` moves every
-component together.
+dense, sparse, ID, image, tabular, or custom branch inputs. Sparse inputs use
+PyTorch COO or CSR tensors; tabular inputs keep numeric and categorical
+tensors separate. Calling ``batch.to(device)`` moves every component together.
 
 .. automodule:: DeepMTP.data.batches
    :members:
@@ -63,6 +63,17 @@ Features
 --------
 
 .. automodule:: DeepMTP.data.features
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Sparse utilities
+----------------
+
+The sparse input adapter resolves SciPy only when inspecting a SciPy-backed
+value.
+
+.. automodule:: DeepMTP.data.sparse
    :members:
    :undoc-members:
    :show-inheritance:

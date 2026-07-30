@@ -65,6 +65,7 @@ Optional integrations are installed explicitly:
 pip install "DeepMTP[datasets]"   # downloadable benchmark datasets
 pip install "DeepMTP[hpo]"        # ConfigSpace-based optimization
 pip install "DeepMTP[image]"      # Torchvision image models/transforms
+pip install "DeepMTP[sparse]"     # SciPy sparse matrices
 pip install "DeepMTP[streamlit]"  # Streamlit progress adapters
 pip install "DeepMTP[tracking]"   # TensorBoard and Weights & Biases
 pip install "DeepMTP[all]"        # every runtime integration
@@ -155,8 +156,9 @@ The practical questions for a multi-target prediction problem are:
 
 DeepMTP maps an instance and a target through separate branch encoders,
 producing representation vectors $p_x$ and $q_t$. A branch can consume dense
-features, explicitly declared numeric and categorical columns, images,
-zero-based entity IDs, or a custom input type. The two representations are
+features, sparse high-dimensional vectors, explicitly declared numeric and
+categorical columns, images, zero-based entity IDs, or a custom input type. The
+two representations are
 combined with a dot product, concatenation followed by an MLP, or a Kronecker
 product to predict the score of the instance-target pair. Dot-product models
 require equal branch widths; the other fusion strategies can combine different
@@ -173,7 +175,14 @@ Reusable branch models, combined architectures, and the model factory are
 available from the focused model namespace:
 
 ```python
-from DeepMTP.models import ConvNet, IDEmbedding, MLP, ModelFactory, TabularEncoder
+from DeepMTP.models import (
+    ConvNet,
+    IDEmbedding,
+    MLP,
+    ModelFactory,
+    SparseMLP,
+    TabularEncoder,
+)
 ```
 
 Model-ready dataloaders return a typed `MTPBatch`. It retains the historical
@@ -185,6 +194,7 @@ from DeepMTP.data import (
     DenseBranchBatch,
     IDBranchBatch,
     MTPBatch,
+    SparseBranchBatch,
     TabularBranchBatch,
 )
 from DeepMTP.models import BranchEncoder
@@ -493,6 +503,42 @@ default. See the
 [mixed tabular input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/tabular_inputs.html)
 for policies and a complete configuration.
 
+## Sparse high-dimensional inputs
+
+Use a `SPARSE` branch for fingerprints, bag-of-words features, and large
+indicator matrices whose stored values are mostly zero. PyTorch COO/CSR
+tensors work with the core installation. SciPy matrices require
+`pip install "DeepMTP[sparse]"`.
+
+```python
+from scipy import sparse
+
+from DeepMTP import DeepMTPConfig
+
+instance_features = sparse.csr_matrix(dense_or_generated_features)
+
+config = DeepMTPConfig(
+    validation_setting="B",
+    problem_mode="classification",
+    general_architecture_version="dot_product",
+    instance_branch_architecture="SPARSE",
+    instance_branch_input_dim=instance_features.shape[1],
+    instance_branch_nodes_per_layer=[128, 32],
+    target_branch_architecture="MLP",
+    target_branch_input_dim=number_of_targets,
+    target_branch_nodes_per_layer=[32],
+    embedding_size=32,
+)
+```
+
+Sparse rows remain sparse through data preparation, splitting, collation, and
+the first linear projection. Later layers operate on the projected dense
+representation. Legacy feature scaling rejects sparse inputs rather than
+silently densifying them; apply sparse-safe preprocessing upstream. See the
+[sparse input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/sparse_inputs.html)
+for explicit-ID DataFrames, compatibility details, and the included memory and
+throughput benchmark.
+
 ## Input data
 
 <details>
@@ -551,8 +597,10 @@ data = {
 When validation or test data is omitted, `data_process` can construct the
 requested validation setting from the training data. Feature requirements
 depend on whether the split contains novel instances, novel targets, or both.
-Dense features use arrays or DataFrames; mixed numeric/categorical features
-use the explicit `TABULAR` schema described above.
+Dense features use arrays or DataFrames; sparse features use SciPy matrices,
+PyTorch COO/CSR tensors, or explicit-ID DataFrames of sparse rows; mixed
+numeric/categorical features use the explicit `TABULAR` schema described
+above.
 
 </details>
 
@@ -609,14 +657,14 @@ The table below summarizes the commonly configured public options.
 | `dropout_rate_instance_branch` | The amount of dropout used in the layers of the instance branch  |
 | `dropout_rate_target_branch` | The amount of dropout used in the layers of the target branch |
 | **Instance branch architecture** ||
-| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
-| `instance_branch_input_dim` | The input feature dimension, or the number of instance IDs for an `EMBEDDING` branch |
+| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `instance_branch_input_dim` | The dense or sparse input feature dimension, or the number of instance IDs for an `EMBEDDING` branch |
 | `instance_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for an instance `TABULAR` branch |
 | `instance_train_transforms` | PyTorch-compatible transforms for instance training samples, typically images |
 | `instance_inference_transforms` | PyTorch-compatible transforms for instance validation and test samples |
 |  **Target branch architecture**  ||
-| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
-| `target_branch_input_dim` | The input feature dimension, or the number of target IDs for an `EMBEDDING` branch |
+| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `TABULAR` for explicit numeric/categorical columns, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `target_branch_input_dim` | The dense or sparse input feature dimension, or the number of target IDs for an `EMBEDDING` branch |
 | `target_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for a target `TABULAR` branch |
 | `target_train_transforms` | PyTorch-compatible transforms for target training samples, typically images |
 | `target_inference_transforms` | PyTorch-compatible transforms for target validation and test samples |
