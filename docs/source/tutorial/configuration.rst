@@ -180,12 +180,15 @@ for vocabulary, padding, packed-GRU, masked-Conv1D, Transformer, and
 checkpoint configuration.
 
 A **COMPOSITE** branch consumes a named mapping of side-feature collections
-and concatenates the outputs of independently configured dense, sparse,
-sequence, or known-ID component encoders. ``data_process`` receives a matching
-feature-kind mapping, and each component declares its own input and output
-dimensions. Components marked optional use explicit presence masks and learned
-missing representations. See :doc:`composite_inputs` for configuration,
-validation-setting, batch, checkpoint, and missing-modality behavior.
+and fuses the outputs of independently configured dense, sparse, sequence, or
+known-ID component encoders. ``data_process`` receives a matching feature-kind
+mapping, and each component declares its own input and output dimensions.
+``instance_branch_composite_fusion`` and
+``target_branch_composite_fusion`` select default ``"concat"`` or opt-in
+sample-specific ``"gated"`` concatenation. Components marked optional use
+explicit presence masks and learned missing representations. See
+:doc:`composite_inputs` for configuration, fusion, validation-setting, batch,
+checkpoint, and missing-modality behavior.
 
 For mutually exclusive outcomes, set
 ``classification_mode="multiclass"`` during both ``data_process`` and
