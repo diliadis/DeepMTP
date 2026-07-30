@@ -18,6 +18,14 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
 
 _PROJECT_ROOT = Path(__file__).parents[2]
 _DEMO_NOTEBOOKS = sorted((_PROJECT_ROOT / "DEMO").glob("*.ipynb"))
+_HPO_DEMO_NOTEBOOKS = {
+    "hyperband_example.ipynb",
+    "random_search_example.ipynb",
+}
+_COLAB_CORE_REQUIREMENT = "DeepMTP @ git+https://github.com/diliadis/DeepMTP.git@main"
+_COLAB_HPO_REQUIREMENT = (
+    "DeepMTP[hpo] @ git+https://github.com/diliadis/DeepMTP.git@main"
+)
 _RELEASE_CANDIDATE_WORKLOADS = [
     pytest.param(
         "main_example_MLC.ipynb",
@@ -89,6 +97,8 @@ _FORBIDDEN_NOTEBOOK_SNIPPETS = (
     "ConfigSpace.hyperparameters",
     "add_hyperparameters",
     "add_condition",
+    "from DeepMTP.utils.tests import",
+    "from DeepMTP.utils.utils import generate_config",
 )
 
 
@@ -527,6 +537,16 @@ def test_demo_links_reference_version_controlled_notebooks():
             assert f"DEMO/{notebook_path.name}" in document
 
 
+def test_colab_link_checker_maps_every_demo_notebook():
+    checker = runpy.run_path(str(_PROJECT_ROOT / "scripts" / "check_colab_links.py"))
+    readme = (_PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+
+    links = checker["extract_colab_links"](readme)
+    checker["validate_notebook_mapping"](links)
+
+    assert len(links) == len(_DEMO_NOTEBOOKS)
+
+
 def test_local_dataset_notebook_runs_offline(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
 
@@ -614,7 +634,7 @@ def test_hpo_notebook_search_spaces_use_current_configspace_api(
 ):
     namespace = _execute_notebook(
         _PROJECT_ROOT / "DEMO" / notebook_name,
-        max_code_cells=2,
+        max_code_cells=3,
     )
 
     assert len(namespace["cs"]) == 8
@@ -654,6 +674,21 @@ def test_demo_notebook_code_uses_current_public_api(notebook_path):
     }
     assert "vscode" not in notebook["metadata"]
     assert "version" not in notebook["metadata"]["language_info"]
+    assert 'src="../images/' not in document_source
+
+    bootstrap_source = "".join(code_cell_data[0]["source"])
+    expected_requirement = (
+        _COLAB_HPO_REQUIREMENT
+        if notebook_path.name in _HPO_DEMO_NOTEBOOKS
+        else _COLAB_CORE_REQUIREMENT
+    )
+    assert 'find_spec("google.colab")' in bootstrap_source
+    assert expected_requirement in bootstrap_source
+    assert "subprocess.run(" in bootstrap_source
+    assert "check=True" in bootstrap_source
+
+    if notebook_path.name.startswith("main_example_"):
+        assert "DeepMTPConfig(" in source
 
     for snippet in _FORBIDDEN_NOTEBOOK_SNIPPETS:
         assert snippet not in document_source

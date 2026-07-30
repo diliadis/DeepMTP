@@ -1208,7 +1208,16 @@ best_model_results = best_model.predict(test, verbose=True)
 # DEMOS
 These notebooks use small local datasets and are executed by the test suite.
 Each Colab link opens the version-controlled notebook rather than a separate
-copy.
+copy. In a fresh Colab runtime, the first code cell installs the matching
+DeepMTP source from the repository's `main` branch; the HPO notebooks also
+install the `hpo` extra. Outside Colab, that bootstrap is skipped so the same
+notebooks continue to run against the active local environment.
+
+The links are checked weekly and can be verified manually with:
+
+```bash
+python scripts/check_colab_links.py
+```
 
 | Example | Notebook |
 |---|---|
