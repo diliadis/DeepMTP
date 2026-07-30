@@ -24,6 +24,7 @@ Documentation
 	tutorial/configuration
 	tutorial/multiclass_classification
 	tutorial/tabular_inputs
+	tutorial/sparse_inputs
 	tutorial/hpo
 	tutorial/demos
 	Project policies <project>

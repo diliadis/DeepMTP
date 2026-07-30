@@ -103,6 +103,36 @@ def test_typed_config_normalizes_public_names():
     assert normalized.metrics_average == ["macro"]
 
 
+def test_sparse_branch_configuration_preserves_mlp_layer_options():
+    config = make_valid_config(
+        instance_branch_architecture="SPARSE",
+        instance_branch_input_dim=100_000,
+        instance_branch_params={
+            "instance_branch_nodes_per_layer": [32, 8],
+            "instance_branch_layers": None,
+            "instance_branch_nodes_reducing_factor": 2,
+        },
+    )
+
+    normalized = DeepMTPConfig.from_mapping(config)
+
+    assert normalized.instance_branch_architecture == "SPARSE"
+    assert normalized.instance_branch_input_dim == 100_000
+    assert normalized.instance_branch_nodes_per_layer == [32, 8]
+
+
+def test_sparse_branch_requires_a_positive_input_dimension():
+    config = make_valid_config()
+    config["instance_branch_architecture"] = "SPARSE"
+    config["instance_branch_input_dim"] = None
+
+    with pytest.raises(
+        ConfigValidationError,
+        match="instance_branch_input_dim",
+    ):
+        DeepMTPConfig.from_mapping(config)
+
+
 @pytest.mark.parametrize(
     ("problem_mode", "metrics", "expected_loss"),
     [

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict, cast
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,12 @@ from DeepMTP.data.progress import (
     _emit_data_operation_completed,
     _emit_data_operation_started,
     _resolve_data_progress,
+)
+from DeepMTP.data.sparse import (
+    is_sparse_value,
+    normalize_sparse_matrix,
+    normalize_sparse_rows,
+    sparse_object_array,
 )
 
 __all__ = [
@@ -30,7 +36,14 @@ class FeatureInfo(TypedDict):
 
     data: pd.DataFrame
     num_features: int | None
-    info: Literal["numpy", "dataframe", "images", "tabular"]
+    info: Literal[
+        "numpy",
+        "dataframe",
+        "images",
+        "tabular",
+        "scipy_sparse",
+        "torch_sparse",
+    ]
 
 
 def _feature_vector_size(features: pd.Series, entity_name: str) -> int:
@@ -53,7 +66,7 @@ def _feature_vector_size(features: pd.Series, entity_name: str) -> int:
 
 
 def _process_entity_features(
-    features: pd.DataFrame | np.ndarray | None,
+    features: object,
     entity_name: Literal["instance", "target"],
     verbose: bool,
     print_mode: str,
@@ -69,7 +82,22 @@ def _process_entity_features(
             message=f"{entity_name.title()} features file: processing features... ",
         )
 
-    if isinstance(features, np.ndarray):
+    if is_sparse_value(features):
+        sparse_rows, feature_dimension, backend = normalize_sparse_matrix(
+            features,
+            entity_name=entity_name,
+        )
+        feature_frame = pd.DataFrame({"id": np.arange(len(sparse_rows))})
+        feature_frame["features"] = sparse_object_array(sparse_rows)
+        feature_info: FeatureInfo = {
+            "data": feature_frame,
+            "num_features": feature_dimension,
+            "info": cast(
+                Literal["scipy_sparse", "torch_sparse"],
+                f"{backend}_sparse",
+            ),
+        }
+    elif isinstance(features, np.ndarray):
         if features.ndim != 2:
             raise ValueError(
                 f"{entity_name.title()} feature arrays must be two-dimensional."
@@ -82,7 +110,7 @@ def _process_entity_features(
             raise TypeError(f"{entity_name.title()} feature arrays must be numeric.")
         feature_frame = pd.DataFrame({"id": np.arange(len(features))})
         feature_frame["features"] = [row.copy() for row in features]
-        feature_info: FeatureInfo = {
+        feature_info = {
             "data": feature_frame,
             "num_features": int(features.shape[1]),
             "info": "numpy",
@@ -105,19 +133,41 @@ def _process_entity_features(
             raise ValueError(f"{entity_name.title()} feature IDs must be unique.")
         feature_frame = feature_frame.set_index("id", drop=False)
         if set(feature_frame.columns) == {"id", "features"}:
-            feature_dimension = _feature_vector_size(
-                feature_frame["features"],
-                entity_name,
-            )
-            feature_frame["features"] = [
-                np.asarray(feature_vector).copy()
-                for feature_vector in feature_frame["features"]
-            ]
-            feature_info = {
-                "data": feature_frame,
-                "num_features": feature_dimension,
-                "info": "dataframe",
-            }
+            feature_values = feature_frame["features"].tolist()
+            sparse_flags = [is_sparse_value(value) for value in feature_values]
+            if any(sparse_flags):
+                if not all(sparse_flags):
+                    raise TypeError(
+                        f"{entity_name.title()} feature rows cannot mix dense and "
+                        "sparse values."
+                    )
+                sparse_rows, feature_dimension, backend = normalize_sparse_rows(
+                    feature_values,
+                    entity_name=entity_name,
+                )
+                feature_frame["features"] = sparse_object_array(sparse_rows)
+                feature_info = {
+                    "data": feature_frame,
+                    "num_features": feature_dimension,
+                    "info": cast(
+                        Literal["scipy_sparse", "torch_sparse"],
+                        f"{backend}_sparse",
+                    ),
+                }
+            else:
+                feature_dimension = _feature_vector_size(
+                    feature_frame["features"],
+                    entity_name,
+                )
+                feature_frame["features"] = [
+                    np.asarray(feature_vector).copy()
+                    for feature_vector in feature_frame["features"]
+                ]
+                feature_info = {
+                    "data": feature_frame,
+                    "num_features": feature_dimension,
+                    "info": "dataframe",
+                }
         elif set(feature_frame.columns) == {"id", "dir"}:
             if feature_frame["dir"].isna().any():
                 raise ValueError(
@@ -137,8 +187,9 @@ def _process_entity_features(
     else:
         raise TypeError(
             f"Could not recognize the {entity_name} feature data. Expected a "
-            "two-dimensional NumPy array or a DataFrame with an 'id' column "
-            "and feature columns."
+            "two-dimensional NumPy array, a SciPy sparse matrix, a PyTorch "
+            "COO/CSR sparse tensor, or a DataFrame with an 'id' column and "
+            "feature columns."
         )
 
     if verbose:
@@ -152,7 +203,7 @@ def _process_entity_features(
 
 
 def process_instance_features(
-    instance_features: pd.DataFrame | np.ndarray | None,
+    instance_features: Any,
     verbose: bool = False,
     print_mode: str = "basic",
     *,
@@ -172,7 +223,7 @@ def process_instance_features(
 
 
 def process_target_features(
-    target_features: pd.DataFrame | np.ndarray | None,
+    target_features: Any,
     verbose: bool = False,
     print_mode: str = "basic",
     *,

@@ -441,6 +441,7 @@ def test_dependency_metadata_separates_runtime_features_from_development_tools()
         "datasets",
         "hpo",
         "image",
+        "sparse",
         "streamlit",
         "tracking",
     }

@@ -42,6 +42,7 @@ datasets = [
 ]
 hpo = ["ConfigSpace>=1.2"]
 image = ["torchvision>=0.15"]
+sparse = ["scipy>=1.9"]
 streamlit = ["streamlit>=1.53.0"]
 tracking = [
     "tensorboard>=2.12",
@@ -143,6 +144,7 @@ files = [
     "DeepMTP/data/preparation.py",
     "DeepMTP/data/progress.py",
     "DeepMTP/data/splitting.py",
+    "DeepMTP/data/sparse.py",
     "DeepMTP/data/tabular.py",
     "DeepMTP/data_loading.py",
     "DeepMTP/data_preparation.py",

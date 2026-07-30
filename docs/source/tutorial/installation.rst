@@ -33,6 +33,7 @@ Install only the integrations required by an experiment::
   python -m pip install "DeepMTP[datasets]"
   python -m pip install "DeepMTP[hpo]"
   python -m pip install "DeepMTP[image]"
+  python -m pip install "DeepMTP[sparse]"
   python -m pip install "DeepMTP[streamlit]"
   python -m pip install "DeepMTP[tracking]"
 

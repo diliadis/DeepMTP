@@ -56,10 +56,10 @@ def encoder_output_dimension(
 def encoder_input_kind(encoder: nn.Module, *, branch: str) -> BranchInputKind:
     """Return a validated declared encoder input modality."""
     kind = getattr(encoder, "input_kind", None)
-    if kind not in {"dense", "id", "image", "tabular", "custom"}:
+    if kind not in {"dense", "sparse", "id", "image", "tabular", "custom"}:
         raise ValueError(
             f"{branch} branch encoder must declare input_kind as "
-            "'dense', 'id', 'image', 'tabular', or 'custom'."
+            "'dense', 'sparse', 'id', 'image', 'tabular', or 'custom'."
         )
     return kind
 

@@ -1,5 +1,6 @@
 import pytest
 import torch
+from scipy import sparse
 
 from DeepMTP.data import (
     CustomBranchBatch,
@@ -8,6 +9,7 @@ from DeepMTP.data import (
     ImageBranchBatch,
     MTPBatch,
     MTPBatchCollator,
+    SparseBranchBatch,
     TabularBranchBatch,
     TabularInput,
 )
@@ -147,7 +149,52 @@ def test_collator_constructs_modality_specific_batches_and_float_dense_values():
 
 def test_collator_rejects_unknown_input_kinds():
     with pytest.raises(ValueError, match="instance_kind"):
-        MTPBatchCollator(instance_kind="sparse", target_kind="id")
+        MTPBatchCollator(instance_kind="sequence", target_kind="id")
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [
+            sparse.csr_matrix([[0.0, 2.0, 0.0]]),
+            sparse.csr_matrix([[3.0, 0.0, 4.0]]),
+        ],
+        [
+            torch.tensor([0.0, 2.0, 0.0]).to_sparse(),
+            torch.tensor([3.0, 0.0, 4.0]).to_sparse(),
+        ],
+    ],
+)
+def test_collator_preserves_sparse_rows_as_a_sparse_float_batch(rows):
+    collator = MTPBatchCollator(instance_kind="sparse", target_kind="dense")
+    items = [
+        {
+            "instance_id": index,
+            "target_id": index,
+            "instance_features": row,
+            "target_features": torch.tensor([float(index)]),
+            "score": index,
+        }
+        for index, row in enumerate(rows)
+    ]
+
+    batch = collator(items)
+
+    assert isinstance(batch.instance_input, SparseBranchBatch)
+    assert batch.instance_features.layout == torch.sparse_coo
+    assert batch.instance_features.dtype == torch.float32
+    assert batch.instance_features.shape == (2, 3)
+    assert torch.equal(
+        batch.instance_features.to_dense(),
+        torch.tensor([[0.0, 2.0, 0.0], [3.0, 0.0, 4.0]]),
+    )
+
+
+def test_sparse_branch_batch_rejects_dense_or_non_float_tensors():
+    with pytest.raises(TypeError, match="COO or CSR"):
+        SparseBranchBatch(torch.ones(2, 3))
+    with pytest.raises(TypeError, match="floating-point"):
+        SparseBranchBatch(torch.ones(2, 3, dtype=torch.int64).to_sparse())
 
 
 def test_collator_preserves_structured_tabular_inputs():

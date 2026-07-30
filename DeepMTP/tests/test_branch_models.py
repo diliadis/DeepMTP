@@ -5,7 +5,7 @@ import torch
 from torch import nn
 
 import DeepMTP.models.branches as branch_models
-from DeepMTP.models import MLP, ConvNet, IDEmbedding
+from DeepMTP.models import MLP, ConvNet, IDEmbedding, SparseMLP
 
 
 class FakeResNet(nn.Module):
@@ -241,6 +241,73 @@ def test_mlp_rejects_invalid_dimensions_and_dropout(overrides, message):
 
     with pytest.raises(ValueError, match=message):
         MLP(**arguments)
+
+
+def test_sparse_mlp_matches_dense_mlp_and_backpropagates():
+    dense_model = MLP(
+        {},
+        input_dim=5,
+        output_dim=2,
+        nodes_per_layer=[4, 3],
+        num_layers=None,
+        dropout_rate=0.0,
+        batch_norm=False,
+    )
+    sparse_model = SparseMLP(
+        {},
+        input_dim=5,
+        output_dim=2,
+        nodes_per_layer=[4, 3],
+        num_layers=None,
+        dropout_rate=0.0,
+        batch_norm=False,
+    )
+    dense_linear_layers = [
+        layer for layer in dense_model.predictor if isinstance(layer, nn.Linear)
+    ]
+    sparse_linear_layers = [
+        sparse_model.input_projection,
+        *[layer for layer in sparse_model.predictor if isinstance(layer, nn.Linear)],
+    ]
+    for dense_layer, sparse_layer in zip(
+        dense_linear_layers,
+        sparse_linear_layers,
+        strict=True,
+    ):
+        sparse_layer.load_state_dict(dense_layer.state_dict())
+
+    dense_values = torch.tensor([[0.0, 2.0, 0.0, 1.0, 0.0], [3.0, 0.0, 4.0, 0.0, 5.0]])
+    sparse_values = dense_values.to_sparse()
+
+    sparse_output = sparse_model(sparse_values)
+    sparse_output.sum().backward()
+
+    assert torch.allclose(sparse_output, dense_model(dense_values))
+    assert sparse_model.input_projection.weight.grad is not None
+
+
+@pytest.mark.parametrize(
+    ("values", "exception", "message"),
+    [
+        (torch.ones(2, 5), TypeError, "COO or CSR"),
+        (torch.ones(5).to_sparse(), ValueError, "two-dimensional"),
+        (torch.ones(2, 4).to_sparse(), ValueError, "input width"),
+        ([torch.ones(5)], TypeError, "torch.Tensor"),
+    ],
+)
+def test_sparse_mlp_rejects_incompatible_inputs(values, exception, message):
+    model = SparseMLP(
+        {},
+        input_dim=5,
+        output_dim=2,
+        nodes_per_layer=[4],
+        num_layers=None,
+        dropout_rate=0.0,
+        batch_norm=False,
+    )
+
+    with pytest.raises(exception, match=message):
+        model(values)
 
 
 @pytest.mark.parametrize(

@@ -118,13 +118,14 @@ Numeric statistics are fitted only on training entities and stored as
 prediction reuse that state. Missing and out-of-vocabulary categories use the
 reserved index zero unless their policy is configured as `error`.
 
-### 3. Sparse high-dimensional inputs
+### 3. Sparse high-dimensional inputs (completed)
 
-- Accept SciPy sparse matrices and PyTorch sparse tensors without densifying
+- [x] Accept SciPy sparse matrices and PyTorch sparse tensors without densifying
   the complete dataset.
-- Add sparse linear projection branches for fingerprints, bag-of-words, and
+- [x] Add sparse linear projection branches for fingerprints, bag-of-words, and
   large indicator matrices.
-- Benchmark memory use and throughput against the dense MLP path.
+- [x] Benchmark memory use and throughput against the dense MLP path with
+  `scripts/benchmark_sparse_inputs.py`.
 
 ### 4. Sequence and pretrained-embedding inputs
 

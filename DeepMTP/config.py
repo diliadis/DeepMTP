@@ -24,6 +24,7 @@ LossName: TypeAlias = Literal[
 GeneralArchitecture: TypeAlias = Literal["dot_product", "mlp", "kronecker"]
 BranchArchitecture: TypeAlias = Literal[
     "MLP",
+    "SPARSE",
     "CONV",
     "CUSTOM",
     "EMBEDDING",
@@ -542,17 +543,24 @@ class DeepMTPConfig:
 
     def _validate_branch(self, branch: Literal["instance", "target"]) -> None:
         architecture = getattr(self, f"{branch}_branch_architecture")
-        if architecture not in {"MLP", "CONV", "CUSTOM", "EMBEDDING", "TABULAR"}:
+        if architecture not in {
+            "MLP",
+            "SPARSE",
+            "CONV",
+            "CUSTOM",
+            "EMBEDDING",
+            "TABULAR",
+        }:
             raise ConfigValidationError(
-                f"{branch}_branch_architecture must be 'MLP', 'CONV', "
+                f"{branch}_branch_architecture must be 'MLP', 'SPARSE', 'CONV', "
                 f"'CUSTOM', 'EMBEDDING', or 'TABULAR'; received "
                 f"{architecture!r}."
             )
 
-        if architecture in {"MLP", "EMBEDDING"}:
+        if architecture in {"MLP", "SPARSE", "EMBEDDING"}:
             input_dim = getattr(self, f"{branch}_branch_input_dim")
             self._require_positive_integer(f"{branch}_branch_input_dim", input_dim)
-        if architecture in {"MLP", "TABULAR"}:
+        if architecture in {"MLP", "SPARSE", "TABULAR"}:
             nodes = getattr(self, f"{branch}_branch_nodes_per_layer")
             layers = getattr(self, f"{branch}_branch_layers")
             self._validate_nodes(f"{branch}_branch_nodes_per_layer", nodes)
@@ -657,7 +665,7 @@ class DeepMTPConfig:
                     f"{branch}_branch_architecture='EMBEDDING' cannot represent "
                     f"novel {entity} in validation setting "
                     f"{self.validation_setting}. Use side features with an MLP, "
-                    "TABULAR, CONV, or CUSTOM branch."
+                    "SPARSE, TABULAR, CONV, or CUSTOM branch."
                 )
 
     def _validate_combined_architecture(self) -> None:

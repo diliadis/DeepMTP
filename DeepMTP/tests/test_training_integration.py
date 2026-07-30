@@ -3,11 +3,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from scipy import sparse
 from torch import nn
 
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.main import DeepMTP
-from DeepMTP.models import IDEmbedding, TabularEncoder
+from DeepMTP.models import IDEmbedding, SparseMLP, TabularEncoder
 from DeepMTP.runtime.persistence import ExperimentStore
 from DeepMTP.utils.data_utils import data_process
 from DeepMTP.utils.utils import generate_config
@@ -45,6 +46,83 @@ class RecordingProgress:
         include_validation,
     ):
         self.summary_calls.append((summaries, include_train, include_validation))
+
+
+@pytest.mark.integration
+@pytest.mark.filterwarnings(
+    "ignore::DeepMTP.config.ConfigNormalizationWarning",
+)
+def test_tiny_cpu_sparse_training_prediction_and_checkpoint(tmp_path):
+    rng = np.random.default_rng(18)
+    dense_features = rng.normal(size=(20, 64)).astype(np.float32)
+    dense_features[np.abs(dense_features) < 1.5] = 0.0
+    instance_features = sparse.csr_matrix(dense_features)
+    scores = (np.arange(20)[:, np.newaxis] + np.arange(4)[np.newaxis, :]) % 2
+    train, val, test, data_info = data_process(
+        {
+            "train": {
+                "y": scores,
+                "X_instance": instance_features,
+                "X_target": None,
+            }
+        },
+        validation_setting="B",
+        shuffle=False,
+    )
+    config = generate_config(
+        validation_setting="B",
+        problem_mode="classification",
+        general_architecture_version="dot_product",
+        compute_mode="cpu",
+        num_workers=0,
+        train_batchsize=16,
+        val_batchsize=16,
+        num_epochs=1,
+        metrics=["accuracy"],
+        metrics_average=["macro"],
+        evaluate_train=False,
+        evaluate_val=True,
+        use_early_stopping=False,
+        save_model=False,
+        results_path=str(tmp_path),
+        experiment_name="sparse",
+        instance_branch_architecture="SPARSE",
+        instance_branch_input_dim=data_info["instance_branch_input_dim"],
+        instance_branch_params={
+            "instance_branch_nodes_per_layer": [8, 4],
+            "instance_branch_layers": None,
+            "instance_branch_nodes_reducing_factor": 2,
+        },
+        target_branch_architecture="MLP",
+        target_branch_input_dim=data_info["target_branch_input_dim"],
+        target_branch_params={
+            "target_branch_nodes_per_layer": [4],
+            "target_branch_layers": None,
+            "target_branch_nodes_reducing_factor": 2,
+        },
+        embedding_size=4,
+    )
+    model = DeepMTP(config)
+
+    validation_results = model.train(train, val, test)
+    _, predictions = model.predict(test, return_predictions=True)
+
+    assert isinstance(model.instance_branch_model, SparseMLP)
+    assert "val_loss" in validation_results
+    assert len(predictions) == len(test["y"]["data"])
+
+    model.save_model()
+    checkpoint_path = Path(model.experiment_dir) / "model.pt"
+    restored_config = dict(config)
+    restored_config["experiment_name"] = "sparse_restored"
+    restored_model = DeepMTP(restored_config, checkpoint_dir=checkpoint_path)
+    _, restored_predictions = restored_model.predict(test, return_predictions=True)
+
+    assert checkpoint_path.is_file()
+    assert np.allclose(
+        predictions["predicted_values"],
+        restored_predictions["predicted_values"],
+    )
 
 
 @pytest.mark.integration

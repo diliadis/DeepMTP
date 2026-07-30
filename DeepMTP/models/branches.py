@@ -24,6 +24,7 @@ __all__ = [
     "IDEmbedding",
     "MLP",
     "ModelConfigInput",
+    "SparseMLP",
     "TabularEncoder",
 ]
 
@@ -147,6 +148,110 @@ class MLP(nn.Sequential):
         for layer in self.predictor:
             v = layer(v)
         return v
+
+
+class SparseMLP(nn.Module):
+    """Project sparse inputs before applying a dense MLP tail."""
+
+    input_kind: ClassVar[BranchInputKind] = "sparse"
+
+    def __init__(
+        self,
+        config: ModelConfigInput,
+        input_dim: int,
+        output_dim: int,
+        nodes_per_layer: list[int] | int,
+        num_layers: int | None,
+        dropout_rate: float,
+        batch_norm: bool,
+        skip_last_act: bool = False,
+    ) -> None:
+        super().__init__()
+        if input_dim <= 0:
+            raise ValueError("input_dim must be a positive integer.")
+        if output_dim <= 0:
+            raise ValueError("output_dim must be a positive integer.")
+        if not 0 <= dropout_rate < 1:
+            raise ValueError("dropout_rate must be between 0 (inclusive) and 1.")
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        if isinstance(nodes_per_layer, list):
+            if not nodes_per_layer or any(nodes <= 0 for nodes in nodes_per_layer):
+                raise ValueError("nodes_per_layer must contain positive integers.")
+            layer_count = len(nodes_per_layer)
+            dims = [input_dim] + nodes_per_layer + [output_dim]
+        else:
+            if nodes_per_layer <= 0:
+                raise ValueError("nodes_per_layer must be a positive integer.")
+            if num_layers is None or num_layers < 0:
+                raise ValueError(
+                    "num_layers must be a non-negative integer when "
+                    "nodes_per_layer is an integer."
+                )
+            layer_count = num_layers
+            dims = [input_dim] + layer_count * [nodes_per_layer] + [output_dim]
+
+        self.input_projection = nn.Linear(dims[0], dims[1])
+        self.predictor = nn.ModuleList()
+        self._append_post_linear_layers(
+            output_width=dims[1],
+            is_last=layer_count == 0,
+            dropout_rate=dropout_rate,
+            batch_norm=batch_norm,
+            skip_last_act=skip_last_act,
+        )
+        for layer_index in range(1, layer_count + 1):
+            self.predictor.append(nn.Linear(dims[layer_index], dims[layer_index + 1]))
+            self._append_post_linear_layers(
+                output_width=dims[layer_index + 1],
+                is_last=layer_index == layer_count,
+                dropout_rate=dropout_rate,
+                batch_norm=batch_norm,
+                skip_last_act=skip_last_act,
+            )
+
+    def _append_post_linear_layers(
+        self,
+        *,
+        output_width: int,
+        is_last: bool,
+        dropout_rate: float,
+        batch_norm: bool,
+        skip_last_act: bool,
+    ) -> None:
+        if not is_last:
+            self.predictor.append(nn.LeakyReLU())
+            if batch_norm:
+                self.predictor.append(nn.BatchNorm1d(output_width))
+            if dropout_rate != 0:
+                self.predictor.append(nn.Dropout(dropout_rate))
+        elif not skip_last_act:
+            self.predictor.append(nn.LeakyReLU())
+
+    def forward(self, values: torch.Tensor) -> torch.Tensor:
+        if not isinstance(values, torch.Tensor):
+            raise TypeError("SparseMLP expects a torch.Tensor.")
+        if values.layout not in {torch.sparse_coo, torch.sparse_csr}:
+            raise TypeError("SparseMLP expects a PyTorch COO or CSR sparse tensor.")
+        if values.ndim != 2:
+            raise ValueError("SparseMLP expects a two-dimensional sparse batch.")
+        if values.shape[1] != self.input_dim:
+            raise ValueError(
+                "SparseMLP input width does not match input_dim: "
+                f"expected {self.input_dim}, received {values.shape[1]}."
+            )
+
+        sparse_values = values.to_sparse_coo().coalesce().float()
+        projected = torch.sparse.mm(
+            sparse_values,
+            self.input_projection.weight.transpose(0, 1),
+        )
+        if self.input_projection.bias is not None:
+            projected = projected + self.input_projection.bias
+        for layer in self.predictor:
+            projected = layer(projected)
+        return projected
 
 
 class IDEmbedding(nn.Module):
