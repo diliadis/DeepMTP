@@ -27,8 +27,8 @@ common two-branch architecture.
 - Dot-product, concatenation-plus-MLP, and Kronecker-product fusion.
 - Validation settings A–D for known and novel instances and targets.
 - Binary and multiclass classification plus regression metrics, early
-  stopping, checkpoints, deterministic undersampling, and top-k grouped
-  metrics where applicable.
+  stopping, checkpoints, gradient accumulation and clipping, deterministic
+  undersampling, and top-k grouped metrics where applicable.
 - Random-search and Hyperband optimization, plus optional TensorBoard,
   Weights & Biases, and Streamlit integrations.
 - Typed configuration, model-ready batches, and early validation of invalid
@@ -842,6 +842,8 @@ The table below summarizes the commonly configured public options.
 | `num_workers` | The number of sub-processes to use for data loading. Larger values usually improve performance but after a point training speed will become worse|
 | `train_batchsize` | The number of samples that comprise a batch from the training set |
 | `val_batchsize` | The number of samples that comprise a batch from the validation and test sets |
+| `gradient_accumulation_steps` | Positive number of training microbatches combined before each optimizer step; defaults to `1` |
+| `gradient_clip_norm` | Positive finite global gradient-norm limit applied before each optimizer step, or `None` to disable clipping |
 | `random_seed` | Non-negative seed for isolated model initialization and data-loader shuffling, or `None` for nondeterministic behavior |
 | `patience` | The number of epochs that the network is allowed to continue training for while observing worse overall performance |
 | `delta` | Minimum change in the monitored quantity to qualify as an improvement |
@@ -946,6 +948,27 @@ The table below summarizes the commonly configured public options.
 | `embedding_size` | The output width of both branches for a dot-product model; for a `COMPOSITE` branch it must equal the sum of component output widths |
 |  **Other**  ||
 | `additional_info` | Extra experiment metadata included in reporting |
+
+To train with a larger effective batch while retaining a smaller in-memory
+microbatch, enable gradient accumulation:
+
+```python
+config = DeepMTPConfig(
+    ...,
+    train_batchsize=32,
+    gradient_accumulation_steps=4,
+    gradient_clip_norm=1.0,
+)
+```
+
+This configuration processes at most 32 observations at once and normally
+updates from groups of approximately 128. DeepMTP weights accumulated mean
+losses by observation count, so uneven and final partial microbatches receive
+the correct influence. Global norm clipping is applied once to the normalized
+accumulated gradient immediately before the optimizer step. The inert defaults
+(`1` and `None`) preserve one optimizer update per batch without clipping.
+The settings are retained in saved configurations, checkpoint metadata, and
+W&B run configuration.
 
 For example, Huber loss is less sensitive to large regression errors than mean
 squared error:

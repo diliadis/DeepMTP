@@ -6,6 +6,12 @@ by their effect on users and maintainers.
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in observation-weighted gradient accumulation and global norm clipping,
+  with correct uneven/final microbatch handling, validated inert defaults,
+  checkpoint metadata, and W&B configuration capture.
+
 ## [0.0.23] - 2026-07-30
 
 This release contains substantial changes from 0.0.22. Existing users

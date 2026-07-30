@@ -227,7 +227,8 @@ reserved index zero unless their policy is configured as `error`.
 
 - Add automatic mixed precision for supported CUDA devices.
 - Evaluate `torch.compile` as an opt-in optimization with an eager fallback.
-- Add gradient clipping and gradient accumulation.
+- [x] Add observation-weighted gradient accumulation with correct final partial
+  groups and optional global norm clipping at optimizer-step boundaries.
 - [x] Record device, dtype, dependency, seed, source, training-result, and
   preprocessing metadata with each saved experiment checkpoint.
 

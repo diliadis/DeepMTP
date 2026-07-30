@@ -39,6 +39,12 @@ In the code snippet above the function generate_config is shown without any spec
      - The number of samples that comprise a batch from the training set
    * - **val_batchsize**
      - The number of samples that comprise a batch from the validation and test sets
+   * - **gradient_accumulation_steps**
+     - Positive number of training microbatches combined before each optimizer
+       step; defaults to 1
+   * - **gradient_clip_norm**
+     - Positive finite global gradient-norm limit applied immediately before
+       each optimizer step, or ``None`` to disable clipping
    * - **patience**
      - The number of epochs that the network is allowed to continue training for while observing worse overall performance
    * - **delta**
@@ -205,6 +211,33 @@ In the code snippet above the function generate_config is shown without any spec
    * - **validation_setting**
      - The validation setting of the specific example
 
+Gradient accumulation and clipping
+**********************************
+
+Use gradient accumulation to train with a larger effective batch while keeping
+the in-memory microbatch smaller:
+
+.. code-block:: python
+
+   config = DeepMTPConfig(
+       # task and branch configuration...
+       train_batchsize=32,
+       gradient_accumulation_steps=4,
+       gradient_clip_norm=1.0,
+   )
+
+This configuration processes at most 32 observations at once and normally
+updates the optimizer from groups of approximately 128. DeepMTP weights
+accumulated mean losses by observation count, so uneven microbatches and the
+final partial accumulation group receive the correct influence. It normalizes
+the accumulated gradient, applies global norm clipping once, and then performs
+the optimizer step.
+
+The defaults ``gradient_accumulation_steps=1`` and
+``gradient_clip_norm=None`` preserve one optimizer update per batch without
+clipping. Both values are saved in materialized configurations, checkpoint
+training metadata, and W&B run configuration.
+
 An **EMBEDDING** branch consumes entity IDs directly and does not accept side
 features. It is supported only when that entity axis is known at inference
 time: both branches in setting A, the target branch in setting B, and the
@@ -341,6 +374,8 @@ Example of a generating a configuration::
         train_batchsize = 1024,
         val_batchsize = 1024,
         num_epochs = 200,
+        gradient_accumulation_steps = 4,
+        gradient_clip_norm = 1.0,
         num_workers = 8,
         metrics = ['RMSE', 'MSE'],
         metrics_average = ['macro', 'micro'],
