@@ -274,6 +274,7 @@ def test_migration_guide_tracks_the_current_public_contract():
     ).read_text(encoding="utf-8")
 
     assert "DeepMTP 0.0.22" in migration
+    assert "0.0.22 to 0.0.23" in migration
     assert "v0.0.22" in migration
     assert "from DeepMTP import DeepMTP, DeepMTPConfig, data_process" in migration
     assert "DeepMTPConfig.from_mapping(existing_config)" in migration
@@ -330,6 +331,7 @@ def test_project_policies_are_complete_and_linked():
         assert policy_name in project_page
 
     assert "## [Unreleased]" in policies["CHANGELOG.md"]
+    assert "## [0.0.23] - 2026-07-30" in policies["CHANGELOG.md"]
     assert "## [0.0.22] - 2022-12-08" in policies["CHANGELOG.md"]
     assert "[migration guide](MIGRATION.rst)" in policies["CHANGELOG.md"]
     assert "sphinx-build -W --keep-going" in policies["CONTRIBUTING.md"]
@@ -344,13 +346,21 @@ def test_project_policies_are_complete_and_linked():
     assert "python -m twine check --strict" in policies["RELEASING.md"]
     assert "vX.Y.Z" in policies["RELEASING.md"]
     assert "scripts/verify_release_artifacts.py vX.Y.Z" in policies["RELEASING.md"]
+    assert (
+        "scripts/verify_release_artifacts.py --contract-only"
+        in policies["RELEASING.md"]
+    )
     assert "scripts/smoke_test_installation.py" in policies["RELEASING.md"]
+    assert "scripts/smoke_test_optional_extras.py" in policies["RELEASING.md"]
     assert "Project policies <project>" in index
     assert "python -m twine check --strict dist/*" in publish_workflow
     assert "${{ github.event.release.tag_name }}" in publish_workflow
     assert 'scripts/verify_release_artifacts.py "$RELEASE_TAG" dist/*' in (
         publish_workflow
     )
+    assert 'pip install "${wheel}[all]"' in publish_workflow
+    assert "scripts/smoke_test_installation.py" in publish_workflow
+    assert "scripts/smoke_test_optional_extras.py" in publish_workflow
     assert "PYPI_API_TOKEN" not in publish_workflow
     assert 'python: "3.13"' in ci_workflow
     assert 'python: "3.14"' in ci_workflow
@@ -359,8 +369,10 @@ def test_project_policies_are_complete_and_linked():
     assert "python -m pip check" in ci_workflow
     assert "python -m pip install -e . --group quality" in ci_workflow
     assert "python -m pip install -e . --group docs" in ci_workflow
-    assert "-m pip install dist/*.whl" in ci_workflow
+    assert 'pip install "${wheel}[all]"' in ci_workflow
     assert "scripts/smoke_test_installation.py" in ci_workflow
+    assert "scripts/smoke_test_optional_extras.py" in ci_workflow
+    assert "verify_release_artifacts.py --contract-only" in ci_workflow
     assert "--require-wheel-install" in ci_workflow
     assert "working-directory: ${{ runner.temp }}" in ci_workflow
     assert "actions/dependency-review-action@" in dependency_review_workflow

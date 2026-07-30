@@ -1,12 +1,12 @@
-Migrating from DeepMTP 0.0.22
-================================
+Migrating from DeepMTP 0.0.22 to 0.0.23
+==========================================
 
 This guide covers migration from `DeepMTP 0.0.22 on PyPI
 <https://pypi.org/project/DeepMTP/0.0.22/>`_, the latest published release and
 the version represented by the `v0.0.22 Git tag
-<https://github.com/diliadis/DeepMTP/tree/v0.0.22>`_, to the current
-development line. It focuses on changes that can affect existing experiments
-rather than listing every internal refactor.
+<https://github.com/diliadis/DeepMTP/tree/v0.0.22>`_, to DeepMTP 0.0.23. It
+focuses on changes that can affect existing experiments rather than listing
+every internal refactor.
 
 Before upgrading
 ----------------
@@ -25,8 +25,8 @@ Python and dependencies
 
 DeepMTP 0.0.22 supported Python 3.7 and installed dataset downloaders,
 Torchvision, Streamlit, TensorBoard, and Weights & Biases as mandatory
-dependencies. The current package requires Python 3.10 or newer and keeps the
-core installation smaller.
+dependencies. DeepMTP 0.0.23 requires Python 3.10 or newer and keeps the core
+installation smaller.
 
 To test the current source checkout in an isolated environment:
 

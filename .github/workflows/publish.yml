@@ -41,6 +41,26 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: python scripts/verify_release_artifacts.py "$RELEASE_TAG" dist/*
 
+      - name: Install verified wheel and optional extras
+        run: |
+          python -m venv "$RUNNER_TEMP/deepmtp-release-smoke"
+          "$RUNNER_TEMP/deepmtp-release-smoke/bin/python" -m pip install --upgrade pip
+          for wheel in dist/*.whl; do
+            "$RUNNER_TEMP/deepmtp-release-smoke/bin/python" -m pip install "${wheel}[all]"
+          done
+          "$RUNNER_TEMP/deepmtp-release-smoke/bin/python" -m pip check
+
+      - name: Smoke test verified wheel
+        working-directory: ${{ runner.temp }}
+        run: |
+          "$RUNNER_TEMP/deepmtp-release-smoke/bin/python" \
+            "$GITHUB_WORKSPACE/scripts/smoke_test_installation.py" \
+            --require-wheel-install \
+            --output-dir "$RUNNER_TEMP/deepmtp-release-results"
+          "$RUNNER_TEMP/deepmtp-release-smoke/bin/python" \
+            "$GITHUB_WORKSPACE/scripts/smoke_test_optional_extras.py" \
+            --require-wheel-install
+
       - name: Upload verified distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
