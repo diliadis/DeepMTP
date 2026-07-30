@@ -51,6 +51,12 @@ _BRANCH_INPUT_KINDS: dict[BranchArchitecture, BranchInputKind] = {
 }
 
 
+def _is_missing_composite_value(value: object) -> bool:
+    if value is None or value is pd.NA:
+        return True
+    return isinstance(value, (float, np.floating)) and bool(np.isnan(value))
+
+
 class DatasetItem(TypedDict):
     """One model-ready interaction returned by ``BaseDataset``."""
 
@@ -495,9 +501,32 @@ class BaseDataset(Dataset):
             architecture = component["architecture"]
             input_dim = component["input_dim"]
             component_values = [row[name] for row in rows]
+            missing = [_is_missing_composite_value(value) for value in component_values]
+            if any(missing) and not component.get("optional", False):
+                missing_rows = [
+                    row_index
+                    for row_index, is_missing in enumerate(missing)
+                    if is_missing
+                ]
+                raise ValueError(
+                    f"{entity_name} required composite component {name!r} is "
+                    f"missing from rows {missing_rows}."
+                )
+            present_indices = [
+                row_index
+                for row_index, is_missing in enumerate(missing)
+                if not is_missing
+            ]
+            present_values = [
+                component_values[row_index] for row_index in present_indices
+            ]
+            normalized_component_values: list[Any] = [None] * len(rows)
+            if not present_values:
+                normalized_values[name] = normalized_component_values
+                continue
             if architecture == "SPARSE":
                 normalized_rows, width, _ = normalize_sparse_rows(
-                    component_values,
+                    present_values,
                     entity_name=f"{entity_name.lower()} composite component {name!r}",
                 )
                 if width != input_dim:
@@ -505,18 +534,20 @@ class BaseDataset(Dataset):
                         f"{entity_name} composite component {name!r} sparse "
                         f"width must be {input_dim}; received {width}."
                     )
-                normalized_values[name] = normalized_rows
+                present_normalized_values = normalized_rows
             elif architecture == "SEQUENCE":
                 normalized_rows, _ = normalize_sequence_rows(
-                    component_values,
+                    present_values,
                     entity_name=f"{entity_name.lower()} composite component {name!r}",
                     vocabulary_size=input_dim,
                     padding_idx=component["padding_idx"],
                 )
-                normalized_values[name] = normalized_rows
+                present_normalized_values = normalized_rows
             else:
                 dense_rows = []
-                for row_index, value in enumerate(component_values):
+                for row_index, value in zip(
+                    present_indices, present_values, strict=True
+                ):
                     vector = np.asarray(value)
                     if (
                         vector.ndim != 1
@@ -529,7 +560,14 @@ class BaseDataset(Dataset):
                             f"{input_dim}."
                         )
                     dense_rows.append(vector.copy())
-                normalized_values[name] = dense_rows
+                present_normalized_values = dense_rows
+            for row_index, value in zip(
+                present_indices,
+                present_normalized_values,
+                strict=True,
+            ):
+                normalized_component_values[row_index] = value
+            normalized_values[name] = normalized_component_values
 
         prepared_frame["features"] = [
             {name: normalized_values[name][row_index] for name in side_components}
@@ -969,12 +1007,16 @@ class DataLoaderFactory:
             instance_tabular_preprocessor=self._tabular_preprocessors.get("instance"),
             target_tabular_preprocessor=self._tabular_preprocessors.get("target"),
         )
-        instance_component_kinds, instance_component_padding_indices = (
-            self._composite_collator_settings("instance")
-        )
-        target_component_kinds, target_component_padding_indices = (
-            self._composite_collator_settings("target")
-        )
+        (
+            instance_component_kinds,
+            instance_component_padding_indices,
+            instance_component_optional,
+        ) = self._composite_collator_settings("instance")
+        (
+            target_component_kinds,
+            target_component_padding_indices,
+            target_component_optional,
+        ) = self._composite_collator_settings("target")
         return DataLoader(
             dataset,
             batch_size=batch_size,
@@ -1005,15 +1047,21 @@ class DataLoaderFactory:
                 target_component_kinds=target_component_kinds,
                 instance_component_padding_indices=(instance_component_padding_indices),
                 target_component_padding_indices=target_component_padding_indices,
+                instance_component_optional=instance_component_optional,
+                target_component_optional=target_component_optional,
             ),
         )
 
     def _composite_collator_settings(
         self,
         branch: Literal["instance", "target"],
-    ) -> tuple[dict[str, BranchInputKind] | None, dict[str, int] | None]:
+    ) -> tuple[
+        dict[str, BranchInputKind] | None,
+        dict[str, int] | None,
+        dict[str, bool] | None,
+    ]:
         if getattr(self.config, f"{branch}_branch_architecture") != "COMPOSITE":
-            return None, None
+            return None, None, None
         components = getattr(
             self.config,
             f"{branch}_branch_composite_components",
@@ -1033,7 +1081,11 @@ class DataLoaderFactory:
             for name, component in components.items()
             if component["architecture"] == "SEQUENCE"
         }
-        return kinds, padding_indices
+        optional = {
+            name: bool(component.get("optional", False))
+            for name, component in components.items()
+        }
+        return kinds, padding_indices, optional
 
     def _generator(self) -> torch.Generator | None:
         if self.config.random_seed is None:

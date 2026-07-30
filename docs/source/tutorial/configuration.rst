@@ -183,8 +183,9 @@ A **COMPOSITE** branch consumes a named mapping of side-feature collections
 and concatenates the outputs of independently configured dense, sparse,
 sequence, or known-ID component encoders. ``data_process`` receives a matching
 feature-kind mapping, and each component declares its own input and output
-dimensions. See :doc:`composite_inputs` for configuration, validation-setting,
-batch, checkpoint, and current missing-modality constraints.
+dimensions. Components marked optional use explicit presence masks and learned
+missing representations. See :doc:`composite_inputs` for configuration,
+validation-setting, batch, checkpoint, and missing-modality behavior.
 
 For mutually exclusive outcomes, set
 ``classification_mode="multiclass"`` during both ``data_process`` and

@@ -29,6 +29,7 @@ from DeepMTP.data.sparse import (
 )
 
 __all__ = [
+    "CompositeFeatureSpec",
     "FeatureKind",
     "FeatureComponentInfo",
     "FeatureInfo",
@@ -39,7 +40,17 @@ __all__ = [
 ]
 
 AtomicFeatureKind = Literal["sequence"] | None
-FeatureKind = AtomicFeatureKind | Mapping[str, AtomicFeatureKind]
+
+
+class CompositeFeatureSpec(TypedDict, total=False):
+    """Data-preparation options for one named composite component."""
+
+    kind: AtomicFeatureKind
+    optional: bool
+
+
+CompositeFeatureKind = AtomicFeatureKind | CompositeFeatureSpec
+FeatureKind = AtomicFeatureKind | Mapping[str, CompositeFeatureKind]
 
 
 class FeatureComponentInfo(TypedDict):
@@ -153,10 +164,108 @@ def _process_sequence_features(
     }
 
 
+def _normalize_composite_feature_specs(
+    component_specs: Mapping[str, CompositeFeatureKind],
+) -> dict[str, tuple[AtomicFeatureKind, bool]]:
+    normalized: dict[str, tuple[AtomicFeatureKind, bool]] = {}
+    for name, raw_spec in component_specs.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("Composite component names must be non-empty strings.")
+        if isinstance(raw_spec, Mapping):
+            unknown_keys = set(raw_spec).difference({"kind", "optional"})
+            if unknown_keys:
+                raise ValueError(
+                    f"Composite component {name!r} feature specification contains "
+                    f"unknown keys: {sorted(str(key) for key in unknown_keys)}."
+                )
+            feature_kind = raw_spec.get("kind")
+            optional = raw_spec.get("optional", False)
+        else:
+            feature_kind = raw_spec
+            optional = False
+        if feature_kind is not None and feature_kind != "sequence":
+            raise ValueError(
+                f"Composite component {name!r} feature kind must be 'sequence' "
+                f"or None; received {feature_kind!r}."
+            )
+        if not isinstance(optional, bool):
+            raise ValueError(
+                f"Composite component {name!r} optional must be a boolean."
+            )
+        normalized[name] = (feature_kind, optional)
+    return normalized
+
+
+def _is_missing_component_value(value: object) -> bool:
+    if value is None or value is pd.NA:
+        return True
+    return isinstance(value, (float, np.floating)) and bool(np.isnan(value))
+
+
+def _prepare_optional_component_source(
+    source: object,
+    *,
+    entity_name: Literal["instance", "target"],
+    component_name: str,
+) -> tuple[object, list[Any] | None]:
+    if isinstance(source, pd.DataFrame) and "features" in source.columns:
+        frame = source.copy(deep=True)
+        if frame.empty:
+            raise ValueError(
+                f"Composite component {component_name!r} must contain at least "
+                f"one {entity_name}."
+            )
+        if "id" not in frame.columns:
+            return source, None
+        if frame["id"].isna().any():
+            raise ValueError(
+                f"Composite component {component_name!r} IDs cannot be missing."
+            )
+        if frame["id"].duplicated().any():
+            raise ValueError(
+                f"Composite component {component_name!r} IDs must be unique."
+            )
+        missing = frame["features"].map(_is_missing_component_value)
+        if not missing.any():
+            return source, None
+        present = frame.loc[~missing].copy(deep=True)
+        if present.empty:
+            raise ValueError(
+                f"Optional composite component {component_name!r} must contain "
+                "at least one present value so its input dimension can be inferred."
+            )
+        return present, frame["id"].tolist()
+
+    rows: list[Any] | None = None
+    if (isinstance(source, np.ndarray) and source.ndim == 1) or (
+        isinstance(source, Sequence) and not isinstance(source, (str, bytes))
+    ):
+        rows = list(source)
+    if rows is None:
+        return source, None
+
+    missing = [_is_missing_component_value(value) for value in rows]
+    if not any(missing):
+        return source, None
+    present_ids = [index for index, is_missing in enumerate(missing) if not is_missing]
+    if not present_ids:
+        raise ValueError(
+            f"Optional composite component {component_name!r} must contain at "
+            "least one present value so its input dimension can be inferred."
+        )
+    present = pd.DataFrame(
+        {
+            "id": present_ids,
+            "features": [rows[index] for index in present_ids],
+        }
+    )
+    return present, list(range(len(rows)))
+
+
 def _process_composite_features(
     features: object,
     *,
-    component_kinds: Mapping[str, AtomicFeatureKind],
+    component_kinds: Mapping[str, CompositeFeatureKind],
     entity_name: Literal["instance", "target"],
 ) -> FeatureInfo:
     if not isinstance(features, Mapping):
@@ -169,9 +278,7 @@ def _process_composite_features(
             f"{entity_name.title()} composite features must contain at least "
             "one side-feature component."
         )
-    for name in component_kinds:
-        if not isinstance(name, str) or not name:
-            raise ValueError("Composite component names must be non-empty strings.")
+    normalized_specs = _normalize_composite_feature_specs(component_kinds)
     if set(features) != set(component_kinds):
         raise ValueError(
             f"{entity_name.title()} composite feature sources and feature-kind "
@@ -181,14 +288,18 @@ def _process_composite_features(
 
     processed_components: dict[str, FeatureInfo] = {}
     component_metadata: dict[str, FeatureComponentInfo] = {}
-    for name, feature_kind in component_kinds.items():
-        if feature_kind not in {None, "sequence"}:
-            raise ValueError(
-                f"Composite component {name!r} feature kind must be 'sequence' "
-                f"or None; received {feature_kind!r}."
+    component_source_ids: dict[str, list[Any]] = {}
+    for name, (feature_kind, optional) in normalized_specs.items():
+        component_source = features[name]
+        declared_ids: list[Any] | None = None
+        if optional:
+            component_source, declared_ids = _prepare_optional_component_source(
+                component_source,
+                entity_name=entity_name,
+                component_name=name,
             )
         component = _process_entity_features(
-            features[name],
+            component_source,
             entity_name,
             False,
             "basic",
@@ -216,16 +327,27 @@ def _process_composite_features(
             "num_features": component["num_features"],
             "info": component["info"],
         }
+        component_source_ids[name] = (
+            declared_ids
+            if declared_ids is not None
+            else component["data"]["id"].tolist()
+        )
 
     indexed_frames = {
         name: component["data"].set_index("id", drop=False)
         for name, component in processed_components.items()
     }
-    first_name = next(iter(component_kinds))
-    expected_ids = set(indexed_frames[first_name]["id"])
-    for name, frame in indexed_frames.items():
-        component_ids = set(frame["id"])
-        if component_ids != expected_ids:
+    required_names = [
+        name for name, (_, optional) in normalized_specs.items() if not optional
+    ]
+    if required_names:
+        first_name = required_names[0]
+        ordered_ids = indexed_frames[first_name]["id"].tolist()
+        expected_ids = set(ordered_ids)
+        for name in required_names:
+            component_ids = set(component_source_ids[name])
+            if component_ids == expected_ids:
+                continue
             missing_ids = sorted(expected_ids.difference(component_ids))
             unexpected_ids = sorted(component_ids.difference(expected_ids))
             raise ValueError(
@@ -233,13 +355,36 @@ def _process_composite_features(
                 f"{entity_name} IDs as {first_name!r}; missing {missing_ids}, "
                 f"unexpected {unexpected_ids}."
             )
+        for name, (_, optional) in normalized_specs.items():
+            if not optional:
+                continue
+            unexpected_ids = sorted(
+                set(component_source_ids[name]).difference(expected_ids)
+            )
+            if unexpected_ids:
+                raise ValueError(
+                    f"Optional composite component {name!r} contains unexpected "
+                    f"{entity_name} IDs not present in required component "
+                    f"{first_name!r}: {unexpected_ids}."
+                )
+    else:
+        ordered_ids = []
+        seen_ids: set[Any] = set()
+        for name in normalized_specs:
+            for entity_id in component_source_ids[name]:
+                if entity_id not in seen_ids:
+                    seen_ids.add(entity_id)
+                    ordered_ids.append(entity_id)
 
-    ordered_ids = indexed_frames[first_name]["id"].tolist()
     feature_frame = pd.DataFrame({"id": ordered_ids})
     feature_frame["features"] = [
         {
-            name: indexed_frames[name].at[entity_id, "features"]
-            for name in component_kinds
+            name: (
+                indexed_frames[name].at[entity_id, "features"]
+                if entity_id in indexed_frames[name].index
+                else None
+            )
+            for name in normalized_specs
         }
         for entity_id in ordered_ids
     ]
@@ -423,6 +568,8 @@ def process_instance_features(
 ) -> FeatureInfo | None:
     """Normalize instance features without mutating caller-owned inputs.
 
+    Composite component specifications may set ``optional=True`` to align a
+    subset of entity IDs and preserve missing rows as ``None``.
     ``progress`` receives messages when ``verbose`` is enabled.
     """
     return _process_entity_features(
@@ -445,6 +592,8 @@ def process_target_features(
 ) -> FeatureInfo | None:
     """Normalize target features without mutating caller-owned inputs.
 
+    Composite component specifications may set ``optional=True`` to align a
+    subset of entity IDs and preserve missing rows as ``None``.
     ``progress`` receives messages when ``verbose`` is enabled.
     """
     return _process_entity_features(

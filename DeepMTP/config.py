@@ -715,6 +715,16 @@ class DeepMTPConfig:
                 output_field,
                 component.get("output_dim"),
             )
+            component.setdefault("optional", False)
+            if not isinstance(component["optional"], bool):
+                raise ConfigValidationError(
+                    f"{field_name}[{name!r}]['optional'] must be a boolean."
+                )
+            if architecture == "EMBEDDING" and component["optional"]:
+                raise ConfigValidationError(
+                    f"{field_name}[{name!r}] cannot mark an EMBEDDING component "
+                    "as optional because entity IDs are always available."
+                )
 
             component.setdefault(
                 "dropout_rate",
@@ -741,6 +751,12 @@ class DeepMTPConfig:
                 if not isinstance(component["batch_norm"], bool):
                     raise ConfigValidationError(
                         f"{field_name}[{name!r}]['batch_norm'] must be a boolean."
+                    )
+                if component["optional"] and component["batch_norm"]:
+                    raise ConfigValidationError(
+                        f"{field_name}[{name!r}] cannot enable batch_norm when "
+                        "optional because a training batch may contain only one "
+                        "present row."
                     )
             elif architecture == "SEQUENCE":
                 self._validate_composite_sequence_component(

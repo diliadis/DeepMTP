@@ -1,6 +1,7 @@
 """Compatibility facade for :mod:`DeepMTP.data.features`."""
 
 from DeepMTP.data.features import (
+    CompositeFeatureSpec,
     FeatureComponentInfo,
     FeatureInfo,
     FeatureKind,
@@ -11,6 +12,7 @@ from DeepMTP.data.features import (
 )
 
 __all__ = [
+    "CompositeFeatureSpec",
     "FeatureKind",
     "FeatureComponentInfo",
     "FeatureInfo",

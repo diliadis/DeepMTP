@@ -59,6 +59,9 @@ checkpoints.
 - Composite entity branches that combine named dense, sparse, token-sequence,
   and known-ID encoders through validated concatenation, including structured
   batching, validation-setting safeguards, and checkpoint restoration.
+- Opt-in missing-modality support for composite branches with explicit
+  per-component presence masks, present-only encoding, and checkpointed learned
+  missing representations.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and

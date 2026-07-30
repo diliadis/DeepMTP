@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import math
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from types import ModuleType
 from typing import Any, ClassVar, TypeAlias, cast
 
@@ -20,6 +20,7 @@ from DeepMTP.config import (
 from DeepMTP.data.batches import (
     BranchInputKind,
     CompositeInput,
+    MaskedComponentInput,
     SequenceInput,
     TabularInput,
 )
@@ -170,7 +171,12 @@ class CompositeEncoder(nn.Module):
 
     input_kind: ClassVar[BranchInputKind] = "composite"
 
-    def __init__(self, component_encoders: Mapping[str, nn.Module]) -> None:
+    def __init__(
+        self,
+        component_encoders: Mapping[str, nn.Module],
+        *,
+        optional_components: Collection[str] = (),
+    ) -> None:
         super().__init__()
         if not isinstance(component_encoders, Mapping):
             raise TypeError("component_encoders must be a mapping.")
@@ -178,6 +184,12 @@ class CompositeEncoder(nn.Module):
             raise ValueError(
                 "A composite encoder must contain at least two components."
             )
+        if isinstance(optional_components, (str, bytes)) or not isinstance(
+            optional_components,
+            Collection,
+        ):
+            raise TypeError("optional_components must be a collection of names.")
+        normalized_optional_components = frozenset(optional_components)
 
         normalized_encoders: OrderedDict[str, nn.Module] = OrderedDict()
         output_dimensions: dict[str, int] = {}
@@ -200,9 +212,25 @@ class CompositeEncoder(nn.Module):
                 branch=component_label,
             )
 
+        unknown_optional_components = normalized_optional_components.difference(
+            normalized_encoders
+        )
+        if unknown_optional_components:
+            raise ValueError(
+                "Optional composite component names must match configured "
+                f"encoders; unknown {sorted(unknown_optional_components)}."
+            )
         self.component_encoders = nn.ModuleDict(normalized_encoders)
         self.component_input_kinds = input_kinds
         self.component_output_dims = output_dimensions
+        self.optional_components = normalized_optional_components
+        self.missing_representations = nn.ParameterDict(
+            {
+                name: nn.Parameter(torch.zeros(output_dimensions[name]))
+                for name in normalized_encoders
+                if name in normalized_optional_components
+            }
+        )
         self.output_dim = sum(output_dimensions.values())
 
     def forward(self, values: CompositeInput) -> torch.Tensor:
@@ -215,15 +243,48 @@ class CompositeEncoder(nn.Module):
                 f"expected {sorted(expected_names)}, received {sorted(values)}."
             )
         encoded_components = [
-            encode_branch(
-                encoder,
-                values[name],
-                branch=f"composite component {name!r}",
-                explicit_dimension=self.component_output_dims[name],
-            )
+            self._encode_component(name, encoder, values[name])
             for name, encoder in self.component_encoders.items()
         ]
         return torch.cat(encoded_components, dim=1)
+
+    def _encode_component(
+        self,
+        name: str,
+        encoder: nn.Module,
+        values: Any,
+    ) -> torch.Tensor:
+        component_label = f"composite component {name!r}"
+        if not isinstance(values, MaskedComponentInput):
+            return encode_branch(
+                encoder,
+                values,
+                branch=component_label,
+                explicit_dimension=self.component_output_dims[name],
+            )
+        if name not in self.optional_components:
+            raise ValueError(
+                f"Required composite component {name!r} cannot use a presence mask."
+            )
+
+        missing = (
+            self.missing_representations[name]
+            .unsqueeze(0)
+            .expand(
+                values.batch_size,
+                -1,
+            )
+        )
+        if values.values is None:
+            return missing
+        encoded_present = encode_branch(
+            encoder,
+            values.values,
+            branch=component_label,
+            explicit_dimension=self.component_output_dims[name],
+        )
+        present_indices = values.presence_mask.nonzero(as_tuple=False).squeeze(1)
+        return missing.index_copy(0, present_indices, encoded_present)
 
 
 class SparseMLP(nn.Module):
