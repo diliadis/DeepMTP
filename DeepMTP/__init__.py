@@ -8,6 +8,12 @@ from DeepMTP.config import (
 )
 from DeepMTP.data.loading import DataLoaderFactory, TrainingDataLoaders
 from DeepMTP.data.preparation import data_process
+from DeepMTP.data.preprocessing import (
+    DataPreparationState,
+    DensePreprocessingState,
+    DenseScalingState,
+    transform_dense_features,
+)
 from DeepMTP.data.progress import (
     ConsoleDataProgressObserver,
     DataProgressEvent,
@@ -58,10 +64,13 @@ from DeepMTP.runtime.reporting import (
     ExperimentReporter,
     NullReporter,
     OptionalIntegrationError,
+    ReporterModelArtifact,
+    ReporterPredictionTable,
     TensorBoardReporter,
     WandBReporter,
 )
 from DeepMTP.runtime.training import EpochOutput, TrainingEngine
+from DeepMTP.runtime.wandb import WandBCheckpoint, download_wandb_checkpoint
 
 try:
     __version__ = version("DeepMTP")
@@ -75,10 +84,13 @@ __all__ = [
     "CompositeEncoder",
     "DeepMTP",
     "DeepMTPConfig",
+    "DataPreparationState",
     "DataLoaderFactory",
     "TrainingDataLoaders",
     "DataProgressEvent",
     "DataProgressObserver",
+    "DensePreprocessingState",
+    "DenseScalingState",
     "ConsoleDataProgressObserver",
     "NullDataProgressObserver",
     "EvaluationPolicy",
@@ -107,6 +119,8 @@ __all__ = [
     "CompositeReporter",
     "NullReporter",
     "OptionalIntegrationError",
+    "ReporterModelArtifact",
+    "ReporterPredictionTable",
     "ProgressEvent",
     "ProgressObserver",
     "ConsoleProgressObserver",
@@ -119,6 +133,9 @@ __all__ = [
     "TabularEncoder",
     "TabularSchema",
     "WandBReporter",
+    "WandBCheckpoint",
     "__version__",
     "data_process",
+    "download_wandb_checkpoint",
+    "transform_dense_features",
 ]

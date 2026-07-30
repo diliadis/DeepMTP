@@ -29,6 +29,13 @@ from DeepMTP.data.interactions import (
     get_estimated_validation_setting,
     process_interaction_data,
 )
+from DeepMTP.data.preprocessing import (
+    DATA_PREPARATION_STATE_KEY,
+    DataPreparationState,
+    DensePreprocessingState,
+    DenseScalingMethod,
+    DenseScalingState,
+)
 from DeepMTP.data.progress import (
     DataProgressObserver,
     _emit_data_message,
@@ -50,7 +57,7 @@ __all__ = [
     "validate_split_ratio",
 ]
 
-ScalingMethod: TypeAlias = Literal["MinMax", "Standard"]
+ScalingMethod: TypeAlias = DenseScalingMethod
 ProcessedSplit: TypeAlias = dict[str, Any]
 
 
@@ -69,6 +76,7 @@ class DataInfo(TypedDict):
     target_branch_component_input_dims: dict[str, int | None] | None
     instance_branch_component_graph_edge_dims: dict[str, int | None] | None
     target_branch_component_graph_edge_dims: dict[str, int | None] | None
+    data_preparation_state: dict[str, Any]
 
 
 class Transformer(Protocol):
@@ -250,9 +258,17 @@ def _scale_feature_splits(
     print_mode: str,
     progress: DataProgressObserver | None = None,
     feature_kind: FeatureKind = None,
-) -> None:
+    saved_state: DenseScalingState | None = None,
+) -> DenseScalingState | None:
+    if saved_state is not None:
+        if scaling_method is not None and scaling_method != saved_state.method:
+            raise ValueError(
+                f"Requested {scaling_method} scaling for {entity_name} features, "
+                f"but the saved preprocessing state uses {saved_state.method}."
+            )
+        scaling_method = saved_state.method
     if scaling_method is None:
-        return
+        return None
 
     train_source = data["train"][feature_key]
     if train_source is None:
@@ -269,7 +285,7 @@ def _scale_feature_splits(
             value="missing_features",
             level="warning",
         )
-        return
+        return None
 
     if isinstance(feature_kind, Mapping) or train_source.get("info") == "composite":
         raise ValueError(
@@ -312,7 +328,7 @@ def _scale_feature_splits(
             value="images",
             level="warning",
         )
-        return
+        return None
 
     if any(is_sparse_value(value) for value in train_frame["features"]):
         raise ValueError(
@@ -329,8 +345,15 @@ def _scale_feature_splits(
         message=f"Scaling {entity_name} features... ",
     )
 
-    scaler = MinMaxScaler() if scaling_method == "MinMax" else StandardScaler()
-    scaler.fit(np.stack(train_frame["features"].to_numpy()))
+    if saved_state is None:
+        scaler = MinMaxScaler() if scaling_method == "MinMax" else StandardScaler()
+        scaler.fit(np.stack(train_frame["features"].to_numpy()))
+        scaling_state = DenseScalingState.from_fitted_scaler(
+            scaler,
+            method=scaling_method,
+        )
+    else:
+        scaling_state = saved_state
     for mode in ("train", "val", "test"):
         source = data[mode][feature_key]
         if source is None:
@@ -339,10 +362,10 @@ def _scale_feature_splits(
                 "split after splitting."
             )
         feature_frame = source["data"]
-        feature_frame["features"] = feature_frame.apply(
-            lambda row: normalize(row["features"], scaler),
-            axis=1,
-        )
+        feature_frame["features"] = [
+            scaling_state.transform(features)
+            for features in feature_frame["features"].to_numpy()
+        ]
 
     _emit_data_operation_completed_if_verbose(
         verbose,
@@ -352,6 +375,7 @@ def _scale_feature_splits(
         message="Done",
         value=scaling_method,
     )
+    return scaling_state
 
 
 def data_process(
@@ -371,6 +395,9 @@ def data_process(
     instance_feature_kind: FeatureKind = None,
     target_feature_kind: FeatureKind = None,
     progress: DataProgressObserver | None = None,
+    dense_preprocessing_state: (
+        Mapping[str, Any] | DataPreparationState | DensePreprocessingState | None
+    ) = None,
 ) -> tuple[ProcessedSplit, ProcessedSplit, ProcessedSplit, DataInfo]:
     """The main function that handles all the preprocessing steps and checks needed to prepare the dataset to be used by the model.
 
@@ -401,6 +428,11 @@ def data_process(
             ``None``, or a mapping with ``kind`` and ``optional`` fields.
             Defaults to None.
         progress (DataProgressObserver | None, optional): Receives verbose messages from the complete data-processing pipeline. Defaults to None.
+        dense_preprocessing_state (mapping, optional): Previously saved dense
+            scaler parameters. Accepts either the ``dense`` section or the full
+            ``data_preparation_state`` returned in ``data_info``. When supplied,
+            the saved training statistics are replayed instead of fitting new
+            scalers. Defaults to None.
 
     Returns:
         dict, dict, dict, dict: Four different dictionaries containing:
@@ -414,6 +446,23 @@ def data_process(
         {"train": 0.7, "test": 0.2, "val": 0.1} if ratio is None else ratio
     )
     validation_setting = _normalize_validation_setting(validation_setting)
+    restored_dense_state = (
+        dense_preprocessing_state
+        if isinstance(dense_preprocessing_state, DensePreprocessingState)
+        else (
+            dense_preprocessing_state.dense
+            if isinstance(dense_preprocessing_state, DataPreparationState)
+            else (
+                None
+                if dense_preprocessing_state is None
+                else (
+                    DataPreparationState.from_config(dense_preprocessing_state).dense
+                    if "dense" in dense_preprocessing_state
+                    else DensePreprocessingState.from_config(dense_preprocessing_state)
+                )
+            )
+        )
+    )
     instance_scaling_method = _normalize_scaling_method(
         scale_instance_features,
         "scale_instance_features",
@@ -757,6 +806,7 @@ def data_process(
             instance_component_graph_edge_dims
         ),
         "target_branch_component_graph_edge_dims": target_component_graph_edge_dims,
+        "data_preparation_state": {},
     }
     data["info"] = data_info
 
@@ -795,7 +845,7 @@ def data_process(
             num_classes=detected_num_classes,
         )
 
-    _scale_feature_splits(
+    instance_scaling_state = _scale_feature_splits(
         data,
         "X_instance",
         "instance",
@@ -804,8 +854,11 @@ def data_process(
         print_mode=print_mode,
         progress=progress_observer,
         feature_kind=instance_feature_kind,
+        saved_state=(
+            None if restored_dense_state is None else restored_dense_state.instance
+        ),
     )
-    _scale_feature_splits(
+    target_scaling_state = _scale_feature_splits(
         data,
         "X_target",
         "target",
@@ -814,7 +867,30 @@ def data_process(
         print_mode=print_mode,
         progress=progress_observer,
         feature_kind=target_feature_kind,
+        saved_state=None
+        if restored_dense_state is None
+        else restored_dense_state.target,
     )
+
+    preparation_state = DataPreparationState(
+        validation_setting=validation_setting,
+        split_method=split_method,
+        split_ratio=tuple(
+            (name, float(ratio[name])) for name in ("train", "val", "test")
+        ),
+        shuffle=shuffle,
+        seed=seed,
+        dense=DensePreprocessingState(
+            instance=instance_scaling_state,
+            target=target_scaling_state,
+        ),
+    )
+    serialized_preparation_state = preparation_state.to_dict()
+    data_info["data_preparation_state"] = copy.deepcopy(serialized_preparation_state)
+    for mode in ("train", "val", "test"):
+        data[mode][DATA_PREPARATION_STATE_KEY] = copy.deepcopy(
+            serialized_preparation_state
+        )
 
     return (
         cast(ProcessedSplit, data["train"]),

@@ -29,6 +29,9 @@ _ALLOWED_CONFIG_LOOKUP_METHODS = {
         ("_CombinedMLPSettings", "from_config"),
         ("_TaskOutputSettings", "from_config"),
     },
+    Path("runtime/metadata.py"): {
+        ("_CheckpointSettings", "from_config"),
+    },
     Path("runtime/reporting.py"): {
         ("_ReporterSettings", "from_config"),
     },

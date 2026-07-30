@@ -47,7 +47,7 @@ sparse = ["scipy>=1.9"]
 streamlit = ["streamlit>=1.53.0"]
 tracking = [
     "tensorboard>=2.12",
-    "wandb>=0.15",
+    "wandb>=0.27,<1",
 ]
 all = [
     "ConfigSpace>=1.2",
@@ -58,7 +58,7 @@ all = [
     "tensorboard>=2.12",
     "torch-geometric>=2.5,<3",
     "torchvision>=0.15",
-    "wandb>=0.15",
+    "wandb>=0.27,<1",
 ]
 
 [dependency-groups]
@@ -70,6 +70,7 @@ test = [
     "scipy>=1.9",
     "torch-geometric>=2.5,<3",
     "tomli>=2; python_version < '3.11'",
+    "wandb>=0.27,<1",
 ]
 quality = [
     "mypy>=1.16",
@@ -146,6 +147,7 @@ files = [
     "DeepMTP/data/interactions.py",
     "DeepMTP/data/loading.py",
     "DeepMTP/data/preparation.py",
+    "DeepMTP/data/preprocessing.py",
     "DeepMTP/data/progress.py",
     "DeepMTP/data/sequences.py",
     "DeepMTP/data/splitting.py",
@@ -190,10 +192,12 @@ files = [
     "DeepMTP/runtime/components.py",
     "DeepMTP/runtime/evaluation.py",
     "DeepMTP/runtime/evaluation_progress.py",
+    "DeepMTP/runtime/metadata.py",
     "DeepMTP/runtime/persistence.py",
     "DeepMTP/runtime/presentation.py",
     "DeepMTP/runtime/reporting.py",
     "DeepMTP/runtime/training.py",
+    "DeepMTP/runtime/wandb.py",
     "DeepMTP/simple_hyperband.py",
     "DeepMTP/simple_hyperband_streamlit.py",
     "DeepMTP/streamlit_adapter.py",

@@ -34,7 +34,16 @@ from DeepMTP.runtime.evaluation_progress import (
     NullEvaluationProgressObserver,
     build_evaluation_progress_observer,
 )
-from DeepMTP.runtime.persistence import CHECKPOINT_KEYS, ExperimentStore
+from DeepMTP.runtime.metadata import (
+    CHECKPOINT_FORMAT_VERSION,
+    build_checkpoint_metadata,
+    validate_checkpoint_metadata,
+)
+from DeepMTP.runtime.persistence import (
+    CHECKPOINT_KEYS,
+    CHECKPOINT_METADATA_KEY,
+    ExperimentStore,
+)
 from DeepMTP.runtime.presentation import (
     ConsoleProgressObserver,
     NullProgressObserver,
@@ -51,14 +60,25 @@ from DeepMTP.runtime.reporting import (
     NullReporter,
     OptionalIntegrationError,
     ReporterConfigInput,
+    ReporterModelArtifact,
+    ReporterPredictionTable,
     TensorBoardReporter,
     WandBReporter,
     build_reporter,
+    log_reporter_model_artifact,
+    log_reporter_predictions,
+    log_reporter_summary,
+    mark_reporter_failed,
+    reporter_runtime_metadata,
+    update_reporter_config,
 )
 from DeepMTP.runtime.training import EpochOutput, TensorBatch, TrainingEngine
+from DeepMTP.runtime.wandb import WandBCheckpoint, download_wandb_checkpoint
 
 __all__ = [
     "CHECKPOINT_KEYS",
+    "CHECKPOINT_FORMAT_VERSION",
+    "CHECKPOINT_METADATA_KEY",
     "CompositeReporter",
     "ConsoleEvaluationProgressObserver",
     "ConsoleProgressObserver",
@@ -90,6 +110,8 @@ __all__ = [
     "ProgressEventKind",
     "ProgressObserver",
     "ReporterConfigInput",
+    "ReporterModelArtifact",
+    "ReporterPredictionTable",
     "RunHistory",
     "RunSummaries",
     "SUPPORTED_LOSSES_BY_CLASSIFICATION_MODE",
@@ -99,6 +121,8 @@ __all__ = [
     "TaskComponents",
     "TrainingEngine",
     "WandBReporter",
+    "WandBCheckpoint",
+    "build_checkpoint_metadata",
     "build_default_loss",
     "build_default_loss_input_transform",
     "build_default_output_head",
@@ -110,4 +134,12 @@ __all__ = [
     "build_progress_observer",
     "build_reporter",
     "build_task_components",
+    "download_wandb_checkpoint",
+    "log_reporter_model_artifact",
+    "log_reporter_predictions",
+    "log_reporter_summary",
+    "mark_reporter_failed",
+    "reporter_runtime_metadata",
+    "update_reporter_config",
+    "validate_checkpoint_metadata",
 ]

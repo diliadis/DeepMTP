@@ -66,6 +66,14 @@ from DeepMTP.data.preparation import (
     normalize,
     validate_split_ratio,
 )
+from DeepMTP.data.preprocessing import (
+    DATA_PREPARATION_STATE_KEY,
+    DataPreparationState,
+    DensePreprocessingState,
+    DenseScalingMethod,
+    DenseScalingState,
+    transform_dense_features,
+)
 from DeepMTP.data.progress import (
     ConsoleDataProgressObserver,
     DataPrintMode,
@@ -148,7 +156,9 @@ __all__ = [
     "CompositeFeatureSpec",
     "CompositeInput",
     "CustomBranchBatch",
+    "DATA_PREPARATION_STATE_KEY",
     "DataInfo",
+    "DataPreparationState",
     "DataLoaderFactory",
     "DataPrintMode",
     "DataProgressEvent",
@@ -162,6 +172,9 @@ __all__ = [
     "DatasetValue",
     "DatasetVariant",
     "DenseBranchBatch",
+    "DensePreprocessingState",
+    "DenseScalingMethod",
+    "DenseScalingState",
     "FeatureKind",
     "FeatureComponentInfo",
     "FeatureInfo",
@@ -225,6 +238,7 @@ __all__ = [
     "process_interaction_data",
     "process_target_features",
     "split_data",
+    "transform_dense_features",
     "validate_split_ratio",
 ]
 

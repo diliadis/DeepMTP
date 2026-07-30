@@ -388,6 +388,114 @@ def test_typed_config_rejects_invalid_core_values(field_name, invalid_value):
         DeepMTPConfig.from_mapping(config)
 
 
+def test_wandb_configuration_is_normalized_and_preserved():
+    config = make_valid_config(
+        wandb_project_name="project",
+        wandb_project_entity="entity",
+        wandb_mode="OFFLINE",
+        wandb_run_name="run",
+        wandb_group="group",
+        wandb_job_type="training",
+        wandb_tags=["nightly", "cpu"],
+        wandb_watch="ALL",
+        wandb_watch_log_freq=25,
+        wandb_log_graph=True,
+        wandb_log_code=True,
+        wandb_log_model_artifact=True,
+        wandb_model_artifact_name="deepmtp-model",
+        wandb_model_artifact_aliases=["latest", "candidate"],
+        wandb_log_predictions=True,
+        wandb_prediction_table_max_rows=50,
+    )
+
+    typed = DeepMTPConfig.from_mapping(config)
+
+    assert typed.wandb_mode == "offline"
+    assert typed.wandb_watch == "all"
+    assert typed.wandb_tags == ["nightly", "cpu"]
+    assert typed.wandb_model_artifact_aliases == ["latest", "candidate"]
+    assert typed.wandb_prediction_table_max_rows == 50
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"wandb_log_predictions": True},
+        {"wandb_log_model_artifact": True},
+        {"wandb_log_code": True},
+        {"wandb_input_artifacts": ["entity/project/data:latest"]},
+    ],
+)
+def test_expanded_wandb_features_require_project_and_entity(updates):
+    config = make_valid_config()
+    config.update(updates)
+
+    with pytest.raises(ConfigValidationError, match="require wandb_project"):
+        DeepMTPConfig.from_mapping(config)
+
+
+def test_wandb_registry_and_input_lineage_validate_online_requirements():
+    config = make_valid_config(
+        wandb_project_name="project",
+        wandb_project_entity="entity",
+    )
+    config["wandb_registry_name"] = "Models"
+    config["wandb_registry_collection"] = "DeepMTP"
+    with pytest.raises(ConfigValidationError, match="wandb_log_model_artifact"):
+        DeepMTPConfig.from_mapping(config)
+
+    config["wandb_log_model_artifact"] = True
+    config["wandb_mode"] = "offline"
+    with pytest.raises(ConfigValidationError, match="Registry.*online"):
+        DeepMTPConfig.from_mapping(config)
+
+    config["wandb_registry_name"] = None
+    config["wandb_registry_collection"] = None
+    config["wandb_input_artifacts"] = ["entity/project/data:latest"]
+    with pytest.raises(ConfigValidationError, match="input artifact.*online"):
+        DeepMTPConfig.from_mapping(config)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("wandb_mode", "local"),
+        ("wandb_watch", "weights"),
+        ("wandb_watch_log_freq", 0),
+        ("wandb_prediction_table_max_rows", 0),
+        ("wandb_tags", ["duplicate", "duplicate"]),
+        ("wandb_model_artifact_aliases", []),
+        ("wandb_model_artifact_name", "invalid/name"),
+        ("wandb_log_code", "yes"),
+    ],
+)
+def test_wandb_configuration_rejects_invalid_values(field_name, invalid_value):
+    config = make_valid_config(
+        wandb_project_name="project",
+        wandb_project_entity="entity",
+    )
+    config[field_name] = invalid_value
+
+    with pytest.raises(ConfigValidationError, match=field_name):
+        DeepMTPConfig.from_mapping(config)
+
+
+def test_data_preparation_state_is_validated_in_configuration():
+    config = make_valid_config()
+    config["data_preparation_state"] = {
+        "version": 999,
+        "validation_setting": "B",
+        "split_method": "random",
+        "split_ratio": {"train": 0.7, "val": 0.1, "test": 0.2},
+        "shuffle": True,
+        "seed": 42,
+        "dense": {"version": 1, "instance": None, "target": None},
+    }
+
+    with pytest.raises(ConfigValidationError, match="version"):
+        DeepMTPConfig.from_mapping(config)
+
+
 def test_typed_config_rejects_non_micro_averaging_for_setting_a():
     config = make_valid_config()
     config["validation_setting"] = "A"

@@ -16,10 +16,12 @@ from typing import Any
 import torch
 
 from DeepMTP.config import DeepMTPConfig
+from DeepMTP.runtime.metadata import validate_checkpoint_metadata
 
 CHECKPOINT_KEYS = frozenset({"model_state_dict", "optimizer_state_dict", "config"})
+CHECKPOINT_METADATA_KEY = "metadata"
 
-__all__ = ["CHECKPOINT_KEYS", "ExperimentStore"]
+__all__ = ["CHECKPOINT_KEYS", "CHECKPOINT_METADATA_KEY", "ExperimentStore"]
 
 
 @dataclass(frozen=True)
@@ -99,6 +101,7 @@ class ExperimentStore:
         model_state_dict: Mapping[str, Any],
         optimizer_state_dict: Mapping[str, Any],
         config: Mapping[str, Any] | DeepMTPConfig,
+        metadata: Mapping[str, Any] | None = None,
     ) -> Path:
         """Atomically save a checkpoint using the historical payload format."""
         if isinstance(config, DeepMTPConfig):
@@ -108,6 +111,8 @@ class ExperimentStore:
             "optimizer_state_dict": dict(optimizer_state_dict),
             "config": dict(config),
         }
+        if metadata is not None:
+            checkpoint[CHECKPOINT_METADATA_KEY] = validate_checkpoint_metadata(metadata)
         checkpoint_path = self.experiment_dir / "model.pt"
         _atomic_torch_save(checkpoint_path, checkpoint)
         return checkpoint_path
@@ -137,6 +142,9 @@ class ExperimentStore:
             raise ValueError(
                 f"DeepMTP checkpoint is missing required keys: {sorted(missing_keys)}."
             )
+        metadata = checkpoint.get(CHECKPOINT_METADATA_KEY)
+        if metadata is not None:
+            checkpoint[CHECKPOINT_METADATA_KEY] = validate_checkpoint_metadata(metadata)
         return checkpoint
 
     @staticmethod

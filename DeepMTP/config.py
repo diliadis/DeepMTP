@@ -34,6 +34,8 @@ BranchArchitecture: TypeAlias = Literal[
     "TABULAR",
 ]
 CompositeFusion: TypeAlias = Literal["attention", "concat", "gated"]
+WandBMode: TypeAlias = Literal["online", "offline", "disabled"]
+WandBWatch: TypeAlias = Literal["gradients", "parameters", "all"]
 
 CLASSIFICATION_METRICS = frozenset(
     {
@@ -53,6 +55,7 @@ RESNET_VERSIONS = frozenset({"resnet18", "resnet101"})
 RESNET_TRAINABLE_LAYERS = frozenset({"last", "layer4", "layer3", "layer2", "layer1"})
 RESNET_DENSE_LAYER_COUNTS = frozenset({1, 2})
 _DEVICE_PATTERN = re.compile(r"^(cpu|cuda(?::\d+)?)$")
+_WANDB_ARTIFACT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 DEFAULT_LOSS_BY_PROBLEM_MODE: Mapping[str, str] = MappingProxyType(
     {
@@ -173,10 +176,31 @@ class DeepMTPConfig:
     use_tensorboard_logger: bool = False
     wandb_project_name: str | None = None
     wandb_project_entity: str | None = None
+    wandb_mode: WandBMode | str | None = None
+    wandb_run_name: str | None = None
+    wandb_group: str | None = None
+    wandb_job_type: str = "train"
+    wandb_tags: list[str] = field(default_factory=list)
+    wandb_notes: str | None = None
+    wandb_watch: WandBWatch | str | None = "gradients"
+    wandb_watch_log_freq: int = 1000
+    wandb_log_graph: bool = False
+    wandb_log_code: bool = False
+    wandb_log_model_artifact: bool = False
+    wandb_model_artifact_name: str | None = None
+    wandb_model_artifact_aliases: list[str] = field(
+        default_factory=lambda: ["latest", "best"]
+    )
+    wandb_input_artifacts: list[str] = field(default_factory=list)
+    wandb_registry_name: str | None = None
+    wandb_registry_collection: str | None = None
+    wandb_log_predictions: bool = False
+    wandb_prediction_table_max_rows: int = 1000
     results_path: str = "./results/"
     experiment_name: str | None = None
     experiment_dir: str | None = None
     save_model: bool = True
+    data_preparation_state: dict[str, Any] | None = None
 
     instance_branch_architecture: BranchArchitecture | None = None
     use_instance_features: bool = False
@@ -396,6 +420,10 @@ class DeepMTPConfig:
             self.general_architecture_version = (
                 self.general_architecture_version.lower()
             )
+        if isinstance(self.wandb_mode, str):
+            self.wandb_mode = self.wandb_mode.lower()
+        if isinstance(self.wandb_watch, str):
+            self.wandb_watch = self.wandb_watch.lower()
         if isinstance(self.instance_branch_architecture, str):
             self.instance_branch_architecture = cast(
                 BranchArchitecture,
@@ -585,6 +613,17 @@ class DeepMTPConfig:
                 "wandb_project_name and wandb_project_entity must either both "
                 "be provided or both be None."
             )
+        self._validate_wandb()
+        if self.data_preparation_state is not None:
+            try:
+                from DeepMTP.data.preprocessing import DataPreparationState
+
+                normalized_preparation_state = DataPreparationState.from_config(
+                    self.data_preparation_state
+                )
+            except (TypeError, ValueError) as error:
+                raise ConfigValidationError(str(error)) from error
+            self.data_preparation_state = normalized_preparation_state.to_dict()
 
         valid_metrics = (
             CLASSIFICATION_METRICS
@@ -1121,6 +1160,109 @@ class DeepMTPConfig:
                 self.comb_mlp_layers,
             )
 
+    def _validate_wandb(self) -> None:
+        """Validate optional W&B tracking, artifact, and Registry settings."""
+        if self.wandb_mode not in {None, "online", "offline", "disabled"}:
+            raise ConfigValidationError(
+                "wandb_mode must be 'online', 'offline', 'disabled', or None."
+            )
+        if self.wandb_watch not in {None, "gradients", "parameters", "all"}:
+            raise ConfigValidationError(
+                "wandb_watch must be 'gradients', 'parameters', 'all', or None."
+            )
+        self._require_positive_integer(
+            "wandb_watch_log_freq",
+            self.wandb_watch_log_freq,
+        )
+        self._require_positive_integer(
+            "wandb_prediction_table_max_rows",
+            self.wandb_prediction_table_max_rows,
+        )
+
+        for name in (
+            "wandb_project_name",
+            "wandb_project_entity",
+            "wandb_run_name",
+            "wandb_group",
+            "wandb_job_type",
+            "wandb_notes",
+            "wandb_registry_name",
+            "wandb_registry_collection",
+        ):
+            value = getattr(self, name)
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ConfigValidationError(
+                    f"{name} must be a non-empty string or None."
+                )
+
+        self._validate_string_list("wandb_tags", self.wandb_tags)
+        self._validate_string_list(
+            "wandb_model_artifact_aliases",
+            self.wandb_model_artifact_aliases,
+            allow_empty=False,
+        )
+        self._validate_string_list(
+            "wandb_input_artifacts",
+            self.wandb_input_artifacts,
+        )
+
+        if self.wandb_model_artifact_name is not None and (
+            not isinstance(self.wandb_model_artifact_name, str)
+            or not _WANDB_ARTIFACT_NAME_PATTERN.fullmatch(
+                self.wandb_model_artifact_name
+            )
+        ):
+            raise ConfigValidationError(
+                "wandb_model_artifact_name may contain only letters, numbers, "
+                "underscores, hyphens, and dots."
+            )
+
+        registry_configured = (
+            self.wandb_registry_name is not None
+            or self.wandb_registry_collection is not None
+        )
+        if (self.wandb_registry_name is None) != (
+            self.wandb_registry_collection is None
+        ):
+            raise ConfigValidationError(
+                "wandb_registry_name and wandb_registry_collection must either "
+                "both be provided or both be None."
+            )
+        expanded_features = (
+            self.wandb_log_model_artifact
+            or self.wandb_log_predictions
+            or self.wandb_log_code
+            or bool(self.wandb_input_artifacts)
+            or registry_configured
+        )
+        if expanded_features and self.wandb_project_name is None:
+            raise ConfigValidationError(
+                "W&B artifact, prediction, code, input-lineage, and Registry "
+                "features require wandb_project_name and wandb_project_entity."
+            )
+        if registry_configured and not self.wandb_log_model_artifact:
+            raise ConfigValidationError(
+                "W&B Registry publishing requires wandb_log_model_artifact=True."
+            )
+        if registry_configured and self.wandb_mode in {"offline", "disabled"}:
+            raise ConfigValidationError("W&B Registry publishing requires online mode.")
+        if self.wandb_input_artifacts and self.wandb_mode in {
+            "offline",
+            "disabled",
+        }:
+            raise ConfigValidationError(
+                "W&B input artifact lineage requires online mode."
+            )
+
+        for name in (
+            "wandb_log_graph",
+            "wandb_log_code",
+            "wandb_log_model_artifact",
+            "wandb_log_predictions",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise ConfigValidationError(f"{name} must be a boolean.")
+
     def _warn_about_inert_legacy_options(self) -> None:
         inert_options = []
         if self.momentum != 0.9:
@@ -1160,6 +1302,21 @@ class DeepMTPConfig:
             )
         for node_count in nodes:
             DeepMTPConfig._require_positive_integer(name, node_count)
+
+    @staticmethod
+    def _validate_string_list(
+        name: str,
+        values: object,
+        *,
+        allow_empty: bool = True,
+    ) -> None:
+        if not isinstance(values, list) or (not allow_empty and not values):
+            qualifier = "a list" if allow_empty else "a non-empty list"
+            raise ConfigValidationError(f"{name} must be {qualifier} of strings.")
+        if any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ConfigValidationError(f"{name} must contain only non-empty strings.")
+        if len(values) != len(set(values)):
+            raise ConfigValidationError(f"{name} must not contain duplicates.")
 
     @staticmethod
     def _require_probability(name: str, value: float) -> None:
