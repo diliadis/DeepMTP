@@ -17,6 +17,7 @@ from DeepMTP.data.batches import BranchInputKind
 from DeepMTP.data.tabular import TabularSchema
 from DeepMTP.models.branches import (
     MLP,
+    CompositeEncoder,
     ConvNet,
     IDEmbedding,
     SequenceConv1DEncoder,
@@ -388,6 +389,18 @@ class ModelFactory:
 
     def _branch_output_dimension(self, branch: str) -> int:
         architecture = getattr(self.config, f"{branch}_branch_architecture")
+        if architecture == "COMPOSITE":
+            components = getattr(
+                self.config,
+                f"{branch}_branch_composite_components",
+            )
+            if components is None:  # pragma: no cover - validated invariant
+                raise RuntimeError(
+                    f"Validated {branch} composite configuration has no components."
+                )
+            return sum(
+                int(component["output_dim"]) for component in components.values()
+            )
         if architecture == "EMBEDDING":
             return self.config.embedding_size
         if architecture == "SEQUENCE":
@@ -437,6 +450,21 @@ class ModelFactory:
                 getattr(self.config, f"{branch}_branch_layers"),
                 getattr(self.config, f"dropout_rate_{branch}_branch"),
                 self.config.batch_norm,
+            )
+        if architecture == "COMPOSITE":
+            components = getattr(
+                self.config,
+                f"{branch}_branch_composite_components",
+            )
+            if components is None:  # pragma: no cover - validated invariant
+                raise RuntimeError(
+                    f"Validated {branch} composite configuration has no components."
+                )
+            return CompositeEncoder(
+                {
+                    name: self._build_composite_component(component)
+                    for name, component in components.items()
+                }
             )
         if architecture == "EMBEDDING":
             input_dim = getattr(self.config, f"{branch}_branch_input_dim")
@@ -543,6 +571,65 @@ class ModelFactory:
             )
         raise ValueError(f"Unsupported {branch} branch architecture: {architecture!r}.")
 
+    def _build_composite_component(
+        self,
+        component: Mapping[str, Any],
+    ) -> nn.Module:
+        architecture = component["architecture"]
+        input_dim = component["input_dim"]
+        output_dim = component["output_dim"]
+        if architecture == "MLP":
+            return MLP(
+                self.config,
+                input_dim,
+                output_dim,
+                component["nodes_per_layer"],
+                component["num_layers"],
+                component["dropout_rate"],
+                component["batch_norm"],
+            )
+        if architecture == "SPARSE":
+            return SparseMLP(
+                self.config,
+                input_dim,
+                output_dim,
+                component["nodes_per_layer"],
+                component["num_layers"],
+                component["dropout_rate"],
+                component["batch_norm"],
+            )
+        if architecture == "EMBEDDING":
+            return IDEmbedding(
+                num_embeddings=input_dim,
+                embedding_dim=output_dim,
+            )
+
+        encoder_kwargs = {
+            "vocabulary_size": input_dim,
+            "embedding_dim": component["embedding_dim"],
+            "output_dim": output_dim,
+            "num_layers": component["num_layers"],
+            "padding_idx": component["padding_idx"],
+            "dropout_rate": component["dropout_rate"],
+        }
+        encoder_name = component["encoder"]
+        if encoder_name == "gru":
+            return SequenceGRUEncoder(**encoder_kwargs)
+        if encoder_name == "conv1d":
+            return SequenceConv1DEncoder(
+                **encoder_kwargs,
+                kernel_size=component["conv_kernel_size"],
+            )
+        if encoder_name == "transformer":
+            return SequenceTransformerEncoder(
+                **encoder_kwargs,
+                num_heads=component["transformer_num_heads"],
+                feedforward_dim=component["transformer_feedforward_dim"],
+            )
+        raise RuntimeError(
+            f"Validated composite component has unsupported encoder {encoder_name!r}."
+        )
+
     def _ensure_encoder_contract(
         self,
         branch: str,
@@ -554,6 +641,7 @@ class ModelFactory:
         expected_input_kinds: dict[str, BranchInputKind] = {
             "MLP": "dense",
             "SPARSE": "sparse",
+            "COMPOSITE": "composite",
             "EMBEDDING": "id",
             "CONV": "image",
             "SEQUENCE": "sequence",

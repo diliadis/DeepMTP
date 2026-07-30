@@ -2,6 +2,7 @@
 
 from DeepMTP.models.branches import (
     MLP,
+    CompositeEncoder,
     ConvNet,
     IDEmbedding,
     SequenceConv1DEncoder,
@@ -33,6 +34,7 @@ __all__ = [
     "BranchFactory",
     "BranchEncoder",
     "BranchModelInput",
+    "CompositeEncoder",
     "ConvNet",
     "FUSION_REGISTRY",
     "FusionModelType",

@@ -42,6 +42,7 @@ SamplerMode: TypeAlias = Literal["micro", "macro", "instance"]
 _BRANCH_INPUT_KINDS: dict[BranchArchitecture, BranchInputKind] = {
     "MLP": "dense",
     "SPARSE": "sparse",
+    "COMPOSITE": "composite",
     "EMBEDDING": "id",
     "CONV": "image",
     "SEQUENCE": "sequence",
@@ -88,6 +89,8 @@ class _DatasetModelSettings:
     target_architecture: BranchArchitecture | None
     instance_sequence_padding_idx: int
     target_sequence_padding_idx: int
+    instance_composite_components: Mapping[str, Mapping[str, Any]] | None
+    target_composite_components: Mapping[str, Mapping[str, Any]] | None
 
     @classmethod
     def from_config(
@@ -104,6 +107,10 @@ class _DatasetModelSettings:
                     config.instance_branch_sequence_padding_idx
                 ),
                 target_sequence_padding_idx=config.target_branch_sequence_padding_idx,
+                instance_composite_components=(
+                    config.instance_branch_composite_components
+                ),
+                target_composite_components=config.target_branch_composite_components,
             )
         if not isinstance(config, Mapping):
             raise TypeError("config must be a mapping or DeepMTPConfig.")
@@ -119,6 +126,12 @@ class _DatasetModelSettings:
             target_sequence_padding_idx=config.get(
                 "target_branch_sequence_padding_idx",
                 0,
+            ),
+            instance_composite_components=config.get(
+                "instance_branch_composite_components"
+            ),
+            target_composite_components=config.get(
+                "target_branch_composite_components"
             ),
         )
 
@@ -238,6 +251,8 @@ class BaseDataset(Dataset):
         self.target_branch_architecture = settings.target_architecture
         self.instance_sequence_padding_idx = settings.instance_sequence_padding_idx
         self.target_sequence_padding_idx = settings.target_sequence_padding_idx
+        self.instance_composite_components = settings.instance_composite_components
+        self.target_composite_components = settings.target_composite_components
         self.instance_transform = instance_transform
         self.target_transform = target_transform
         self.instance_tabular_preprocessor = instance_tabular_preprocessor
@@ -273,6 +288,7 @@ class BaseDataset(Dataset):
             transform=instance_transform,
             tabular_preprocessor=instance_tabular_preprocessor,
             sequence_padding_idx=self.instance_sequence_padding_idx,
+            composite_components=self.instance_composite_components,
             entity_name="Instance",
         )
         self.target_features = self._prepare_feature_frame(
@@ -283,6 +299,7 @@ class BaseDataset(Dataset):
             transform=target_transform,
             tabular_preprocessor=target_tabular_preprocessor,
             sequence_padding_idx=self.target_sequence_padding_idx,
+            composite_components=self.target_composite_components,
             entity_name="Target",
         )
 
@@ -325,10 +342,17 @@ class BaseDataset(Dataset):
         transform: Callable[[Image.Image], Any] | None,
         tabular_preprocessor: TabularPreprocessor | None,
         sequence_padding_idx: int,
+        composite_components: Mapping[str, Mapping[str, Any]] | None,
         entity_name: Literal["Instance", "Target"],
     ) -> pd.DataFrame | None:
         if source is None:
-            if architecture in {"CONV", "SEQUENCE", "SPARSE", "TABULAR"}:
+            if architecture in {
+                "COMPOSITE",
+                "CONV",
+                "SEQUENCE",
+                "SPARSE",
+                "TABULAR",
+            }:
                 raise ValueError(
                     f"{entity_name} features are required for a {architecture} branch."
                 )
@@ -350,7 +374,13 @@ class BaseDataset(Dataset):
         if frame["id"].isna().any() or frame["id"].duplicated().any():
             raise ValueError(f"{entity_name} feature IDs must be unique and non-null.")
 
-        if architecture == "TABULAR":
+        if architecture == "COMPOSITE":
+            prepared_frame = self._prepare_composite_feature_frame(
+                frame,
+                components=composite_components,
+                entity_name=entity_name,
+            )
+        elif architecture == "TABULAR":
             if tabular_preprocessor is None:
                 raise RuntimeError(
                     f"{entity_name} TABULAR branch has no fitted preprocessor."
@@ -424,6 +454,89 @@ class BaseDataset(Dataset):
             )
         return prepared_frame
 
+    @staticmethod
+    def _prepare_composite_feature_frame(
+        frame: pd.DataFrame,
+        *,
+        components: Mapping[str, Mapping[str, Any]] | None,
+        entity_name: Literal["Instance", "Target"],
+    ) -> pd.DataFrame:
+        if not isinstance(components, Mapping):  # pragma: no cover - config invariant
+            raise RuntimeError(
+                f"{entity_name} COMPOSITE branch has no component configuration."
+            )
+        if "features" not in frame.columns:
+            raise ValueError(
+                f"{entity_name} composite features must contain a 'features' column."
+            )
+        side_components = {
+            name: component
+            for name, component in components.items()
+            if component["architecture"] != "EMBEDDING"
+        }
+        expected_names = set(side_components)
+        prepared_frame = frame.copy(deep=True).set_index("id", drop=False)
+        rows = prepared_frame["features"].tolist()
+        for row_index, row in enumerate(rows):
+            if not isinstance(row, Mapping):
+                raise TypeError(
+                    f"{entity_name} composite feature row {row_index} must be "
+                    "a mapping."
+                )
+            if set(row) != expected_names:
+                raise ValueError(
+                    f"{entity_name} composite feature row {row_index} must "
+                    f"contain exactly {sorted(expected_names)}; received "
+                    f"{sorted(row)}."
+                )
+
+        normalized_values: dict[str, list[Any]] = {}
+        for name, component in side_components.items():
+            architecture = component["architecture"]
+            input_dim = component["input_dim"]
+            component_values = [row[name] for row in rows]
+            if architecture == "SPARSE":
+                normalized_rows, width, _ = normalize_sparse_rows(
+                    component_values,
+                    entity_name=f"{entity_name.lower()} composite component {name!r}",
+                )
+                if width != input_dim:
+                    raise ValueError(
+                        f"{entity_name} composite component {name!r} sparse "
+                        f"width must be {input_dim}; received {width}."
+                    )
+                normalized_values[name] = normalized_rows
+            elif architecture == "SEQUENCE":
+                normalized_rows, _ = normalize_sequence_rows(
+                    component_values,
+                    entity_name=f"{entity_name.lower()} composite component {name!r}",
+                    vocabulary_size=input_dim,
+                    padding_idx=component["padding_idx"],
+                )
+                normalized_values[name] = normalized_rows
+            else:
+                dense_rows = []
+                for row_index, value in enumerate(component_values):
+                    vector = np.asarray(value)
+                    if (
+                        vector.ndim != 1
+                        or vector.size != input_dim
+                        or not np.issubdtype(vector.dtype, np.number)
+                    ):
+                        raise ValueError(
+                            f"{entity_name} composite component {name!r} row "
+                            f"{row_index} must be a numeric vector with width "
+                            f"{input_dim}."
+                        )
+                    dense_rows.append(vector.copy())
+                normalized_values[name] = dense_rows
+
+        prepared_frame["features"] = [
+            {name: normalized_values[name][row_index] for name in side_components}
+            for row_index in range(len(rows))
+        ]
+        return prepared_frame
+
     def _validate_entity_ids(
         self,
         id_column: Literal["instance_id", "target_id"],
@@ -461,8 +574,15 @@ class BaseDataset(Dataset):
         target_id = int(row["target_id"])
         value = row["value"]
 
+        instance_features_vec: Any
         if self.instance_features is not None:
-            if self.instance_branch_architecture == "CONV":
+            if self.instance_branch_architecture == "COMPOSITE":
+                instance_features_vec = self._composite_feature_values(
+                    self.instance_features,
+                    instance_id,
+                    self.instance_composite_components,
+                )
+            elif self.instance_branch_architecture == "CONV":
                 instance_features_vec = self._load_image_features(
                     self.instance_features,
                     instance_id,
@@ -481,8 +601,15 @@ class BaseDataset(Dataset):
                 )
                 instance_features_vec[instance_id] = 1
 
+        target_features_vec: Any
         if self.target_features is not None:
-            if self.target_branch_architecture == "CONV":
+            if self.target_branch_architecture == "COMPOSITE":
+                target_features_vec = self._composite_feature_values(
+                    self.target_features,
+                    target_id,
+                    self.target_composite_components,
+                )
+            elif self.target_branch_architecture == "CONV":
                 target_features_vec = self._load_image_features(
                     self.target_features,
                     target_id,
@@ -505,6 +632,26 @@ class BaseDataset(Dataset):
             "instance_features": instance_features_vec,
             "target_features": target_features_vec,
             "score": value,
+        }
+
+    @staticmethod
+    def _composite_feature_values(
+        frame: pd.DataFrame,
+        entity_id: int,
+        components: Mapping[str, Mapping[str, Any]] | None,
+    ) -> dict[str, Any]:
+        if components is None:  # pragma: no cover - config invariant
+            raise RuntimeError("Composite branch has no component configuration.")
+        side_values = frame.at[entity_id, "features"]
+        if not isinstance(side_values, Mapping):  # pragma: no cover - frame invariant
+            raise RuntimeError("Prepared composite features are not a mapping.")
+        return {
+            name: (
+                entity_id
+                if component["architecture"] == "EMBEDDING"
+                else side_values[name]
+            )
+            for name, component in components.items()
         }
 
 
@@ -822,6 +969,12 @@ class DataLoaderFactory:
             instance_tabular_preprocessor=self._tabular_preprocessors.get("instance"),
             target_tabular_preprocessor=self._tabular_preprocessors.get("target"),
         )
+        instance_component_kinds, instance_component_padding_indices = (
+            self._composite_collator_settings("instance")
+        )
+        target_component_kinds, target_component_padding_indices = (
+            self._composite_collator_settings("target")
+        )
         return DataLoader(
             dataset,
             batch_size=batch_size,
@@ -848,8 +1001,39 @@ class DataLoaderFactory:
                 target_sequence_padding_idx=(
                     self.config.target_branch_sequence_padding_idx
                 ),
+                instance_component_kinds=instance_component_kinds,
+                target_component_kinds=target_component_kinds,
+                instance_component_padding_indices=(instance_component_padding_indices),
+                target_component_padding_indices=target_component_padding_indices,
             ),
         )
+
+    def _composite_collator_settings(
+        self,
+        branch: Literal["instance", "target"],
+    ) -> tuple[dict[str, BranchInputKind] | None, dict[str, int] | None]:
+        if getattr(self.config, f"{branch}_branch_architecture") != "COMPOSITE":
+            return None, None
+        components = getattr(
+            self.config,
+            f"{branch}_branch_composite_components",
+        )
+        if components is None:  # pragma: no cover - validated invariant
+            raise RuntimeError(
+                f"Validated {branch} composite configuration has no components."
+            )
+        kinds = {
+            name: _BRANCH_INPUT_KINDS[
+                cast(BranchArchitecture, component["architecture"])
+            ]
+            for name, component in components.items()
+        }
+        padding_indices = {
+            name: int(component["padding_idx"])
+            for name, component in components.items()
+            if component["architecture"] == "SEQUENCE"
+        }
+        return kinds, padding_indices
 
     def _generator(self) -> torch.Generator | None:
         if self.config.random_seed is None:

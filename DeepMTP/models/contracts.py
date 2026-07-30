@@ -7,7 +7,12 @@ from typing import Protocol, TypeAlias, Union, runtime_checkable
 import torch
 from torch import nn
 
-from DeepMTP.data.batches import BranchInputKind, SequenceInput, TabularInput
+from DeepMTP.data.batches import (
+    BranchInputKind,
+    CompositeInput,
+    SequenceInput,
+    TabularInput,
+)
 
 __all__ = [
     "BranchEncoder",
@@ -21,6 +26,7 @@ __all__ = [
 # PyTorch while importing the API.
 BranchModelInput: TypeAlias = Union[  # noqa: UP007
     "torch.Tensor",
+    CompositeInput,
     SequenceInput,
     TabularInput,
 ]
@@ -68,11 +74,12 @@ def encoder_input_kind(encoder: nn.Module, *, branch: str) -> BranchInputKind:
         "sequence",
         "tabular",
         "custom",
+        "composite",
     }:
         raise ValueError(
             f"{branch} branch encoder must declare input_kind as "
             "'dense', 'sparse', 'id', 'image', 'sequence', 'tabular', or "
-            "'custom'."
+            "'custom', or 'composite'."
         )
     return kind
 
@@ -89,12 +96,12 @@ def encode_branch(
         if values.ndim == 0:
             raise ValueError(f"{branch} branch input must include a batch dimension.")
         input_batch_size = int(values.shape[0])
-    elif isinstance(values, (SequenceInput, TabularInput)):
+    elif isinstance(values, (CompositeInput, SequenceInput, TabularInput)):
         input_batch_size = values.batch_size
     else:
         raise TypeError(
-            f"{branch} branch input must be a torch.Tensor, SequenceInput, "
-            "or TabularInput."
+            f"{branch} branch input must be a torch.Tensor, CompositeInput, "
+            "SequenceInput, or TabularInput."
         )
 
     encoded = encoder(values)

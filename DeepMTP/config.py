@@ -26,6 +26,7 @@ BranchArchitecture: TypeAlias = Literal[
     "MLP",
     "SPARSE",
     "CONV",
+    "COMPOSITE",
     "CUSTOM",
     "EMBEDDING",
     "SEQUENCE",
@@ -192,6 +193,7 @@ class DeepMTPConfig:
     instance_inference_transforms: Any = None
     instance_branch_tabular_schema: dict[str, Any] | None = None
     instance_tabular_preprocessing_state: dict[str, Any] | None = None
+    instance_branch_composite_components: dict[str, dict[str, Any]] | None = None
     instance_branch_sequence_encoder: str = "gru"
     instance_branch_sequence_embedding_dim: int = 64
     instance_branch_sequence_output_dim: int = 64
@@ -218,6 +220,7 @@ class DeepMTPConfig:
     target_inference_transforms: Any = None
     target_branch_tabular_schema: dict[str, Any] | None = None
     target_tabular_preprocessing_state: dict[str, Any] | None = None
+    target_branch_composite_components: dict[str, dict[str, Any]] | None = None
     target_branch_sequence_encoder: str = "gru"
     target_branch_sequence_embedding_dim: int = 64
     target_branch_sequence_output_dim: int = 64
@@ -391,6 +394,31 @@ class DeepMTPConfig:
                     self,
                     f"{branch}_branch_sequence_encoder",
                     sequence_encoder.lower(),
+                )
+            composite_components = getattr(
+                self,
+                f"{branch}_branch_composite_components",
+            )
+            if isinstance(composite_components, Mapping):
+                normalized_components: dict[str, Any] = {}
+                for name, raw_component in composite_components.items():
+                    component = (
+                        dict(raw_component)
+                        if isinstance(raw_component, Mapping)
+                        else raw_component
+                    )
+                    if isinstance(component, dict):
+                        architecture = component.get("architecture")
+                        if isinstance(architecture, str):
+                            component["architecture"] = architecture.upper()
+                        encoder = component.get("encoder")
+                        if isinstance(encoder, str):
+                            component["encoder"] = encoder.lower()
+                    normalized_components[name] = component
+                setattr(
+                    self,
+                    f"{branch}_branch_composite_components",
+                    normalized_components,
                 )
 
         if self.problem_mode == "classification":
@@ -575,6 +603,7 @@ class DeepMTPConfig:
             "MLP",
             "SPARSE",
             "CONV",
+            "COMPOSITE",
             "CUSTOM",
             "EMBEDDING",
             "SEQUENCE",
@@ -582,8 +611,8 @@ class DeepMTPConfig:
         }:
             raise ConfigValidationError(
                 f"{branch}_branch_architecture must be 'MLP', 'SPARSE', "
-                "'CONV', 'CUSTOM', 'EMBEDDING', 'SEQUENCE', or 'TABULAR'; "
-                "received "
+                "'CONV', 'COMPOSITE', 'CUSTOM', 'EMBEDDING', 'SEQUENCE', "
+                "or 'TABULAR'; received "
                 f"{architecture!r}."
             )
 
@@ -596,7 +625,9 @@ class DeepMTPConfig:
             self._validate_nodes(f"{branch}_branch_nodes_per_layer", nodes)
             if isinstance(nodes, int):
                 self._require_positive_integer(f"{branch}_branch_layers", layers)
-        if architecture == "TABULAR":
+        if architecture == "COMPOSITE":
+            self._validate_composite_branch(branch)
+        elif architecture == "TABULAR":
             self._validate_tabular_branch(branch)
         elif architecture == "SEQUENCE":
             self._validate_sequence_branch(branch)
@@ -646,6 +677,146 @@ class DeepMTPConfig:
             ):
                 raise ConfigValidationError(
                     f"{branch}_branch_conv_architecture_dense_layers must be 1 or 2."
+                )
+
+    def _validate_composite_branch(
+        self,
+        branch: Literal["instance", "target"],
+    ) -> None:
+        field_name = f"{branch}_branch_composite_components"
+        raw_components = getattr(self, field_name)
+        if not isinstance(raw_components, Mapping) or len(raw_components) < 2:
+            raise ConfigValidationError(
+                f"{field_name} must contain at least two named components."
+            )
+
+        normalized_components: dict[str, dict[str, Any]] = {}
+        for name, raw_component in raw_components.items():
+            if not isinstance(name, str) or not name:
+                raise ConfigValidationError(
+                    "Composite component names must be non-empty strings."
+                )
+            if not isinstance(raw_component, Mapping):
+                raise ConfigValidationError(
+                    f"{field_name}[{name!r}] must be a mapping."
+                )
+            component = dict(raw_component)
+            architecture = component.get("architecture")
+            if architecture not in {"MLP", "SPARSE", "EMBEDDING", "SEQUENCE"}:
+                raise ConfigValidationError(
+                    f"{field_name}[{name!r}]['architecture'] must be 'MLP', "
+                    "'SPARSE', 'EMBEDDING', or 'SEQUENCE'; received "
+                    f"{architecture!r}."
+                )
+            input_field = f"{field_name}[{name!r}]['input_dim']"
+            output_field = f"{field_name}[{name!r}]['output_dim']"
+            self._require_positive_integer(input_field, component.get("input_dim"))
+            self._require_positive_integer(
+                output_field,
+                component.get("output_dim"),
+            )
+
+            component.setdefault(
+                "dropout_rate",
+                getattr(self, f"dropout_rate_{branch}_branch"),
+            )
+            self._require_probability(
+                f"{field_name}[{name!r}]['dropout_rate']",
+                component["dropout_rate"],
+            )
+            if architecture in {"MLP", "SPARSE"}:
+                component.setdefault("nodes_per_layer", [component["output_dim"]])
+                nodes = component["nodes_per_layer"]
+                self._validate_nodes(
+                    f"{field_name}[{name!r}]['nodes_per_layer']",
+                    nodes,
+                )
+                component.setdefault("num_layers", None)
+                if isinstance(nodes, int):
+                    self._require_positive_integer(
+                        f"{field_name}[{name!r}]['num_layers']",
+                        component["num_layers"],
+                    )
+                component.setdefault("batch_norm", self.batch_norm)
+                if not isinstance(component["batch_norm"], bool):
+                    raise ConfigValidationError(
+                        f"{field_name}[{name!r}]['batch_norm'] must be a boolean."
+                    )
+            elif architecture == "SEQUENCE":
+                self._validate_composite_sequence_component(
+                    field_name,
+                    name,
+                    component,
+                )
+            normalized_components[name] = component
+
+        if all(
+            component["architecture"] == "EMBEDDING"
+            for component in normalized_components.values()
+        ):
+            raise ConfigValidationError(
+                f"{field_name} must include at least one side-feature component."
+            )
+        setattr(self, field_name, normalized_components)
+
+    def _validate_composite_sequence_component(
+        self,
+        field_name: str,
+        component_name: str,
+        component: dict[str, Any],
+    ) -> None:
+        prefix = f"{field_name}[{component_name!r}]"
+        component.setdefault("encoder", "gru")
+        component.setdefault("embedding_dim", 64)
+        component.setdefault("num_layers", 1)
+        component.setdefault("padding_idx", 0)
+        component.setdefault("conv_kernel_size", 3)
+        component.setdefault("transformer_num_heads", 4)
+        component.setdefault("transformer_feedforward_dim", 256)
+        if component["encoder"] not in {"conv1d", "gru", "transformer"}:
+            raise ConfigValidationError(
+                f"{prefix}['encoder'] must be 'conv1d', 'gru', or "
+                f"'transformer'; received {component['encoder']!r}."
+            )
+        for key in (
+            "embedding_dim",
+            "num_layers",
+        ):
+            self._require_positive_integer(
+                f"{prefix}[{key!r}]",
+                component[key],
+            )
+        self._require_non_negative_integer(
+            f"{prefix}['padding_idx']",
+            component["padding_idx"],
+        )
+        if component["padding_idx"] >= component["input_dim"]:
+            raise ConfigValidationError(
+                f"{prefix}['padding_idx'] must be smaller than "
+                f"input_dim={component['input_dim']}."
+            )
+        if component["encoder"] == "conv1d":
+            self._require_positive_integer(
+                f"{prefix}['conv_kernel_size']",
+                component["conv_kernel_size"],
+            )
+            if component["conv_kernel_size"] % 2 == 0:
+                raise ConfigValidationError(
+                    f"{prefix}['conv_kernel_size'] must be odd."
+                )
+        if component["encoder"] == "transformer":
+            self._require_positive_integer(
+                f"{prefix}['transformer_num_heads']",
+                component["transformer_num_heads"],
+            )
+            self._require_positive_integer(
+                f"{prefix}['transformer_feedforward_dim']",
+                component["transformer_feedforward_dim"],
+            )
+            if component["embedding_dim"] % component["transformer_num_heads"] != 0:
+                raise ConfigValidationError(
+                    f"{prefix}['embedding_dim'] must be divisible by "
+                    "transformer_num_heads."
                 )
 
     def _validate_sequence_branch(
@@ -744,14 +915,29 @@ class DeepMTPConfig:
         }
         for branch, unsupported_settings in novelty_settings.items():
             architecture = getattr(self, f"{branch}_branch_architecture")
-            if (
-                architecture == "EMBEDDING"
-                and self.validation_setting in unsupported_settings
-            ):
+            composite_components = getattr(
+                self,
+                f"{branch}_branch_composite_components",
+            )
+            uses_id_embedding = architecture == "EMBEDDING" or (
+                architecture == "COMPOSITE"
+                and isinstance(composite_components, Mapping)
+                and any(
+                    isinstance(component, Mapping)
+                    and component.get("architecture") == "EMBEDDING"
+                    for component in composite_components.values()
+                )
+            )
+            if uses_id_embedding and self.validation_setting in unsupported_settings:
                 entity = "instances" if branch == "instance" else "targets"
+                embedding_description = (
+                    f"{branch}_branch_architecture='EMBEDDING'"
+                    if architecture == "EMBEDDING"
+                    else f"{branch} composite ID-embedding components"
+                )
                 raise ConfigValidationError(
-                    f"{branch}_branch_architecture='EMBEDDING' cannot represent "
-                    f"novel {entity} in validation setting "
+                    f"{embedding_description} cannot represent novel {entity} "
+                    "in validation setting "
                     f"{self.validation_setting}. Use side features with an MLP, "
                     "SPARSE, SEQUENCE, TABULAR, CONV, or CUSTOM branch."
                 )

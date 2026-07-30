@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any
 from DeepMTP.data.batches import (
     BranchBatch,
     BranchInputKind,
+    CompositeBranchBatch,
+    CompositeInput,
     CustomBranchBatch,
     DenseBranchBatch,
     IDBranchBatch,
@@ -20,6 +22,7 @@ from DeepMTP.data.batches import (
     TensorBranchBatch,
 )
 from DeepMTP.data.features import (
+    FeatureComponentInfo,
     FeatureInfo,
     FeatureKind,
     cross_input_consistency_check_instances,
@@ -137,6 +140,8 @@ __all__ = [
     "BranchInputKind",
     "CategoricalColumn",
     "ConsoleDataProgressObserver",
+    "CompositeBranchBatch",
+    "CompositeInput",
     "CustomBranchBatch",
     "DataInfo",
     "DataLoaderFactory",
@@ -153,6 +158,7 @@ __all__ = [
     "DatasetVariant",
     "DenseBranchBatch",
     "FeatureKind",
+    "FeatureComponentInfo",
     "FeatureInfo",
     "InteractionInfo",
     "IDBranchBatch",

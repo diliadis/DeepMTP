@@ -17,11 +17,22 @@ from DeepMTP.config import (
     RESNET_VERSIONS,
     DeepMTPConfig,
 )
-from DeepMTP.data.batches import BranchInputKind, SequenceInput, TabularInput
+from DeepMTP.data.batches import (
+    BranchInputKind,
+    CompositeInput,
+    SequenceInput,
+    TabularInput,
+)
 from DeepMTP.data.tabular import TabularSchema
+from DeepMTP.models.contracts import (
+    encode_branch,
+    encoder_input_kind,
+    encoder_output_dimension,
+)
 
 __all__ = [
     "ConvNet",
+    "CompositeEncoder",
     "IDEmbedding",
     "MLP",
     "ModelConfigInput",
@@ -152,6 +163,67 @@ class MLP(nn.Sequential):
         for layer in self.predictor:
             v = layer(v)
         return v
+
+
+class CompositeEncoder(nn.Module):
+    """Concatenate standardized outputs from named component encoders."""
+
+    input_kind: ClassVar[BranchInputKind] = "composite"
+
+    def __init__(self, component_encoders: Mapping[str, nn.Module]) -> None:
+        super().__init__()
+        if not isinstance(component_encoders, Mapping):
+            raise TypeError("component_encoders must be a mapping.")
+        if len(component_encoders) < 2:
+            raise ValueError(
+                "A composite encoder must contain at least two components."
+            )
+
+        normalized_encoders: OrderedDict[str, nn.Module] = OrderedDict()
+        output_dimensions: dict[str, int] = {}
+        input_kinds: dict[str, BranchInputKind] = {}
+        for name, encoder in component_encoders.items():
+            if not isinstance(name, str) or not name:
+                raise ValueError("Composite component names must be non-empty strings.")
+            if not isinstance(encoder, nn.Module):
+                raise TypeError(
+                    f"Composite component {name!r} must be a torch.nn.Module."
+                )
+            component_label = f"composite component {name!r}"
+            input_kind = encoder_input_kind(encoder, branch=component_label)
+            if input_kind == "composite":
+                raise ValueError("Nested composite encoders are not supported.")
+            normalized_encoders[name] = encoder
+            input_kinds[name] = input_kind
+            output_dimensions[name] = encoder_output_dimension(
+                encoder,
+                branch=component_label,
+            )
+
+        self.component_encoders = nn.ModuleDict(normalized_encoders)
+        self.component_input_kinds = input_kinds
+        self.component_output_dims = output_dimensions
+        self.output_dim = sum(output_dimensions.values())
+
+    def forward(self, values: CompositeInput) -> torch.Tensor:
+        if not isinstance(values, CompositeInput):
+            raise TypeError("CompositeEncoder expects a CompositeInput.")
+        expected_names = set(self.component_encoders)
+        if set(values) != expected_names:
+            raise ValueError(
+                "Composite input component names do not match the encoder: "
+                f"expected {sorted(expected_names)}, received {sorted(values)}."
+            )
+        encoded_components = [
+            encode_branch(
+                encoder,
+                values[name],
+                branch=f"composite component {name!r}",
+                explicit_dimension=self.component_output_dims[name],
+            )
+            for name, encoder in self.component_encoders.items()
+        ]
+        return torch.cat(encoded_components, dim=1)
 
 
 class SparseMLP(nn.Module):

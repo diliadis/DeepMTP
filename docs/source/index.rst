@@ -26,6 +26,7 @@ Documentation
 	tutorial/tabular_inputs
 	tutorial/sparse_inputs
 	tutorial/sequence_inputs
+	tutorial/composite_inputs
 	tutorial/hpo
 	tutorial/demos
 	Project policies <project>
