@@ -160,7 +160,7 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Support explicit masks and learned representations for missing modalities.
 - [x] Add opt-in, presence-aware gated concatenation while preserving unequal
   component widths.
-- [ ] Add attention-based fusion and compare it with concatenation and gated
+- [x] Add attention-based fusion and compare it with concatenation and gated
   fusion.
 - [ ] Add modality dropout so models do not become unusable when an optional input
   is absent.
@@ -204,8 +204,10 @@ reserved index zero unless their policy is configured as `error`.
 
 - Keep dot product, concatenation plus MLP, and Kronecker product as baselines.
 - Add bilinear fusion as a lower-cost interaction model.
-- Add gated fusion and cross-attention only after common branch contracts are
-  established.
+- Gated and modality self-attention fusion are available inside composite
+  branches.
+- Add cross-attention between entity branches only after its dimensional and
+  validation-setting semantics are defined.
 - Make dimensional requirements and parameter growth visible during
   configuration validation.
 
@@ -234,8 +236,8 @@ reserved index zero unless their policy is configured as `error`.
 5. Numerically stable logits/loss handling and richer output heads.
 6. Sparse inputs.
 7. Sequence encoders (GRU, 1-D convolution, and Transformer complete).
-8. Hybrid input concatenation, learned missing-modality representations, and
-   gated fusion (complete), followed by attention fusion and modality dropout.
+8. Hybrid input concatenation, learned missing-modality representations, gated
+   fusion, and attention fusion (complete), followed by modality dropout.
 9. Graph and time-series encoders, driven by concrete datasets.
 10. Performance features after correctness baselines are established.
 

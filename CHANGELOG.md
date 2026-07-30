@@ -65,6 +65,9 @@ checkpoints.
 - Opt-in gated composite fusion with sample-specific component weights,
   presence-aware missing-modality handling, unequal-width component support,
   and unchanged concatenation defaults.
+- Opt-in composite modality self-attention with unequal-width projections,
+  missing-key masking, an all-missing fusion-token fallback, residual
+  contextualization, and checkpoint restoration.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and
