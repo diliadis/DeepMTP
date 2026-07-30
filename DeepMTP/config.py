@@ -32,7 +32,7 @@ BranchArchitecture: TypeAlias = Literal[
     "SEQUENCE",
     "TABULAR",
 ]
-CompositeFusion: TypeAlias = Literal["concat", "gated"]
+CompositeFusion: TypeAlias = Literal["attention", "concat", "gated"]
 
 CLASSIFICATION_METRICS = frozenset(
     {
@@ -196,6 +196,8 @@ class DeepMTPConfig:
     instance_tabular_preprocessing_state: dict[str, Any] | None = None
     instance_branch_composite_components: dict[str, dict[str, Any]] | None = None
     instance_branch_composite_fusion: CompositeFusion | str = "concat"
+    instance_branch_composite_attention_dim: int = 64
+    instance_branch_composite_attention_num_heads: int = 4
     instance_branch_sequence_encoder: str = "gru"
     instance_branch_sequence_embedding_dim: int = 64
     instance_branch_sequence_output_dim: int = 64
@@ -224,6 +226,8 @@ class DeepMTPConfig:
     target_tabular_preprocessing_state: dict[str, Any] | None = None
     target_branch_composite_components: dict[str, dict[str, Any]] | None = None
     target_branch_composite_fusion: CompositeFusion | str = "concat"
+    target_branch_composite_attention_dim: int = 64
+    target_branch_composite_attention_num_heads: int = 4
     target_branch_sequence_encoder: str = "gru"
     target_branch_sequence_embedding_dim: int = 64
     target_branch_sequence_output_dim: int = 64
@@ -698,10 +702,23 @@ class DeepMTPConfig:
     ) -> None:
         fusion_field = f"{branch}_branch_composite_fusion"
         fusion = getattr(self, fusion_field)
-        if fusion not in {"concat", "gated"}:
+        if fusion not in {"attention", "concat", "gated"}:
             raise ConfigValidationError(
-                f"{fusion_field} must be 'concat' or 'gated'; received {fusion!r}."
+                f"{fusion_field} must be 'attention', 'concat', or 'gated'; "
+                f"received {fusion!r}."
             )
+        if fusion == "attention":
+            attention_dim_field = f"{branch}_branch_composite_attention_dim"
+            attention_heads_field = f"{branch}_branch_composite_attention_num_heads"
+            attention_dim = getattr(self, attention_dim_field)
+            attention_heads = getattr(self, attention_heads_field)
+            self._require_positive_integer(attention_dim_field, attention_dim)
+            self._require_positive_integer(attention_heads_field, attention_heads)
+            if attention_dim % attention_heads != 0:
+                raise ConfigValidationError(
+                    f"{attention_dim_field}={attention_dim} must be divisible by "
+                    f"{attention_heads_field}={attention_heads}."
+                )
 
         field_name = f"{branch}_branch_composite_components"
         raw_components = getattr(self, field_name)
