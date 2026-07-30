@@ -32,6 +32,7 @@ BranchArchitecture: TypeAlias = Literal[
     "SEQUENCE",
     "TABULAR",
 ]
+CompositeFusion: TypeAlias = Literal["concat", "gated"]
 
 CLASSIFICATION_METRICS = frozenset(
     {
@@ -194,6 +195,7 @@ class DeepMTPConfig:
     instance_branch_tabular_schema: dict[str, Any] | None = None
     instance_tabular_preprocessing_state: dict[str, Any] | None = None
     instance_branch_composite_components: dict[str, dict[str, Any]] | None = None
+    instance_branch_composite_fusion: CompositeFusion | str = "concat"
     instance_branch_sequence_encoder: str = "gru"
     instance_branch_sequence_embedding_dim: int = 64
     instance_branch_sequence_output_dim: int = 64
@@ -221,6 +223,7 @@ class DeepMTPConfig:
     target_branch_tabular_schema: dict[str, Any] | None = None
     target_tabular_preprocessing_state: dict[str, Any] | None = None
     target_branch_composite_components: dict[str, dict[str, Any]] | None = None
+    target_branch_composite_fusion: CompositeFusion | str = "concat"
     target_branch_sequence_encoder: str = "gru"
     target_branch_sequence_embedding_dim: int = 64
     target_branch_sequence_output_dim: int = 64
@@ -385,6 +388,16 @@ class DeepMTPConfig:
                 self.target_branch_architecture.upper(),
             )
         for branch in ("instance", "target"):
+            composite_fusion = getattr(
+                self,
+                f"{branch}_branch_composite_fusion",
+            )
+            if isinstance(composite_fusion, str):
+                setattr(
+                    self,
+                    f"{branch}_branch_composite_fusion",
+                    composite_fusion.lower(),
+                )
             sequence_encoder = getattr(
                 self,
                 f"{branch}_branch_sequence_encoder",
@@ -683,6 +696,13 @@ class DeepMTPConfig:
         self,
         branch: Literal["instance", "target"],
     ) -> None:
+        fusion_field = f"{branch}_branch_composite_fusion"
+        fusion = getattr(self, fusion_field)
+        if fusion not in {"concat", "gated"}:
+            raise ConfigValidationError(
+                f"{fusion_field} must be 'concat' or 'gated'; received {fusion!r}."
+            )
+
         field_name = f"{branch}_branch_composite_components"
         raw_components = getattr(self, field_name)
         if not isinstance(raw_components, Mapping) or len(raw_components) < 2:

@@ -62,6 +62,9 @@ checkpoints.
 - Opt-in missing-modality support for composite branches with explicit
   per-component presence masks, present-only encoding, and checkpointed learned
   missing representations.
+- Opt-in gated composite fusion with sample-specific component weights,
+  presence-aware missing-modality handling, unequal-width component support,
+  and unchanged concatenation defaults.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and

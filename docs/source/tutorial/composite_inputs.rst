@@ -2,8 +2,8 @@ Composite branch inputs
 =======================
 
 A ``COMPOSITE`` branch encodes multiple named representations of the same
-entity and concatenates their standardized outputs. For example, one instance
-can have a dense descriptor vector and a variable-length token sequence:
+entity and fuses their standardized outputs. For example, one instance can
+have a dense descriptor vector and a variable-length token sequence:
 
 .. code-block:: python
 
@@ -86,6 +86,37 @@ order:
 For dot-product fusion, the sum of the component ``output_dim`` values must
 equal ``embedding_size``. MLP and Kronecker fusion use the concatenated width
 directly.
+
+Component fusion
+----------------
+
+``instance_branch_composite_fusion`` and
+``target_branch_composite_fusion`` select how the components within one branch
+are combined. ``"concat"`` is the default and concatenates the component
+encodings without adding parameters, preserving existing configuration and
+checkpoint behavior.
+
+Set the option to ``"gated"`` to learn one sample-specific sigmoid gate per
+component:
+
+.. code-block:: python
+
+   config = DeepMTPConfig(
+       # ...
+       instance_branch_architecture="COMPOSITE",
+       instance_branch_composite_fusion="gated",
+       instance_branch_composite_components={
+           "descriptors": descriptor_component,
+           "tokens": token_component,
+       },
+   )
+
+The gate network receives every encoded component followed by one presence
+indicator per component. Each scalar gate multiplies its complete component
+encoding before the gated encodings are concatenated. Components may therefore
+have different output dimensions, and the branch output width remains the sum
+of those dimensions. The normal task loss trains the component encoders and
+gates jointly; no gate labels are required.
 
 Optional components
 -------------------
@@ -210,9 +241,11 @@ component in one batch has ``values=None`` and an all-false mask.
 ``CompositeEncoder`` runs each configured child encoder, validates its
 ``[present_count, output_dim]`` result, scatters it back into the full batch,
 and fills missing rows with a zero-initialized learned representation. It then
-concatenates component outputs in declared order. The outer trainer still
+applies the configured component fusion in declared order. Gated fusion
+receives the explicit presence indicators, so it can suppress a missing
+component or preserve a useful missingness signal. The outer trainer still
 receives one instance input and one target input, so training, prediction,
-fusion, and checkpoint code do not need missing-modality branches.
+interaction fusion, and checkpoint code do not need missing-modality branches.
 
 Compatibility and current limits
 --------------------------------
@@ -227,10 +260,15 @@ no missing-representation parameters, so checkpoints written before this
 feature retain the same model state keys. Opt-in learned representations are
 saved and restored with the other branch parameters.
 
+``instance_branch_composite_fusion`` and
+``target_branch_composite_fusion`` default to ``"concat"``. Concatenating
+branches create no gate parameters, so existing composite state dictionaries
+remain unchanged. A ``"gated"`` checkpoint stores its gate weights and fusion
+setting in the normal checkpoint payload.
+
 Legacy feature scaling accepts only one dense representation and is therefore
 rejected for composite inputs. Scale dense components upstream; sparse and
 token components must remain unscaled.
 
-Gated or attention fusion and modality dropout remain planned follow-up work.
-Nested composites and tabular, image, or custom components are not yet
-supported.
+Attention fusion and modality dropout remain planned follow-up work. Nested
+composites and tabular, image, or custom components are not yet supported.

@@ -158,7 +158,10 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Introduce a composite branch that concatenates multiple named dense,
   sparse, sequence, or known-ID encoders for one entity.
 - [x] Support explicit masks and learned representations for missing modalities.
-- [ ] Compare concatenation, gated fusion, and attention-based fusion.
+- [x] Add opt-in, presence-aware gated concatenation while preserving unequal
+  component widths.
+- [ ] Add attention-based fusion and compare it with concatenation and gated
+  fusion.
 - [ ] Add modality dropout so models do not become unusable when an optional input
   is absent.
 
@@ -231,8 +234,8 @@ reserved index zero unless their policy is configured as `error`.
 5. Numerically stable logits/loss handling and richer output heads.
 6. Sparse inputs.
 7. Sequence encoders (GRU, 1-D convolution, and Transformer complete).
-8. Hybrid input concatenation and learned missing-modality representations
-   (complete), followed by gated fusion and modality dropout.
+8. Hybrid input concatenation, learned missing-modality representations, and
+   gated fusion (complete), followed by attention fusion and modality dropout.
 9. Graph and time-series encoders, driven by concrete datasets.
 10. Performance features after correctness baselines are established.
 

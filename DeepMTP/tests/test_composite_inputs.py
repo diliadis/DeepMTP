@@ -21,6 +21,7 @@ from DeepMTP.data import (
     process_target_features,
 )
 from DeepMTP.runtime.persistence import ExperimentStore
+from DeepMTP.utils.utils import generate_config
 
 
 def make_config(**overrides):
@@ -428,6 +429,7 @@ def test_masked_component_input_validates_present_sub_batch_size():
 
 def test_composite_config_normalizes_components_and_validates_structure():
     config = make_config(
+        instance_branch_composite_fusion="GATED",
         instance_branch_composite_components={
             "dense": {
                 "architecture": "mlp",
@@ -440,12 +442,13 @@ def test_composite_config_normalizes_components_and_validates_structure():
                 "output_dim": 2,
                 "encoder": "GRU",
             },
-        }
+        },
     )
 
     assert config.instance_branch_composite_components["dense"]["architecture"] == "MLP"
     assert config.instance_branch_composite_components["tokens"]["encoder"] == "gru"
     assert config.instance_branch_composite_components["tokens"]["optional"] is False
+    assert config.instance_branch_composite_fusion == "gated"
 
     with pytest.raises(ConfigValidationError, match="must be 'MLP'"):
         make_config(
@@ -473,6 +476,62 @@ def test_composite_config_normalizes_components_and_validates_structure():
                 }
             }
         )
+
+
+def test_composite_fusion_configuration_is_validated():
+    with pytest.raises(
+        ConfigValidationError,
+        match="instance_branch_composite_fusion must be 'concat' or 'gated'",
+    ):
+        make_config(instance_branch_composite_fusion="attention")
+
+
+def test_existing_composite_config_defaults_to_parameter_free_concatenation():
+    existing_mapping = make_config().to_dict(include_defaults=True)
+    existing_mapping.pop("instance_branch_composite_fusion")
+
+    restored_config = DeepMTPConfig.from_mapping(existing_mapping)
+    branch = ModelFactory(restored_config).build().instance_branch
+
+    assert restored_config.instance_branch_composite_fusion == "concat"
+    assert isinstance(branch, CompositeEncoder)
+    assert branch.gate_network is None
+    assert not any("gate_network" in name for name in branch.state_dict())
+
+
+def test_generate_config_forwards_legacy_composite_fusion_option():
+    generated = generate_config(
+        validation_setting="B",
+        problem_mode="classification",
+        general_architecture_version="mlp",
+        compute_mode="cpu",
+        metrics=["accuracy"],
+        metrics_average=["macro"],
+        instance_branch_architecture="COMPOSITE",
+        instance_branch_params={
+            "instance_branch_composite_components": {
+                "descriptors": {
+                    "architecture": "MLP",
+                    "input_dim": 2,
+                    "output_dim": 3,
+                },
+                "tokens": {
+                    "architecture": "SEQUENCE",
+                    "input_dim": 8,
+                    "output_dim": 2,
+                },
+            },
+            "instance_branch_composite_fusion": "GATED",
+        },
+        target_branch_architecture="MLP",
+        target_branch_input_dim=2,
+        target_branch_params={
+            "target_branch_nodes_per_layer": [4],
+        },
+        comb_mlp_nodes_per_layer=[4],
+    )
+
+    assert generated["instance_branch_composite_fusion"] == "gated"
 
 
 @pytest.mark.parametrize(
@@ -594,6 +653,8 @@ def test_model_factory_combines_component_encoders_and_backpropagates():
 
     assert isinstance(bundle.instance_branch, CompositeEncoder)
     assert bundle.instance_branch.output_dim == 5
+    assert bundle.instance_branch.fusion == "concat"
+    assert bundle.instance_branch.gate_network is None
     assert bundle.model.instance_input_kind == "composite"
     assert output.shape == (2, 1)
     assert all(
@@ -605,6 +666,94 @@ def test_model_factory_combines_component_encoders_and_backpropagates():
     assert not any(
         "missing_representations" in name
         for name in bundle.instance_branch.state_dict()
+    )
+    assert not any(
+        "gate_network" in name for name in bundle.instance_branch.state_dict()
+    )
+
+
+def test_gated_composite_fusion_scales_unequal_component_widths():
+    concat_config = make_config()
+    gated_config = make_config(instance_branch_composite_fusion="gated")
+    concat_branch = ModelFactory(concat_config).build().instance_branch
+    gated_branch = ModelFactory(gated_config).build().instance_branch
+    batch = next(
+        iter(
+            DataLoaderFactory(concat_config, "cpu").for_prediction(
+                make_prediction_data()
+            )
+        )
+    )
+    assert isinstance(concat_branch, CompositeEncoder)
+    assert isinstance(gated_branch, CompositeEncoder)
+    assert gated_branch.gate_network is not None
+    with torch.no_grad():
+        gated_branch.gate_network.weight.zero_()
+        gated_branch.gate_network.bias.zero_()
+
+    concat_output = concat_branch(batch.instance_features)
+    gated_output = gated_branch(batch.instance_features)
+    gated_output.sum().backward()
+
+    assert gated_output.shape == (2, 5)
+    assert torch.allclose(gated_output.detach(), concat_output.detach() * 0.5)
+    assert gated_branch.gate_network.weight.grad is not None
+    assert gated_branch.gate_network.bias.grad is not None
+
+
+def test_gated_composite_fusion_uses_optional_component_presence():
+    config = make_config(
+        instance_branch_composite_fusion="gated",
+        instance_branch_composite_components={
+            "descriptors": {
+                "architecture": "MLP",
+                "input_dim": 2,
+                "output_dim": 3,
+                "nodes_per_layer": [4],
+            },
+            "tokens": {
+                "architecture": "SEQUENCE",
+                "input_dim": 8,
+                "output_dim": 2,
+                "embedding_dim": 4,
+                "optional": True,
+            },
+        },
+    )
+    data = make_prediction_data()
+    data["X_instance"] = process_instance_features(
+        {
+            "descriptors": np.array(
+                [[1.0, 2.0], [3.0, 4.0]],
+                dtype=np.float32,
+            ),
+            "tokens": [[1, 2], None],
+        },
+        feature_kind={
+            "descriptors": None,
+            "tokens": {
+                "kind": "sequence",
+                "optional": True,
+            },
+        },
+    )
+    branch = ModelFactory(config).build().instance_branch
+    batch = next(iter(DataLoaderFactory(config, "cpu").for_prediction(data)))
+    assert isinstance(branch, CompositeEncoder)
+    assert branch.gate_network is not None
+    with torch.no_grad():
+        branch.missing_representations["tokens"].fill_(1.0)
+        branch.gate_network.weight.zero_()
+        branch.gate_network.bias.zero_()
+        branch.gate_network.bias[1] = -4.0
+        branch.gate_network.weight[1, -1] = 8.0
+
+    output = branch(batch.instance_features)
+    expected_missing_gate = torch.sigmoid(torch.tensor(-4.0))
+
+    assert torch.allclose(
+        output[1, 3:],
+        torch.full_like(output[1, 3:], expected_missing_gate),
     )
 
 
@@ -760,6 +909,7 @@ def test_composite_target_branch_uses_the_same_data_and_model_contract():
         instance_branch_input_dim=2,
         instance_branch_nodes_per_layer=[4],
         target_branch_architecture="COMPOSITE",
+        target_branch_composite_fusion="gated",
         target_branch_composite_components={
             "descriptors": {
                 "architecture": "MLP",
@@ -800,6 +950,8 @@ def test_composite_target_branch_uses_the_same_data_and_model_contract():
     output = bundle.model(batch.instance_features, batch.target_features)
 
     assert isinstance(bundle.target_branch, CompositeEncoder)
+    assert bundle.target_branch.fusion == "gated"
+    assert bundle.target_branch.gate_network is not None
     assert isinstance(batch.target_features, CompositeInput)
     assert isinstance(batch.target_features["tokens"], MaskedComponentInput)
     assert output.shape == (2, 1)
@@ -859,6 +1011,7 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(tmp_path
     config = make_config(
         general_architecture_version="dot_product",
         embedding_size=5,
+        instance_branch_composite_fusion="gated",
         instance_branch_composite_components={
             "descriptors": {
                 "architecture": "MLP",
@@ -891,12 +1044,15 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(tmp_path
     checkpoint_path = Path(model.experiment_dir) / "model.pt"
     checkpoint = ExperimentStore.load_checkpoint(checkpoint_path)
     saved_components = checkpoint["config"]["instance_branch_composite_components"]
+    saved_fusion = checkpoint["config"]["instance_branch_composite_fusion"]
     assert isinstance(model.instance_branch_model, CompositeEncoder)
     assert "val_loss" in validation_results
     assert len(predictions) == len(test["y"]["data"])
     assert saved_components["tokens"]["architecture"] == "SEQUENCE"
     assert saved_components["tokens"]["optional"] is True
+    assert saved_fusion == "gated"
     assert "tokens" in model.instance_branch_model.missing_representations
+    assert model.instance_branch_model.gate_network is not None
 
     restored_config = config.to_dict(include_defaults=True)
     restored_config["experiment_name"] = "composite-restored"
@@ -911,3 +1067,4 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(tmp_path
         restored_predictions["predicted_values"],
     )
     assert isinstance(restored_model.instance_branch_model, CompositeEncoder)
+    assert restored_model.instance_branch_model.fusion == "gated"

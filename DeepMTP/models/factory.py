@@ -470,6 +470,10 @@ class ModelFactory:
                     for name, component in components.items()
                     if component.get("optional", False)
                 },
+                fusion=getattr(
+                    self.config,
+                    f"{branch}_branch_composite_fusion",
+                ),
             )
         if architecture == "EMBEDDING":
             input_dim = getattr(self.config, f"{branch}_branch_input_dim")
