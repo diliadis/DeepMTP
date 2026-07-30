@@ -82,13 +82,55 @@ In the code snippet above the function generate_config is shown without any spec
    * - **wandb_project_name**
      - Defines the name of the wandb project that the results of an experiment will be logged
    * - **wandb_project_entity**
-     - Defines the user name of the wandb account
+     - W&B team or account entity
+   * - **wandb_mode**
+     - ``online``, ``offline``, ``disabled``, or ``None`` to use the
+       SDK/environment default
+   * - **wandb_run_name**
+     - Optional W&B display name
+   * - **wandb_group**
+     - Optional group for related runs
+   * - **wandb_job_type**
+     - W&B job type; defaults to ``train``
+   * - **wandb_tags**
+     - Searchable W&B run tags
+   * - **wandb_notes**
+     - Free-form W&B run notes
+   * - **wandb_watch**
+     - Model monitoring: ``gradients`` (default), ``parameters``, ``all``, or
+       ``None``
+   * - **wandb_watch_log_freq**
+     - Positive model-monitoring interval
+   * - **wandb_log_graph**
+     - Include the model graph in W&B monitoring; opt-in
+   * - **wandb_log_code**
+     - Upload project source through ``Run.log_code``; opt-in
+   * - **wandb_log_model_artifact**
+     - Publish a saved checkpoint, configuration, and summary as a versioned
+       W&B model Artifact
+   * - **wandb_model_artifact_name**
+     - Optional explicit model Artifact name
+   * - **wandb_model_artifact_aliases**
+     - Model Artifact aliases; defaults to ``["latest", "best"]``
+   * - **wandb_input_artifacts**
+     - Online Artifact references marked as run inputs for lineage
+   * - **wandb_registry_name**
+     - Existing online W&B Registry to link the model version into
+   * - **wandb_registry_collection**
+     - Registry collection paired with ``wandb_registry_name``
+   * - **wandb_log_predictions**
+     - Log a bounded test-prediction Table and classification charts; opt-in
+   * - **wandb_prediction_table_max_rows**
+     - Maximum sampled prediction rows; defaults to 1000
    * - **results_path**
      - Defines the path the all relevant information will be saved to
    * - **experiment_name**
      - Defines the name of the current experiment. This name will be used to local save and the wandb save
    * - **save_model**
      - Whether or not to save the model of the epoch with the best validation performance
+   * - **data_preparation_state**
+     - Split provenance and fitted legacy dense-scaler parameters; normally
+       captured automatically from the three ``data_process`` outputs
    * - **General architecture architecture**
      -
    * - **general_architecture_version**

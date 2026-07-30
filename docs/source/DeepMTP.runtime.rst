@@ -62,6 +62,18 @@ Persistence
    :undoc-members:
    :show-inheritance:
 
+Checkpoint metadata
+-------------------
+
+The versioned manifest records preprocessing, training, environment, source,
+and tracking provenance while preserving legacy checkpoints without a
+``metadata`` entry.
+
+.. automodule:: DeepMTP.runtime.metadata
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Presentation
 ------------
 
@@ -74,6 +86,14 @@ Reporting
 ---------
 
 .. automodule:: DeepMTP.runtime.reporting
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+W&B Artifacts
+-------------
+
+.. automodule:: DeepMTP.runtime.wandb
    :members:
    :undoc-members:
    :show-inheritance:

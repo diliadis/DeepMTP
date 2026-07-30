@@ -109,6 +109,18 @@ Preparation
    :undoc-members:
    :show-inheritance:
 
+Preprocessing metadata
+----------------------
+
+Legacy dense scaling parameters and split provenance are represented by
+validated, JSON-compatible state objects that can be replayed without a fitted
+scikit-learn object.
+
+.. automodule:: DeepMTP.data.preprocessing
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Loading
 -------
 
