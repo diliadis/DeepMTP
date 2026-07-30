@@ -76,6 +76,8 @@ def _copy_feature_source(source: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _copy_feature_value(value: object) -> Any:
+    if value is None:
+        return None
     if isinstance(value, Mapping):
         return {
             name: _copy_feature_value(component) for name, component in value.items()

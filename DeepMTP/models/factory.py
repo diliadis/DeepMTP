@@ -464,7 +464,12 @@ class ModelFactory:
                 {
                     name: self._build_composite_component(component)
                     for name, component in components.items()
-                }
+                },
+                optional_components={
+                    name
+                    for name, component in components.items()
+                    if component.get("optional", False)
+                },
             )
         if architecture == "EMBEDDING":
             input_dim = getattr(self.config, f"{branch}_branch_input_dim")

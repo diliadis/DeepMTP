@@ -25,6 +25,7 @@ __all__ = [
     "DenseBranchBatch",
     "IDBranchBatch",
     "ImageBranchBatch",
+    "MaskedComponentInput",
     "MTPBatch",
     "MTPBatchCollator",
     "SequenceBranchBatch",
@@ -344,6 +345,99 @@ class TabularInput:
         )
 
 
+def _component_batch_size(values: Any) -> int:
+    if isinstance(values, torch.Tensor):
+        if values.ndim == 0:
+            raise ValueError("Component values must include a batch dimension.")
+        return int(values.shape[0])
+    if isinstance(values, (SequenceInput, TabularInput)):
+        return values.batch_size
+    raise TypeError(
+        "Component values must be a torch.Tensor, SequenceInput, or TabularInput."
+    )
+
+
+def _pin_component_values(values: Any) -> Any:
+    if isinstance(values, torch.Tensor) and is_torch_sparse(values):
+        return pin_sparse_tensor(values)
+    return values.pin_memory()
+
+
+@dataclass(frozen=True)
+class MaskedComponentInput:
+    """Present values plus a full-batch mask for one optional component."""
+
+    values: Any | None
+    presence_mask: torch.Tensor
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.presence_mask, torch.Tensor):
+            raise TypeError("Optional component presence_mask must be a torch.Tensor.")
+        if self.presence_mask.ndim != 1:
+            raise ValueError(
+                "Optional component presence_mask must have shape [batch]."
+            )
+        if self.presence_mask.dtype != torch.bool:
+            raise TypeError("Optional component presence_mask must use torch.bool.")
+        present_count = int(self.presence_mask.sum())
+        if present_count == 0:
+            if self.values is not None:
+                raise ValueError(
+                    "Optional component values must be None when no batch rows "
+                    "are present."
+                )
+            return
+        if self.values is None:
+            raise ValueError(
+                "Optional component values are required when presence_mask "
+                "contains present rows."
+            )
+        values_batch_size = _component_batch_size(self.values)
+        if values_batch_size != present_count:
+            raise ValueError(
+                "Optional component values must contain one row per present mask "
+                f"entry; expected {present_count}, received {values_batch_size}."
+            )
+
+    @property
+    def batch_size(self) -> int:
+        """Full batch size including rows where this component is missing."""
+        return int(self.presence_mask.shape[0])
+
+    @property
+    def present_count(self) -> int:
+        """Number of rows containing this component."""
+        return int(self.presence_mask.sum())
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> MaskedComponentInput:
+        """Move the values and presence mask to one device."""
+        return MaskedComponentInput(
+            values=(
+                None
+                if self.values is None
+                else self.values.to(device, non_blocking=non_blocking)
+            ),
+            presence_mask=self.presence_mask.to(
+                device,
+                non_blocking=non_blocking,
+            ),
+        )
+
+    def pin_memory(self) -> MaskedComponentInput:
+        """Pin the present values and full-batch mask."""
+        return MaskedComponentInput(
+            values=(
+                None if self.values is None else _pin_component_values(self.values)
+            ),
+            presence_mask=self.presence_mask.pin_memory(),
+        )
+
+
 @dataclass(frozen=True)
 class CompositeInput(Mapping[str, Any]):
     """Named model inputs for multiple encoders on one entity axis."""
@@ -361,19 +455,21 @@ class CompositeInput(Mapping[str, Any]):
         for name, values in normalized_components.items():
             if not isinstance(name, str) or not name:
                 raise ValueError("Composite component names must be non-empty strings.")
-            if isinstance(values, torch.Tensor):
-                if values.ndim == 0:
-                    raise ValueError(
-                        f"Composite component {name!r} must include a batch dimension."
-                    )
-                batch_sizes.add(int(values.shape[0]))
-            elif isinstance(values, (SequenceInput, TabularInput)):
-                batch_sizes.add(values.batch_size)
-            else:
+            try:
+                batch_sizes.add(
+                    values.batch_size
+                    if isinstance(values, MaskedComponentInput)
+                    else _component_batch_size(values)
+                )
+            except TypeError as exc:
                 raise TypeError(
                     f"Composite component {name!r} must be a torch.Tensor, "
-                    "SequenceInput, or TabularInput."
-                )
+                    "SequenceInput, TabularInput, or MaskedComponentInput."
+                ) from exc
+            except ValueError as exc:
+                raise ValueError(
+                    f"Composite component {name!r} must include a batch dimension."
+                ) from exc
         if len(batch_sizes) != 1:
             raise ValueError(
                 "Every composite input component must have the same batch size; "
@@ -385,9 +481,11 @@ class CompositeInput(Mapping[str, Any]):
     def batch_size(self) -> int:
         """Number of observations shared by every component."""
         first = next(iter(self.components.values()))
-        if isinstance(first, torch.Tensor):
-            return int(first.shape[0])
-        return int(first.batch_size)
+        return (
+            first.batch_size
+            if isinstance(first, MaskedComponentInput)
+            else _component_batch_size(first)
+        )
 
     def __getitem__(self, key: str) -> Any:
         return self.components[key]
@@ -415,7 +513,10 @@ class CompositeInput(Mapping[str, Any]):
     def pin_memory(self) -> CompositeInput:
         """Pin every component for asynchronous host-to-device transfer."""
         return CompositeInput(
-            {name: values.pin_memory() for name, values in self.components.items()}
+            {
+                name: _pin_component_values(values)
+                for name, values in self.components.items()
+            }
         )
 
 
@@ -632,6 +733,8 @@ class MTPBatchCollator:
     target_component_kinds: Mapping[str, BranchInputKind] | None = None
     instance_component_padding_indices: Mapping[str, int] | None = None
     target_component_padding_indices: Mapping[str, int] | None = None
+    instance_component_optional: Mapping[str, bool] | None = None
+    target_component_optional: Mapping[str, bool] | None = None
 
     def __post_init__(self) -> None:
         for name, kind in {
@@ -662,18 +765,20 @@ class MTPBatchCollator:
                 or padding_idx < 0
             ):
                 raise ValueError(f"{name} must be a non-negative integer.")
-        for branch, kind, component_kinds, padding_indices in (
+        for branch, kind, component_kinds, padding_indices, component_optional in (
             (
                 "instance",
                 self.instance_kind,
                 self.instance_component_kinds,
                 self.instance_component_padding_indices,
+                self.instance_component_optional,
             ),
             (
                 "target",
                 self.target_kind,
                 self.target_component_kinds,
                 self.target_component_padding_indices,
+                self.target_component_optional,
             ),
         ):
             _validate_composite_collator_settings(
@@ -681,6 +786,7 @@ class MTPBatchCollator:
                 kind=kind,
                 component_kinds=component_kinds,
                 padding_indices=padding_indices,
+                component_optional=component_optional,
             )
 
     def __call__(self, items: Sequence[Mapping[str, Any]]) -> MTPBatch:
@@ -721,10 +827,12 @@ class MTPBatchCollator:
                     padding_idx=self.instance_sequence_padding_idx,
                     component_kinds=self.instance_component_kinds,
                     component_padding_indices=(self.instance_component_padding_indices),
+                    component_optional=self.instance_component_optional,
                 ),
                 padding_idx=self.instance_sequence_padding_idx,
                 component_kinds=self.instance_component_kinds,
                 component_padding_indices=self.instance_component_padding_indices,
+                component_optional=self.instance_component_optional,
             ),
             target_input=_build_branch_batch(
                 self.target_kind,
@@ -734,10 +842,12 @@ class MTPBatchCollator:
                     padding_idx=self.target_sequence_padding_idx,
                     component_kinds=self.target_component_kinds,
                     component_padding_indices=self.target_component_padding_indices,
+                    component_optional=self.target_component_optional,
                 ),
                 padding_idx=self.target_sequence_padding_idx,
                 component_kinds=self.target_component_kinds,
                 component_padding_indices=self.target_component_padding_indices,
+                component_optional=self.target_component_optional,
             ),
             score=tensors["score"],
         )
@@ -759,6 +869,14 @@ def _require_collated_tensor(
     return value
 
 
+@dataclass(frozen=True)
+class _CollatedMaskedComponent:
+    """Internal collator payload before typed branch construction."""
+
+    values: Any | None
+    presence_mask: torch.Tensor
+
+
 def _collate_branch_values(
     kind: BranchInputKind,
     values: Sequence[Any],
@@ -766,6 +884,7 @@ def _collate_branch_values(
     padding_idx: int,
     component_kinds: Mapping[str, BranchInputKind] | None = None,
     component_padding_indices: Mapping[str, int] | None = None,
+    component_optional: Mapping[str, bool] | None = None,
 ) -> Any:
     if kind == "composite":
         if component_kinds is None:  # pragma: no cover - collator invariant
@@ -779,18 +898,46 @@ def _collate_branch_values(
                     f"Composite feature row {row_index} must contain exactly "
                     f"{sorted(expected_names)}; received {sorted(value)}."
                 )
-        return {
-            name: _collate_branch_values(
-                component_kind,
-                [value[name] for value in values],
-                padding_idx=(
-                    component_padding_indices.get(name, 0)
-                    if component_padding_indices is not None
-                    else 0
-                ),
+        collated_components: dict[str, Any] = {}
+        for name, component_kind in component_kinds.items():
+            component_values = [value[name] for value in values]
+            component_padding_idx = (
+                component_padding_indices.get(name, 0)
+                if component_padding_indices is not None
+                else 0
             )
-            for name, component_kind in component_kinds.items()
-        }
+            if component_optional is not None and component_optional.get(name, False):
+                presence_mask = torch.tensor(
+                    [value is not None for value in component_values],
+                    dtype=torch.bool,
+                )
+                present_values = [
+                    value for value in component_values if value is not None
+                ]
+                collated_components[name] = _CollatedMaskedComponent(
+                    values=(
+                        _collate_branch_values(
+                            component_kind,
+                            present_values,
+                            padding_idx=component_padding_idx,
+                        )
+                        if present_values
+                        else None
+                    ),
+                    presence_mask=presence_mask,
+                )
+                continue
+            if any(value is None for value in component_values):
+                raise ValueError(
+                    f"Required composite component {name!r} is missing from one "
+                    "or more batch rows."
+                )
+            collated_components[name] = _collate_branch_values(
+                component_kind,
+                component_values,
+                padding_idx=component_padding_idx,
+            )
+        return collated_components
     if kind == "sparse":
         return collate_sparse_rows(values)
     if kind == "sequence":
@@ -813,28 +960,46 @@ def _build_branch_batch(
     padding_idx: int,
     component_kinds: Mapping[str, BranchInputKind] | None = None,
     component_padding_indices: Mapping[str, int] | None = None,
+    component_optional: Mapping[str, bool] | None = None,
 ) -> BranchBatch:
     if kind == "composite":
         if not isinstance(values, Mapping):
             raise TypeError("Collated composite features must be a mapping.")
         if component_kinds is None:  # pragma: no cover - collator invariant
             raise RuntimeError("Composite batching has no component kinds.")
-        return CompositeBranchBatch(
-            CompositeInput(
-                {
-                    name: _build_branch_batch(
-                        component_kind,
-                        values[name],
-                        padding_idx=(
-                            component_padding_indices.get(name, 0)
-                            if component_padding_indices is not None
-                            else 0
-                        ),
-                    ).values
-                    for name, component_kind in component_kinds.items()
-                }
+        component_inputs: dict[str, Any] = {}
+        for name, component_kind in component_kinds.items():
+            component_padding_idx = (
+                component_padding_indices.get(name, 0)
+                if component_padding_indices is not None
+                else 0
             )
-        )
+            if component_optional is not None and component_optional.get(name, False):
+                masked_values = values[name]
+                if not isinstance(masked_values, _CollatedMaskedComponent):
+                    raise TypeError(
+                        f"Collated optional composite component {name!r} must "
+                        "include values and a presence mask."
+                    )
+                component_inputs[name] = MaskedComponentInput(
+                    values=(
+                        None
+                        if masked_values.values is None
+                        else _build_branch_batch(
+                            component_kind,
+                            masked_values.values,
+                            padding_idx=component_padding_idx,
+                        ).values
+                    ),
+                    presence_mask=masked_values.presence_mask,
+                )
+                continue
+            component_inputs[name] = _build_branch_batch(
+                component_kind,
+                values[name],
+                padding_idx=component_padding_idx,
+            ).values
+        return CompositeBranchBatch(CompositeInput(component_inputs))
     if kind == "sequence":
         if not isinstance(values, Mapping):
             raise TypeError(
@@ -895,9 +1060,14 @@ def _validate_composite_collator_settings(
     kind: BranchInputKind,
     component_kinds: Mapping[str, BranchInputKind] | None,
     padding_indices: Mapping[str, int] | None,
+    component_optional: Mapping[str, bool] | None,
 ) -> None:
     if kind != "composite":
-        if component_kinds is not None or padding_indices is not None:
+        if (
+            component_kinds is not None
+            or padding_indices is not None
+            or component_optional is not None
+        ):
             raise ValueError(
                 f"{branch}_component settings require {branch}_kind='composite'."
             )
@@ -923,6 +1093,20 @@ def _validate_composite_collator_settings(
             raise ValueError(
                 f"Unsupported {branch} composite component kind {component_kind!r}."
             )
+    if component_optional is not None:
+        unknown_optional_names = set(component_optional).difference(component_kinds)
+        if unknown_optional_names:
+            raise ValueError(
+                f"{branch}_component_optional contains unknown components: "
+                f"{sorted(unknown_optional_names)}."
+            )
+        for name, optional in component_optional.items():
+            if not isinstance(optional, bool):
+                raise ValueError(
+                    f"Optional flag for composite component {name!r} must be a boolean."
+                )
+            if optional and component_kinds[name] == "id":
+                raise ValueError("ID composite components cannot be optional.")
     if padding_indices is None:
         return
     unknown_names = set(padding_indices).difference(component_kinds)

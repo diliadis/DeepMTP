@@ -12,6 +12,7 @@ from DeepMTP.data.batches import (
     DenseBranchBatch,
     IDBranchBatch,
     ImageBranchBatch,
+    MaskedComponentInput,
     MTPBatch,
     MTPBatchCollator,
     SequenceBranchBatch,
@@ -22,6 +23,7 @@ from DeepMTP.data.batches import (
     TensorBranchBatch,
 )
 from DeepMTP.data.features import (
+    CompositeFeatureSpec,
     FeatureComponentInfo,
     FeatureInfo,
     FeatureKind,
@@ -141,6 +143,7 @@ __all__ = [
     "CategoricalColumn",
     "ConsoleDataProgressObserver",
     "CompositeBranchBatch",
+    "CompositeFeatureSpec",
     "CompositeInput",
     "CustomBranchBatch",
     "DataInfo",
@@ -163,6 +166,7 @@ __all__ = [
     "InteractionInfo",
     "IDBranchBatch",
     "ImageBranchBatch",
+    "MaskedComponentInput",
     "MTPSampler",
     "MTPBatch",
     "MTPBatchCollator",

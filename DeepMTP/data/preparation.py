@@ -381,12 +381,14 @@ def data_process(
             multiclass mode, it is inferred from all supplied score splits.
         instance_feature_kind (str, optional): Set to ``sequence`` when instance
             features are already-tokenized integer sequences. For composite
-            features, pass a mapping from component name to ``sequence`` or
-            ``None``. Defaults to None.
+            features, pass a mapping from component name to ``sequence``,
+            ``None``, or a mapping with ``kind`` and ``optional`` fields.
+            Defaults to None.
         target_feature_kind (str, optional): Set to ``sequence`` when target
             features are already-tokenized integer sequences. For composite
-            features, pass a mapping from component name to ``sequence`` or
-            ``None``. Defaults to None.
+            features, pass a mapping from component name to ``sequence``,
+            ``None``, or a mapping with ``kind`` and ``optional`` fields.
+            Defaults to None.
         progress (DataProgressObserver | None, optional): Receives verbose messages from the complete data-processing pipeline. Defaults to None.
 
     Returns:
