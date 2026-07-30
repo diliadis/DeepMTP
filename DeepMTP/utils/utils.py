@@ -518,6 +518,18 @@ def generate_config(
             "instance_branch_composite_fusion",
             "concat",
         )
+        base_config["instance_branch_composite_attention_dim"] = (
+            instance_branch_params.get(
+                "instance_branch_composite_attention_dim",
+                64,
+            )
+        )
+        base_config["instance_branch_composite_attention_num_heads"] = (
+            instance_branch_params.get(
+                "instance_branch_composite_attention_num_heads",
+                4,
+            )
+        )
     elif instance_branch_architecture == "SEQUENCE":
         sequence_defaults = {
             "instance_branch_sequence_encoder": "gru",
@@ -603,6 +615,16 @@ def generate_config(
         base_config["target_branch_composite_fusion"] = target_branch_params.get(
             "target_branch_composite_fusion",
             "concat",
+        )
+        base_config["target_branch_composite_attention_dim"] = target_branch_params.get(
+            "target_branch_composite_attention_dim",
+            64,
+        )
+        base_config["target_branch_composite_attention_num_heads"] = (
+            target_branch_params.get(
+                "target_branch_composite_attention_num_heads",
+                4,
+            )
         )
     elif target_branch_architecture == "SEQUENCE":
         sequence_defaults = {

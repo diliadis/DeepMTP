@@ -184,9 +184,11 @@ and fuses the outputs of independently configured dense, sparse, sequence, or
 known-ID component encoders. ``data_process`` receives a matching feature-kind
 mapping, and each component declares its own input and output dimensions.
 ``instance_branch_composite_fusion`` and
-``target_branch_composite_fusion`` select default ``"concat"`` or opt-in
-sample-specific ``"gated"`` concatenation. Components marked optional use
-explicit presence masks and learned missing representations. See
+``target_branch_composite_fusion`` select default ``"concat"``, opt-in
+sample-specific ``"gated"`` concatenation, or modality self-``"attention"``.
+Attention fusion uses the corresponding ``composite_attention_dim`` and
+``composite_attention_num_heads`` branch settings. Components marked optional
+use explicit presence masks and learned missing representations. See
 :doc:`composite_inputs` for configuration, fusion, validation-setting, batch,
 checkpoint, and missing-modality behavior.
 

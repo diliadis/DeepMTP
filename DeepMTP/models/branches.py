@@ -177,6 +177,8 @@ class CompositeEncoder(nn.Module):
         *,
         optional_components: Collection[str] = (),
         fusion: str = "concat",
+        attention_dim: int = 64,
+        attention_num_heads: int = 4,
     ) -> None:
         super().__init__()
         if not isinstance(component_encoders, Mapping):
@@ -191,10 +193,34 @@ class CompositeEncoder(nn.Module):
         ):
             raise TypeError("optional_components must be a collection of names.")
         normalized_optional_components = frozenset(optional_components)
-        if fusion not in {"concat", "gated"}:
+        if fusion not in {"attention", "concat", "gated"}:
             raise ValueError(
-                f"Composite fusion must be 'concat' or 'gated'; received {fusion!r}."
+                "Composite fusion must be 'attention', 'concat', or 'gated'; "
+                f"received {fusion!r}."
             )
+        if fusion == "attention":
+            if (
+                isinstance(attention_dim, bool)
+                or not isinstance(attention_dim, int)
+                or attention_dim <= 0
+            ):
+                raise ValueError(
+                    "attention_dim must be a positive integer for attention fusion."
+                )
+            if (
+                isinstance(attention_num_heads, bool)
+                or not isinstance(attention_num_heads, int)
+                or attention_num_heads <= 0
+            ):
+                raise ValueError(
+                    "attention_num_heads must be a positive integer for "
+                    "attention fusion."
+                )
+            if attention_dim % attention_num_heads != 0:
+                raise ValueError(
+                    f"attention_dim={attention_dim} must be divisible by "
+                    f"attention_num_heads={attention_num_heads}."
+                )
 
         normalized_encoders: OrderedDict[str, nn.Module] = OrderedDict()
         output_dimensions: dict[str, int] = {}
@@ -246,6 +272,43 @@ class CompositeEncoder(nn.Module):
             if fusion == "gated"
             else None
         )
+        self.attention_input_projections = (
+            nn.ModuleDict(
+                {
+                    name: nn.Linear(output_dimensions[name], attention_dim)
+                    for name in normalized_encoders
+                }
+            )
+            if fusion == "attention"
+            else None
+        )
+        self.attention_output_projections = (
+            nn.ModuleDict(
+                {
+                    name: nn.Linear(attention_dim, output_dimensions[name])
+                    for name in normalized_encoders
+                }
+            )
+            if fusion == "attention"
+            else None
+        )
+        self.attention_layer = (
+            nn.MultiheadAttention(
+                embed_dim=attention_dim,
+                num_heads=attention_num_heads,
+                batch_first=True,
+            )
+            if fusion == "attention"
+            else None
+        )
+        self.attention_layer_norm = (
+            nn.LayerNorm(attention_dim) if fusion == "attention" else None
+        )
+        self.attention_fusion_token = (
+            nn.Parameter(torch.zeros(1, 1, attention_dim))
+            if fusion == "attention"
+            else None
+        )
 
     def forward(self, values: CompositeInput) -> torch.Tensor:
         if not isinstance(values, CompositeInput):
@@ -269,36 +332,103 @@ class CompositeEncoder(nn.Module):
                 dim=1,
             )
 
-        presence = torch.cat(
+        presence = torch.stack(
             [
-                self._presence_feature(values[name], encoded)
+                self._presence_mask(values[name], encoded)
                 for name, encoded in encoded_components
             ],
             dim=1,
         )
-        gate_input = torch.cat(
-            [*[encoded for _, encoded in encoded_components], presence],
-            dim=1,
+        if self.fusion == "gated":
+            gate_input = torch.cat(
+                [
+                    *[encoded for _, encoded in encoded_components],
+                    presence.to(dtype=encoded_components[0][1].dtype),
+                ],
+                dim=1,
+            )
+            if self.gate_network is None:  # pragma: no cover - constructor invariant
+                raise RuntimeError("Gated composite fusion has no gate network.")
+            gates = torch.sigmoid(self.gate_network(gate_input))
+            return torch.cat(
+                [
+                    encoded * gates[:, index : index + 1]
+                    for index, (_, encoded) in enumerate(encoded_components)
+                ],
+                dim=1,
+            )
+
+        return self._attention_fusion(encoded_components, presence)
+
+    @staticmethod
+    def _presence_mask(values: Any, encoded: torch.Tensor) -> torch.Tensor:
+        if not isinstance(values, MaskedComponentInput):
+            return torch.ones(
+                encoded.shape[0],
+                dtype=torch.bool,
+                device=encoded.device,
+            )
+        return values.presence_mask.to(
+            device=encoded.device,
         )
-        if self.gate_network is None:  # pragma: no cover - constructor invariant
-            raise RuntimeError("Gated composite fusion has no gate network.")
-        gates = torch.sigmoid(self.gate_network(gate_input))
-        return torch.cat(
+
+    def _attention_fusion(
+        self,
+        encoded_components: list[tuple[str, torch.Tensor]],
+        presence: torch.Tensor,
+    ) -> torch.Tensor:
+        if (
+            self.attention_input_projections is None
+            or self.attention_output_projections is None
+            or self.attention_layer is None
+            or self.attention_layer_norm is None
+            or self.attention_fusion_token is None
+        ):  # pragma: no cover - constructor invariant
+            raise RuntimeError("Attention composite fusion is incomplete.")
+
+        projected_components = torch.stack(
             [
-                encoded * gates[:, index : index + 1]
-                for index, (_, encoded) in enumerate(encoded_components)
+                self.attention_input_projections[name](encoded)
+                for name, encoded in encoded_components
             ],
             dim=1,
         )
-
-    @staticmethod
-    def _presence_feature(values: Any, encoded: torch.Tensor) -> torch.Tensor:
-        if not isinstance(values, MaskedComponentInput):
-            return encoded.new_ones((encoded.shape[0], 1))
-        return values.presence_mask.to(
-            device=encoded.device,
-            dtype=encoded.dtype,
-        ).unsqueeze(1)
+        fusion_token = self.attention_fusion_token.expand(
+            projected_components.shape[0],
+            -1,
+            -1,
+        )
+        attention_tokens = torch.cat(
+            [fusion_token, projected_components],
+            dim=1,
+        )
+        fusion_token_mask = torch.zeros(
+            (presence.shape[0], 1),
+            dtype=torch.bool,
+            device=presence.device,
+        )
+        key_padding_mask = torch.cat(
+            [fusion_token_mask, ~presence],
+            dim=1,
+        )
+        attention_output, _ = self.attention_layer(
+            attention_tokens,
+            attention_tokens,
+            attention_tokens,
+            key_padding_mask=key_padding_mask,
+            need_weights=False,
+        )
+        contextualized = self.attention_layer_norm(attention_tokens + attention_output)
+        return torch.cat(
+            [
+                encoded
+                + self.attention_output_projections[name](
+                    contextualized[:, index + 1, :]
+                )
+                for index, (name, encoded) in enumerate(encoded_components)
+            ],
+            dim=1,
+        )
 
     def _encode_component(
         self,

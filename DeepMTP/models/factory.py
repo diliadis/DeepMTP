@@ -474,6 +474,14 @@ class ModelFactory:
                     self.config,
                     f"{branch}_branch_composite_fusion",
                 ),
+                attention_dim=getattr(
+                    self.config,
+                    f"{branch}_branch_composite_attention_dim",
+                ),
+                attention_num_heads=getattr(
+                    self.config,
+                    f"{branch}_branch_composite_attention_num_heads",
+                ),
             )
         if architecture == "EMBEDDING":
             input_dim = getattr(self.config, f"{branch}_branch_input_dim")

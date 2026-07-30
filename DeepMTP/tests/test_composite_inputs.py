@@ -481,14 +481,47 @@ def test_composite_config_normalizes_components_and_validates_structure():
 def test_composite_fusion_configuration_is_validated():
     with pytest.raises(
         ConfigValidationError,
-        match="instance_branch_composite_fusion must be 'concat' or 'gated'",
+        match=(
+            "instance_branch_composite_fusion must be 'attention', 'concat', or 'gated'"
+        ),
     ):
-        make_config(instance_branch_composite_fusion="attention")
+        make_config(instance_branch_composite_fusion="weighted_sum")
+
+
+def test_composite_attention_configuration_is_normalized_and_validated():
+    config = make_config(
+        instance_branch_composite_fusion="ATTENTION",
+        instance_branch_composite_attention_dim=6,
+        instance_branch_composite_attention_num_heads=2,
+    )
+
+    assert config.instance_branch_composite_fusion == "attention"
+    assert config.instance_branch_composite_attention_dim == 6
+    assert config.instance_branch_composite_attention_num_heads == 2
+
+    with pytest.raises(ConfigValidationError, match="attention_dim"):
+        make_config(
+            instance_branch_composite_fusion="attention",
+            instance_branch_composite_attention_dim=0,
+        )
+    with pytest.raises(ConfigValidationError, match="attention_num_heads"):
+        make_config(
+            instance_branch_composite_fusion="attention",
+            instance_branch_composite_attention_num_heads=0,
+        )
+    with pytest.raises(ConfigValidationError, match="must be divisible"):
+        make_config(
+            instance_branch_composite_fusion="attention",
+            instance_branch_composite_attention_dim=5,
+            instance_branch_composite_attention_num_heads=2,
+        )
 
 
 def test_existing_composite_config_defaults_to_parameter_free_concatenation():
     existing_mapping = make_config().to_dict(include_defaults=True)
     existing_mapping.pop("instance_branch_composite_fusion")
+    existing_mapping.pop("instance_branch_composite_attention_dim")
+    existing_mapping.pop("instance_branch_composite_attention_num_heads")
 
     restored_config = DeepMTPConfig.from_mapping(existing_mapping)
     branch = ModelFactory(restored_config).build().instance_branch
@@ -496,10 +529,30 @@ def test_existing_composite_config_defaults_to_parameter_free_concatenation():
     assert restored_config.instance_branch_composite_fusion == "concat"
     assert isinstance(branch, CompositeEncoder)
     assert branch.gate_network is None
+    assert branch.attention_layer is None
     assert not any("gate_network" in name for name in branch.state_dict())
+    assert not any("attention_" in name for name in branch.state_dict())
 
 
-def test_generate_config_forwards_legacy_composite_fusion_option():
+def test_existing_gated_composite_config_adds_no_attention_parameters():
+    existing_mapping = make_config(instance_branch_composite_fusion="gated").to_dict(
+        include_defaults=True
+    )
+    existing_mapping.pop("instance_branch_composite_attention_dim")
+    existing_mapping.pop("instance_branch_composite_attention_num_heads")
+
+    restored_config = DeepMTPConfig.from_mapping(existing_mapping)
+    branch = ModelFactory(restored_config).build().instance_branch
+
+    assert restored_config.instance_branch_composite_attention_dim == 64
+    assert restored_config.instance_branch_composite_attention_num_heads == 4
+    assert isinstance(branch, CompositeEncoder)
+    assert branch.gate_network is not None
+    assert branch.attention_layer is None
+    assert not any("attention_" in name for name in branch.state_dict())
+
+
+def test_generate_config_forwards_legacy_composite_attention_options():
     generated = generate_config(
         validation_setting="B",
         problem_mode="classification",
@@ -521,7 +574,9 @@ def test_generate_config_forwards_legacy_composite_fusion_option():
                     "output_dim": 2,
                 },
             },
-            "instance_branch_composite_fusion": "GATED",
+            "instance_branch_composite_fusion": "ATTENTION",
+            "instance_branch_composite_attention_dim": 6,
+            "instance_branch_composite_attention_num_heads": 2,
         },
         target_branch_architecture="MLP",
         target_branch_input_dim=2,
@@ -531,7 +586,9 @@ def test_generate_config_forwards_legacy_composite_fusion_option():
         comb_mlp_nodes_per_layer=[4],
     )
 
-    assert generated["instance_branch_composite_fusion"] == "gated"
+    assert generated["instance_branch_composite_fusion"] == "attention"
+    assert generated["instance_branch_composite_attention_dim"] == 6
+    assert generated["instance_branch_composite_attention_num_heads"] == 2
 
 
 @pytest.mark.parametrize(
@@ -655,6 +712,7 @@ def test_model_factory_combines_component_encoders_and_backpropagates():
     assert bundle.instance_branch.output_dim == 5
     assert bundle.instance_branch.fusion == "concat"
     assert bundle.instance_branch.gate_network is None
+    assert bundle.instance_branch.attention_layer is None
     assert bundle.model.instance_input_kind == "composite"
     assert output.shape == (2, 1)
     assert all(
@@ -670,6 +728,7 @@ def test_model_factory_combines_component_encoders_and_backpropagates():
     assert not any(
         "gate_network" in name for name in bundle.instance_branch.state_dict()
     )
+    assert not any("attention_" in name for name in bundle.instance_branch.state_dict())
 
 
 def test_gated_composite_fusion_scales_unequal_component_widths():
@@ -687,6 +746,7 @@ def test_gated_composite_fusion_scales_unequal_component_widths():
     assert isinstance(concat_branch, CompositeEncoder)
     assert isinstance(gated_branch, CompositeEncoder)
     assert gated_branch.gate_network is not None
+    assert gated_branch.attention_layer is None
     with torch.no_grad():
         gated_branch.gate_network.weight.zero_()
         gated_branch.gate_network.bias.zero_()
@@ -699,6 +759,145 @@ def test_gated_composite_fusion_scales_unequal_component_widths():
     assert torch.allclose(gated_output.detach(), concat_output.detach() * 0.5)
     assert gated_branch.gate_network.weight.grad is not None
     assert gated_branch.gate_network.bias.grad is not None
+
+
+def test_attention_composite_fusion_contextualizes_unequal_component_widths():
+    config = make_config(
+        instance_branch_composite_fusion="attention",
+        instance_branch_composite_attention_dim=4,
+        instance_branch_composite_attention_num_heads=2,
+    )
+    branch = ModelFactory(config).build().instance_branch
+    batch = next(
+        iter(DataLoaderFactory(config, "cpu").for_prediction(make_prediction_data()))
+    )
+    assert isinstance(branch, CompositeEncoder)
+    assert branch.gate_network is None
+    assert branch.attention_layer is not None
+
+    output = branch(batch.instance_features)
+    output.sum().backward()
+
+    assert output.shape == (2, 5)
+    assert (
+        sum(
+            parameter.numel()
+            for name, parameter in branch.named_parameters()
+            if name.startswith("attention_")
+        )
+        == 145
+    )
+    assert all(
+        parameter.grad is not None
+        for name, parameter in branch.named_parameters()
+        if name.startswith("attention_")
+    )
+
+
+def test_attention_composite_fusion_masks_missing_keys_and_values():
+    config = make_config(
+        instance_branch_composite_fusion="attention",
+        instance_branch_composite_attention_dim=4,
+        instance_branch_composite_attention_num_heads=2,
+        instance_branch_composite_components={
+            "descriptors": {
+                "architecture": "MLP",
+                "input_dim": 2,
+                "output_dim": 3,
+                "nodes_per_layer": [4],
+            },
+            "tokens": {
+                "architecture": "SEQUENCE",
+                "input_dim": 8,
+                "output_dim": 2,
+                "embedding_dim": 4,
+                "optional": True,
+            },
+        },
+    )
+    data = make_prediction_data()
+    data["X_instance"] = process_instance_features(
+        {
+            "descriptors": np.array(
+                [[1.0, 2.0], [3.0, 4.0]],
+                dtype=np.float32,
+            ),
+            "tokens": [[1, 2], None],
+        },
+        feature_kind={
+            "descriptors": None,
+            "tokens": {
+                "kind": "sequence",
+                "optional": True,
+            },
+        },
+    )
+    branch = ModelFactory(config).build().instance_branch
+    batch = next(iter(DataLoaderFactory(config, "cpu").for_prediction(data)))
+    assert isinstance(branch, CompositeEncoder)
+    branch.eval()
+
+    with torch.no_grad():
+        branch.missing_representations["tokens"].zero_()
+        zero_missing_output = branch(batch.instance_features)
+        branch.missing_representations["tokens"].fill_(100.0)
+        large_missing_output = branch(batch.instance_features)
+
+    assert torch.allclose(
+        zero_missing_output[1, :3],
+        large_missing_output[1, :3],
+    )
+    assert not torch.allclose(
+        zero_missing_output[1, 3:],
+        large_missing_output[1, 3:],
+    )
+
+
+def test_attention_composite_fusion_handles_an_all_missing_row():
+    config = make_config(
+        instance_branch_composite_fusion="attention",
+        instance_branch_composite_attention_dim=4,
+        instance_branch_composite_attention_num_heads=2,
+        instance_branch_composite_components={
+            "first": {
+                "architecture": "MLP",
+                "input_dim": 2,
+                "output_dim": 3,
+                "optional": True,
+            },
+            "second": {
+                "architecture": "MLP",
+                "input_dim": 1,
+                "output_dim": 2,
+                "optional": True,
+            },
+        },
+    )
+    branch = ModelFactory(config).build().instance_branch
+    assert isinstance(branch, CompositeEncoder)
+    all_missing = torch.zeros(2, dtype=torch.bool)
+    values = CompositeInput(
+        {
+            "first": MaskedComponentInput(
+                values=None,
+                presence_mask=all_missing,
+            ),
+            "second": MaskedComponentInput(
+                values=None,
+                presence_mask=all_missing,
+            ),
+        }
+    )
+
+    output = branch(values)
+    output.sum().backward()
+
+    assert output.shape == (2, 5)
+    assert torch.isfinite(output).all()
+    assert all(
+        representation.grad is not None
+        for representation in branch.missing_representations.values()
+    )
 
 
 def test_gated_composite_fusion_uses_optional_component_presence():
@@ -909,7 +1108,9 @@ def test_composite_target_branch_uses_the_same_data_and_model_contract():
         instance_branch_input_dim=2,
         instance_branch_nodes_per_layer=[4],
         target_branch_architecture="COMPOSITE",
-        target_branch_composite_fusion="gated",
+        target_branch_composite_fusion="attention",
+        target_branch_composite_attention_dim=4,
+        target_branch_composite_attention_num_heads=2,
         target_branch_composite_components={
             "descriptors": {
                 "architecture": "MLP",
@@ -950,8 +1151,8 @@ def test_composite_target_branch_uses_the_same_data_and_model_contract():
     output = bundle.model(batch.instance_features, batch.target_features)
 
     assert isinstance(bundle.target_branch, CompositeEncoder)
-    assert bundle.target_branch.fusion == "gated"
-    assert bundle.target_branch.gate_network is not None
+    assert bundle.target_branch.fusion == "attention"
+    assert bundle.target_branch.attention_layer is not None
     assert isinstance(batch.target_features, CompositeInput)
     assert isinstance(batch.target_features["tokens"], MaskedComponentInput)
     assert output.shape == (2, 1)
@@ -971,7 +1172,11 @@ def test_composite_encoder_rejects_component_name_mismatches():
         )
 
 
-def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(tmp_path):
+@pytest.mark.parametrize("fusion", ["attention", "gated"])
+def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(
+    tmp_path,
+    fusion,
+):
     descriptors = np.arange(32, dtype=np.float32).reshape(16, 2)
     sequences = [
         (
@@ -1011,7 +1216,9 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(tmp_path
     config = make_config(
         general_architecture_version="dot_product",
         embedding_size=5,
-        instance_branch_composite_fusion="gated",
+        instance_branch_composite_fusion=fusion,
+        instance_branch_composite_attention_dim=4,
+        instance_branch_composite_attention_num_heads=2,
         instance_branch_composite_components={
             "descriptors": {
                 "architecture": "MLP",
@@ -1033,7 +1240,7 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(tmp_path
         use_early_stopping=False,
         save_model=False,
         results_path=str(tmp_path),
-        experiment_name="composite",
+        experiment_name=f"composite-{fusion}",
     )
     model = DeepMTP(config)
 
@@ -1050,12 +1257,19 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(tmp_path
     assert len(predictions) == len(test["y"]["data"])
     assert saved_components["tokens"]["architecture"] == "SEQUENCE"
     assert saved_components["tokens"]["optional"] is True
-    assert saved_fusion == "gated"
+    assert saved_fusion == fusion
     assert "tokens" in model.instance_branch_model.missing_representations
-    assert model.instance_branch_model.gate_network is not None
+    if fusion == "attention":
+        assert checkpoint["config"]["instance_branch_composite_attention_dim"] == 4
+        assert (
+            checkpoint["config"]["instance_branch_composite_attention_num_heads"] == 2
+        )
+        assert model.instance_branch_model.attention_layer is not None
+    else:
+        assert model.instance_branch_model.gate_network is not None
 
     restored_config = config.to_dict(include_defaults=True)
-    restored_config["experiment_name"] = "composite-restored"
+    restored_config["experiment_name"] = f"composite-{fusion}-restored"
     restored_model = DeepMTP(restored_config, checkpoint_dir=checkpoint_path)
     _, restored_predictions = restored_model.predict(
         test,
@@ -1067,4 +1281,4 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(tmp_path
         restored_predictions["predicted_values"],
     )
     assert isinstance(restored_model.instance_branch_model, CompositeEncoder)
-    assert restored_model.instance_branch_model.fusion == "gated"
+    assert restored_model.instance_branch_model.fusion == fusion

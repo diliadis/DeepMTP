@@ -118,6 +118,65 @@ have different output dimensions, and the branch output width remains the sum
 of those dimensions. The normal task loss trains the component encoders and
 gates jointly; no gate labels are required.
 
+Set the option to ``"attention"`` when component representations should
+interact before concatenation:
+
+.. code-block:: python
+
+   config = DeepMTPConfig(
+       # ...
+       instance_branch_architecture="COMPOSITE",
+       instance_branch_composite_fusion="attention",
+       instance_branch_composite_attention_dim=32,
+       instance_branch_composite_attention_num_heads=4,
+       instance_branch_composite_components={
+           "descriptors": descriptor_component,
+           "tokens": token_component,
+       },
+   )
+
+Each component has its own projection from its declared output width to
+``composite_attention_dim``. The projected components and an always-present
+learned fusion token form a short modality-token sequence. Multi-head
+self-attention contextualizes those tokens, after which component-specific
+projections return them to their original widths. A residual connection adds
+each contextualized update to its original encoding before concatenation.
+Consequently, attention supports unequal component widths and preserves the
+same branch output width as concatenation and gated fusion.
+
+``composite_attention_dim`` and ``composite_attention_num_heads`` must be
+positive integers, and the dimension must be divisible by the head count.
+These requirements are validated before model construction.
+
+Let ``M`` be the component count, ``D`` the sum of component output widths,
+and ``A`` the attention dimension. The current strategies compare as follows:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 16 37 25 22
+
+   * - Strategy
+     - Behavior
+     - Added parameters
+     - Fusion cost
+   * - ``concat``
+     - Joins component encodings directly.
+     - ``0``
+     - Linear in ``D``
+   * - ``gated``
+     - Learns one sample-specific sigmoid scale per component.
+     - ``M * (D + M + 1)``
+     - Linear in ``D`` and ``M``
+   * - ``attention``
+     - Learns contextual relationships between modality tokens.
+     - ``2*A*D + M*A + D + 4*A^2 + 7*A``
+     - Quadratic in ``M + 1`` and linear in ``A``
+
+The attention parameter expression includes biased input/output projections,
+PyTorch multi-head attention, layer normalization, and the learned fusion
+token. Encoder and downstream interaction-model parameters are excluded from
+all three rows.
+
 Optional components
 -------------------
 
@@ -243,9 +302,16 @@ component in one batch has ``values=None`` and an all-false mask.
 and fills missing rows with a zero-initialized learned representation. It then
 applies the configured component fusion in declared order. Gated fusion
 receives the explicit presence indicators, so it can suppress a missing
-component or preserve a useful missingness signal. The outer trainer still
-receives one instance input and one target input, so training, prediction,
-interaction fusion, and checkpoint code do not need missing-modality branches.
+component or preserve a useful missingness signal.
+
+Attention fusion excludes a missing component from the key/value evidence seen
+by every modality. Its learned missing representation remains a query and can
+therefore receive context from present modalities without influencing them.
+The fusion token is never masked, so a row where every optional component is
+missing still has a finite attention source and produces a stable learned
+fallback. The outer trainer still receives one instance input and one target
+input, so training, prediction, interaction fusion, and checkpoint code do not
+need missing-modality branches.
 
 Compatibility and current limits
 --------------------------------
@@ -262,13 +328,15 @@ saved and restored with the other branch parameters.
 
 ``instance_branch_composite_fusion`` and
 ``target_branch_composite_fusion`` default to ``"concat"``. Concatenating
-branches create no gate parameters, so existing composite state dictionaries
-remain unchanged. A ``"gated"`` checkpoint stores its gate weights and fusion
-setting in the normal checkpoint payload.
+branches create no gate or attention parameters, so existing composite state
+dictionaries remain unchanged. A ``"gated"`` checkpoint stores its gate weights
+and fusion setting in the normal checkpoint payload. An ``"attention"``
+checkpoint also stores its component projections, self-attention block, layer
+normalization, fusion token, attention dimension, and head count.
 
 Legacy feature scaling accepts only one dense representation and is therefore
 rejected for composite inputs. Scale dense components upstream; sparse and
 token components must remain unscaled.
 
-Attention fusion and modality dropout remain planned follow-up work. Nested
-composites and tabular, image, or custom components are not yet supported.
+Modality dropout remains planned follow-up work. Nested composites and tabular,
+image, or custom components are not yet supported.
