@@ -514,6 +514,8 @@ def generate_config(
             "instance_branch_sequence_embedding_dim": 64,
             "instance_branch_sequence_output_dim": 64,
             "instance_branch_sequence_conv_kernel_size": 3,
+            "instance_branch_sequence_transformer_num_heads": 4,
+            "instance_branch_sequence_transformer_feedforward_dim": 256,
             "instance_branch_sequence_num_layers": 1,
             "instance_branch_sequence_padding_idx": 0,
         }
@@ -590,6 +592,8 @@ def generate_config(
             "target_branch_sequence_embedding_dim": 64,
             "target_branch_sequence_output_dim": 64,
             "target_branch_sequence_conv_kernel_size": 3,
+            "target_branch_sequence_transformer_num_heads": 4,
+            "target_branch_sequence_transformer_feedforward_dim": 256,
             "target_branch_sequence_num_layers": 1,
             "target_branch_sequence_padding_idx": 0,
         }

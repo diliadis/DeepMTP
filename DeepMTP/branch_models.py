@@ -7,6 +7,7 @@ from DeepMTP.models.branches import (
     ModelConfigInput,
     SequenceConv1DEncoder,
     SequenceGRUEncoder,
+    SequenceTransformerEncoder,
     SparseMLP,
     TabularEncoder,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "ModelConfigInput",
     "SequenceConv1DEncoder",
     "SequenceGRUEncoder",
+    "SequenceTransformerEncoder",
     "SparseMLP",
     "TabularEncoder",
 ]

@@ -21,6 +21,7 @@ from DeepMTP.models.branches import (
     IDEmbedding,
     SequenceConv1DEncoder,
     SequenceGRUEncoder,
+    SequenceTransformerEncoder,
     SparseMLP,
     TabularEncoder,
 )
@@ -485,6 +486,18 @@ class ModelFactory:
                     kernel_size=getattr(
                         self.config,
                         f"{branch}_branch_sequence_conv_kernel_size",
+                    ),
+                )
+            if encoder_name == "transformer":
+                return SequenceTransformerEncoder(
+                    **encoder_kwargs,
+                    num_heads=getattr(
+                        self.config,
+                        f"{branch}_branch_sequence_transformer_num_heads",
+                    ),
+                    feedforward_dim=getattr(
+                        self.config,
+                        f"{branch}_branch_sequence_transformer_feedforward_dim",
                     ),
                 )
             raise RuntimeError(

@@ -29,6 +29,7 @@ def test_models_package_exposes_canonical_implementations():
         "ModelFactory": factory_module.ModelFactory,
         "SequenceConv1DEncoder": branches_module.SequenceConv1DEncoder,
         "SequenceGRUEncoder": branches_module.SequenceGRUEncoder,
+        "SequenceTransformerEncoder": branches_module.SequenceTransformerEncoder,
         "SparseMLP": branches_module.SparseMLP,
         "TwoBranchDotProductModel": factory_module.TwoBranchDotProductModel,
         "TwoBranchKroneckerModel": factory_module.TwoBranchKroneckerModel,
@@ -52,6 +53,7 @@ def test_top_level_model_api_uses_canonical_implementations():
         "ModelFactory",
         "SequenceConv1DEncoder",
         "SequenceGRUEncoder",
+        "SequenceTransformerEncoder",
         "SparseMLP",
         "TwoBranchDotProductModel",
         "TwoBranchKroneckerModel",
@@ -73,6 +75,7 @@ def test_top_level_model_api_uses_canonical_implementations():
                 "ModelConfigInput",
                 "SequenceConv1DEncoder",
                 "SequenceGRUEncoder",
+                "SequenceTransformerEncoder",
                 "SparseMLP",
                 "TabularEncoder",
             ),
@@ -152,6 +155,9 @@ def test_model_classes_report_their_canonical_module_names():
         "DeepMTP.models.branches"
     )
     assert branches_module.SequenceGRUEncoder.__module__ == ("DeepMTP.models.branches")
+    assert branches_module.SequenceTransformerEncoder.__module__ == (
+        "DeepMTP.models.branches"
+    )
     assert factory_module.ModelFactory.__module__ == "DeepMTP.models.factory"
     assert factory_module.TwoBranchDotProductModel.__module__ == (
         "DeepMTP.models.factory"
