@@ -28,6 +28,7 @@ BranchArchitecture: TypeAlias = Literal[
     "CONV",
     "CUSTOM",
     "EMBEDDING",
+    "SEQUENCE",
     "TABULAR",
 ]
 
@@ -191,6 +192,11 @@ class DeepMTPConfig:
     instance_inference_transforms: Any = None
     instance_branch_tabular_schema: dict[str, Any] | None = None
     instance_tabular_preprocessing_state: dict[str, Any] | None = None
+    instance_branch_sequence_encoder: str = "gru"
+    instance_branch_sequence_embedding_dim: int = 64
+    instance_branch_sequence_output_dim: int = 64
+    instance_branch_sequence_num_layers: int = 1
+    instance_branch_sequence_padding_idx: int = 0
 
     target_branch_architecture: BranchArchitecture | None = None
     use_target_features: bool = False
@@ -209,6 +215,11 @@ class DeepMTPConfig:
     target_inference_transforms: Any = None
     target_branch_tabular_schema: dict[str, Any] | None = None
     target_tabular_preprocessing_state: dict[str, Any] | None = None
+    target_branch_sequence_encoder: str = "gru"
+    target_branch_sequence_embedding_dim: int = 64
+    target_branch_sequence_output_dim: int = 64
+    target_branch_sequence_num_layers: int = 1
+    target_branch_sequence_padding_idx: int = 0
 
     comb_mlp_nodes_reducing_factor: int = 2
     comb_mlp_nodes_per_layer: list[int] | int = field(
@@ -364,6 +375,17 @@ class DeepMTPConfig:
                 BranchArchitecture,
                 self.target_branch_architecture.upper(),
             )
+        for branch in ("instance", "target"):
+            sequence_encoder = getattr(
+                self,
+                f"{branch}_branch_sequence_encoder",
+            )
+            if isinstance(sequence_encoder, str):
+                setattr(
+                    self,
+                    f"{branch}_branch_sequence_encoder",
+                    sequence_encoder.lower(),
+                )
 
         if self.problem_mode == "classification":
             self.metrics = [metric.lower() for metric in self.metrics]
@@ -549,15 +571,17 @@ class DeepMTPConfig:
             "CONV",
             "CUSTOM",
             "EMBEDDING",
+            "SEQUENCE",
             "TABULAR",
         }:
             raise ConfigValidationError(
-                f"{branch}_branch_architecture must be 'MLP', 'SPARSE', 'CONV', "
-                f"'CUSTOM', 'EMBEDDING', or 'TABULAR'; received "
+                f"{branch}_branch_architecture must be 'MLP', 'SPARSE', "
+                "'CONV', 'CUSTOM', 'EMBEDDING', 'SEQUENCE', or 'TABULAR'; "
+                "received "
                 f"{architecture!r}."
             )
 
-        if architecture in {"MLP", "SPARSE", "EMBEDDING"}:
+        if architecture in {"MLP", "SPARSE", "EMBEDDING", "SEQUENCE"}:
             input_dim = getattr(self, f"{branch}_branch_input_dim")
             self._require_positive_integer(f"{branch}_branch_input_dim", input_dim)
         if architecture in {"MLP", "SPARSE", "TABULAR"}:
@@ -568,6 +592,8 @@ class DeepMTPConfig:
                 self._require_positive_integer(f"{branch}_branch_layers", layers)
         if architecture == "TABULAR":
             self._validate_tabular_branch(branch)
+        elif architecture == "SEQUENCE":
+            self._validate_sequence_branch(branch)
         elif architecture == "CONV":
             conv_architecture = getattr(
                 self,
@@ -615,6 +641,35 @@ class DeepMTPConfig:
                 raise ConfigValidationError(
                     f"{branch}_branch_conv_architecture_dense_layers must be 1 or 2."
                 )
+
+    def _validate_sequence_branch(
+        self,
+        branch: Literal["instance", "target"],
+    ) -> None:
+        encoder = getattr(self, f"{branch}_branch_sequence_encoder")
+        if encoder != "gru":
+            raise ConfigValidationError(
+                f"{branch}_branch_sequence_encoder must currently be 'gru'; "
+                f"received {encoder!r}."
+            )
+        for suffix in (
+            "embedding_dim",
+            "output_dim",
+            "num_layers",
+        ):
+            field_name = f"{branch}_branch_sequence_{suffix}"
+            self._require_positive_integer(field_name, getattr(self, field_name))
+
+        padding_field = f"{branch}_branch_sequence_padding_idx"
+        padding_idx = getattr(self, padding_field)
+        self._require_non_negative_integer(padding_field, padding_idx)
+        vocabulary_size = getattr(self, f"{branch}_branch_input_dim")
+        if padding_idx >= vocabulary_size:
+            raise ConfigValidationError(
+                f"{padding_field} must be smaller than "
+                f"{branch}_branch_input_dim={vocabulary_size}; received "
+                f"{padding_idx}."
+            )
 
     def _validate_tabular_branch(
         self,
@@ -665,7 +720,7 @@ class DeepMTPConfig:
                     f"{branch}_branch_architecture='EMBEDDING' cannot represent "
                     f"novel {entity} in validation setting "
                     f"{self.validation_setting}. Use side features with an MLP, "
-                    "SPARSE, TABULAR, CONV, or CUSTOM branch."
+                    "SPARSE, SEQUENCE, TABULAR, CONV, or CUSTOM branch."
                 )
 
     def _validate_combined_architecture(self) -> None:

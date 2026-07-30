@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Literal, TypedDict, cast
 
 import numpy as np
 import pandas as pd
+import torch
 
 from DeepMTP.data.interactions import DatasetMapping, ValidationSetting
 from DeepMTP.data.progress import (
@@ -15,6 +17,10 @@ from DeepMTP.data.progress import (
     _emit_data_operation_started,
     _resolve_data_progress,
 )
+from DeepMTP.data.sequences import (
+    normalize_sequence_rows,
+    sequence_object_array,
+)
 from DeepMTP.data.sparse import (
     is_sparse_value,
     normalize_sparse_matrix,
@@ -23,12 +29,15 @@ from DeepMTP.data.sparse import (
 )
 
 __all__ = [
+    "FeatureKind",
     "FeatureInfo",
     "cross_input_consistency_check_instances",
     "cross_input_consistency_check_targets",
     "process_instance_features",
     "process_target_features",
 ]
+
+FeatureKind = Literal["sequence"] | None
 
 
 class FeatureInfo(TypedDict):
@@ -40,6 +49,7 @@ class FeatureInfo(TypedDict):
         "numpy",
         "dataframe",
         "images",
+        "sequence",
         "tabular",
         "scipy_sparse",
         "torch_sparse",
@@ -65,12 +75,73 @@ def _feature_vector_size(features: pd.Series, entity_name: str) -> int:
     return dimensions.pop()
 
 
+def _process_sequence_features(
+    features: object,
+    *,
+    entity_name: Literal["instance", "target"],
+) -> FeatureInfo:
+    if isinstance(features, pd.DataFrame):
+        feature_frame = features.copy(deep=True)
+        if feature_frame.empty:
+            raise ValueError(
+                f"{entity_name.title()} features must contain at least one row."
+            )
+        if set(feature_frame.columns) != {"id", "features"}:
+            raise ValueError(
+                f"{entity_name.title()} sequence features must contain exactly "
+                "'id' and 'features' columns."
+            )
+        if feature_frame["id"].isna().any():
+            raise ValueError(f"{entity_name.title()} feature IDs cannot be missing.")
+        if feature_frame["id"].duplicated().any():
+            raise ValueError(f"{entity_name.title()} feature IDs must be unique.")
+        feature_frame = feature_frame.set_index("id", drop=False)
+        rows = feature_frame["features"].tolist()
+    elif isinstance(features, torch.Tensor):
+        if features.ndim != 2 or 0 in features.shape:
+            raise ValueError(
+                f"{entity_name.title()} sequence tensors must have shape "
+                "[entities, sequence_length] with no empty dimension."
+            )
+        rows = list(features)
+        feature_frame = pd.DataFrame({"id": np.arange(len(rows))})
+    elif isinstance(features, np.ndarray):
+        if features.ndim not in {1, 2} or features.size == 0:
+            raise ValueError(
+                f"{entity_name.title()} sequence arrays must contain one "
+                "non-empty row per entity."
+            )
+        rows = list(features)
+        feature_frame = pd.DataFrame({"id": np.arange(len(rows))})
+    elif isinstance(features, Sequence) and not isinstance(features, (str, bytes)):
+        rows = list(features)
+        feature_frame = pd.DataFrame({"id": np.arange(len(rows))})
+    else:
+        raise TypeError(
+            f"{entity_name.title()} sequence features must be a sequence collection, "
+            "a two-dimensional integer tensor/array, or a DataFrame with 'id' and "
+            "'features' columns."
+        )
+
+    normalized_rows, inferred_vocabulary_size = normalize_sequence_rows(
+        rows,
+        entity_name=entity_name,
+    )
+    feature_frame["features"] = sequence_object_array(normalized_rows)
+    return {
+        "data": feature_frame,
+        "num_features": inferred_vocabulary_size,
+        "info": "sequence",
+    }
+
+
 def _process_entity_features(
     features: object,
     entity_name: Literal["instance", "target"],
     verbose: bool,
     print_mode: str,
     progress: DataProgressObserver | None,
+    feature_kind: FeatureKind,
 ) -> FeatureInfo | None:
     if features is None:
         return None
@@ -82,14 +153,25 @@ def _process_entity_features(
             message=f"{entity_name.title()} features file: processing features... ",
         )
 
-    if is_sparse_value(features):
+    if feature_kind not in {None, "sequence"}:
+        raise ValueError(
+            f"{entity_name}_feature_kind must be 'sequence' or None; "
+            f"received {feature_kind!r}."
+        )
+
+    if feature_kind == "sequence":
+        feature_info = _process_sequence_features(
+            features,
+            entity_name=entity_name,
+        )
+    elif is_sparse_value(features):
         sparse_rows, feature_dimension, backend = normalize_sparse_matrix(
             features,
             entity_name=entity_name,
         )
         feature_frame = pd.DataFrame({"id": np.arange(len(sparse_rows))})
         feature_frame["features"] = sparse_object_array(sparse_rows)
-        feature_info: FeatureInfo = {
+        feature_info = {
             "data": feature_frame,
             "num_features": feature_dimension,
             "info": cast(
@@ -208,6 +290,7 @@ def process_instance_features(
     print_mode: str = "basic",
     *,
     progress: DataProgressObserver | None = None,
+    feature_kind: FeatureKind = None,
 ) -> FeatureInfo | None:
     """Normalize instance features without mutating caller-owned inputs.
 
@@ -219,6 +302,7 @@ def process_instance_features(
         verbose,
         print_mode,
         progress,
+        feature_kind,
     )
 
 
@@ -228,6 +312,7 @@ def process_target_features(
     print_mode: str = "basic",
     *,
     progress: DataProgressObserver | None = None,
+    feature_kind: FeatureKind = None,
 ) -> FeatureInfo | None:
     """Normalize target features without mutating caller-owned inputs.
 
@@ -239,6 +324,7 @@ def process_target_features(
         verbose,
         print_mode,
         progress,
+        feature_kind,
     )
 
 
