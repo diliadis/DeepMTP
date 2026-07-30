@@ -91,6 +91,14 @@ def make_prediction_data():
     }
 
 
+class PassThroughEncoder(torch.nn.Module):
+    input_kind = "dense"
+    output_dim = 1
+
+    def forward(self, values):
+        return values
+
+
 def test_composite_feature_processing_aligns_named_component_rows():
     processed = make_processed_features()
 
@@ -517,17 +525,45 @@ def test_composite_attention_configuration_is_normalized_and_validated():
         )
 
 
+@pytest.mark.parametrize("modality_dropout", [-0.1, 1.0, True, "0.2"])
+def test_composite_modality_dropout_configuration_is_validated(
+    modality_dropout,
+):
+    with pytest.raises(
+        ConfigValidationError,
+        match="instance_branch_composite_modality_dropout",
+    ):
+        make_config(
+            instance_branch_composite_modality_dropout=modality_dropout,
+        )
+
+
+@pytest.mark.parametrize("modality_dropout", [-0.1, 1.0, True, "0.2"])
+def test_composite_encoder_validates_modality_dropout(modality_dropout):
+    with pytest.raises(ValueError, match="modality_dropout"):
+        CompositeEncoder(
+            {
+                "first": PassThroughEncoder(),
+                "second": PassThroughEncoder(),
+            },
+            modality_dropout=modality_dropout,
+        )
+
+
 def test_existing_composite_config_defaults_to_parameter_free_concatenation():
     existing_mapping = make_config().to_dict(include_defaults=True)
     existing_mapping.pop("instance_branch_composite_fusion")
     existing_mapping.pop("instance_branch_composite_attention_dim")
     existing_mapping.pop("instance_branch_composite_attention_num_heads")
+    existing_mapping.pop("instance_branch_composite_modality_dropout")
 
     restored_config = DeepMTPConfig.from_mapping(existing_mapping)
     branch = ModelFactory(restored_config).build().instance_branch
 
     assert restored_config.instance_branch_composite_fusion == "concat"
+    assert restored_config.instance_branch_composite_modality_dropout == 0.0
     assert isinstance(branch, CompositeEncoder)
+    assert branch.modality_dropout == 0.0
     assert branch.gate_network is None
     assert branch.attention_layer is None
     assert not any("gate_network" in name for name in branch.state_dict())
@@ -577,6 +613,7 @@ def test_generate_config_forwards_legacy_composite_attention_options():
             "instance_branch_composite_fusion": "ATTENTION",
             "instance_branch_composite_attention_dim": 6,
             "instance_branch_composite_attention_num_heads": 2,
+            "instance_branch_composite_modality_dropout": 0.25,
         },
         target_branch_architecture="MLP",
         target_branch_input_dim=2,
@@ -589,6 +626,7 @@ def test_generate_config_forwards_legacy_composite_attention_options():
     assert generated["instance_branch_composite_fusion"] == "attention"
     assert generated["instance_branch_composite_attention_dim"] == 6
     assert generated["instance_branch_composite_attention_num_heads"] == 2
+    assert generated["instance_branch_composite_modality_dropout"] == 0.25
 
 
 @pytest.mark.parametrize(
@@ -956,6 +994,114 @@ def test_gated_composite_fusion_uses_optional_component_presence():
     )
 
 
+@pytest.mark.parametrize("fusion", ["attention", "concat", "gated"])
+def test_modality_dropout_matches_a_missing_optional_component(
+    fusion,
+    monkeypatch,
+):
+    config = make_config(
+        instance_branch_composite_fusion=fusion,
+        instance_branch_composite_attention_dim=4,
+        instance_branch_composite_attention_num_heads=2,
+        instance_branch_composite_modality_dropout=0.5,
+        instance_branch_composite_components={
+            "descriptors": {
+                "architecture": "MLP",
+                "input_dim": 2,
+                "output_dim": 3,
+                "nodes_per_layer": [4],
+            },
+            "tokens": {
+                "architecture": "SEQUENCE",
+                "input_dim": 8,
+                "output_dim": 2,
+                "embedding_dim": 4,
+                "optional": True,
+            },
+        },
+    )
+    branch = ModelFactory(config).build().instance_branch
+    batch = next(
+        iter(DataLoaderFactory(config, "cpu").for_prediction(make_prediction_data()))
+    )
+    assert isinstance(branch, CompositeEncoder)
+    assert isinstance(batch.instance_features, CompositeInput)
+    assert isinstance(batch.instance_features["tokens"], MaskedComponentInput)
+    with torch.no_grad():
+        branch.missing_representations["tokens"].fill_(7.0)
+
+    missing_values = CompositeInput(
+        {
+            "descriptors": batch.instance_features["descriptors"],
+            "tokens": MaskedComponentInput(
+                values=None,
+                presence_mask=torch.zeros(2, dtype=torch.bool),
+            ),
+        }
+    )
+    branch.eval()
+    present_output = branch(batch.instance_features)
+    missing_output = branch(missing_values)
+
+    def zero_random_values(size, *, device=None):
+        return torch.zeros(size, device=device)
+
+    monkeypatch.setattr(torch, "rand", zero_random_values)
+    branch.train()
+    dropout_output = branch(batch.instance_features)
+
+    assert torch.allclose(dropout_output, missing_output)
+    assert not torch.allclose(present_output, missing_output)
+
+
+def test_modality_dropout_preserves_one_available_optional_component(
+    monkeypatch,
+):
+    encoder = CompositeEncoder(
+        {
+            "first": PassThroughEncoder(),
+            "second": PassThroughEncoder(),
+        },
+        optional_components={"first", "second"},
+        modality_dropout=0.5,
+    )
+    with torch.no_grad():
+        encoder.missing_representations["first"].fill_(-1.0)
+        encoder.missing_representations["second"].fill_(-2.0)
+    presence = torch.tensor([True, False])
+    values = CompositeInput(
+        {
+            "first": MaskedComponentInput(
+                values=torch.tensor([[10.0]]),
+                presence_mask=presence,
+            ),
+            "second": MaskedComponentInput(
+                values=torch.tensor([[20.0]]),
+                presence_mask=presence,
+            ),
+        }
+    )
+
+    def fixed_random_values(size, *, device=None):
+        return torch.tensor(
+            [[0.1, 0.2], [0.3, 0.4]],
+            device=device,
+        )
+
+    monkeypatch.setattr(torch, "rand", fixed_random_values)
+    output = encoder(values)
+
+    assert torch.equal(
+        output,
+        torch.tensor(
+            [
+                [-1.0, 20.0],
+                [-1.0, -2.0],
+            ]
+        ),
+    )
+
+
 def test_composite_encoder_learns_a_missing_sequence_representation():
     config = make_config(
         instance_branch_composite_components={
@@ -1111,6 +1257,7 @@ def test_composite_target_branch_uses_the_same_data_and_model_contract():
         target_branch_composite_fusion="attention",
         target_branch_composite_attention_dim=4,
         target_branch_composite_attention_num_heads=2,
+        target_branch_composite_modality_dropout=0.25,
         target_branch_composite_components={
             "descriptors": {
                 "architecture": "MLP",
@@ -1152,6 +1299,7 @@ def test_composite_target_branch_uses_the_same_data_and_model_contract():
 
     assert isinstance(bundle.target_branch, CompositeEncoder)
     assert bundle.target_branch.fusion == "attention"
+    assert bundle.target_branch.modality_dropout == 0.25
     assert bundle.target_branch.attention_layer is not None
     assert isinstance(batch.target_features, CompositeInput)
     assert isinstance(batch.target_features["tokens"], MaskedComponentInput)
@@ -1219,6 +1367,7 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(
         instance_branch_composite_fusion=fusion,
         instance_branch_composite_attention_dim=4,
         instance_branch_composite_attention_num_heads=2,
+        instance_branch_composite_modality_dropout=0.25,
         instance_branch_composite_components={
             "descriptors": {
                 "architecture": "MLP",
@@ -1252,12 +1401,16 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(
     checkpoint = ExperimentStore.load_checkpoint(checkpoint_path)
     saved_components = checkpoint["config"]["instance_branch_composite_components"]
     saved_fusion = checkpoint["config"]["instance_branch_composite_fusion"]
+    saved_modality_dropout = checkpoint["config"][
+        "instance_branch_composite_modality_dropout"
+    ]
     assert isinstance(model.instance_branch_model, CompositeEncoder)
     assert "val_loss" in validation_results
     assert len(predictions) == len(test["y"]["data"])
     assert saved_components["tokens"]["architecture"] == "SEQUENCE"
     assert saved_components["tokens"]["optional"] is True
     assert saved_fusion == fusion
+    assert saved_modality_dropout == 0.25
     assert "tokens" in model.instance_branch_model.missing_representations
     if fusion == "attention":
         assert checkpoint["config"]["instance_branch_composite_attention_dim"] == 4
@@ -1282,3 +1435,4 @@ def test_tiny_cpu_optional_composite_training_prediction_and_checkpoint(
     )
     assert isinstance(restored_model.instance_branch_model, CompositeEncoder)
     assert restored_model.instance_branch_model.fusion == fusion
+    assert restored_model.instance_branch_model.modality_dropout == 0.25

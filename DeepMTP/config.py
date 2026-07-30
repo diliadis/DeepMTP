@@ -198,6 +198,7 @@ class DeepMTPConfig:
     instance_branch_composite_fusion: CompositeFusion | str = "concat"
     instance_branch_composite_attention_dim: int = 64
     instance_branch_composite_attention_num_heads: int = 4
+    instance_branch_composite_modality_dropout: float = 0.0
     instance_branch_sequence_encoder: str = "gru"
     instance_branch_sequence_embedding_dim: int = 64
     instance_branch_sequence_output_dim: int = 64
@@ -228,6 +229,7 @@ class DeepMTPConfig:
     target_branch_composite_fusion: CompositeFusion | str = "concat"
     target_branch_composite_attention_dim: int = 64
     target_branch_composite_attention_num_heads: int = 4
+    target_branch_composite_modality_dropout: float = 0.0
     target_branch_sequence_encoder: str = "gru"
     target_branch_sequence_embedding_dim: int = 64
     target_branch_sequence_output_dim: int = 64
@@ -700,6 +702,11 @@ class DeepMTPConfig:
         self,
         branch: Literal["instance", "target"],
     ) -> None:
+        modality_dropout_field = f"{branch}_branch_composite_modality_dropout"
+        self._require_probability(
+            modality_dropout_field,
+            getattr(self, modality_dropout_field),
+        )
         fusion_field = f"{branch}_branch_composite_fusion"
         fusion = getattr(self, fusion_field)
         if fusion not in {"attention", "concat", "gated"}:

@@ -482,6 +482,10 @@ class ModelFactory:
                     self.config,
                     f"{branch}_branch_composite_attention_num_heads",
                 ),
+                modality_dropout=getattr(
+                    self.config,
+                    f"{branch}_branch_composite_modality_dropout",
+                ),
             )
         if architecture == "EMBEDDING":
             input_dim = getattr(self.config, f"{branch}_branch_input_dim")
