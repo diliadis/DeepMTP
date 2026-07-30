@@ -194,8 +194,10 @@ dictionary keys while exposing modality-specific `instance_input` and
 ```python
 from DeepMTP.data import (
     CompositeBranchBatch,
+    CompositeInput,
     DenseBranchBatch,
     IDBranchBatch,
+    MaskedComponentInput,
     MTPBatch,
     SparseBranchBatch,
     TabularBranchBatch,
@@ -656,8 +658,24 @@ config = DeepMTPConfig(
 ```
 
 Composite branches currently concatenate named dense, sparse, sequence, and
-known-ID encoder outputs. Every side-feature component is required; explicit
-missing-modality masks and modality dropout remain planned. See the
+known-ID encoder outputs. A component can be missing for selected entities by
+marking it optional in both data preparation and model configuration:
+
+```python
+instance_feature_kind={
+    "descriptors": None,
+    "tokens": {"kind": "sequence", "optional": True},
+}
+
+instance_branch_composite_components={
+    "descriptors": descriptor_component,
+    "tokens": {**token_component, "optional": True},
+}
+```
+
+Optional components carry explicit presence masks and use a checkpointed
+learned representation for missing rows. Existing components remain required
+by default. Gated or attention fusion and modality dropout remain planned. See the
 [composite input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/composite_inputs.html)
 for the complete component, validation-setting, batching, and checkpoint
 contract.
@@ -782,7 +800,7 @@ The table below summarizes the commonly configured public options.
 | **Instance branch architecture** ||
 | `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
 | `instance_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of instance IDs for an `EMBEDDING` branch |
-| `instance_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, and encoder options |
+| `instance_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, encoder options, and optional missing-modality handling |
 | `instance_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
 | `instance_branch_sequence_embedding_dim` | Trainable token embedding width for an instance `SEQUENCE` branch |
 | `instance_branch_sequence_output_dim` | Instance sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
@@ -797,7 +815,7 @@ The table below summarizes the commonly configured public options.
 |  **Target branch architecture**  ||
 | `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
 | `target_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of target IDs for an `EMBEDDING` branch |
-| `target_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, and encoder options |
+| `target_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, encoder options, and optional missing-modality handling |
 | `target_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
 | `target_branch_sequence_embedding_dim` | Trainable token embedding width for a target `SEQUENCE` branch |
 | `target_branch_sequence_output_dim` | Target sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |

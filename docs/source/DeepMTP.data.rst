@@ -22,7 +22,9 @@ mapping compatible with the historical tensor keys and also exposes typed
 dense, sparse, ID, image, sequence, tabular, composite, or custom branch
 inputs. Sparse inputs use PyTorch COO or CSR tensors; tabular and sequence
 inputs remain structured; composite inputs keep named component values
-together. Calling ``batch.to(device)`` moves every component together.
+together. Optional composite components carry their present sub-batch and a
+full-batch Boolean mask. Calling ``batch.to(device)`` moves every component
+together.
 
 .. automodule:: DeepMTP.data.batches
    :members:
