@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from DeepMTP.data.graphs import graph_object_array, normalize_graph_rows
 from DeepMTP.data.interactions import DatasetMapping, ValidationSetting
 from DeepMTP.data.progress import (
     DataProgressObserver,
@@ -39,7 +40,7 @@ __all__ = [
     "process_target_features",
 ]
 
-AtomicFeatureKind = Literal["sequence"] | None
+AtomicFeatureKind = Literal["graph", "sequence"] | None
 
 
 class CompositeFeatureSpec(TypedDict, total=False):
@@ -53,20 +54,27 @@ CompositeFeatureKind = AtomicFeatureKind | CompositeFeatureSpec
 FeatureKind = AtomicFeatureKind | Mapping[str, CompositeFeatureKind]
 
 
-class FeatureComponentInfo(TypedDict):
+class _FeatureComponentInfoRequired(TypedDict):
     """Representation metadata for one component of a composite feature."""
 
     num_features: int | None
     info: Literal[
         "numpy",
         "dataframe",
+        "graph",
         "sequence",
         "scipy_sparse",
         "torch_sparse",
     ]
 
 
-class FeatureInfo(TypedDict):
+class FeatureComponentInfo(_FeatureComponentInfoRequired, total=False):
+    """Representation metadata for one component of a composite feature."""
+
+    graph_edge_features: int | None
+
+
+class _FeatureInfoRequired(TypedDict):
     """Normalized entity features and their detected representation."""
 
     data: pd.DataFrame
@@ -75,6 +83,7 @@ class FeatureInfo(TypedDict):
         "numpy",
         "dataframe",
         "images",
+        "graph",
         "sequence",
         "tabular",
         "scipy_sparse",
@@ -82,6 +91,66 @@ class FeatureInfo(TypedDict):
         "composite",
     ]
     components: dict[str, FeatureComponentInfo] | None
+
+
+class FeatureInfo(_FeatureInfoRequired, total=False):
+    """Normalized entity features and their detected representation."""
+
+    graph_edge_features: int | None
+
+
+def _process_graph_features(
+    features: object,
+    *,
+    entity_name: Literal["instance", "target"],
+) -> FeatureInfo:
+    if isinstance(features, pd.DataFrame):
+        feature_frame = features.copy(deep=True)
+        if feature_frame.empty:
+            raise ValueError(
+                f"{entity_name.title()} features must contain at least one row."
+            )
+        if set(feature_frame.columns) != {"id", "features"}:
+            raise ValueError(
+                f"{entity_name.title()} graph features must contain exactly "
+                "'id' and 'features' columns."
+            )
+        if feature_frame["id"].isna().any():
+            raise ValueError(f"{entity_name.title()} feature IDs cannot be missing.")
+        if feature_frame["id"].duplicated().any():
+            raise ValueError(f"{entity_name.title()} feature IDs must be unique.")
+        feature_frame = feature_frame.set_index("id", drop=False)
+        rows = feature_frame["features"].tolist()
+    elif isinstance(features, np.ndarray):
+        if features.ndim != 1:
+            raise ValueError(
+                f"{entity_name.title()} graph arrays must be one-dimensional "
+                "object arrays."
+            )
+        rows = list(features)
+        feature_frame = pd.DataFrame({"id": np.arange(len(rows))})
+    elif isinstance(features, Sequence) and not isinstance(features, (str, bytes)):
+        rows = list(features)
+        feature_frame = pd.DataFrame({"id": np.arange(len(rows))})
+    else:
+        raise TypeError(
+            f"{entity_name.title()} graph features must be a sequence of "
+            "torch_geometric.data.Data objects or a DataFrame with 'id' and "
+            "'features' columns."
+        )
+
+    normalized_rows, node_dimension, edge_dimension = normalize_graph_rows(
+        rows,
+        entity_name=entity_name,
+    )
+    feature_frame["features"] = graph_object_array(normalized_rows)
+    return {
+        "data": feature_frame,
+        "num_features": node_dimension,
+        "graph_edge_features": edge_dimension,
+        "info": "graph",
+        "components": None,
+    }
 
 
 def _feature_vector_size(features: pd.Series, entity_name: str) -> int:
@@ -183,10 +252,10 @@ def _normalize_composite_feature_specs(
         else:
             feature_kind = raw_spec
             optional = False
-        if feature_kind is not None and feature_kind != "sequence":
+        if feature_kind not in {None, "graph", "sequence"}:
             raise ValueError(
-                f"Composite component {name!r} feature kind must be 'sequence' "
-                f"or None; received {feature_kind!r}."
+                f"Composite component {name!r} feature kind must be 'graph', "
+                f"'sequence', or None; received {feature_kind!r}."
             )
         if not isinstance(optional, bool):
             raise ValueError(
@@ -313,6 +382,7 @@ def _process_composite_features(
         if component["info"] not in {
             "numpy",
             "dataframe",
+            "graph",
             "sequence",
             "scipy_sparse",
             "torch_sparse",
@@ -320,13 +390,17 @@ def _process_composite_features(
             raise ValueError(
                 f"Composite component {name!r} uses unsupported representation "
                 f"{component['info']!r}. Composite branches currently support "
-                "dense, sparse, and token-sequence side features."
+                "dense, graph, sparse, and token-sequence side features."
             )
         processed_components[name] = component
         component_metadata[name] = {
             "num_features": component["num_features"],
             "info": component["info"],
         }
+        if component["info"] == "graph":
+            component_metadata[name]["graph_edge_features"] = component.get(
+                "graph_edge_features"
+            )
         component_source_ids[name] = (
             declared_ids
             if declared_ids is not None
@@ -421,11 +495,16 @@ def _process_entity_features(
             component_kinds=feature_kind,
             entity_name=entity_name,
         )
-    elif feature_kind not in {None, "sequence"}:
+    elif feature_kind not in {None, "graph", "sequence"}:
         raise ValueError(
-            f"{entity_name}_feature_kind must be 'sequence', a component "
+            f"{entity_name}_feature_kind must be 'graph', 'sequence', a component "
             "mapping, or None; "
             f"received {feature_kind!r}."
+        )
+    elif feature_kind == "graph":
+        feature_info = _process_graph_features(
+            features,
+            entity_name=entity_name,
         )
     elif feature_kind == "sequence":
         feature_info = _process_sequence_features(
@@ -544,7 +623,8 @@ def _process_entity_features(
         raise TypeError(
             f"Could not recognize the {entity_name} feature data. Expected a "
             "two-dimensional NumPy array, a SciPy sparse matrix, a PyTorch "
-            "COO/CSR sparse tensor, or a DataFrame with an 'id' column and "
+            "COO/CSR sparse tensor, a graph collection declared with "
+            "feature_kind='graph', or a DataFrame with an 'id' column and "
             "feature columns."
         )
 

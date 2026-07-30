@@ -9,6 +9,7 @@ from typing import Any, ClassVar, Literal, TypeAlias, cast
 import torch
 from torch.utils.data import default_collate
 
+from DeepMTP.data.graphs import collate_graph_rows
 from DeepMTP.data.sequences import collate_sequence_rows
 from DeepMTP.data.sparse import (
     collate_sparse_rows,
@@ -23,6 +24,8 @@ __all__ = [
     "CompositeInput",
     "CustomBranchBatch",
     "DenseBranchBatch",
+    "GraphBranchBatch",
+    "GraphInput",
     "IDBranchBatch",
     "ImageBranchBatch",
     "MaskedComponentInput",
@@ -40,6 +43,7 @@ BranchInputKind: TypeAlias = Literal[
     "dense",
     "id",
     "image",
+    "graph",
     "sequence",
     "sparse",
     "tabular",
@@ -149,6 +153,170 @@ class CustomBranchBatch(TensorBranchBatch):
     """A tensor batch passed unchanged to a user-supplied branch."""
 
     kind: ClassVar[BranchInputKind] = "custom"
+
+
+@dataclass(frozen=True)
+class GraphInput:
+    """One batch of homogeneous graphs represented by DeepMTP tensors."""
+
+    node_features: torch.Tensor
+    edge_index: torch.Tensor
+    edge_features: torch.Tensor | None
+    graph_index: torch.Tensor
+    num_graphs: int
+
+    def __post_init__(self) -> None:
+        tensors = {
+            "node_features": self.node_features,
+            "edge_index": self.edge_index,
+            "graph_index": self.graph_index,
+        }
+        for name, values in tensors.items():
+            if not isinstance(values, torch.Tensor):
+                raise TypeError(f"Graph {name} must be a torch.Tensor.")
+        if self.node_features.ndim != 2 or 0 in self.node_features.shape:
+            raise ValueError(
+                "Graph node_features must have shape [nodes, features] with "
+                "no empty dimension."
+            )
+        if not torch.is_floating_point(self.node_features):
+            raise TypeError("Graph node_features must use a floating-point dtype.")
+        if self.edge_index.ndim != 2 or self.edge_index.shape[0] != 2:
+            raise ValueError("Graph edge_index must have shape [2, edges].")
+        if self.edge_index.dtype not in {torch.int32, torch.int64}:
+            raise TypeError("Graph edge_index must use an integer tensor dtype.")
+        if self.graph_index.ndim != 1:
+            raise ValueError("Graph graph_index must have shape [nodes].")
+        if self.graph_index.dtype not in {torch.int32, torch.int64}:
+            raise TypeError("Graph graph_index must use an integer tensor dtype.")
+        if self.graph_index.shape[0] != self.node_features.shape[0]:
+            raise ValueError("Graph graph_index must contain one value per node.")
+        if (
+            isinstance(self.num_graphs, bool)
+            or not isinstance(self.num_graphs, int)
+            or self.num_graphs <= 0
+        ):
+            raise ValueError("Graph num_graphs must be a positive integer.")
+        devices = {values.device for values in tensors.values()}
+        if self.edge_features is not None:
+            if not isinstance(self.edge_features, torch.Tensor):
+                raise TypeError(
+                    "Graph edge_features must be a torch.Tensor when supplied."
+                )
+            devices.add(self.edge_features.device)
+        if len(devices) != 1:
+            raise ValueError("Every GraphInput tensor must use the same device.")
+        if not torch.isfinite(self.node_features).all():
+            raise ValueError("Graph node_features must contain only finite values.")
+        if self.edge_index.numel() and (
+            int(self.edge_index.min()) < 0
+            or int(self.edge_index.max()) >= self.node_features.shape[0]
+        ):
+            raise ValueError("Graph edge_index contains an out-of-range node index.")
+        if self.graph_index.numel() and (
+            int(self.graph_index.min()) < 0
+            or int(self.graph_index.max()) >= self.num_graphs
+        ):
+            raise ValueError("Graph graph_index contains an out-of-range graph ID.")
+        graph_counts = torch.bincount(
+            self.graph_index.long(),
+            minlength=self.num_graphs,
+        )
+        if (graph_counts == 0).any():
+            raise ValueError(
+                "Every graph in a GraphInput must contain at least one node."
+            )
+        if self.edge_index.numel():
+            source_graphs = self.graph_index[self.edge_index[0].long()]
+            target_graphs = self.graph_index[self.edge_index[1].long()]
+            if not torch.equal(source_graphs, target_graphs):
+                raise ValueError(
+                    "Graph edges cannot connect nodes from different graphs."
+                )
+
+        if self.edge_features is not None:
+            if (
+                self.edge_features.ndim != 2
+                or self.edge_features.shape[0] != self.edge_index.shape[1]
+                or self.edge_features.shape[1] == 0
+            ):
+                raise ValueError(
+                    "Graph edge_features must have shape [edges, features] "
+                    "with a positive feature width."
+                )
+            if not torch.is_floating_point(self.edge_features):
+                raise TypeError("Graph edge_features must use a floating-point dtype.")
+            if not torch.isfinite(self.edge_features).all():
+                raise ValueError("Graph edge_features must contain only finite values.")
+
+    @property
+    def batch_size(self) -> int:
+        """Number of graphs represented by this input."""
+        return self.num_graphs
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> GraphInput:
+        """Move every graph tensor to one device."""
+        return GraphInput(
+            node_features=self.node_features.to(device, non_blocking=non_blocking),
+            edge_index=self.edge_index.to(device, non_blocking=non_blocking),
+            edge_features=(
+                None
+                if self.edge_features is None
+                else self.edge_features.to(device, non_blocking=non_blocking)
+            ),
+            graph_index=self.graph_index.to(device, non_blocking=non_blocking),
+            num_graphs=self.num_graphs,
+        )
+
+    def pin_memory(self) -> GraphInput:
+        """Pin every graph tensor for asynchronous device transfer."""
+        return GraphInput(
+            node_features=self.node_features.pin_memory(),
+            edge_index=self.edge_index.pin_memory(),
+            edge_features=(
+                None if self.edge_features is None else self.edge_features.pin_memory()
+            ),
+            graph_index=self.graph_index.pin_memory(),
+            num_graphs=self.num_graphs,
+        )
+
+
+@dataclass(frozen=True)
+class GraphBranchBatch:
+    """A structured batch consumed by a graph neural network encoder."""
+
+    values: GraphInput
+    kind: ClassVar[BranchInputKind] = "graph"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.values, GraphInput):
+            raise TypeError("Graph branch values must be a GraphInput.")
+
+    @property
+    def batch_size(self) -> int:
+        """Number of graphs represented by this branch batch."""
+        return self.values.batch_size
+
+    def to(
+        self,
+        device: torch.device | str,
+        *,
+        non_blocking: bool = False,
+    ) -> GraphBranchBatch:
+        """Move the graph input to one device."""
+        return replace(
+            self,
+            values=self.values.to(device, non_blocking=non_blocking),
+        )
+
+    def pin_memory(self) -> GraphBranchBatch:
+        """Pin every tensor in the graph input."""
+        return replace(self, values=self.values.pin_memory())
 
 
 @dataclass(frozen=True)
@@ -350,10 +518,11 @@ def _component_batch_size(values: Any) -> int:
         if values.ndim == 0:
             raise ValueError("Component values must include a batch dimension.")
         return int(values.shape[0])
-    if isinstance(values, (SequenceInput, TabularInput)):
+    if isinstance(values, (GraphInput, SequenceInput, TabularInput)):
         return values.batch_size
     raise TypeError(
-        "Component values must be a torch.Tensor, SequenceInput, or TabularInput."
+        "Component values must be a torch.Tensor, GraphInput, SequenceInput, "
+        "or TabularInput."
     )
 
 
@@ -464,7 +633,8 @@ class CompositeInput(Mapping[str, Any]):
             except TypeError as exc:
                 raise TypeError(
                     f"Composite component {name!r} must be a torch.Tensor, "
-                    "SequenceInput, TabularInput, or MaskedComponentInput."
+                    "GraphInput, SequenceInput, TabularInput, or "
+                    "MaskedComponentInput."
                 ) from exc
             except ValueError as exc:
                 raise ValueError(
@@ -589,6 +759,7 @@ class CompositeBranchBatch:
 BranchBatch: TypeAlias = (
     CompositeBranchBatch
     | DenseBranchBatch
+    | GraphBranchBatch
     | IDBranchBatch
     | ImageBranchBatch
     | SequenceBranchBatch
@@ -659,14 +830,14 @@ class MTPBatch(Mapping[str, Any]):
     @property
     def instance_features(
         self,
-    ) -> torch.Tensor | CompositeInput | SequenceInput | TabularInput:
+    ) -> torch.Tensor | CompositeInput | GraphInput | SequenceInput | TabularInput:
         """Compatibility view of the instance branch input."""
         return self.instance_input.values
 
     @property
     def target_features(
         self,
-    ) -> torch.Tensor | CompositeInput | SequenceInput | TabularInput:
+    ) -> torch.Tensor | CompositeInput | GraphInput | SequenceInput | TabularInput:
         """Compatibility view of the target branch input."""
         return self.target_input.values
 
@@ -745,6 +916,7 @@ class MTPBatchCollator:
                 "dense",
                 "id",
                 "image",
+                "graph",
                 "sequence",
                 "sparse",
                 "tabular",
@@ -753,7 +925,7 @@ class MTPBatchCollator:
             }:
                 raise ValueError(
                     f"{name} must be 'dense', 'id', 'image', 'sequence', "
-                    "'sparse', 'tabular', 'custom', or 'composite'."
+                    "'graph', 'sparse', 'tabular', 'custom', or 'composite'."
                 )
         for name, padding_idx in {
             "instance_sequence_padding_idx": self.instance_sequence_padding_idx,
@@ -940,6 +1112,15 @@ def _collate_branch_values(
         return collated_components
     if kind == "sparse":
         return collate_sparse_rows(values)
+    if kind == "graph":
+        graph = collate_graph_rows(values)
+        return {
+            "node_features": graph.node_features,
+            "edge_index": graph.edge_index,
+            "edge_features": graph.edge_features,
+            "graph_index": graph.graph_index,
+            "num_graphs": graph.num_graphs,
+        }
     if kind == "sequence":
         token_ids, attention_mask, lengths = collate_sequence_rows(
             values,
@@ -1014,6 +1195,33 @@ def _build_branch_batch(
                 padding_idx=padding_idx,
             )
         )
+    if kind == "graph":
+        if not isinstance(values, Mapping):
+            raise TypeError(
+                "Collated graph features must contain node features, edge "
+                "indices, graph indices, and a graph count."
+            )
+        num_graphs = values.get("num_graphs")
+        if (
+            isinstance(num_graphs, bool)
+            or not isinstance(num_graphs, int)
+            or num_graphs <= 0
+        ):
+            raise TypeError("Collated graph num_graphs must be a positive integer.")
+        edge_features = values.get("edge_features")
+        if edge_features is not None and not isinstance(edge_features, torch.Tensor):
+            raise TypeError(
+                "Collated graph edge_features must be a torch.Tensor when supplied."
+            )
+        return GraphBranchBatch(
+            GraphInput(
+                node_features=_require_collated_tensor(values, "node_features"),
+                edge_index=_require_collated_tensor(values, "edge_index"),
+                edge_features=edge_features,
+                graph_index=_require_collated_tensor(values, "graph_index"),
+                num_graphs=num_graphs,
+            )
+        )
     if kind == "tabular":
         if not isinstance(values, Mapping):
             raise TypeError(
@@ -1085,6 +1293,7 @@ def _validate_composite_collator_settings(
             "dense",
             "id",
             "image",
+            "graph",
             "sequence",
             "sparse",
             "tabular",

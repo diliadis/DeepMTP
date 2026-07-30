@@ -24,6 +24,7 @@ def test_models_package_exposes_canonical_implementations():
         "ConvNet": branches_module.ConvNet,
         "FUSION_REGISTRY": factory_module.FUSION_REGISTRY,
         "FusionModelType": factory_module.FusionModelType,
+        "GraphEncoder": branches_module.GraphEncoder,
         "IDEmbedding": branches_module.IDEmbedding,
         "MLP": branches_module.MLP,
         "ModelBundle": factory_module.ModelBundle,
@@ -50,6 +51,7 @@ def test_models_package_exposes_canonical_implementations():
 def test_top_level_model_api_uses_canonical_implementations():
     for name in (
         "CompositeEncoder",
+        "GraphEncoder",
         "IDEmbedding",
         "ModelBundle",
         "ModelFactory",
@@ -73,6 +75,7 @@ def test_top_level_model_api_uses_canonical_implementations():
             (
                 "ConvNet",
                 "CompositeEncoder",
+                "GraphEncoder",
                 "IDEmbedding",
                 "MLP",
                 "ModelConfigInput",

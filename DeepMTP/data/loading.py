@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, Dataset, Sampler
 
 from DeepMTP.config import BranchArchitecture, DeepMTPConfig
 from DeepMTP.data.batches import BranchInputKind, MTPBatchCollator
+from DeepMTP.data.graphs import graph_object_array, normalize_graph_rows
 from DeepMTP.data.sequences import (
     normalize_sequence_rows,
     sequence_object_array,
@@ -45,6 +46,7 @@ _BRANCH_INPUT_KINDS: dict[BranchArchitecture, BranchInputKind] = {
     "COMPOSITE": "composite",
     "EMBEDDING": "id",
     "CONV": "image",
+    "GRAPH": "graph",
     "SEQUENCE": "sequence",
     "TABULAR": "tabular",
     "CUSTOM": "custom",
@@ -294,6 +296,7 @@ class BaseDataset(Dataset):
             transform=instance_transform,
             tabular_preprocessor=instance_tabular_preprocessor,
             sequence_padding_idx=self.instance_sequence_padding_idx,
+            graph_edge_dim=self.config.get("instance_branch_graph_edge_dim"),
             composite_components=self.instance_composite_components,
             entity_name="Instance",
         )
@@ -305,6 +308,7 @@ class BaseDataset(Dataset):
             transform=target_transform,
             tabular_preprocessor=target_tabular_preprocessor,
             sequence_padding_idx=self.target_sequence_padding_idx,
+            graph_edge_dim=self.config.get("target_branch_graph_edge_dim"),
             composite_components=self.target_composite_components,
             entity_name="Target",
         )
@@ -348,6 +352,7 @@ class BaseDataset(Dataset):
         transform: Callable[[Image.Image], Any] | None,
         tabular_preprocessor: TabularPreprocessor | None,
         sequence_padding_idx: int,
+        graph_edge_dim: object,
         composite_components: Mapping[str, Mapping[str, Any]] | None,
         entity_name: Literal["Instance", "Target"],
     ) -> pd.DataFrame | None:
@@ -355,6 +360,7 @@ class BaseDataset(Dataset):
             if architecture in {
                 "COMPOSITE",
                 "CONV",
+                "GRAPH",
                 "SEQUENCE",
                 "SPARSE",
                 "TABULAR",
@@ -367,7 +373,7 @@ class BaseDataset(Dataset):
             raise ValueError(
                 f"{entity_name} side features cannot be supplied to an "
                 "EMBEDDING branch. Use an MLP, SPARSE, SEQUENCE, TABULAR, CONV, "
-                "or CUSTOM branch when side features are required."
+                "GRAPH, or CUSTOM branch when side features are required."
             )
 
         frame = source.get("data")
@@ -421,6 +427,34 @@ class BaseDataset(Dataset):
                 )
             prepared_frame = prepared_frame.copy(deep=False)
             prepared_frame["features"] = sparse_object_array(sparse_rows)
+        elif architecture == "GRAPH":
+            graph_rows, node_width, edge_width = normalize_graph_rows(
+                prepared_frame["features"].tolist(),
+                entity_name=entity_name.lower(),
+            )
+            if (
+                isinstance(input_dim, bool)
+                or not isinstance(input_dim, int)
+                or input_dim <= 0
+            ):
+                raise ValueError(
+                    f"{entity_name.lower()}_branch_input_dim must be a positive "
+                    "integer node-feature width for a GRAPH branch."
+                )
+            if node_width != input_dim:
+                raise ValueError(
+                    f"{entity_name} graph node-feature width does not match "
+                    f"{entity_name.lower()}_branch_input_dim: expected {input_dim}, "
+                    f"received {node_width}."
+                )
+            if edge_width != graph_edge_dim:
+                raise ValueError(
+                    f"{entity_name} graph edge-feature width does not match "
+                    f"{entity_name.lower()}_branch_graph_edge_dim: expected "
+                    f"{graph_edge_dim}, received {edge_width}."
+                )
+            prepared_frame = prepared_frame.copy(deep=False)
+            prepared_frame["features"] = graph_object_array(graph_rows)
         elif architecture == "SEQUENCE":
             if (
                 isinstance(input_dim, bool)
@@ -439,7 +473,7 @@ class BaseDataset(Dataset):
             )
             prepared_frame = prepared_frame.copy(deep=False)
             prepared_frame["features"] = sequence_object_array(sequence_rows)
-        elif architecture not in {"CONV", "TABULAR"} and any(
+        elif architecture not in {"CONV", "GRAPH", "TABULAR"} and any(
             is_sparse_value(value) for value in prepared_frame["features"]
         ):
             raise TypeError(
@@ -535,6 +569,25 @@ class BaseDataset(Dataset):
                         f"width must be {input_dim}; received {width}."
                     )
                 present_normalized_values = normalized_rows
+            elif architecture == "GRAPH":
+                graph_rows, node_width, edge_width = normalize_graph_rows(
+                    present_values,
+                    entity_name=(f"{entity_name.lower()} composite component {name!r}"),
+                )
+                if node_width != input_dim:
+                    raise ValueError(
+                        f"{entity_name} composite component {name!r} graph "
+                        f"node-feature width must be {input_dim}; received "
+                        f"{node_width}."
+                    )
+                expected_edge_width = component["edge_dim"]
+                if edge_width != expected_edge_width:
+                    raise ValueError(
+                        f"{entity_name} composite component {name!r} graph "
+                        f"edge-feature width must be {expected_edge_width}; "
+                        f"received {edge_width}."
+                    )
+                present_normalized_values = graph_rows
             elif architecture == "SEQUENCE":
                 normalized_rows, _ = normalize_sequence_rows(
                     present_values,

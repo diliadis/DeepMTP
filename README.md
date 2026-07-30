@@ -21,8 +21,9 @@ common two-branch architecture.
 
 ### Current capabilities
 
-- Dense MLP, sparse, mixed tabular, token-sequence GRU, Conv1D, and
-  Transformer, image, learned ID-embedding, and custom branch encoders.
+- Dense MLP, sparse, mixed tabular, token-sequence GRU, Conv1D, Transformer,
+  molecular graph GIN/GINE, image, learned ID-embedding, and custom branch
+  encoders.
 - Dot-product, concatenation-plus-MLP, and Kronecker-product fusion.
 - Validation settings A–D for known and novel instances and targets.
 - Binary and multiclass classification plus regression metrics, early
@@ -64,6 +65,7 @@ Optional integrations are installed explicitly:
 ```bash
 pip install "DeepMTP[datasets]"   # downloadable benchmark datasets
 pip install "DeepMTP[hpo]"        # ConfigSpace-based optimization
+pip install "DeepMTP[graph]"      # PyTorch Geometric graph encoders
 pip install "DeepMTP[image]"      # Torchvision image models/transforms
 pip install "DeepMTP[sparse]"     # SciPy sparse matrices
 pip install "DeepMTP[streamlit]"  # Streamlit progress adapters
@@ -606,6 +608,55 @@ must be unpadded and cannot contain the configured padding ID. See the
 for the structured batch contract, configuration options, and compatibility
 details.
 
+## Molecular graph inputs
+
+Install `pip install "DeepMTP[graph]"` and pass precomputed homogeneous
+`torch_geometric.data.Data` objects. Each object needs floating node features
+`x`, COO `edge_index`, and optionally floating `edge_attr`. Declare the graph
+representation during preparation:
+
+```python
+train, validation, test, data_info = data_process(
+    {
+        "train": {
+            "y": interaction_scores,
+            "X_instance": molecular_graphs,
+            "X_target": None,
+        }
+    },
+    validation_setting="B",
+    instance_feature_kind="graph",
+)
+```
+
+Configure `GRAPH` with the inferred node and edge widths:
+
+```python
+config = DeepMTPConfig(
+    validation_setting="B",
+    problem_mode="classification",
+    instance_branch_architecture="GRAPH",
+    instance_branch_input_dim=data_info["instance_branch_input_dim"],
+    instance_branch_graph_edge_dim=data_info["instance_branch_graph_edge_dim"],
+    instance_branch_graph_hidden_dim=64,
+    instance_branch_graph_output_dim=32,
+    instance_branch_graph_num_layers=3,
+    instance_branch_graph_pooling="mean",
+    instance_branch_graph_use_edge_features=True,
+    target_branch_architecture="MLP",
+    target_branch_input_dim=number_of_targets,
+    target_branch_nodes_per_layer=[32],
+    embedding_size=32,
+)
+```
+
+DeepMTP uses GINE when edge features are enabled and GIN when
+`graph_use_edge_features=False`. PyG performs batching; the rest of DeepMTP
+sees a typed `GraphInput` containing node features, offset edge indices,
+optional edge features, graph membership, and the graph count. `GRAPH` is also
+available as a required or optional `COMPOSITE` component. See the
+[graph input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/graph_inputs.html).
+
 ## Composite inputs
 
 Use a `COMPOSITE` branch when one entity has multiple representations, such as
@@ -660,8 +711,8 @@ config = DeepMTPConfig(
 )
 ```
 
-Composite branches combine named dense, sparse, sequence, and known-ID encoder
-outputs. The default `concat` fusion preserves the historical behavior.
+Composite branches combine named dense, graph, sparse, sequence, and known-ID
+encoder outputs. The default `concat` fusion preserves the historical behavior.
 Opt-in `gated` fusion learns one sample-specific sigmoid gate per component,
 scales each component output, and then concatenates the gated representations.
 Opt-in `attention` fusion projects differently sized components to a shared
@@ -821,8 +872,14 @@ The table below summarizes the commonly configured public options.
 | `dropout_rate_instance_branch` | The amount of dropout used in the layers of the instance branch  |
 | `dropout_rate_target_branch` | The amount of dropout used in the layers of the target branch |
 | **Instance branch architecture** ||
-| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
-| `instance_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of instance IDs for an `EMBEDDING` branch |
+| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `GRAPH` for PyG graphs, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `instance_branch_input_dim` | The dense/sparse width, graph node-feature width, sequence vocabulary size, or number of instance IDs for an `EMBEDDING` branch |
+| `instance_branch_graph_edge_dim` | Graph edge-feature width, or `None` when edge features are disabled |
+| `instance_branch_graph_hidden_dim` | Hidden message-passing width for an instance `GRAPH` branch |
+| `instance_branch_graph_output_dim` | Instance graph output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
+| `instance_branch_graph_num_layers` | Number of GIN/GINE message-passing layers |
+| `instance_branch_graph_pooling` | Graph-level pooling: `mean`, `sum`, or `max` |
+| `instance_branch_graph_use_edge_features` | Use GINE with `edge_attr`; set `False` to use GIN without edge features |
 | `instance_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, encoder options, and optional missing-modality handling |
 | `instance_branch_composite_fusion` | Composite component fusion: `concat` (default), sample-specific `gated` concatenation, or modality self-`attention` |
 | `instance_branch_composite_attention_dim` | Shared positive projection width for composite attention fusion |
@@ -840,8 +897,14 @@ The table below summarizes the commonly configured public options.
 | `instance_train_transforms` | PyTorch-compatible transforms for instance training samples, typically images |
 | `instance_inference_transforms` | PyTorch-compatible transforms for instance validation and test samples |
 |  **Target branch architecture**  ||
-| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
-| `target_branch_input_dim` | The dense/sparse feature width, sequence vocabulary size, or number of target IDs for an `EMBEDDING` branch |
+| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `GRAPH` for PyG graphs, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
+| `target_branch_input_dim` | The dense/sparse width, graph node-feature width, sequence vocabulary size, or number of target IDs for an `EMBEDDING` branch |
+| `target_branch_graph_edge_dim` | Graph edge-feature width, or `None` when edge features are disabled |
+| `target_branch_graph_hidden_dim` | Hidden message-passing width for a target `GRAPH` branch |
+| `target_branch_graph_output_dim` | Target graph output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
+| `target_branch_graph_num_layers` | Number of GIN/GINE message-passing layers |
+| `target_branch_graph_pooling` | Graph-level pooling: `mean`, `sum`, or `max` |
+| `target_branch_graph_use_edge_features` | Use GINE with `edge_attr`; set `False` to use GIN without edge features |
 | `target_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, encoder options, and optional missing-modality handling |
 | `target_branch_composite_fusion` | Composite component fusion: `concat` (default), sample-specific `gated` concatenation, or modality self-`attention` |
 | `target_branch_composite_attention_dim` | Shared positive projection width for composite attention fusion |

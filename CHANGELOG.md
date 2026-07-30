@@ -21,8 +21,8 @@ checkpoints.
   TensorBoard, and Weights & Biases.
 - Per-branch dropout settings, top-k grouped metrics, isolated random seeds,
   and deterministic class undersampling.
-- Optional runtime extras for datasets, HPO, image models, SciPy sparse inputs,
-  Streamlit, and experiment tracking.
+- Optional runtime extras for datasets, HPO, graph and image models, SciPy
+  sparse inputs, Streamlit, and experiment tracking.
 - Standardized PEP 735 dependency groups for testing, quality checks,
   documentation, and the complete development toolchain.
 - Offline, executable quick-start, training, dataset, and HPO examples.
@@ -71,6 +71,10 @@ checkpoints.
 - Training-only composite modality dropout for optional inputs, with learned
   missing-representation substitution, fusion-aware presence masks, and a
   per-sample available-modality fallback.
+- Homogeneous molecular graph inputs through the optional PyTorch Geometric
+  integration, including validated/cloned ``Data`` objects, typed graph
+  batches, GIN/GINE encoders, configurable pooling, composite components,
+  inferred node/edge widths, and checkpoint restoration.
 - Typed registries for fusion models, task losses, and output heads, with
   deterministic discovery and focused resolution errors.
 - Validated loss selection with mean squared error, mean absolute error, and

@@ -101,12 +101,13 @@ In the code snippet above the function generate_config is shown without any spec
      -
    * - **instance_branch_architecture**
      - The instance encoder: **MLP** for dense vectors, **SPARSE** for sparse
-       vectors, **SEQUENCE** for token IDs, **TABULAR** for explicit numeric
-       and categorical columns, **CONV** for images, **EMBEDDING** for
-       zero-based IDs, or **CUSTOM** for a user-supplied branch
+       vectors, **GRAPH** for PyTorch Geometric graphs, **SEQUENCE** for token
+       IDs, **TABULAR** for explicit numeric and categorical columns, **CONV**
+       for images, **EMBEDDING** for zero-based IDs, or **CUSTOM** for a
+       user-supplied branch
    * - **instance_branch_input_dim**
-     - The input feature dimension, sequence vocabulary size, or number of
-       instance IDs for an **EMBEDDING** branch
+     - The input feature dimension, graph node-feature width, sequence
+       vocabulary size, or number of instance IDs for an **EMBEDDING** branch
    * - **instance_branch_tabular_schema**
      - Column names, category vocabularies, normalization, missing-value
        policies, and optional feature gating for an instance **TABULAR** branch
@@ -120,12 +121,13 @@ In the code snippet above the function generate_config is shown without any spec
      -
    * - **target_branch_architecture**
      - The target encoder: **MLP** for dense vectors, **SPARSE** for sparse
-       vectors, **SEQUENCE** for token IDs, **TABULAR** for explicit numeric
-       and categorical columns, **CONV** for images, **EMBEDDING** for
-       zero-based IDs, or **CUSTOM** for a user-supplied branch
+       vectors, **GRAPH** for PyTorch Geometric graphs, **SEQUENCE** for token
+       IDs, **TABULAR** for explicit numeric and categorical columns, **CONV**
+       for images, **EMBEDDING** for zero-based IDs, or **CUSTOM** for a
+       user-supplied branch
    * - **target_branch_input_dim**
-     - The input feature dimension, sequence vocabulary size, or number of
-       target IDs for an **EMBEDDING** branch
+     - The input feature dimension, graph node-feature width, sequence
+       vocabulary size, or number of target IDs for an **EMBEDDING** branch
    * - **target_branch_tabular_schema**
      - Column names, category vocabularies, normalization, missing-value
        policies, and optional feature gating for a target **TABULAR** branch
@@ -179,9 +181,18 @@ padded IDs, attention masks, and original lengths. See :doc:`sequence_inputs`
 for vocabulary, padding, packed-GRU, masked-Conv1D, Transformer, and
 checkpoint configuration.
 
+A **GRAPH** branch consumes one homogeneous
+``torch_geometric.data.Data`` object per entity. ``data_process`` must receive
+``instance_feature_kind="graph"`` or ``target_feature_kind="graph"`` for that
+axis. Node width is inferred as ``branch_input_dim`` and edge width as
+``branch_graph_edge_dim``. The encoder uses GINE with edge features or GIN
+when ``branch_graph_use_edge_features=False``, followed by configurable mean,
+sum, or max pooling. See :doc:`graph_inputs` for the data, batch,
+configuration, composite, and checkpoint contracts.
+
 A **COMPOSITE** branch consumes a named mapping of side-feature collections
-and fuses the outputs of independently configured dense, sparse, sequence, or
-known-ID component encoders. ``data_process`` receives a matching feature-kind
+and fuses the outputs of independently configured dense, graph, sparse,
+sequence, or known-ID component encoders. ``data_process`` receives a matching feature-kind
 mapping, and each component declares its own input and output dimensions.
 ``instance_branch_composite_fusion`` and
 ``target_branch_composite_fusion`` select default ``"concat"``, opt-in

@@ -24,6 +24,7 @@ from DeepMTP.hpo.progress import (
 from DeepMTP.main import DeepMTP
 from DeepMTP.models import (
     CompositeEncoder,
+    GraphEncoder,
     IDEmbedding,
     ModelBundle,
     ModelFactory,
@@ -91,6 +92,7 @@ __all__ = [
     "ConsoleHPOProgressObserver",
     "NullHPOProgressObserver",
     "IDEmbedding",
+    "GraphEncoder",
     "ModelBundle",
     "ModelFactory",
     "SequenceConv1DEncoder",

@@ -29,6 +29,7 @@ BranchArchitecture: TypeAlias = Literal[
     "COMPOSITE",
     "CUSTOM",
     "EMBEDDING",
+    "GRAPH",
     "SEQUENCE",
     "TABULAR",
 ]
@@ -207,6 +208,12 @@ class DeepMTPConfig:
     instance_branch_sequence_transformer_feedforward_dim: int = 256
     instance_branch_sequence_num_layers: int = 1
     instance_branch_sequence_padding_idx: int = 0
+    instance_branch_graph_edge_dim: int | None = None
+    instance_branch_graph_hidden_dim: int = 64
+    instance_branch_graph_output_dim: int = 64
+    instance_branch_graph_num_layers: int = 2
+    instance_branch_graph_pooling: str = "mean"
+    instance_branch_graph_use_edge_features: bool = True
 
     target_branch_architecture: BranchArchitecture | None = None
     use_target_features: bool = False
@@ -238,6 +245,12 @@ class DeepMTPConfig:
     target_branch_sequence_transformer_feedforward_dim: int = 256
     target_branch_sequence_num_layers: int = 1
     target_branch_sequence_padding_idx: int = 0
+    target_branch_graph_edge_dim: int | None = None
+    target_branch_graph_hidden_dim: int = 64
+    target_branch_graph_output_dim: int = 64
+    target_branch_graph_num_layers: int = 2
+    target_branch_graph_pooling: str = "mean"
+    target_branch_graph_use_edge_features: bool = True
 
     comb_mlp_nodes_reducing_factor: int = 2
     comb_mlp_nodes_per_layer: list[int] | int = field(
@@ -413,6 +426,16 @@ class DeepMTPConfig:
                     self,
                     f"{branch}_branch_sequence_encoder",
                     sequence_encoder.lower(),
+                )
+            graph_pooling = getattr(
+                self,
+                f"{branch}_branch_graph_pooling",
+            )
+            if isinstance(graph_pooling, str):
+                setattr(
+                    self,
+                    f"{branch}_branch_graph_pooling",
+                    graph_pooling.lower(),
                 )
             composite_components = getattr(
                 self,
@@ -625,17 +648,18 @@ class DeepMTPConfig:
             "COMPOSITE",
             "CUSTOM",
             "EMBEDDING",
+            "GRAPH",
             "SEQUENCE",
             "TABULAR",
         }:
             raise ConfigValidationError(
                 f"{branch}_branch_architecture must be 'MLP', 'SPARSE', "
-                "'CONV', 'COMPOSITE', 'CUSTOM', 'EMBEDDING', 'SEQUENCE', "
-                "or 'TABULAR'; received "
+                "'CONV', 'COMPOSITE', 'CUSTOM', 'EMBEDDING', 'GRAPH', "
+                "'SEQUENCE', or 'TABULAR'; received "
                 f"{architecture!r}."
             )
 
-        if architecture in {"MLP", "SPARSE", "EMBEDDING", "SEQUENCE"}:
+        if architecture in {"MLP", "SPARSE", "EMBEDDING", "GRAPH", "SEQUENCE"}:
             input_dim = getattr(self, f"{branch}_branch_input_dim")
             self._require_positive_integer(f"{branch}_branch_input_dim", input_dim)
         if architecture in {"MLP", "SPARSE", "TABULAR"}:
@@ -650,6 +674,8 @@ class DeepMTPConfig:
             self._validate_tabular_branch(branch)
         elif architecture == "SEQUENCE":
             self._validate_sequence_branch(branch)
+        elif architecture == "GRAPH":
+            self._validate_graph_branch(branch)
         elif architecture == "CONV":
             conv_architecture = getattr(
                 self,
@@ -746,10 +772,16 @@ class DeepMTPConfig:
                 )
             component = dict(raw_component)
             architecture = component.get("architecture")
-            if architecture not in {"MLP", "SPARSE", "EMBEDDING", "SEQUENCE"}:
+            if architecture not in {
+                "MLP",
+                "SPARSE",
+                "EMBEDDING",
+                "GRAPH",
+                "SEQUENCE",
+            }:
                 raise ConfigValidationError(
                     f"{field_name}[{name!r}]['architecture'] must be 'MLP', "
-                    "'SPARSE', 'EMBEDDING', or 'SEQUENCE'; received "
+                    "'SPARSE', 'EMBEDDING', 'GRAPH', or 'SEQUENCE'; received "
                     f"{architecture!r}."
                 )
             input_field = f"{field_name}[{name!r}]['input_dim']"
@@ -808,6 +840,12 @@ class DeepMTPConfig:
                     name,
                     component,
                 )
+            elif architecture == "GRAPH":
+                self._validate_composite_graph_component(
+                    field_name,
+                    name,
+                    component,
+                )
             normalized_components[name] = component
 
         if all(
@@ -818,6 +856,46 @@ class DeepMTPConfig:
                 f"{field_name} must include at least one side-feature component."
             )
         setattr(self, field_name, normalized_components)
+
+    def _validate_composite_graph_component(
+        self,
+        field_name: str,
+        component_name: str,
+        component: dict[str, Any],
+    ) -> None:
+        prefix = f"{field_name}[{component_name!r}]"
+        component.setdefault("edge_dim", None)
+        component.setdefault("hidden_dim", component["output_dim"])
+        component.setdefault("num_layers", 2)
+        component.setdefault("pooling", "mean")
+        component.setdefault("use_edge_features", True)
+        if isinstance(component["pooling"], str):
+            component["pooling"] = component["pooling"].lower()
+        self._require_positive_integer(
+            f"{prefix}['hidden_dim']",
+            component["hidden_dim"],
+        )
+        self._require_positive_integer(
+            f"{prefix}['num_layers']",
+            component["num_layers"],
+        )
+        if component["pooling"] not in {"max", "mean", "sum"}:
+            raise ConfigValidationError(
+                f"{prefix}['pooling'] must be 'max', 'mean', or 'sum'; "
+                f"received {component['pooling']!r}."
+            )
+        if not isinstance(component["use_edge_features"], bool):
+            raise ConfigValidationError(
+                f"{prefix}['use_edge_features'] must be a boolean."
+            )
+        edge_dim = component["edge_dim"]
+        if edge_dim is not None:
+            self._require_positive_integer(f"{prefix}['edge_dim']", edge_dim)
+        if component["use_edge_features"] and edge_dim is None:
+            raise ConfigValidationError(
+                f"{prefix}['edge_dim'] must be a positive integer when "
+                "use_edge_features=True."
+            )
 
     def _validate_composite_sequence_component(
         self,
@@ -935,6 +1013,34 @@ class DeepMTPConfig:
                     f"must be divisible by {heads_field}={num_heads}."
                 )
 
+    def _validate_graph_branch(
+        self,
+        branch: Literal["instance", "target"],
+    ) -> None:
+        for suffix in ("hidden_dim", "output_dim", "num_layers"):
+            field_name = f"{branch}_branch_graph_{suffix}"
+            self._require_positive_integer(field_name, getattr(self, field_name))
+        pooling_field = f"{branch}_branch_graph_pooling"
+        pooling = getattr(self, pooling_field)
+        if pooling not in {"max", "mean", "sum"}:
+            raise ConfigValidationError(
+                f"{pooling_field} must be 'max', 'mean', or 'sum'; "
+                f"received {pooling!r}."
+            )
+        use_edges_field = f"{branch}_branch_graph_use_edge_features"
+        use_edge_features = getattr(self, use_edges_field)
+        if not isinstance(use_edge_features, bool):
+            raise ConfigValidationError(f"{use_edges_field} must be a boolean.")
+        edge_dim_field = f"{branch}_branch_graph_edge_dim"
+        edge_dim = getattr(self, edge_dim_field)
+        if edge_dim is not None:
+            self._require_positive_integer(edge_dim_field, edge_dim)
+        if use_edge_features and edge_dim is None:
+            raise ConfigValidationError(
+                f"{edge_dim_field} must be a positive integer when "
+                f"{use_edges_field}=True."
+            )
+
     def _validate_tabular_branch(
         self,
         branch: Literal["instance", "target"],
@@ -999,7 +1105,7 @@ class DeepMTPConfig:
                     f"{embedding_description} cannot represent novel {entity} "
                     "in validation setting "
                     f"{self.validation_setting}. Use side features with an MLP, "
-                    "SPARSE, SEQUENCE, TABULAR, CONV, or CUSTOM branch."
+                    "SPARSE, GRAPH, SEQUENCE, TABULAR, CONV, or CUSTOM branch."
                 )
 
     def _validate_combined_architecture(self) -> None:
