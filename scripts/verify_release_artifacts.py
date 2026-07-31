@@ -21,6 +21,7 @@ _EXPECTED_EXTRAS = frozenset(
     {
         "all",
         "datasets",
+        "foundation",
         "graph",
         "hpo",
         "image",
@@ -42,6 +43,7 @@ _REQUIRED_WHEEL_FILES = frozenset(
         PurePosixPath("DeepMTP/config.py"),
         PurePosixPath("DeepMTP/data/__init__.py"),
         PurePosixPath("DeepMTP/hpo/__init__.py"),
+        PurePosixPath("DeepMTP/integrations/huggingface.py"),
         PurePosixPath("DeepMTP/integrations/streamlit/__init__.py"),
         PurePosixPath("DeepMTP/main.py"),
         PurePosixPath("DeepMTP/models/__init__.py"),
@@ -60,6 +62,7 @@ _REQUIRED_SDIST_FILES = frozenset(
         PurePosixPath("README.md"),
         PurePosixPath("RELEASING.md"),
         PurePosixPath("SECURITY.md"),
+        PurePosixPath("docs/source/tutorial/foundation_models.rst"),
         PurePosixPath("docs/source/index.rst"),
         PurePosixPath("pyproject.toml"),
         PurePosixPath("scripts/smoke_test_installation.py"),

@@ -22,8 +22,8 @@ common two-branch architecture.
 ### Current capabilities
 
 - Dense MLP, sparse, mixed tabular, token-sequence GRU, Conv1D, Transformer,
-  molecular graph GIN/GINE, image, learned ID-embedding, and custom branch
-  encoders.
+  optional Hugging Face foundation models, molecular graph GIN/GINE, image,
+  learned ID-embedding, and custom branch encoders.
 - Dot-product, concatenation-plus-MLP, and Kronecker-product fusion.
 - Validation settings A–D for known and novel instances and targets.
 - Binary and multiclass classification plus regression metrics, early
@@ -64,6 +64,7 @@ Optional integrations are installed explicitly:
 
 ```bash
 pip install "DeepMTP[datasets]"   # downloadable benchmark datasets
+pip install "DeepMTP[foundation]" # Hugging Face foundation-model encoders
 pip install "DeepMTP[hpo]"        # ConfigSpace-based optimization
 pip install "DeepMTP[graph]"      # PyTorch Geometric graph encoders
 pip install "DeepMTP[image]"      # Torchvision image models/transforms
@@ -608,6 +609,55 @@ must be unpadded and cannot contain the configured padding ID. See the
 for the structured batch contract, configuration options, and compatibility
 details.
 
+## Foundation-model inputs
+
+Install `pip install "DeepMTP[foundation]"` to encode raw protein sequences,
+SMILES strings, or text with a compatible Hugging Face `AutoModel`. Tokenize
+without global padding, then reuse the existing `SEQUENCE` data path:
+
+```python
+from DeepMTP import (
+    DeepMTPConfig,
+    FoundationModelSpec,
+    tokenize_foundation_sequences,
+)
+
+protein_model = FoundationModelSpec(
+    model_name="facebook/esm2_t6_8M_UR50D",
+    revision="<pinned-model-commit>",
+    pooling="masked_mean",
+    train_mode="frozen",
+    max_length=1024,
+)
+protein_tokens = tokenize_foundation_sequences(protein_sequences, protein_model)
+
+config = DeepMTPConfig(
+    validation_setting="B",
+    problem_mode="classification",
+    general_architecture_version="dot_product",
+    instance_branch_architecture="SEQUENCE",
+    instance_branch_input_dim=protein_tokens.vocabulary_size,
+    instance_branch_sequence_encoder="foundation",
+    instance_branch_sequence_padding_idx=protein_tokens.padding_idx,
+    instance_branch_foundation_model=protein_tokens.spec.to_dict(),
+    target_branch_architecture="MLP",
+    target_branch_input_dim=number_of_targets,
+    target_branch_nodes_per_layer=[64],
+    embedding_size=256,
+)
+```
+
+The default `frozen` mode keeps the backbone deterministic and trains only its
+output projection plus downstream DeepMTP parameters; `full` enables end-to-end
+fine-tuning. Available pooling strategies are padding-aware `masked_mean`,
+which also excludes tokenizer-declared boundary tokens by default, first-token
+`cls`, and the model's native `pooler`. Transformer imports are lazy, remote
+model code is disabled by default, and resolved Hub revisions are retained in
+configuration, checkpoints, and W&B metadata. See the
+[foundation-model guide](https://deepmtp.readthedocs.io/en/latest/tutorial/foundation_models.html)
+for ESM-2, ChemBERTa, BERT/BiomedBERT compatibility, maximum-length policy,
+composite branches, offline use, and restoration details.
+
 ## Molecular graph inputs
 
 Install `pip install "DeepMTP[graph]"` and pass precomputed homogeneous
@@ -906,7 +956,8 @@ The table below summarizes the commonly configured public options.
 | `instance_branch_composite_attention_dim` | Shared positive projection width for composite attention fusion |
 | `instance_branch_composite_attention_num_heads` | Positive attention-head count; `instance_branch_composite_attention_dim` must be divisible by this value |
 | `instance_branch_composite_modality_dropout` | Training-only probability of replacing a present optional component with its learned missing representation; defaults to `0.0` |
-| `instance_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
+| `instance_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, `transformer`, or optional Hugging Face `foundation` |
+| `instance_branch_foundation_model` | Foundation model/tokenizer name and revision, pooling, frozen/full training mode, trust, offline, length, and resolved-revision settings |
 | `instance_branch_sequence_embedding_dim` | Trainable token embedding width for an instance `SEQUENCE` branch |
 | `instance_branch_sequence_output_dim` | Instance sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
 | `instance_branch_sequence_conv_kernel_size` | Positive odd Conv1D kernel width; used only when the sequence encoder is `conv1d` |
@@ -931,7 +982,8 @@ The table below summarizes the commonly configured public options.
 | `target_branch_composite_attention_dim` | Shared positive projection width for composite attention fusion |
 | `target_branch_composite_attention_num_heads` | Positive attention-head count; `target_branch_composite_attention_dim` must be divisible by this value |
 | `target_branch_composite_modality_dropout` | Training-only probability of replacing a present optional component with its learned missing representation; defaults to `0.0` |
-| `target_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, or `transformer` |
+| `target_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, `transformer`, or optional Hugging Face `foundation` |
+| `target_branch_foundation_model` | Foundation model/tokenizer name and revision, pooling, frozen/full training mode, trust, offline, length, and resolved-revision settings |
 | `target_branch_sequence_embedding_dim` | Trainable token embedding width for a target `SEQUENCE` branch |
 | `target_branch_sequence_output_dim` | Target sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
 | `target_branch_sequence_conv_kernel_size` | Positive odd Conv1D kernel width; used only when the sequence encoder is `conv1d` |

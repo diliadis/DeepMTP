@@ -639,6 +639,7 @@ def generate_config(
             "instance_branch_sequence_transformer_feedforward_dim": 256,
             "instance_branch_sequence_num_layers": 1,
             "instance_branch_sequence_padding_idx": 0,
+            "instance_branch_foundation_model": None,
         }
         base_config.update(sequence_defaults)
         for parameter_name in sequence_defaults:
@@ -754,6 +755,7 @@ def generate_config(
             "target_branch_sequence_transformer_feedforward_dim": 256,
             "target_branch_sequence_num_layers": 1,
             "target_branch_sequence_padding_idx": 0,
+            "target_branch_foundation_model": None,
         }
         base_config.update(sequence_defaults)
         for parameter_name in sequence_defaults:

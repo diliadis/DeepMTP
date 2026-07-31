@@ -175,7 +175,7 @@ def test_sequence_config_normalizes_and_validates_encoder_options():
     invalid_values = [
         (
             {"instance_branch_sequence_encoder": "attention"},
-            "must be 'conv1d', 'gru', or 'transformer'",
+            "must be 'conv1d', 'foundation', 'gru', or 'transformer'",
         ),
         ({"instance_branch_sequence_embedding_dim": 0}, "embedding_dim"),
         ({"instance_branch_sequence_output_dim": 0}, "output_dim"),

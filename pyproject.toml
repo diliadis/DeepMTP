@@ -42,6 +42,7 @@ datasets = [
 ]
 hpo = ["ConfigSpace>=1.2"]
 graph = ["torch-geometric>=2.5,<3"]
+foundation = ["transformers>=4.48,<6"]
 image = ["torchvision>=0.15"]
 sparse = ["scipy>=1.9"]
 streamlit = ["streamlit>=1.53.0"]
@@ -58,6 +59,7 @@ all = [
     "tensorboard>=2.12",
     "torch-geometric>=2.5,<3",
     "torchvision>=0.15",
+    "transformers>=4.48,<6",
     "wandb>=0.27,<1",
 ]
 
@@ -69,6 +71,7 @@ test = [
     "requests>=2.28",
     "scipy>=1.9",
     "torch-geometric>=2.5,<3",
+    "transformers>=4.48,<6",
     "tomli>=2; python_version < '3.11'",
     "wandb>=0.27,<1",
 ]
@@ -162,6 +165,7 @@ files = [
     "DeepMTP/evaluation_progress.py",
     "DeepMTP/feature_data.py",
     "DeepMTP/integrations/__init__.py",
+    "DeepMTP/integrations/huggingface.py",
     "DeepMTP/integrations/streamlit/__init__.py",
     "DeepMTP/integrations/streamlit/hpo.py",
     "DeepMTP/integrations/streamlit/progress.py",

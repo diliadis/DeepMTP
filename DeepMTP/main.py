@@ -173,6 +173,7 @@ class DeepMTP:
         self.instance_branch_model = model_bundle.instance_branch
         self.target_branch_model = model_bundle.target_branch
         self.deepMTP_model = model_bundle.model
+        self.config = self.configuration.to_dict(include_defaults=True)
 
         self.deepMTP_model.to(self.device)
 

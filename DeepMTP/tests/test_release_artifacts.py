@@ -16,6 +16,7 @@ from scripts.verify_release_artifacts import (
 _EXTRAS = (
     "all",
     "datasets",
+    "foundation",
     "graph",
     "hpo",
     "image",
@@ -33,6 +34,7 @@ _REQUIRED_WHEEL_FILES = {
     "DeepMTP/config.py",
     "DeepMTP/data/__init__.py",
     "DeepMTP/hpo/__init__.py",
+    "DeepMTP/integrations/huggingface.py",
     "DeepMTP/integrations/streamlit/__init__.py",
     "DeepMTP/main.py",
     "DeepMTP/models/__init__.py",
@@ -49,6 +51,7 @@ _REQUIRED_SDIST_FILES = {
     "README.md",
     "RELEASING.md",
     "SECURITY.md",
+    "docs/source/tutorial/foundation_models.rst",
     "docs/source/index.rst",
     "pyproject.toml",
     "scripts/smoke_test_installation.py",

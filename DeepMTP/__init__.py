@@ -27,6 +27,12 @@ from DeepMTP.hpo.progress import (
     HPOProgressObserver,
     NullHPOProgressObserver,
 )
+from DeepMTP.integrations.huggingface import (
+    FoundationModelSpec,
+    HuggingFaceSequenceEncoder,
+    TokenizedFoundationSequences,
+    tokenize_foundation_sequences,
+)
 from DeepMTP.main import DeepMTP
 from DeepMTP.models import (
     CompositeEncoder,
@@ -105,6 +111,8 @@ __all__ = [
     "NullHPOProgressObserver",
     "IDEmbedding",
     "GraphEncoder",
+    "FoundationModelSpec",
+    "HuggingFaceSequenceEncoder",
     "ModelBundle",
     "ModelFactory",
     "SequenceConv1DEncoder",
@@ -128,6 +136,7 @@ __all__ = [
     "RunHistory",
     "RunSummaries",
     "TensorBoardReporter",
+    "TokenizedFoundationSequences",
     "EpochOutput",
     "TrainingEngine",
     "TabularEncoder",
@@ -137,5 +146,6 @@ __all__ = [
     "__version__",
     "data_process",
     "download_wandb_checkpoint",
+    "tokenize_foundation_sequences",
     "transform_dense_features",
 ]

@@ -2,7 +2,23 @@ DeepMTP.integrations package
 ============================
 
 Optional integrations remain separate from the core training and HPO
-implementations. Importing ``DeepMTP.integrations`` does not load Streamlit.
+implementations. Importing ``DeepMTP.integrations`` does not load Transformers
+or Streamlit.
+
+Hugging Face foundation models
+------------------------------
+
+Install the optional dependency before tokenizing or loading a foundation
+model:
+
+.. code-block:: console
+
+   python -m pip install "DeepMTP[foundation]"
+
+.. automodule:: DeepMTP.integrations.huggingface
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Streamlit
 ---------
