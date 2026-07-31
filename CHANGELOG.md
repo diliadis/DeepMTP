@@ -6,6 +6,13 @@ by their effect on users and maintainers.
 
 ## [Unreleased]
 
+### Changed
+
+- Redesigned the README as a concise project landing page with a clearer
+  installation-to-first-model path, capability and input-selection tables,
+  focused advanced workflows, verified executable examples, and direct links
+  to detailed guides and version-controlled Colab demos.
+
 ### Added
 
 - Compact, opt-in `foundation_adapter` checkpoints for LoRA foundation-model

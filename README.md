@@ -1,350 +1,99 @@
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/logo_transparent_cropped.png" alt="logo" height="300"/></p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/logo_transparent_cropped.png" alt="DeepMTP" height="240">
+</p>
 
-<h3 align="center">
-<p> A Deep Learning Framework for Multi-target Prediction </h3>
+<h1 align="center">DeepMTP</h1>
 
-[![CI](https://github.com/diliadis/DeepMTP/actions/workflows/ci.yml/badge.svg)](https://github.com/diliadis/DeepMTP/actions/workflows/ci.yml)
-[![PyPi Version](https://img.shields.io/pypi/v/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/)
-[![PyPi Version Alt](https://badge.fury.io/py/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) [![PyPi Python Versions](https://img.shields.io/pypi/pyversions/DeepMTP.svg)](https://pypi.python.org/pypi/DeepMTP/) 
-[![GitHub license](https://img.shields.io/github/license/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/blob/main/LICENSE.md)
+<p align="center">
+  A PyTorch framework for multi-target prediction with flexible two-branch neural networks.
+</p>
 
-[![GitHub issues](https://img.shields.io/github/issues/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/issues)
-[![GitHub stars](https://img.shields.io/github/stars/diliadis/DeepMTP)](https://github.com/diliadis/DeepMTP/stargazers)
+<p align="center">
+  <a href="https://github.com/diliadis/DeepMTP/actions/workflows/ci.yml"><img src="https://github.com/diliadis/DeepMTP/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/DeepMTP/"><img src="https://img.shields.io/pypi/v/DeepMTP.svg" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/DeepMTP/"><img src="https://img.shields.io/pypi/pyversions/DeepMTP.svg" alt="Supported Python versions"></a>
+  <a href="https://deepmtp.readthedocs.io/en/latest/"><img src="https://readthedocs.org/projects/deepmtp/badge/?version=latest" alt="Documentation"></a>
+  <a href="https://github.com/diliadis/DeepMTP/blob/main/LICENSE.md"><img src="https://img.shields.io/github/license/diliadis/DeepMTP" alt="MIT license"></a>
+</p>
 
-
----
-
-DeepMTP is a PyTorch framework for multi-target prediction (MTP). It supports
-multi-label classification (MLC), multivariate regression (MTR), multi-task
-learning (MTL), dyadic prediction (DP), and matrix completion (MC) through a
-common two-branch architecture.
-
-### Current capabilities
-
-- Dense MLP, sparse, mixed tabular, token-sequence GRU, Conv1D, Transformer,
-  optional Hugging Face foundation models, molecular graph GIN/GINE, image,
-  learned ID-embedding, and custom branch encoders.
-- Dot-product, concatenation-plus-MLP, and Kronecker-product fusion.
-- Validation settings A–D for known and novel instances and targets.
-- Binary and multiclass classification plus regression metrics, early
-  stopping, checkpoints, gradient accumulation and clipping, deterministic
-  undersampling, and top-k grouped metrics where applicable.
-- Random-search and Hyperband optimization, plus optional TensorBoard,
-  Weights & Biases, and Streamlit integrations.
-- Typed configuration, model-ready batches, and early validation of invalid
-  data or model combinations.
-
-DeepMTP 0.0.23 contains substantial changes beyond the previous `0.0.22`
-release. Read the [changelog](CHANGELOG.md) and
-[migration guide](MIGRATION.rst) before upgrading an existing experiment. The
-[neural-network roadmap](NEURAL_NETWORK_EXTENSIONS.md) tracks implemented and
-planned model extensions.
-
-[Documentation](https://deepmtp.readthedocs.io/en/latest/)
-
-# Installing DeepMTP
-
-DeepMTP is tested on Python 3.10 through 3.14. CPU execution is fully supported;
-a CUDA-capable GPU is optional and is most useful for larger experiments.
-
-## Installing from PyPI
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-python -m pip install --upgrade pip
-pip install DeepMTP
-```
-
-For GPU acceleration, install the appropriate PyTorch build for your platform
-using the [official PyTorch selector](https://pytorch.org/get-started/locally/)
-before installing DeepMTP.
-
-Optional integrations are installed explicitly:
-
-```bash
-pip install "DeepMTP[datasets]"   # downloadable benchmark datasets
-pip install "DeepMTP[foundation]" # Hugging Face foundation-model encoders
-pip install "DeepMTP[hpo]"        # ConfigSpace-based optimization
-pip install "DeepMTP[graph]"      # PyTorch Geometric graph encoders
-pip install "DeepMTP[image]"      # Torchvision image models/transforms
-pip install "DeepMTP[sparse]"     # SciPy sparse matrices
-pip install "DeepMTP[streamlit]"  # Streamlit progress adapters
-pip install "DeepMTP[tracking]"   # TensorBoard and Weights & Biases
-pip install "DeepMTP[all]"        # every runtime integration
-```
-
-Streamlit-specific trainers, optimizers, and progress observers live under the
-optional integration namespace:
-
-```python
-from DeepMTP.integrations.streamlit import (
-    DeepMTP as StreamlitDeepMTP,
-    HyperBand,
-    RandomSearch,
-)
-```
-
-## Installing from Source
-
-```bash
-git clone https://github.com/diliadis/DeepMTP.git
-cd DeepMTP
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-python -m pip install --upgrade pip
-python -m pip install -e . --group dev
-python -m pytest
-```
-
-Conda users can instead bootstrap the environment and install the same
-development group:
-
-```bash
-conda env create -f environment.yml
-conda activate deepmtp
-python -m pip install --group dev
-```
-
-Development commands and contribution expectations are documented in
-[CONTRIBUTING.md](CONTRIBUTING.md).
-
-Upgrading an experiment from the published `0.0.22` release requires a few
-behavioral checks. See the [0.0.22 to 0.0.23 migration guide](MIGRATION.rst) for
-before-and-after examples covering configuration, data preparation,
-predictions, checkpoints, and optional integrations.
-
-Project maintenance is documented in the [changelog](CHANGELOG.md),
-[contributor guide](CONTRIBUTING.md), [security policy](SECURITY.md), and
-[release checklist](RELEASING.md).
-
-# Background
-
-## What is MTP?
-Multi-target prediction (MTP) serves as an umbrella term for machine learning tasks that concern the simultaneous prediction of multiple target variables. These include:
-* Multi-label Classification
-* Multivariate Regression
-* Multitask Learning
-* Hierarchical Multi-label Classification
-* Dyadic Prediction
-* Zero-shot Learning
-* Matrix Completion
-* (Hybrid) Matrix Completion
-* Cold-start Collaborative Filtering
-
-Despite the significant similarities, all these domains have evolved separately into distinct research areas over the last two decades. To better understand these similarities and differences it is important to get accustomed to the terminology and main concepts used in this field.
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/basic_MTP_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/basic_MTP.png#gh-light-mode-only" alt="logo" height="450"/></p>
-
-
-A multi-target prediction problem is characterized by instances $x \in X$ and targets $t \in T$ with the following properties:
-
-1. A training dataset $\mathcal{D}$ contains triplets $(x_{i},t_{j},y_{ij})$, where $x_i \in \mathcal{X}$ represents an instance, $t_j \in \mathcal{T}$ represents a target, and $y_{ij} \in \mathcal{Y}$ is the score that quantifies the relationship between an instance and a target, with $i\in\{1,\ldots,n\}$ and $j\in\{1,\ldots,m\}$. The scores can be arranged in an $n \times m$ matrix $\mathbf{Y}$ that is usually incomplete.
-
-2. The score set $\mathcal{Y}$ consists of nominal, ordinal or real values.
-
-3. During testing, the objective is to predict the score for any unobserved instance-target couple $(\mathbf{x},\mathbf{t}) \in \mathcal{X} \times \mathcal{T}$.
-
-The practical questions for a multi-target prediction problem are:
-
-1. What are the instances, targets, and observed interaction scores?
-2. Is the score categorical, ordinal, or continuous?
-3. Which side features are available for instances and targets?
-4. Does evaluation include instances or targets that were absent from training?
+<p align="center">
+  <a href="https://deepmtp.readthedocs.io/en/latest/">Documentation</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#choose-your-input-representations">Input guide</a> ·
+  <a href="#demos">Colab demos</a> ·
+  <a href="https://github.com/diliadis/DeepMTP/issues">Issues</a>
+</p>
 
 ---
 
-## How does DeepMTP work?
+DeepMTP learns from observations of the form `(instance, target, score)`. It
+encodes instances and targets independently, fuses their representations, and
+predicts the score for each pair. The same interface covers:
 
-DeepMTP maps an instance and a target through separate branch encoders,
-producing representation vectors $p_x$ and $q_t$. A branch can consume dense
-features, sparse high-dimensional vectors, explicitly declared numeric and
-categorical columns, token sequences, images, zero-based entity IDs, named
-combinations of those representations, or a custom input type. The two
-representations are
-combined with a dot product, concatenation followed by an MLP, or a Kronecker
-product to predict the score of the instance-target pair. Dot-product models
-require equal branch widths; the other fusion strategies can combine different
-widths.
+- multi-label classification (MLC);
+- multivariate regression (MTR);
+- multi-task learning (MTL);
+- dyadic prediction (DP); and
+- matrix completion (MC).
 
-For classification, the combined model produces logits. Binary classification
-uses `BCEWithLogitsLoss` and sigmoid probabilities. Multiclass classification
-uses `CrossEntropyLoss`, one logit per mutually exclusive class, and softmax
-probabilities. Regression defaults to mean squared error and can instead
-optimize mean absolute error or Huber loss through the validated `loss`
-configuration field.
+Use dense, sparse, tabular, sequence, foundation-model, molecular-graph,
+image, learned-ID, composite, or custom inputs on either branch. DeepMTP also
+provides reproducible checkpoints, PEFT/LoRA support, experiment tracking, and
+random-search or Hyperband optimization without making those integrations
+mandatory.
 
-Reusable branch models, combined architectures, and the model factory are
-available from the focused model namespace:
+> Upgrading from DeepMTP 0.0.22? Read the
+> [0.0.22 → 0.0.23 migration guide](MIGRATION.rst) and
+> [changelog](CHANGELOG.md) before reusing an existing experiment.
 
-```python
-from DeepMTP.models import (
-    CompositeEncoder,
-    ConvNet,
-    IDEmbedding,
-    MLP,
-    ModelFactory,
-    SparseMLP,
-    TabularEncoder,
-)
+## Why DeepMTP?
+
+| Need | DeepMTP support |
+|---|---|
+| One model across MTP problem families | A shared two-branch abstraction for MLC, MTR, MTL, DP, and MC |
+| Generalize to new entities | Explicit validation settings for known or novel instances and targets |
+| Mix representation types | Built-in dense, sparse, tabular, sequence, foundation, graph, image, ID, and composite encoders |
+| Choose how branches interact | Dot product, concatenation plus MLP, or Kronecker-product fusion |
+| Train larger models safely | Gradient accumulation, gradient clipping, early stopping, and deterministic data handling |
+| Track and restore experiments | Versioned checkpoints, preprocessing provenance, TensorBoard, and Weights & Biases Artifacts |
+| Adapt pretrained encoders efficiently | Hugging Face Transformers with frozen, full fine-tuning, or PEFT/LoRA modes |
+
+## Installation
+
+DeepMTP supports Python 3.10–3.14. CPU execution is fully supported; a CUDA
+GPU is optional.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install DeepMTP
 ```
 
-Model-ready dataloaders return a typed `MTPBatch`. It retains the historical
-dictionary keys while exposing modality-specific `instance_input` and
-`target_input` objects:
+Install only the integrations you use:
 
-```python
-from DeepMTP.data import (
-    CompositeBranchBatch,
-    CompositeInput,
-    DenseBranchBatch,
-    IDBranchBatch,
-    MaskedComponentInput,
-    MTPBatch,
-    SparseBranchBatch,
-    TabularBranchBatch,
-)
-from DeepMTP.models import BranchEncoder
-```
+| Extra | Install command | Adds |
+|---|---|---|
+| Datasets | `pip install "DeepMTP[datasets]"` | Downloadable benchmark datasets |
+| Foundation | `pip install "DeepMTP[foundation]"` | Transformers and PEFT/LoRA |
+| Graph | `pip install "DeepMTP[graph]"` | PyTorch Geometric encoders |
+| HPO | `pip install "DeepMTP[hpo]"` | ConfigSpace, random search, and Hyperband |
+| Image | `pip install "DeepMTP[image]"` | Torchvision models and transforms |
+| Sparse | `pip install "DeepMTP[sparse]"` | SciPy sparse matrices |
+| Streamlit | `pip install "DeepMTP[streamlit]"` | Streamlit progress adapters |
+| Tracking | `pip install "DeepMTP[tracking]"` | TensorBoard and Weights & Biases |
+| Everything | `pip install "DeepMTP[all]"` | All runtime integrations |
 
-Every built-in encoder declares its input kind and output dimension. Fusion
-models validate that each encoder returns a floating tensor shaped
-`[batch_size, output_dim]`, producing focused errors before an invalid
-representation reaches the fusion operation.
+For GPU acceleration, install the appropriate PyTorch build using the
+[official PyTorch selector](https://pytorch.org/get-started/locally/) first.
+See the [installation guide](https://deepmtp.readthedocs.io/en/latest/tutorial/installation.html)
+for source and Conda workflows.
 
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="logo" height="250"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product.png#gh-light-mode-only" alt="logo" height="250"/></p>
+## Quick start
 
-The following examples adapt the same compound-protein interaction task to
-different feature-availability scenarios.
-
-### Handling missing features for instances and/or targets
-<details>
-<summary>Click to expand!</summary>
-
-1. In the first example, compound features are available but protein features
-are not. The first branch uses compound side information and the second branch
-uses one-hot encoded protein IDs. The real-valued interaction scores make this
-a regression task.
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_instance_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_instance_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
-
-2. The second example reverses the available side information: the first branch
-uses one-hot encoded compound IDs and the second branch uses the provided
-protein features.
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
-
-3. In the third example, side information is provided for both proteins and compounds, so both branches can utilize it.
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_both_instance_and_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_both_instance_and_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
-
-4. In the fourth and final example of this subsection, we are missing features for both instances and targets. This is not a realistic setting in our compound-protein interaction prediction task but has many applications in the area of recommender systems. In terms of the neural network, one-hot encoded vectors are used for both branches.
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_no_instance_or_target_features_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_no_instance_or_target_features.png#gh-light-mode-only" alt="logo" height="450"/></p>
-
-Existing MLP configurations retain this one-hot behavior. An `EMBEDDING`
-branch provides an opt-in, memory-efficient alternative that learns a dense
-vector directly from each zero-based entity ID:
-
-<!-- id-embedding-example:start -->
-```python
-from DeepMTP import DeepMTPConfig
-
-number_of_instances = 24
-number_of_targets = 4
-
-config = DeepMTPConfig(
-    validation_setting="A",
-    problem_mode="classification",
-    general_architecture_version="dot_product",
-    metrics_average=["micro"],
-    instance_branch_architecture="EMBEDDING",
-    instance_branch_input_dim=number_of_instances,
-    target_branch_architecture="EMBEDDING",
-    target_branch_input_dim=number_of_targets,
-    embedding_size=32,
-)
-```
-<!-- id-embedding-example:end -->
-
-`instance_branch_input_dim` and `target_branch_input_dim` are vocabulary sizes
-for embedding branches. Interaction IDs must be integers in the range
-`[0, input_dim)`. Because a lookup table cannot represent an unseen entity,
-support depends on the validation setting:
-
-| Validation setting | Instance embedding | Target embedding |
-|---|---:|---:|
-| A: known instances and targets | Supported | Supported |
-| B: novel instances | Rejected | Supported |
-| C: novel targets | Supported | Rejected |
-| D: novel instances and targets | Rejected | Rejected |
-
-</details>
-
-### Handling different types of input features
-
-<details>
-<summary>Click to expand!</summary>
-
-Each DeepMTP branch can use an encoder appropriate for its input modality. In
-the example below, protein features are dense vectors while compounds are
-represented by 2D images. The framework combines an MLP branch for the protein
-features with a convolutional branch for the compound images.
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_different_feature_types_white.png#gh-dark-mode-only" alt="logo" height="450"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_different_feature_types.png#gh-light-mode-only" alt="logo" height="450"/></p>
-</details>
-
-### Handling different validation settings
-
-<details>
-<summary>Click to expand!</summary>
-
-The four validation settings describe whether evaluation contains entities
-that were observed during training.
-
-1. Setting A: Completing the missing values in the interaction matrix
-
-In setting A the test set contains a subset of the instances and targets that we observe in the training set. This setting is usually selected when the interaction matrix contains missing values and becomes the only validation choice when instance and target features are not available.
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_A_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_A.png#gh-light-mode-only" alt="logo" height="300"/></p>
-
-2. Setting B: predict for novel instances
-
-In setting B the test set contains instances never before observed in the training set. This setting is the default option for popular MTP problem settings like multi-label classification and multivariate regression. ***In order to generalize to new instances, their side information has to be provided!***
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_B_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_B.png#gh-light-mode-only" alt="logo" height="300"/></p>
-
-3. Setting C: predict for novel targets
-
-In setting C the test set contains targets never before observed in the training set. This setting can be seen as the reverse of Setting B, as we can easily switch the instances and targets and arrive in Setting C. ***In order to generalize to new targets, their side information has to be provided!***
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_C_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_C.png#gh-light-mode-only" alt="logo" height="300"/></p>
-
-4. Setting D: predict for pairs of novel instances and targets
-
-Finally, in setting D the test set contains pairs of novel instances and targets never before observed in the training set. This is usually considered the most difficult generalization task compared to the others. ***In order to generalize to pairs of new instances and targets, the side information for both has to be provided!***
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_D_white.png#gh-dark-mode-only" alt="logo" height="300"/></p>
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/intro_setting_D.png#gh-light-mode-only" alt="logo" height="300"/></p>
-
-</details>
-
-
-# Quick start
-
-This complete example trains on a small synthetic multi-label dataset, runs on
-the CPU, and requires no downloads or optional dependencies. DeepMTP writes the
-experiment summary and configuration below `results/quickstart`.
+This complete CPU example trains on a synthetic multi-label dataset, evaluates
+it, and returns pair-level predictions. It requires no downloads or optional
+dependencies.
 
 <!-- quickstart-example:start -->
 ```python
@@ -399,65 +148,98 @@ test_results, predictions = model.predict(test, return_predictions=True)
 ```
 <!-- quickstart-example:end -->
 
-## Multiclass classification
+DeepMTP writes `config.json`, `summary.txt`, and any enabled logs or checkpoint
+below `results/quickstart`. The four core steps remain the same for every input
+type:
 
-Multiclass mode predicts exactly one of three or more classes for each
-instance-target pair. Labels must be zero-based integer IDs in `[0, C)`.
-Declare the interpretation during data preparation because integer-valued
-regression scores cannot be distinguished safely from class IDs:
+1. Describe observed scores and optional side information.
+2. Call `data_process` with the intended validation setting and input kinds.
+3. Build a validated `DeepMTPConfig`.
+4. Train with `DeepMTP.train` and infer with `DeepMTP.predict`.
 
-<!-- multiclass-config-example:start -->
+## Mental model
+
+Let `x` denote an instance, `t` a target, and `y` their observed relationship.
+DeepMTP learns two encoders:
+
+```text
+instance x ──> instance encoder ──> pₓ ──┐
+                                         ├──> fusion ──> score ŷ(x, t)
+target t   ──> target encoder   ──> qₜ ──┘
+```
+
+The score can be binary, multiclass, or continuous. Dot-product fusion requires
+equal branch widths. MLP and Kronecker fusion can combine unequal widths.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="DeepMTP two-branch dot-product architecture" height="250">
+  <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product.png#gh-light-mode-only" alt="DeepMTP two-branch dot-product architecture" height="250">
+</p>
+
+### Generalization settings
+
+The validation setting states which entity types may be unseen at evaluation
+time. Novel entities require side information; a learned ID lookup cannot
+represent an entity absent from training.
+
+| Setting | Evaluation pairs | Instance side information | Target side information |
+|---|---|---:|---:|
+| **A** | Known instances × known targets | Optional | Optional |
+| **B** | Novel instances × known targets | Required | Optional |
+| **C** | Known instances × novel targets | Optional | Required |
+| **D** | Novel instances × novel targets | Required | Required |
+
+See the [configuration guide](https://deepmtp.readthedocs.io/en/latest/tutorial/configuration.html)
+for split semantics and validation rules.
+
+## Choose your input representations
+
+Each branch selects an encoder independently. A compound–protein model can,
+for example, combine a molecular graph branch with a protein foundation-model
+branch.
+
+| Architecture | Input | Good fit | Dependency |
+|---|---|---|---|
+| `MLP` | Dense numeric vectors | Descriptors and precomputed embeddings | Core |
+| `SPARSE` | COO/CSR or SciPy matrices | Fingerprints, bag-of-words, indicators | Core for PyTorch; `sparse` for SciPy |
+| `TABULAR` | Numeric and categorical columns | Mixed entity metadata | Core |
+| `SEQUENCE` | Token IDs and masks | Proteins, SMILES, text | Core; `foundation` for Hugging Face |
+| `GRAPH` | Homogeneous PyG graphs | Molecular graphs | `graph` |
+| `CONV` | Images | Visual entity representations | `image` |
+| `EMBEDDING` | Zero-based entity IDs | Known entities without side features | Core |
+| `COMPOSITE` | Named component mapping | Multimodal or partially missing inputs | Depends on components |
+| `CUSTOM` | User-defined batch type | Domain-specific encoders | Core |
+
+### Learned entity IDs
+
+Use `EMBEDDING` rather than a dense one-hot MLP when entities are known during
+training. Settings B, C, and D reject an ID branch on any novel entity axis.
+
+<!-- id-embedding-example:start -->
 ```python
-import numpy as np
+from DeepMTP import DeepMTPConfig
 
-from DeepMTP import DeepMTPConfig, data_process
-
-scores = (
-    np.arange(18)[:, np.newaxis] + np.arange(3)[np.newaxis, :]
-) % 3
-train, validation, test, data_info = data_process(
-    {"train": {"y": scores}},
-    validation_setting="A",
-    classification_mode="multiclass",
-)
+number_of_instances = 24
+number_of_targets = 4
 
 config = DeepMTPConfig(
-    validation_setting=data_info["detected_validation_setting"],
+    validation_setting="A",
     problem_mode="classification",
-    classification_mode=data_info["detected_classification_mode"],
-    num_classes=data_info["detected_num_classes"],
-    metrics=["accuracy", "f1_score", "auroc"],
+    general_architecture_version="dot_product",
     metrics_average=["micro"],
-    multiclass_average="macro",
-    compute_mode="cpu",
     instance_branch_architecture="EMBEDDING",
-    instance_branch_input_dim=data_info["instance_branch_input_dim"],
+    instance_branch_input_dim=number_of_instances,
     target_branch_architecture="EMBEDDING",
-    target_branch_input_dim=data_info["target_branch_input_dim"],
-    embedding_size=8,
+    target_branch_input_dim=number_of_targets,
+    embedding_size=32,
 )
 ```
-<!-- multiclass-config-example:end -->
+<!-- id-embedding-example:end -->
 
-`CrossEntropyLoss` and macro class averaging are selected automatically.
-`metrics_average` still controls whether observations are grouped globally,
-per target, or per instance; `multiclass_average` controls how classes are
-combined inside precision, recall, F1, AUROC, and AUPR. Set it to `micro`,
-`macro`, or `weighted`.
+### Mixed tabular data
 
-All declared classes must occur in the training interactions. Prediction
-frames contain `predicted_values` as class IDs, `predicted_probability` for
-the winning class, and one `probability_class_<id>` column per class.
-Interaction-ranking `top_k` metrics are not available in multiclass mode.
-See the
-[multiclass guide](https://deepmtp.readthedocs.io/en/latest/tutorial/multiclass_classification.html)
-for the complete contract.
-
-## Mixed tabular inputs
-
-Use a `TABULAR` branch when entity side information contains both continuous
-measurements and categories. Pass a pandas DataFrame with a unique `id` column
-and declare the remaining columns explicitly:
+`TABULAR` keeps numeric and categorical preprocessing explicit and stores the
+fitted training-only state for compatible restoration.
 
 <!-- tabular-config-example:start -->
 ```python
@@ -503,34 +285,21 @@ config = DeepMTPConfig(
 ```
 <!-- tabular-config-example:end -->
 
-Numeric preprocessing is fitted only on the training entities. Its imputation
-and normalization statistics are stored in the experiment configuration and
-checkpoint, then reused for validation, testing, and restored-model
-prediction. Category index zero represents missing or unknown values by
-default. See the
-[mixed tabular input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/tabular_inputs.html)
-for policies and a complete configuration.
+Read the [tabular guide](https://deepmtp.readthedocs.io/en/latest/tutorial/tabular_inputs.html)
+for missing-value, normalization, and unknown-category policies.
 
-## Sparse high-dimensional inputs
+### Sparse high-dimensional data
 
-Use a `SPARSE` branch for fingerprints, bag-of-words features, and large
-indicator matrices whose stored values are mostly zero. PyTorch COO/CSR
-tensors work with the core installation. SciPy matrices require
-`pip install "DeepMTP[sparse]"`.
+`SPARSE` preserves sparsity through splitting, batching, and the first
+projection. Apply sparse-safe preprocessing upstream; legacy dense scaling is
+rejected rather than silently densifying the data.
 
 ```python
-from scipy import sparse
-
-from DeepMTP import DeepMTPConfig
-
-instance_features = sparse.csr_matrix(dense_or_generated_features)
-
 config = DeepMTPConfig(
     validation_setting="B",
     problem_mode="classification",
-    general_architecture_version="dot_product",
     instance_branch_architecture="SPARSE",
-    instance_branch_input_dim=instance_features.shape[1],
+    instance_branch_input_dim=fingerprint_width,
     instance_branch_nodes_per_layer=[128, 32],
     target_branch_architecture="MLP",
     target_branch_input_dim=number_of_targets,
@@ -539,38 +308,14 @@ config = DeepMTPConfig(
 )
 ```
 
-Sparse rows remain sparse through data preparation, splitting, collation, and
-the first linear projection. Later layers operate on the projected dense
-representation. Legacy feature scaling rejects sparse inputs rather than
-silently densifying them; apply sparse-safe preprocessing upstream. See the
-[sparse input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/sparse_inputs.html)
-for explicit-ID DataFrames, compatibility details, and the included memory and
-throughput benchmark.
+See the [sparse-input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/sparse_inputs.html)
+for SciPy support, explicit IDs, and benchmark tooling.
 
-## Token-sequence inputs
+### Token sequences
 
-Use a `SEQUENCE` branch for already-tokenized proteins, chemical strings, or
-text. Declare the representation during data preparation so variable-length
-integer rows are preserved:
-
-```python
-instance_sequences = [[5, 12, 8], [7], [3, 14, 9, 6]]
-
-train, validation, test, data_info = data_process(
-    {
-        "train": {
-            "y": interaction_scores,
-            "X_instance": instance_sequences,
-            "X_target": None,
-        }
-    },
-    validation_setting="B",
-    instance_feature_kind="sequence",
-)
-```
-
-The configured input dimension is the complete vocabulary size, not the
-maximum sequence length:
+`SEQUENCE` batches contain dynamically padded token IDs, attention masks, and
+original lengths. Choose `gru`, `conv1d`, or `transformer`; all ignore padded
+positions.
 
 <!-- sequence-config-example:start -->
 ```python
@@ -599,86 +344,18 @@ config = DeepMTPConfig(
 ```
 <!-- sequence-config-example:end -->
 
-The dataloader dynamically creates padded token IDs, attention masks, and
-original lengths. Choose `gru` for recurrence, `conv1d` for masked temporal
-convolutions, or `transformer` for position-aware self-attention with masked
-mean pooling. All three ignore padded positions and emit the same fixed-width
-branch representation expected by every existing fusion model. Raw sequences
-must be unpadded and cannot contain the configured padding ID. See the
-[token-sequence input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/sequence_inputs.html)
-for the structured batch contract, configuration options, and compatibility
-details.
+Raw token rows must be unpadded and cannot contain the configured padding ID.
+The [sequence guide](https://deepmtp.readthedocs.io/en/latest/tutorial/sequence_inputs.html)
+documents collation and each encoder.
 
-## Foundation-model inputs
+### Foundation models and LoRA
 
-Install `pip install "DeepMTP[foundation]"` to encode raw protein sequences,
-SMILES strings, or text with a compatible Hugging Face `AutoModel`. The extra
-also includes PEFT for opt-in LoRA training. Tokenize without global padding,
-then reuse the existing `SEQUENCE` data path:
+The optional Hugging Face adapter uses `AutoTokenizer` and `AutoModel` for
+protein, chemical, biomedical, or general text encoders. Training modes are
+`frozen`, `full`, and `lora`.
 
 ```python
-from DeepMTP import (
-    DeepMTPConfig,
-    FoundationModelSpec,
-    tokenize_foundation_sequences,
-)
-
-protein_model = FoundationModelSpec(
-    model_name="facebook/esm2_t6_8M_UR50D",
-    revision="<pinned-model-commit>",
-    pooling="masked_mean",
-    train_mode="frozen",
-    max_length=1024,
-)
-protein_tokens = tokenize_foundation_sequences(protein_sequences, protein_model)
-
-config = DeepMTPConfig(
-    validation_setting="B",
-    problem_mode="classification",
-    general_architecture_version="dot_product",
-    instance_branch_architecture="SEQUENCE",
-    instance_branch_input_dim=protein_tokens.vocabulary_size,
-    instance_branch_sequence_encoder="foundation",
-    instance_branch_sequence_padding_idx=protein_tokens.padding_idx,
-    instance_branch_foundation_model=protein_tokens.spec.to_dict(),
-    target_branch_architecture="MLP",
-    target_branch_input_dim=number_of_targets,
-    target_branch_nodes_per_layer=[64],
-    embedding_size=256,
-)
-```
-
-For LoRA runs, set `checkpoint_format="foundation_adapter"` to save a compact
-`foundation_adapter.zip` containing native PEFT adapter weights, DeepMTP's
-task-specific weights, a versioned manifest, and SHA-256 hashes—without copying
-the foundation backbone or optimizer state. Restore it through the existing
-constructor API:
-
-```python
-config = DeepMTPConfig(
-    # foundation-model and training settings...
-    checkpoint_format="foundation_adapter",
-)
-
-restored = DeepMTP(
-    {"results_path": "./results", "experiment_name": "restored"},
-    checkpoint_dir="./results/training-run/foundation_adapter.zip",
-)
-```
-
-Use the default `checkpoint_format="full"` when exact optimizer restoration or
-fully fine-tuned foundation weights are required. Compact export reloads frozen
-base weights from the recorded model identity; Hub models therefore require
-resolved model and tokenizer revisions, while local model directories remain
-user-managed snapshots.
-
-The default `frozen` mode keeps the backbone deterministic and trains only its
-output projection plus downstream DeepMTP parameters; `full` enables end-to-end
-fine-tuning. `lora` freezes the pretrained weights and trains PEFT low-rank
-adapters in explicitly selected model modules:
-
-```python
-from DeepMTP import FoundationLoRASpec
+from DeepMTP import FoundationLoRASpec, FoundationModelSpec
 
 protein_model = FoundationModelSpec(
     model_name="facebook/esm2_t6_8M_UR50D",
@@ -695,95 +372,31 @@ protein_model = FoundationModelSpec(
 )
 ```
 
-Target names use PEFT's module-suffix matching and are validated against the
-loaded model before training. Available pooling strategies are padding-aware
-`masked_mean`, which also excludes tokenizer-declared boundary tokens by
-default, first-token `cls`, and the model's native `pooler`. Transformer imports
-are lazy, remote model code is disabled by default, and resolved Hub revisions
-are retained in configuration, checkpoints, and W&B metadata. See the
-[foundation-model guide](https://deepmtp.readthedocs.io/en/latest/tutorial/foundation_models.html)
-for ESM-2, ChemBERTa, BERT/BiomedBERT compatibility, maximum-length policy,
-composite branches, offline use, and restoration details.
+Tokenize raw values with `tokenize_foundation_sequences`, then pass the
+normalized specification to a `SEQUENCE` branch with
+`sequence_encoder="foundation"`. Hub revision capture, pooling, length policy,
+composite use, compact adapter checkpoints, and supported reference models are
+covered in the [foundation-model guide](https://deepmtp.readthedocs.io/en/latest/tutorial/foundation_models.html).
 
-## Molecular graph inputs
+### Molecular graphs
 
-Install `pip install "DeepMTP[graph]"` and pass precomputed homogeneous
-`torch_geometric.data.Data` objects. Each object needs floating node features
-`x`, COO `edge_index`, and optionally floating `edge_attr`. Declare the graph
-representation during preparation:
+`GRAPH` consumes homogeneous `torch_geometric.data.Data` objects and uses GIN
+or edge-aware GINE layers with mean, sum, or max graph pooling. Each graph
+needs floating node features, COO `edge_index`, and optional floating edge
+features. See the [graph guide](https://deepmtp.readthedocs.io/en/latest/tutorial/graph_inputs.html).
 
-```python
-train, validation, test, data_info = data_process(
-    {
-        "train": {
-            "y": interaction_scores,
-            "X_instance": molecular_graphs,
-            "X_target": None,
-        }
-    },
-    validation_setting="B",
-    instance_feature_kind="graph",
-)
-```
+### Composite and partially missing inputs
 
-Configure `GRAPH` with the inferred node and edge widths:
+`COMPOSITE` combines named dense, sparse, graph, sequence, ID, or tabular
+components. Fusion can use concatenation, sample-specific gates, or modality
+self-attention. Optional components carry presence masks and learned missing
+representations; training-only modality dropout can improve robustness.
 
 ```python
 config = DeepMTPConfig(
     validation_setting="B",
     problem_mode="classification",
-    instance_branch_architecture="GRAPH",
-    instance_branch_input_dim=data_info["instance_branch_input_dim"],
-    instance_branch_graph_edge_dim=data_info["instance_branch_graph_edge_dim"],
-    instance_branch_graph_hidden_dim=64,
-    instance_branch_graph_output_dim=32,
-    instance_branch_graph_num_layers=3,
-    instance_branch_graph_pooling="mean",
-    instance_branch_graph_use_edge_features=True,
-    target_branch_architecture="MLP",
-    target_branch_input_dim=number_of_targets,
-    target_branch_nodes_per_layer=[32],
-    embedding_size=32,
-)
-```
-
-DeepMTP uses GINE when edge features are enabled and GIN when
-`graph_use_edge_features=False`. PyG performs batching; the rest of DeepMTP
-sees a typed `GraphInput` containing node features, offset edge indices,
-optional edge features, graph membership, and the graph count. `GRAPH` is also
-available as a required or optional `COMPOSITE` component. See the
-[graph input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/graph_inputs.html).
-
-## Composite inputs
-
-Use a `COMPOSITE` branch when one entity has multiple representations, such as
-dense descriptors plus a token sequence:
-
-```python
-train, validation, test, data_info = data_process(
-    {
-        "train": {
-            "y": interaction_scores,
-            "X_instance": {
-                "descriptors": descriptor_matrix,
-                "tokens": token_sequences,
-            },
-            "X_target": None,
-        }
-    },
-    validation_setting="B",
-    instance_feature_kind={
-        "descriptors": None,
-        "tokens": "sequence",
-    },
-)
-
-component_dims = data_info["instance_branch_component_input_dims"]
-config = DeepMTPConfig(
-    validation_setting="B",
-    problem_mode="classification",
-    metrics=["accuracy"],
-    metrics_average=["macro"],
+    general_architecture_version="mlp",
     instance_branch_architecture="COMPOSITE",
     instance_branch_composite_fusion="attention",
     instance_branch_composite_attention_dim=32,
@@ -791,420 +404,144 @@ config = DeepMTPConfig(
     instance_branch_composite_components={
         "descriptors": {
             "architecture": "MLP",
-            "input_dim": component_dims["descriptors"],
+            "input_dim": descriptor_width,
             "output_dim": 16,
         },
         "tokens": {
             "architecture": "SEQUENCE",
-            "input_dim": component_dims["tokens"],
+            "input_dim": vocabulary_size,
             "output_dim": 16,
             "embedding_dim": 16,
+            "optional": True,
         },
     },
+    instance_branch_composite_modality_dropout=0.2,
     target_branch_architecture="MLP",
     target_branch_input_dim=number_of_targets,
     target_branch_nodes_per_layer=[32],
-    embedding_size=32,
+    comb_mlp_nodes_per_layer=[32],
 )
 ```
 
-Composite branches combine named dense, graph, sparse, sequence, and known-ID
-encoder outputs. The default `concat` fusion preserves the historical behavior.
-Opt-in `gated` fusion learns one sample-specific sigmoid gate per component,
-scales each component output, and then concatenates the gated representations.
-Opt-in `attention` fusion projects differently sized components to a shared
-width, applies multi-head self-attention across modalities, and projects
-contextualized components back to their original widths. The composite output
-width is unchanged for all three strategies.
+The [composite-input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/composite_inputs.html)
+explains component schemas, missingness, and fusion behavior.
 
-A component can be missing for selected entities by marking it optional in both
-data preparation and model configuration:
+## Tasks, losses, and metrics
 
+Binary classification is the backward-compatible classification default and
+uses logits with binary cross entropy. Regression defaults to mean squared
+error and also supports MAE and Huber losses.
+
+Multiclass mode predicts exactly one of at least three classes. Labels must be
+zero-based integer IDs, and every declared class must occur in training data.
+
+<!-- multiclass-config-example:start -->
 ```python
-instance_feature_kind={
-    "descriptors": None,
-    "tokens": {"kind": "sequence", "optional": True},
-}
+import numpy as np
 
-instance_branch_composite_components={
-    "descriptors": descriptor_component,
-    "tokens": {**token_component, "optional": True},
-}
+from DeepMTP import DeepMTPConfig, data_process
 
-instance_branch_composite_modality_dropout=0.2
+scores = (
+    np.arange(18)[:, np.newaxis] + np.arange(3)[np.newaxis, :]
+) % 3
+train, validation, test, data_info = data_process(
+    {"train": {"y": scores}},
+    validation_setting="A",
+    classification_mode="multiclass",
+)
+
+config = DeepMTPConfig(
+    validation_setting=data_info["detected_validation_setting"],
+    problem_mode="classification",
+    classification_mode=data_info["detected_classification_mode"],
+    num_classes=data_info["detected_num_classes"],
+    metrics=["accuracy", "f1_score", "auroc"],
+    metrics_average=["micro"],
+    multiclass_average="macro",
+    compute_mode="cpu",
+    instance_branch_architecture="EMBEDDING",
+    instance_branch_input_dim=data_info["instance_branch_input_dim"],
+    target_branch_architecture="EMBEDDING",
+    target_branch_input_dim=data_info["target_branch_input_dim"],
+    embedding_size=8,
+)
 ```
+<!-- multiclass-config-example:end -->
 
-Optional components carry explicit presence masks and use a checkpointed
-learned representation for missing rows. Existing components remain required
-by default. Gated fusion includes the component-presence indicators in its gate
-input. Attention fusion masks missing components as keys and values while
-allowing their learned representations to query available modalities. An
-always-present fusion token keeps fully missing rows finite.
+| Problem | Default loss | Metrics |
+|---|---|---|
+| Binary classification | Binary cross entropy with logits | Hamming loss, AUROC, AUPR, accuracy, recall, precision, F1 |
+| Multiclass classification | Cross entropy | Accuracy, recall, precision, F1, AUROC, AUPR |
+| Regression | Mean squared error | RMSE, MSE, MAE, R² |
 
-The branch-level modality-dropout probability defaults to `0.0`. During
-training, it randomly replaces genuinely present optional components with
-their learned missing representations and updates the presence indicators used
-by gated or attention fusion. Required components are never dropped, and at
-least one genuinely available component is retained per sample. Evaluation and
-prediction use only the actual presence masks. See the
-[composite input guide](https://deepmtp.readthedocs.io/en/latest/tutorial/composite_inputs.html)
-for the complete component, fusion, validation-setting, batching, and
-checkpoint contract.
+`metrics_average` groups observations globally, by target, or by instance.
+`multiclass_average` combines classes within applicable multiclass metrics.
+See the [multiclass guide](https://deepmtp.readthedocs.io/en/latest/tutorial/multiclass_classification.html)
+for prediction columns and averaging rules.
 
-## Input data
+## Training and reproducibility
 
-<details>
-<summary>Loading a built-in benchmark dataset</summary>
-
-The quick start above uses synthetic data and requires no download. DeepMTP
-also provides optional benchmark loaders. Install the `datasets` extra and
-import them from `DeepMTP.data.datasets`:
-
-```bash
-pip install "DeepMTP[datasets]"
-```
-
-|  Function  | Description |
-| :--- | :--- |
-| `load_process_MLC()` | Multi-label classification datasets such as `emotions`, `scene`, and `yeast` |
-| `load_process_MTR()` | Multivariate regression datasets such as `atp1d`, `oes10`, and `rf1` |
-| `load_process_MTL()` | The `bird` and `dog` crowdsourcing multi-task datasets |
-| `load_process_MC()` | The MovieLens 100K matrix-completion dataset |
-| `load_process_DP()` | The `ern`, `srn`, `dpie`, and `dpii` biological-network datasets |
-
-The historical `DeepMTP.dataset` import path remains available as a
-compatibility facade. See the
-[dataset-loading guide](https://deepmtp.readthedocs.io/en/latest/tutorial/loading_datasets.html)
-for supported names and examples.
-
-</details>
-
-<details>
-<summary>Creating a custom MTP dataset</summary>
-
-`data_process` accepts a mapping with `train`, `val`, and `test` splits. Each
-split contains interactions under `y` and optional instance and target side
-information:
-
-```python
-data = {
-    "train": {
-        "y": train_interactions,
-        "X_instance": train_instance_features,
-        "X_target": train_target_features,
-    },
-    "val": {
-        "y": validation_interactions,
-        "X_instance": validation_instance_features,
-        "X_target": validation_target_features,
-    },
-    "test": {
-        "y": test_interactions,
-        "X_instance": test_instance_features,
-        "X_target": test_target_features,
-    },
-}
-```
-
-When validation or test data is omitted, `data_process` can construct the
-requested validation setting from the training data. Feature requirements
-depend on whether the split contains novel instances, novel targets, or both.
-Dense features use arrays or DataFrames; sparse features use SciPy matrices,
-PyTorch COO/CSR tensors, or explicit-ID DataFrames of sparse rows; mixed
-numeric/categorical features use the explicit `TABULAR` schema described
-above.
-
-</details>
-
-## Configuration options
-
-New code should construct `DeepMTPConfig` directly. It normalizes architecture
-names, validates incompatible combinations before training, and can also
-validate an existing dictionary with `DeepMTPConfig.from_mapping(...)`.
-`generate_config` remains available for compatibility and returns a dictionary.
-The table below summarizes the commonly configured public options.
-
-| Parameter name  | Description |
-| :--- | :--- |
-| **Training** ||
-| `validation_setting` | Generalization setting `A`, `B`, `C`, or `D` |
-| `problem_mode` | `classification` or `regression` |
-| `classification_mode` | `binary` (the backward-compatible classification default) or `multiclass` |
-| `num_classes` | Number of mutually exclusive classes; required and at least 3 for multiclass classification |
-| `loss` | Training objective. Binary classification defaults to `binary_cross_entropy_with_logits`, multiclass classification uses `cross_entropy`, and regression defaults to `mean_squared_error` with optional `mean_absolute_error` or `huber` |
-| `num_epochs` | The max number of epochs allowed for training |
-| `learning_rate` | The learning rate used to determine the step size at each iteration of the optimization process|
-| `decay` | The weight decay (L2 penalty) used by the Adam optimizer|
-| `compute_mode` | `cpu`, `cuda`, or `cuda:<index>`; unavailable CUDA devices fall back to CPU |
-| `num_workers` | The number of sub-processes to use for data loading. Larger values usually improve performance but after a point training speed will become worse|
-| `train_batchsize` | The number of samples that comprise a batch from the training set |
-| `val_batchsize` | The number of samples that comprise a batch from the validation and test sets |
-| `gradient_accumulation_steps` | Positive number of training microbatches combined before each optimizer step; defaults to `1` |
-| `gradient_clip_norm` | Positive finite global gradient-norm limit applied before each optimizer step, or `None` to disable clipping |
-| `random_seed` | Non-negative seed for isolated model initialization and data-loader shuffling, or `None` for nondeterministic behavior |
-| `patience` | The number of epochs that the network is allowed to continue training for while observing worse overall performance |
-| `delta` | Minimum change in the monitored quantity to qualify as an improvement |
-| `return_results_per_target` | Whether to include per-target metric values in the results; requires `macro` averaging |
-| `evaluate_train` | Whether or not to calculate performance metrics over the training set |
-| `evaluate_val` | Whether or not to calculate performance metrics over the validation set |
-| `eval_every_n_epochs` | The interval that indicates when the performance metrics are computed |
-| `use_early_stopping` | Whether or not to use early stopping while training |
-| **Metrics** ||
-| `metrics` | The performance metrics that will be calculated. For classification tasks the available metrics are `['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision']` while for regression tasks the available metrics are `['RMSE', 'MSE', 'MAE', 'R2']` |
-| `metrics_average` | The averaging strategy used to calculate metrics. Available options are `['macro', 'micro', 'instance']`; validation setting A supports only `['micro']`. |
-| `multiclass_average` | Class averaging for multiclass precision, recall, F1, AUROC, and AUPR: `micro`, `macro` (default), or `weighted` |
-| `top_k` | Number of top predictions used to calculate grouped metric variants; requires `macro` or `instance` averaging and is unavailable for multiclass classification |
-| `metric_to_optimize_early_stopping` | The metric that will be used for tracking by the early stopping routine. The value can be the `loss` or one of the available performance metrics. |
-| `metric_to_optimize_best_epoch_selection` | The validation metric that will be used to determine the best configuration. The value can be the `loss` or one of the available performance metrics. |
-| **Printing - Saving - Logging** ||
-| `verbose` | Whether to print training progress in the terminal |
-| `use_tensorboard_logger` | Whether to write TensorBoard event files |
-| `wandb_project_name` | W&B project name; set together with `wandb_project_entity` to enable W&B |
-| `wandb_project_entity` | W&B team or account entity |
-| `wandb_mode` | `online`, `offline`, `disabled`, or `None` to use the SDK/environment default |
-| `wandb_run_name` | Optional W&B display name |
-| `wandb_group` | Optional group for related runs |
-| `wandb_job_type` | W&B job type; defaults to `train` |
-| `wandb_tags` | Searchable W&B run tags |
-| `wandb_notes` | Free-form W&B run notes |
-| `wandb_watch` | Model monitoring: `gradients` (default), `parameters`, `all`, or `None` |
-| `wandb_watch_log_freq` | Positive model-monitoring interval |
-| `wandb_log_graph` | Include the model graph in W&B monitoring; opt-in |
-| `wandb_log_code` | Upload project source with `Run.log_code`; opt-in |
-| `wandb_log_model_artifact` | Publish saved checkpoint, config, and summary files as a versioned W&B model Artifact |
-| `wandb_model_artifact_name` | Optional explicit model Artifact name |
-| `wandb_model_artifact_aliases` | Model Artifact aliases; defaults to `["latest", "best"]` |
-| `wandb_input_artifacts` | Online Artifact references to mark as run inputs for lineage |
-| `wandb_registry_name` | Existing online W&B Registry to link the model version into |
-| `wandb_registry_collection` | Registry collection paired with `wandb_registry_name` |
-| `wandb_log_predictions` | Log a bounded test-prediction Table and classification charts; opt-in |
-| `wandb_prediction_table_max_rows` | Maximum sampled rows in the prediction Table; defaults to 1000 |
-| `results_path` | Parent directory for experiment artifacts |
-| `experiment_name` | Experiment subdirectory and reporting name |
-| `save_model` | Whether or not to save the model of the epoch with the best validation performance |
-| `checkpoint_format` | `full` (default) for model and optimizer restoration, or `foundation_adapter` for compact LoRA/frozen-foundation export without base or optimizer weights |
-| `data_preparation_state` | Split provenance and fitted dense-scaler state; normally captured automatically from `data_process` outputs |
-| **General architecture** ||
-| `general_architecture_version` | Fusion strategy: `mlp`, `dot_product`, or `kronecker`; defaults to `dot_product` |
-| `batch_norm` | Whether to use batch normalization between fully connected layers |
-| `dropout_rate` | Default dropout rate for both branches |
-| `dropout_rate_instance_branch` | The amount of dropout used in the layers of the instance branch  |
-| `dropout_rate_target_branch` | The amount of dropout used in the layers of the target branch |
-| **Instance branch architecture** ||
-| `instance_branch_architecture` | The instance encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `GRAPH` for PyG graphs, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
-| `instance_branch_input_dim` | The dense/sparse width, graph node-feature width, sequence vocabulary size, or number of instance IDs for an `EMBEDDING` branch |
-| `instance_branch_graph_edge_dim` | Graph edge-feature width, or `None` when edge features are disabled |
-| `instance_branch_graph_hidden_dim` | Hidden message-passing width for an instance `GRAPH` branch |
-| `instance_branch_graph_output_dim` | Instance graph output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
-| `instance_branch_graph_num_layers` | Number of GIN/GINE message-passing layers |
-| `instance_branch_graph_pooling` | Graph-level pooling: `mean`, `sum`, or `max` |
-| `instance_branch_graph_use_edge_features` | Use GINE with `edge_attr`; set `False` to use GIN without edge features |
-| `instance_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, encoder options, and optional missing-modality handling |
-| `instance_branch_composite_fusion` | Composite component fusion: `concat` (default), sample-specific `gated` concatenation, or modality self-`attention` |
-| `instance_branch_composite_attention_dim` | Shared positive projection width for composite attention fusion |
-| `instance_branch_composite_attention_num_heads` | Positive attention-head count; `instance_branch_composite_attention_dim` must be divisible by this value |
-| `instance_branch_composite_modality_dropout` | Training-only probability of replacing a present optional component with its learned missing representation; defaults to `0.0` |
-| `instance_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, `transformer`, or optional Hugging Face `foundation` |
-| `instance_branch_foundation_model` | Foundation model/tokenizer name and revision, pooling, frozen/full/LoRA training mode, LoRA hyperparameters and target modules, trust, offline, length, and resolved-revision settings |
-| `instance_branch_sequence_embedding_dim` | Trainable token embedding width for an instance `SEQUENCE` branch |
-| `instance_branch_sequence_output_dim` | Instance sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
-| `instance_branch_sequence_conv_kernel_size` | Positive odd Conv1D kernel width; used only when the sequence encoder is `conv1d` |
-| `instance_branch_sequence_transformer_num_heads` | Transformer attention-head count; the sequence embedding width must be divisible by this value |
-| `instance_branch_sequence_transformer_feedforward_dim` | Transformer feed-forward sublayer width |
-| `instance_branch_sequence_num_layers` | Number of stacked GRU, Conv1D, or Transformer layers |
-| `instance_branch_sequence_padding_idx` | Reserved non-negative padding token ID |
-| `instance_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for an instance `TABULAR` branch |
-| `instance_train_transforms` | PyTorch-compatible transforms for instance training samples, typically images |
-| `instance_inference_transforms` | PyTorch-compatible transforms for instance validation and test samples |
-|  **Target branch architecture**  ||
-| `target_branch_architecture` | The target encoder: `MLP` for dense vectors, `SPARSE` for SciPy/PyTorch sparse vectors, `GRAPH` for PyG graphs, `SEQUENCE` for token IDs, `TABULAR` for explicit numeric/categorical columns, `COMPOSITE` for named component encoders, `CONV` for images, `EMBEDDING` for zero-based IDs, or `CUSTOM` for a user-supplied branch |
-| `target_branch_input_dim` | The dense/sparse width, graph node-feature width, sequence vocabulary size, or number of target IDs for an `EMBEDDING` branch |
-| `target_branch_graph_edge_dim` | Graph edge-feature width, or `None` when edge features are disabled |
-| `target_branch_graph_hidden_dim` | Hidden message-passing width for a target `GRAPH` branch |
-| `target_branch_graph_output_dim` | Target graph output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
-| `target_branch_graph_num_layers` | Number of GIN/GINE message-passing layers |
-| `target_branch_graph_pooling` | Graph-level pooling: `mean`, `sum`, or `max` |
-| `target_branch_graph_use_edge_features` | Use GINE with `edge_attr`; set `False` to use GIN without edge features |
-| `target_branch_composite_components` | Ordered component mappings with per-component architecture, input dimension, output dimension, encoder options, and optional missing-modality handling |
-| `target_branch_composite_fusion` | Composite component fusion: `concat` (default), sample-specific `gated` concatenation, or modality self-`attention` |
-| `target_branch_composite_attention_dim` | Shared positive projection width for composite attention fusion |
-| `target_branch_composite_attention_num_heads` | Positive attention-head count; `target_branch_composite_attention_dim` must be divisible by this value |
-| `target_branch_composite_modality_dropout` | Training-only probability of replacing a present optional component with its learned missing representation; defaults to `0.0` |
-| `target_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, `transformer`, or optional Hugging Face `foundation` |
-| `target_branch_foundation_model` | Foundation model/tokenizer name and revision, pooling, frozen/full/LoRA training mode, LoRA hyperparameters and target modules, trust, offline, length, and resolved-revision settings |
-| `target_branch_sequence_embedding_dim` | Trainable token embedding width for a target `SEQUENCE` branch |
-| `target_branch_sequence_output_dim` | Target sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
-| `target_branch_sequence_conv_kernel_size` | Positive odd Conv1D kernel width; used only when the sequence encoder is `conv1d` |
-| `target_branch_sequence_transformer_num_heads` | Transformer attention-head count; the sequence embedding width must be divisible by this value |
-| `target_branch_sequence_transformer_feedforward_dim` | Transformer feed-forward sublayer width |
-| `target_branch_sequence_num_layers` | Number of stacked GRU, Conv1D, or Transformer layers |
-| `target_branch_sequence_padding_idx` | Reserved non-negative padding token ID |
-| `target_branch_tabular_schema` | Column names, category vocabularies, normalization, missing-value policies, and optional feature gating for a target `TABULAR` branch |
-| `target_train_transforms` | PyTorch-compatible transforms for target training samples, typically images |
-| `target_inference_transforms` | PyTorch-compatible transforms for target validation and test samples |
-|  **Combination branch architecture**  ||
-| `comb_mlp_nodes_per_layer` | Positive layer widths for the combination branch. A list defines each layer; an integer repeats that width `comb_mlp_layers` times. Only used if `general_architecture_version == mlp` |
-| `comb_mlp_layers` | Positive number of repeated combination layers, required when `comb_mlp_nodes_per_layer` is an integer. Only used if `general_architecture_version == mlp` |
-| `embedding_size` | The output width of both branches for a dot-product model; for a `COMPOSITE` branch it must equal the sum of component output widths |
-|  **Other**  ||
-| `additional_info` | Extra experiment metadata included in reporting |
-
-To train with a larger effective batch while retaining a smaller in-memory
-microbatch, enable gradient accumulation:
+### Larger effective batches and stable gradients
 
 ```python
 config = DeepMTPConfig(
-    ...,
-    train_batchsize=32,
+    # architecture and task settings...
     gradient_accumulation_steps=4,
     gradient_clip_norm=1.0,
 )
 ```
 
-This configuration processes at most 32 observations at once and normally
-updates from groups of approximately 128. DeepMTP weights accumulated mean
-losses by observation count, so uneven and final partial microbatches receive
-the correct influence. Global norm clipping is applied once to the normalized
-accumulated gradient immediately before the optimizer step. The inert defaults
-(`1` and `None`) preserve one optimizer update per batch without clipping.
-The settings are retained in saved configurations, checkpoint metadata, and
-W&B run configuration.
+Accumulation combines observation-weighted microbatches before an optimizer
+step, including an uneven final group. Clipping applies a global norm limit at
+optimizer-step boundaries. Their inert defaults (`1` and `None`) preserve
+historical behavior.
 
-For example, Huber loss is less sensitive to large regression errors than mean
-squared error:
+### Checkpoints
+
+| Format | File | Contains | Use it for |
+|---|---|---|---|
+| `full` (default) | `model.pt` | Model, optimizer, configuration, provenance | Restoration, optimizer warm starts, and fully fine-tuned backbones |
+| `foundation_adapter` | `foundation_adapter.zip` | PEFT adapters, DeepMTP task weights, identities, hashes | Compact LoRA inference or warm starts |
 
 ```python
-config = DeepMTPConfig(
-    validation_setting="B",
-    problem_mode="regression",
-    loss="huber",
-    # branch configuration...
+restored = DeepMTP(
+    {
+        "results_path": "./results",
+        "experiment_name": "restored",
+    },
+    checkpoint_dir="./results/training-run/model.pt",
 )
 ```
 
-The low-level loss registry also retains `binary_cross_entropy` for deliberate
-reproduction of the historical sigmoid-plus-`BCELoss` training path. New
-classification experiments should keep the stable
-`binary_cross_entropy_with_logits` default. Incompatible task/loss
-combinations are rejected during configuration validation.
+Compact adapter checkpoints exclude base-model and optimizer weights. Fully
+fine-tuned foundation models therefore require `full`. Both formats record
+preprocessing and environment metadata; load checkpoints only from trusted
+sources. Read the [checkpoint guide](https://deepmtp.readthedocs.io/en/latest/tutorial/reproducible_checkpoints.html)
+for replay and compatibility details.
 
-RRMSE remains available through the low-level
-`get_performance_results` utility for macro evaluation when a training mean is
-provided for every target. The trainer does not yet retain those baselines, so
-RRMSE is rejected in trainer configurations instead of returning silent `NaN`
-results.
+### TensorBoard and Weights & Biases
 
-The legacy `momentum`, `weighted_loss`, `use_instance_features`,
-`use_target_features`, `load_pretrained_model`, `pretrained_model_path`, and
-non-default `comb_mlp_nodes_reducing_factor` options have no runtime effect.
-Setting them to non-default values emits `ConfigDeprecationWarning`.
-
-`generate_config` applies documented branch defaults silently. If it changes
-`metrics_average` to satisfy or recommend a validation-setting policy, it emits
-`ConfigNormalizationWarning` so applications can display, filter, or escalate
-that adjustment using Python's standard warnings controls.
-
-
-## Instance and target branch hyperparameters
-
-With `DeepMTPConfig`, branch hyperparameters are ordinary flattened fields.
-The legacy `generate_config` helper also accepts `instance_branch_params` and
-`target_branch_params` dictionaries and expands them to these fields.
-
-| Key  | Description |
-| :--- | :--- |
-| **Instance branch** ||
-| `instance_branch_nodes_per_layer` | Instance MLP widths. A list defines each layer; an integer repeats that width `instance_branch_layers` times |
-| `instance_branch_layers` | The number of layers in the MLP version of the instance branch. (Only used if `instance_branch_nodes_per_layer` is int) |
-| `instance_branch_conv_architecture` | Instance convolutional architecture: `resnet` or `VGG` |
-| `instance_branch_conv_architecture_version` | Instance ResNet version: `resnet18` or `resnet101` |
-| `instance_branch_conv_architecture_dense_layers` | Number of replacement instance ResNet dense layers: 1 or 2 |
-| `instance_branch_conv_architecture_last_layer_trained` | Earliest trainable instance ResNet block: `last` or `layer4` through `layer1` |
-| `instance_branch_conv_pretrained` | Use torchvision's default pretrained weights. Defaults to `True`; set to `False` to construct the model without downloading weights |
-| **Target branch** ||
-| `target_branch_nodes_per_layer` | Target MLP widths. A list defines each layer; an integer repeats that width `target_branch_layers` times |
-| `target_branch_layers` | The number of layers in the MLP version of the target branch. (Only used if `target_branch_nodes_per_layer` is int) |
-| `target_branch_conv_architecture` | Target convolutional architecture: `resnet` or `VGG` |
-| `target_branch_conv_architecture_version` | Target ResNet version: `resnet18` or `resnet101` |
-| `target_branch_conv_architecture_dense_layers` | Number of replacement target ResNet dense layers: 1 or 2 |
-| `target_branch_conv_architecture_last_layer_trained` | Earliest trainable target ResNet block: `last` or `layer4` through `layer1` |
-| `target_branch_conv_pretrained` | Use torchvision's default pretrained weights. Defaults to `True`; set to `False` to construct the model without downloading weights |
-
-Pretrained convolutional branches use torchvision's current `DEFAULT` weight
-enum. Torchvision may download those weights into its local cache the first
-time a model is created. Set the corresponding `*_branch_conv_pretrained`
-option to `False` for offline construction; this passes `weights=None`.
-
-
-# Logging results
-
-DeepMTP always writes experiment configuration and summary artifacts below
-`results_path/experiment_name`. TensorBoard and Weights & Biases are optional;
-install both integrations with:
-
-```bash
-pip install "DeepMTP[tracking]"
-```
-
-## Text summary
-
-The default reporter writes three semi-structured tables to `summary.txt` in
-the experiment directory.
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/summary_screenshot.png" alt="logo" height="400"/></p>
-
-## TensorBoard
-
-Set `use_tensorboard_logger=True` to write TensorBoard events alongside the
-other experiment artifacts. Start TensorBoard with the configured results
-directory:
-
-```bash
-tensorboard --logdir results
-```
-
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/tensorboard_screenshot.png" alt="logo" height="400"/></p>
-
-## Weights & Biases
-
-Set both `wandb_project_entity` and `wandb_project_name` to send configuration
-and metrics to a Weights & Biases project. Leaving both values as `None`
-disables the integration. DeepMTP defines `epoch` as the metric step, records
-best/test values in the run summary, reports parameter counts and failure
-status, and supports W&B's online, offline, and disabled modes.
+Set `use_tensorboard_logger=True` for local TensorBoard events. For W&B, supply
+the project and entity; richer uploads remain explicitly opt-in.
 
 ```python
-config = generate_config(
-    # model and training options...
+config = DeepMTPConfig(
+    # architecture and task settings...
     wandb_project_entity="my-team",
     wandb_project_name="deepmtp",
-    wandb_run_name="fingerprint-baseline",
+    wandb_run_name="protein-lora",
     wandb_group="ablations",
-    wandb_job_type="train",
-    wandb_tags=["sparse", "baseline"],
-    wandb_mode="online",
+    wandb_tags=["protein", "lora"],
     wandb_watch="gradients",
     wandb_log_model_artifact=True,
     wandb_model_artifact_aliases=["latest", "best"],
     wandb_log_predictions=True,
-    wandb_prediction_table_max_rows=1000,
 )
 ```
 
-Remote uploads with larger privacy or storage implications are opt-in:
-`wandb_log_code`, `wandb_log_model_artifact`, and
-`wandb_log_predictions` all default to `False`. Model Artifacts contain
-the configured `model.pt` or `foundation_adapter.zip` plus the saved
-configuration and summary. Input Artifact references can be declared through
-`wandb_input_artifacts` to capture lineage. In online mode, a model version can
-also be linked to an existing Registry collection:
-
-```python
-config["wandb_registry_name"] = "Models"
-config["wandb_registry_collection"] = "DeepMTP"
-```
-
-Restore a model from a W&B Artifact without manually downloading its files:
+DeepMTP records epoch-aware metrics, summaries, failures, parameter counts,
+bounded prediction tables, model Artifacts, input lineage, and optional W&B
+Registry links. Restore either checkpoint format directly:
 
 ```python
 model = DeepMTP.from_wandb_artifact(
@@ -1216,34 +553,18 @@ model = DeepMTP.from_wandb_artifact(
 )
 ```
 
-See the [W&B integration guide](docs/source/tutorial/wandb_tracking.rst) and
-[reproducible checkpoint guide](docs/source/tutorial/reproducible_checkpoints.rst)
-for lineage, Registry, offline-mode, preprocessing-replay, and compatibility
-details.
+See the [W&B guide](https://deepmtp.readthedocs.io/en/latest/tutorial/wandb_tracking.html)
+for offline mode, privacy-conscious defaults, lineage, and Registry setup.
 
-<p align="center"><img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/wandb_screenshot.png" alt="logo" height="400"/></p>
+## Hyperparameter optimization
 
+DeepMTP includes random search and Hyperband through the optional `hpo` extra.
+Hyperband allocates increasing epoch budgets to promising configurations and
+discards weaker candidates early. This small offline example uses one epoch as
+an API check; real studies should expand both the search space and budget.
 
-# Hyperparameter Optimization
-DeepMTP includes random-search and Hyperband optimizers for automating model
-selection. Hyperband is a practical option for many of the MTP problem settings
-supported by the project.
-
-## Hyperband
-One of the core steps in any standard HPO method is the performance evaluation of a given configuration. This can be manageable for simple models that are relatively cheap to train and test, but can be a significant bottleneck for more complex models that need hours or even days to train. This is particularly evident in deep learning, as big neural networks with millions of parameters trained on increasingly larger datasets can deem traditional black-box HPO methods impractical. 
-
-Addressing this issue, multi-fidelity HPO methods have been devised to discard unpromising hyperparameter configurations already at an early stage. To this end, the evaluation procedure is adapted to support cheaper evaluations of hyperparameter configurations, such as evaluating on sub-samples (feature-wise or instance-wise) of the provided data set or executing the training procedure only for a certain number of epochs in the case of iterative learners. The more promising candidates are subsequently evaluated on increasing budgets until a maximum assignable budget is reached.
-
-A popular representative of such methods is Hyperband. Hyperband builds upon Successive Halving (SH), where a set of n candidates is first evaluated on a small budget. Based on these low-fidelity performance estimates, the $\frac{n}{\eta}$ ($\eta \geq 2)$ best candidates are preserved, while the remaining configurations are already discarded. Iteratively increasing the evaluation budget and reevaluating the remaining candidates with the increased budget while discarding the inferior candidates results in fewer resources wasted on inferior candidates. In return, one focuses more on the promising candidates.
-
-Despite the efficiency of the successive halving strategy, it is well known that it suffers from the exploration-exploitation trade-off. In simple terms, a static budget $\mathcal{B}$ means that the user has to manually decide whether to explore a number of configurations $n$ or give each configuration a sufficient budget to develop. An incorrect decision can lead to an inadequate exploration of the search space (small $n$) or the early rejection of promising configurations (large $n$). Hyperband overcomes the exploration-exploitation trade-off by repeating the successive halving strategy with different initializations of SH, varying the budget and the number of initial candidate configurations.
-
-## Combining Hyperband with DeepMTP
-Install the HPO dependency with `pip install "DeepMTP[hpo]"`. The example below
-uses synthetic data and one epoch so it can also serve as a quick API check;
-increase `max_budget` and expand the configuration space for real experiments.
-Sampled branch-specific parameters must retain their `instance_` or `target_`
-prefixes so `BaseWorker` can route them to the correct branch.
+<details>
+<summary>Show the complete Hyperband example</summary>
 
 <!-- hpo-example:start -->
 ```python
@@ -1329,47 +650,85 @@ best_model_results = best_model.predict(test, verbose=True)
 ```
 <!-- hpo-example:end -->
 
-# DEMOS
-These notebooks use small local datasets and are executed by the test suite.
-Each Colab link opens the version-controlled notebook rather than a separate
-copy. In a fresh Colab runtime, the first code cell installs the matching
-DeepMTP source and its `datasets` extra from the repository's `main` branch;
-the HPO notebooks also install the `hpo` extra. Outside Colab, that bootstrap
-is skipped so the same notebooks continue to run against the active local
-environment.
+</details>
 
-The links are checked weekly and can be verified manually with:
+The [HPO guide](https://deepmtp.readthedocs.io/en/latest/tutorial/hpo.html)
+documents search-space routing, budgets, and restoration.
+
+## Demos
+
+The version-controlled notebooks use small datasets and are executed by the
+test suite. Their first cell installs the matching source when opened in a
+fresh Colab runtime; local execution uses the active environment.
+
+| Workflow | Open in Colab |
+|---|---|
+| Dataset preparation | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/load_datasets.ipynb) |
+| Multi-label classification | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MLC.ipynb) |
+| Multivariate regression | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTR.ipynb) |
+| Multi-task learning | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTL.ipynb) |
+| Matrix completion | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MC.ipynb) |
+| Dyadic prediction | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_DP.ipynb) |
+| Hyperband | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/hyperband_example.ipynb) |
+| Random search | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/random_search_example.ipynb) |
+
+The links are checked weekly. Verify their mapping and live endpoints manually
+with:
 
 ```bash
 python scripts/check_colab_links.py
 ```
 
-| Example | Notebook |
-|---|---|
-| Local dataset preparation | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/load_datasets.ipynb) |
-| Multi-label classification (MLC) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MLC.ipynb) |
-| Multivariate regression (MTR) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTR.ipynb) |
-| Multi-task learning (MTL) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MTL.ipynb) |
-| Matrix completion (MC) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_MC.ipynb) |
-| Dyadic prediction (DP) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/main_example_DP.ipynb) |
-| Hyperband | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/hyperband_example.ipynb) |
-| Random search | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diliadis/DeepMTP/blob/main/DEMO/random_search_example.ipynb) |
+## Documentation and project links
 
-# Cite Us
-If you use this package, please cite [our paper](https://www.sciencedirect.com/science/article/pii/S2352711023002121):
+- [Documentation](https://deepmtp.readthedocs.io/en/latest/): tutorials and API reference
+- [CHANGELOG.md](CHANGELOG.md): user-visible changes by release
+- [MIGRATION.rst](MIGRATION.rst): compatibility guidance for existing experiments
+- [NEURAL_NETWORK_EXTENSIONS.md](NEURAL_NETWORK_EXTENSIONS.md): implemented and planned model extensions
+- [CONTRIBUTING.md](CONTRIBUTING.md): development setup and pull-request checks
+- [SECURITY.md](SECURITY.md): supported versions and private vulnerability reporting
+- [RELEASING.md](RELEASING.md): maintainer release process
+- [Issue tracker](https://github.com/diliadis/DeepMTP/issues): bugs and feature requests
+
+## Development
+
+```bash
+git clone https://github.com/diliadis/DeepMTP.git
+cd DeepMTP
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e . --group dev
+pre-commit run --all-files
+python -m pytest
 ```
+
+Conda users can start with `conda env create -f environment.yml`. Please read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+## Citation
+
+If DeepMTP supports your research, please cite the SoftwareX paper:
+
+```bibtex
 @article{iliadis2023deepmtp,
-  title={DeepMTP: A Python-based deep learning framework for multi-target prediction},
-  author={Iliadis, Dimitrios and De Baets, Bernard and Waegeman, Willem},
-  journal={SoftwareX},
-  volume={23},
-  pages={101516},
-  year={2023},
-  publisher={Elsevier}
+  title = {DeepMTP: A Python-based deep learning framework for multi-target prediction},
+  author = {Iliadis, Dimitrios and De Baets, Bernard and Waegeman, Willem},
+  journal = {SoftwareX},
+  volume = {23},
+  pages = {101516},
+  year = {2023},
+  publisher = {Elsevier},
+  doi = {10.1016/j.softx.2023.101516}
 }
 ```
 
-Related publications to this work:
-* Paper that showed the feasibility of using the two-branch architecture for different multi-target prediction settings: [link](https://link.springer.com/article/10.1007/s10994-021-06104-5)
-* Paper that benchmarks different hyperparameter optimization methods using the two-branch neural network as the base model: [link](https://arxiv.org/abs/2211.04362)
-* Paper that compares different embedding aggregation strategies specifically in the area of drug-target interaction prediction: [link](https://www.biorxiv.org/content/10.1101/2023.09.25.559265v2.abstract)
+Related work:
+
+- [Two-branch architectures across multi-target prediction settings](https://link.springer.com/article/10.1007/s10994-021-06104-5)
+- [Hyperparameter optimization for two-branch neural networks](https://arxiv.org/abs/2211.04362)
+- [Embedding aggregation for drug–target interaction prediction](https://www.biorxiv.org/content/10.1101/2023.09.25.559265v2.abstract)
+
+## License
+
+DeepMTP is released under the [MIT License](LICENSE.md).
