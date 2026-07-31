@@ -127,7 +127,11 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Benchmark memory use and throughput against the dense MLP path with
   `scripts/benchmark_sparse_inputs.py`.
 
-### 4. Sequence and pretrained-embedding inputs (completed)
+### 4. Sequence, pretrained-embedding, and foundation-model inputs
+
+Status: core sequence encoders and the generic foundation-model adapter
+baseline are implemented. Parameter-efficient training, caching, and
+production lifecycle support remain planned.
 
 - [x] Add padded token-sequence batches with attention masks and original
   lengths, including dynamic collation of variable-length rows.
@@ -138,6 +142,38 @@ reserved index zero unless their policy is configured as `error`.
   features.
 - [x] Add optional adapters for protein, chemical, and text foundation models
   without making them core dependencies.
+
+#### Foundation-model roadmap
+
+Deliver the remaining work in the following order so each stage has stable
+checkpoint and experiment-tracking semantics before the next optimization is
+introduced:
+
+- [x] Provide a generic Hugging Face `AutoTokenizer`/`AutoModel` adapter
+  with frozen and full fine-tuning, explicit pooling and length policies,
+  trainable output projection, composite-branch support, lazy dependencies,
+  and resolved model/tokenizer revision capture.
+- [ ] Add parameter-efficient fine-tuning with Hugging Face PEFT and LoRA
+  rather than implementing adapter layers from scratch. Keep it opt-in,
+  validate target modules and hyperparameters before training, and preserve
+  the existing ``frozen`` and ``full`` modes.
+- [ ] Support adapter-only checkpoint export and restoration. Tie every
+  adapter checkpoint and W&B Artifact to the exact base-model and tokenizer
+  revisions required to restore it.
+- [ ] Add an optional entity-level cache for pooled frozen-backbone outputs
+  before the trainable projection. Include model/tokenizer revisions,
+  tokenization settings, pooling, hidden size, and dtype in cache identity and
+  reject stale or incompatible entries.
+- [ ] Add foundation-model gradient checkpointing after automatic mixed
+  precision has a stable trainer-level contract. Cover both full and
+  parameter-efficient fine-tuning without changing CPU behavior.
+- [ ] Define documented support tiers: offline contract tests for the generic
+  adapter, a local tiny-model integration test in regular CI, and opt-in
+  compatibility checks for the documented ESM-2, ChemBERTa, BERT, and
+  BiomedBERT reference checkpoints.
+- [ ] Consider quantized model loading only after device placement, dtype,
+  optimizer, checkpoint-restoration, and platform-support semantics are
+  explicit. Keep quantization dependencies separate and optional.
 
 ### 5. Graph inputs (homogeneous molecular graphs completed)
 
@@ -263,8 +299,11 @@ Status: reproducible checkpoints and W&B integration implemented.
 4. Formalize fusion, loss, and output-head registries.
 5. Numerically stable logits/loss handling and richer output heads.
 6. Sparse inputs.
-7. Sequence encoders (GRU, 1-D convolution, Transformer, and optional
-   Hugging Face foundation-model adapters complete).
+7. Sequence encoders (GRU, 1-D convolution, Transformer, and the generic
+   Hugging Face foundation-model adapter baseline complete). Continue
+   foundation-model work with PEFT/LoRA, adapter lifecycle support, frozen
+   embedding caches, memory optimizations, and compatibility tiers;
+   investigate quantization last.
 8. Hybrid input concatenation, learned missing-modality representations, gated
    fusion, attention fusion, and modality dropout (complete).
 9. Homogeneous molecular graph encoders (complete), followed by time-series
