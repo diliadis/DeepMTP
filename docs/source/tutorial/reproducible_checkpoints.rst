@@ -1,8 +1,9 @@
 Reproducible checkpoints
 ########################
 
-DeepMTP checkpoints keep the historical model, optimizer, and configuration
-entries and may now include a versioned ``metadata`` manifest:
+The default ``checkpoint_format="full"`` keeps DeepMTP's historical model,
+optimizer, and configuration entries and may include a versioned ``metadata``
+manifest:
 
 .. code-block:: text
 
@@ -23,6 +24,22 @@ floating-point dtype, Python and relevant package versions, and the current Git
 commit and dirty-state when the source checkout is available. Tracking
 identifiers such as the W&B run ID are included when a capable reporter is
 active.
+
+Foundation adapter format
+=========================
+
+LoRA foundation-model runs can instead set
+``checkpoint_format="foundation_adapter"``. DeepMTP then writes one
+``foundation_adapter.zip`` containing PEFT-native safe adapter weights,
+task-owned DeepMTP weights, normalized configuration, exact base-model and
+tokenizer identities, provenance metadata, and per-file SHA-256 hashes. It
+omits foundation backbone tensors and optimizer state, so it is suitable for
+inference and warm starts rather than exact training resume. Fully fine-tuned
+foundation branches require the default full format.
+
+Both formats restore through ``checkpoint_dir`` and can be published and
+restored as W&B model Artifacts. See :doc:`foundation_models` for the archive
+layout, revision requirements, and examples.
 
 Dense preprocessing replay
 ==========================
@@ -96,7 +113,7 @@ two preprocessing paths remain distinct.
 Loading and compatibility
 =========================
 
-Checkpoints written before the manifest was introduced remain loadable. Their
+Full checkpoints written before the manifest was introduced remain loadable. Their
 three required keys are unchanged, ``checkpoint_metadata`` is ``None``, and
 configuration overrides supplied to the constructor retain their historical
 precedence. A direct call to ``ExperimentStore.save_checkpoint`` without

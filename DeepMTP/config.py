@@ -37,6 +37,7 @@ BranchArchitecture: TypeAlias = Literal[
 CompositeFusion: TypeAlias = Literal["attention", "concat", "gated"]
 WandBMode: TypeAlias = Literal["online", "offline", "disabled"]
 WandBWatch: TypeAlias = Literal["gradients", "parameters", "all"]
+CheckpointFormat: TypeAlias = Literal["full", "foundation_adapter"]
 
 CLASSIFICATION_METRICS = frozenset(
     {
@@ -201,6 +202,7 @@ class DeepMTPConfig:
     experiment_name: str | None = None
     experiment_dir: str | None = None
     save_model: bool = True
+    checkpoint_format: CheckpointFormat | str = "full"
     data_preparation_state: dict[str, Any] | None = None
 
     instance_branch_architecture: BranchArchitecture | None = None
@@ -407,6 +409,11 @@ class DeepMTPConfig:
             self.multiclass_average = "macro"
         if isinstance(self.loss, str):
             self.loss = cast(LossName, self.loss.lower())
+        if isinstance(self.checkpoint_format, str):
+            self.checkpoint_format = cast(
+                CheckpointFormat,
+                self.checkpoint_format.lower(),
+            )
         if self.loss is None:
             if (
                 self.problem_mode == "classification"
@@ -622,6 +629,11 @@ class DeepMTPConfig:
             )
         if not isinstance(self.results_path, str) or not self.results_path:
             raise ConfigValidationError("results_path must be a non-empty string.")
+        if self.checkpoint_format not in {"full", "foundation_adapter"}:
+            raise ConfigValidationError(
+                "checkpoint_format must be 'full' or 'foundation_adapter'; "
+                f"received {self.checkpoint_format!r}."
+            )
         if (self.wandb_project_name is None) != (self.wandb_project_entity is None):
             raise ConfigValidationError(
                 "wandb_project_name and wandb_project_entity must either both "

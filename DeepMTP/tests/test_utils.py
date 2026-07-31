@@ -78,6 +78,7 @@ def get_default_config_dict():
         "comb_mlp_nodes_per_layer": [2048, 2048, 2048],
         "comb_mlp_layers": None,
         "save_model": True,
+        "checkpoint_format": "full",
         "data_preparation_state": None,
         "eval_every_n_epochs": 10,
         "delta": 0,

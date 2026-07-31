@@ -129,9 +129,9 @@ reserved index zero unless their policy is configured as `error`.
 
 ### 4. Sequence, pretrained-embedding, and foundation-model inputs
 
-Status: core sequence encoders and the generic foundation-model adapter
-baseline are implemented. Parameter-efficient training, caching, and
-production lifecycle support remain planned.
+Status: core sequence encoders, the generic foundation-model adapter,
+parameter-efficient training, and compact adapter lifecycle support are
+implemented. Caching and further memory optimizations remain planned.
 
 - [x] Add padded token-sequence batches with attention masks and original
   lengths, including dynamic collation of variable-length rows.
@@ -157,7 +157,7 @@ introduced:
   rather than implementing adapter layers from scratch. Keep it opt-in,
   validate target modules and hyperparameters before training, and preserve
   the existing ``frozen`` and ``full`` modes.
-- [ ] Support adapter-only checkpoint export and restoration. Tie every
+- [x] Support adapter-only checkpoint export and restoration. Tie every
   adapter checkpoint and W&B Artifact to the exact base-model and tokenizer
   revisions required to restore it.
 - [ ] Add an optional entity-level cache for pooled frozen-backbone outputs

@@ -26,6 +26,13 @@ from DeepMTP.models import (
 )
 from DeepMTP.runtime.components import build_task_components
 from DeepMTP.runtime.evaluation import Evaluator
+from DeepMTP.runtime.foundation_checkpoints import (
+    FOUNDATION_ADAPTER_CHECKPOINT_NAME,
+    FoundationAdapterCheckpoint,
+    load_foundation_adapter_checkpoint,
+    restore_foundation_adapter_checkpoint,
+    save_foundation_adapter_checkpoint,
+)
 from DeepMTP.runtime.metadata import build_checkpoint_metadata
 from DeepMTP.runtime.persistence import ExperimentStore
 from DeepMTP.runtime.presentation import (
@@ -80,6 +87,7 @@ class DeepMTP:
     ) -> None:
         self.checkpoint_dict: dict[str, Any] | None = None
         self.checkpoint_metadata: dict[str, Any] | None = None
+        foundation_adapter_checkpoint: FoundationAdapterCheckpoint | None = None
         self.wandb_artifact: Any = None
         self.reporter: ExperimentReporter | None = reporter
         self._progress_was_injected = progress is not None
@@ -108,9 +116,21 @@ class DeepMTP:
                     message=str(checkpoint_dir),
                 )
             )
-            self.checkpoint_dict = ExperimentStore.load_checkpoint(
-                checkpoint_dir, map_location="cpu"
-            )
+            checkpoint_path = Path(checkpoint_dir)
+            if checkpoint_path.name == FOUNDATION_ADAPTER_CHECKPOINT_NAME:
+                foundation_adapter_checkpoint = load_foundation_adapter_checkpoint(
+                    checkpoint_path,
+                    map_location="cpu",
+                )
+                self.checkpoint_dict = {
+                    "config": foundation_adapter_checkpoint.config,
+                    "metadata": foundation_adapter_checkpoint.metadata,
+                    "checkpoint_format": "foundation_adapter",
+                }
+            else:
+                self.checkpoint_dict = ExperimentStore.load_checkpoint(
+                    checkpoint_path, map_location="cpu"
+                )
             checkpoint_metadata = self.checkpoint_dict.get("metadata")
             if isinstance(checkpoint_metadata, Mapping):
                 self.checkpoint_metadata = dict(checkpoint_metadata)
@@ -187,13 +207,23 @@ class DeepMTP:
         if self.checkpoint_dict is not None:
             # apply the loaded checkpoint
             self.progress.on_event(ProgressEvent("checkpoint_weights_started"))
-            self.deepMTP_model.load_state_dict(self.checkpoint_dict["model_state_dict"])
-            # update the device of the optimizer
-            self.optimizer.load_state_dict(self.checkpoint_dict["optimizer_state_dict"])
-            for state in self.optimizer.state.values():
-                for k, v in state.items():
-                    if isinstance(v, torch.Tensor):
-                        state[k] = v.to(self.device)
+            if foundation_adapter_checkpoint is not None:
+                restore_foundation_adapter_checkpoint(
+                    self.deepMTP_model,
+                    foundation_adapter_checkpoint,
+                )
+            else:
+                self.deepMTP_model.load_state_dict(
+                    self.checkpoint_dict["model_state_dict"]
+                )
+                # update the device of the optimizer
+                self.optimizer.load_state_dict(
+                    self.checkpoint_dict["optimizer_state_dict"]
+                )
+                for state in self.optimizer.state.values():
+                    for k, v in state.items():
+                        if isinstance(v, torch.Tensor):
+                            state[k] = v.to(self.device)
             self.progress.on_event(ProgressEvent("checkpoint_weights_completed"))
 
         problem_mode = self.configuration.problem_mode
@@ -743,7 +773,9 @@ class DeepMTP:
     ) -> None:
         best_model = self.early_stopping.get_best_model()
         best_optimizer_state = self.early_stopping.get_best_optimizer_state_dict()
-        if not isinstance(best_model, nn.Module) or not isinstance(
+        if not isinstance(best_model, nn.Module):
+            raise RuntimeError("Cannot save a model before training has completed.")
+        if self.configuration.checkpoint_format == "full" and not isinstance(
             best_optimizer_state,
             Mapping,
         ):
@@ -765,12 +797,24 @@ class DeepMTP:
             training=getattr(self, "_checkpoint_training_metadata", {}),
             tracking=tracking_metadata,
         )
-        checkpoint_path = self.experiment_store.save_checkpoint(
-            model_state_dict=best_model.state_dict(),
-            optimizer_state_dict=best_optimizer_state,
-            config=checkpoint_config,
-            metadata=checkpoint_metadata,
-        )
+        artifact_metadata = checkpoint_metadata
+        if self.configuration.checkpoint_format == "foundation_adapter":
+            adapter_export = save_foundation_adapter_checkpoint(
+                self.experiment_store.experiment_dir
+                / FOUNDATION_ADAPTER_CHECKPOINT_NAME,
+                model=best_model,
+                config=checkpoint_config,
+                metadata=checkpoint_metadata,
+            )
+            checkpoint_path = adapter_export.checkpoint_path
+            artifact_metadata = adapter_export.artifact_metadata
+        else:
+            checkpoint_path = self.experiment_store.save_checkpoint(
+                model_state_dict=best_model.state_dict(),
+                optimizer_state_dict=cast(Mapping[str, Any], best_optimizer_state),
+                config=checkpoint_config,
+                metadata=checkpoint_metadata,
+            )
         self.checkpoint_metadata = checkpoint_metadata
         if (
             getattr(self.configuration, "wandb_log_model_artifact", False)
@@ -782,7 +826,7 @@ class DeepMTP:
                 ReporterModelArtifact(
                     checkpoint_path=checkpoint_path,
                     files=(checkpoint_path, *artifact_files),
-                    metadata=checkpoint_metadata,
+                    metadata=artifact_metadata,
                     name=getattr(
                         self.configuration,
                         "wandb_model_artifact_name",

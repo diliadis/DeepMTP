@@ -224,8 +224,64 @@ Only the LoRA parameters inside the foundation backbone are trainable in this
 mode. The ordinary DeepMTP projection remains trainable because it belongs to
 the task model rather than the pretrained backbone. ``model.state_dict()`` and
 normal DeepMTP checkpoints continue to contain the complete restorable model
-state. Compact adapter-only export and restoration are a separate planned
-lifecycle feature.
+state.
+
+Compact adapter checkpoints
+---------------------------
+
+For a smaller LoRA deployment or warm-start artifact, opt into the compact
+checkpoint format:
+
+.. code-block:: python
+
+   config = DeepMTPConfig(
+       # foundation-model and training settings...
+       checkpoint_format="foundation_adapter",
+   )
+
+After training, ``save_model=True`` writes ``foundation_adapter.zip`` instead
+of ``model.pt``. The archive contains:
+
+* PEFT-native ``adapter_config.json`` and ``adapter_model.safetensors`` files
+  for every LoRA foundation component;
+* DeepMTP projections, fusion layers, output layers, and other task-owned
+  state in ``task_state.pt``;
+* the normalized configuration and checkpoint provenance metadata;
+* exact base-model and tokenizer identities plus SHA-256 hashes for every
+  required state file.
+
+It deliberately excludes all foundation-backbone tensors and optimizer state.
+Consequently, it is an inference or warm-start format, not an exact interrupted
+training resume. Use the default ``checkpoint_format="full"`` when optimizer
+restoration is required or any foundation branch uses ``train_mode="full"``.
+Compact export requires at least one LoRA branch; additional frozen foundation
+branches are recorded and reconstructed without adapter files.
+
+Restore the compact archive through the same constructor argument used for
+full checkpoints:
+
+.. code-block:: python
+
+   restored = DeepMTP(
+       {
+           "results_path": "./results",
+           "experiment_name": "restored",
+       },
+       checkpoint_dir="./results/training-run/foundation_adapter.zip",
+   )
+
+DeepMTP first rebuilds the recorded base models, restores task-owned weights,
+and then applies each PEFT adapter. Remote Hub identities must include resolved
+model and tokenizer revisions so restoration cannot silently move to newer
+weights. A local model directory is treated as a user-managed immutable
+snapshot and must exist at restoration time. Archive hashes detect accidental
+or malicious modification, but checkpoints and model repositories should still
+be loaded only from trusted sources.
+
+When ``wandb_log_model_artifact=True``, the same archive is uploaded as the
+model Artifact and its foundation identities are attached as Artifact
+metadata. ``DeepMTP.from_wandb_artifact`` discovers and restores either one
+``model.pt`` or one ``foundation_adapter.zip`` without a separate API.
 
 Composite inputs
 ----------------

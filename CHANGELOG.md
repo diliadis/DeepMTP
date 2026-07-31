@@ -8,6 +8,10 @@ by their effect on users and maintainers.
 
 ### Added
 
+- Compact, opt-in `foundation_adapter` checkpoints for LoRA foundation-model
+  runs, with native PEFT safe adapter files, task-owned weights, exact base and
+  tokenizer identities, SHA-256 integrity checks, local and W&B restoration,
+  composite/frozen-component support, and unchanged full-checkpoint defaults.
 - Opt-in Hugging Face PEFT/LoRA training for foundation-model branches, with
   typed hyperparameters, explicit preflight validation of target modules,
   frozen base weights, full checkpoint/W&B configuration capture, composite

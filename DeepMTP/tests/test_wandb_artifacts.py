@@ -75,6 +75,35 @@ def test_download_wandb_checkpoint_uses_public_api(monkeypatch, tmp_path):
     assert downloaded.artifact_name == "model"
     assert downloaded.artifact_version == "v3"
     assert downloaded.artifact_digest == "digest"
+    assert downloaded.checkpoint_format == "full"
+
+
+def test_download_wandb_checkpoint_accepts_foundation_adapter(
+    monkeypatch,
+    tmp_path,
+):
+    class FakeArtifact:
+        def download(self, *, root):
+            artifact_root = Path(root) / "downloaded"
+            artifact_root.mkdir()
+            (artifact_root / "foundation_adapter.zip").write_bytes(b"bundle")
+            return str(artifact_root)
+
+    monkeypatch.setattr(
+        wandb_module.importlib,
+        "import_module",
+        lambda module_name: SimpleNamespace(
+            Api=lambda: SimpleNamespace(artifact=lambda reference: FakeArtifact())
+        ),
+    )
+
+    downloaded = download_wandb_checkpoint(
+        "entity/project/adapter:latest",
+        download_dir=tmp_path,
+    )
+
+    assert downloaded.checkpoint_path.name == "foundation_adapter.zip"
+    assert downloaded.checkpoint_format == "foundation_adapter"
 
 
 def test_download_wandb_checkpoint_validates_dependency_and_contents(
@@ -100,7 +129,7 @@ def test_download_wandb_checkpoint_validates_dependency_and_contents(
             Api=lambda: SimpleNamespace(artifact=lambda reference: EmptyArtifact())
         ),
     )
-    with pytest.raises(ValueError, match="no model.pt"):
+    with pytest.raises(ValueError, match="no supported DeepMTP checkpoint"):
         download_wandb_checkpoint(
             "entity/project/model:latest",
             download_dir=tmp_path,

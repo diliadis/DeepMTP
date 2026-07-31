@@ -201,6 +201,7 @@ files = [
     "DeepMTP/runtime/components.py",
     "DeepMTP/runtime/evaluation.py",
     "DeepMTP/runtime/evaluation_progress.py",
+    "DeepMTP/runtime/foundation_checkpoints.py",
     "DeepMTP/runtime/metadata.py",
     "DeepMTP/runtime/persistence.py",
     "DeepMTP/runtime/presentation.py",
