@@ -16,6 +16,7 @@ def test_optional_extra_smoke_covers_every_declared_runtime_extra():
 
     assert imported_extras == (
         "datasets",
+        "foundation",
         "graph",
         "hpo",
         "image",

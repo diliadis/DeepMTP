@@ -15,6 +15,10 @@ from DeepMTP._registry import FactoryRegistry
 from DeepMTP.config import DeepMTPConfig
 from DeepMTP.data.batches import BranchInputKind
 from DeepMTP.data.tabular import TabularSchema
+from DeepMTP.integrations.huggingface import (
+    FoundationModelSpec,
+    HuggingFaceSequenceEncoder,
+)
 from DeepMTP.models.branches import (
     MLP,
     CompositeEncoder,
@@ -541,6 +545,24 @@ class ModelFactory:
                 self.config,
                 f"{branch}_branch_sequence_encoder",
             )
+            if encoder_name == "foundation":
+                foundation_field = f"{branch}_branch_foundation_model"
+                encoder = HuggingFaceSequenceEncoder(
+                    spec=FoundationModelSpec.from_config(
+                        getattr(self.config, foundation_field)
+                    ),
+                    vocabulary_size=input_dim,
+                    output_dim=output_dim,
+                    padding_idx=getattr(
+                        self.config,
+                        f"{branch}_branch_sequence_padding_idx",
+                    ),
+                )
+                self.config.set_runtime_value(
+                    foundation_field,
+                    encoder.spec.to_dict(),
+                )
+                return encoder
             encoder_kwargs = {
                 "vocabulary_size": input_dim,
                 "embedding_dim": getattr(
@@ -679,6 +701,16 @@ class ModelFactory:
             "dropout_rate": component["dropout_rate"],
         }
         encoder_name = component["encoder"]
+        if encoder_name == "foundation":
+            encoder = HuggingFaceSequenceEncoder(
+                spec=FoundationModelSpec.from_config(component["foundation_model"]),
+                vocabulary_size=input_dim,
+                output_dim=output_dim,
+                padding_idx=component["padding_idx"],
+            )
+            if isinstance(component, dict):
+                component["foundation_model"] = encoder.spec.to_dict()
+            return encoder
         if encoder_name == "gru":
             return SequenceGRUEncoder(**encoder_kwargs)
         if encoder_name == "conv1d":

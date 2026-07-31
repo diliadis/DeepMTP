@@ -31,6 +31,7 @@ Optional integrations
 Install only the integrations required by an experiment::
 
   python -m pip install "DeepMTP[datasets]"
+  python -m pip install "DeepMTP[foundation]"
   python -m pip install "DeepMTP[hpo]"
   python -m pip install "DeepMTP[graph]"
   python -m pip install "DeepMTP[image]"

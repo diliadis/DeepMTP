@@ -294,6 +294,8 @@ class DeepMTPConfig:
     multiclass_average: MulticlassAverage | None = None
     gradient_accumulation_steps: int = 1
     gradient_clip_norm: float | None = None
+    instance_branch_foundation_model: dict[str, Any] | None = None
+    target_branch_foundation_model: dict[str, Any] | None = None
 
     _extras: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _present_fields: set[str] | None = field(default=None, init=False, repr=False)
@@ -962,10 +964,16 @@ class DeepMTPConfig:
         component.setdefault("conv_kernel_size", 3)
         component.setdefault("transformer_num_heads", 4)
         component.setdefault("transformer_feedforward_dim", 256)
-        if component["encoder"] not in {"conv1d", "gru", "transformer"}:
+        component.setdefault("foundation_model", None)
+        if component["encoder"] not in {
+            "conv1d",
+            "foundation",
+            "gru",
+            "transformer",
+        }:
             raise ConfigValidationError(
-                f"{prefix}['encoder'] must be 'conv1d', 'gru', or "
-                f"'transformer'; received {component['encoder']!r}."
+                f"{prefix}['encoder'] must be 'conv1d', 'foundation', 'gru', "
+                f"or 'transformer'; received {component['encoder']!r}."
             )
         for key in (
             "embedding_dim",
@@ -1007,16 +1015,28 @@ class DeepMTPConfig:
                     f"{prefix}['embedding_dim'] must be divisible by "
                     "transformer_num_heads."
                 )
+        if component["encoder"] == "foundation":
+            from DeepMTP.integrations.huggingface import FoundationModelSpec
+
+            try:
+                foundation_spec = FoundationModelSpec.from_config(
+                    component["foundation_model"]
+                )
+            except (TypeError, ValueError) as error:
+                raise ConfigValidationError(
+                    f"{prefix}['foundation_model']: {error}"
+                ) from error
+            component["foundation_model"] = foundation_spec.to_dict()
 
     def _validate_sequence_branch(
         self,
         branch: Literal["instance", "target"],
     ) -> None:
         encoder = getattr(self, f"{branch}_branch_sequence_encoder")
-        if encoder not in {"conv1d", "gru", "transformer"}:
+        if encoder not in {"conv1d", "foundation", "gru", "transformer"}:
             raise ConfigValidationError(
-                f"{branch}_branch_sequence_encoder must be 'conv1d', 'gru', "
-                f"or 'transformer'; received {encoder!r}."
+                f"{branch}_branch_sequence_encoder must be 'conv1d', "
+                f"'foundation', 'gru', or 'transformer'; received {encoder!r}."
             )
         for suffix in (
             "embedding_dim",
@@ -1063,6 +1083,17 @@ class DeepMTPConfig:
                     f"{branch}_branch_sequence_embedding_dim={embedding_dim} "
                     f"must be divisible by {heads_field}={num_heads}."
                 )
+        if encoder == "foundation":
+            from DeepMTP.integrations.huggingface import FoundationModelSpec
+
+            foundation_field = f"{branch}_branch_foundation_model"
+            try:
+                foundation_spec = FoundationModelSpec.from_config(
+                    getattr(self, foundation_field)
+                )
+            except (TypeError, ValueError) as error:
+                raise ConfigValidationError(f"{foundation_field}: {error}") from error
+            setattr(self, foundation_field, foundation_spec.to_dict())
 
     def _validate_graph_branch(
         self,

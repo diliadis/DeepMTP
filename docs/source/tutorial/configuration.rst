@@ -254,7 +254,10 @@ must receive ``instance_feature_kind="sequence"`` or
 ``target_feature_kind="sequence"`` for that axis. Batches carry dynamically
 padded IDs, attention masks, and original lengths. See :doc:`sequence_inputs`
 for vocabulary, padding, packed-GRU, masked-Conv1D, Transformer, and
-checkpoint configuration.
+checkpoint configuration. Set ``branch_sequence_encoder="foundation"`` with a
+validated ``branch_foundation_model`` mapping to use an optional Hugging Face
+encoder instead. See :doc:`foundation_models` for tokenization, pooling,
+freezing, revision, security, and restoration settings.
 
 A **GRAPH** branch consumes one homogeneous
 ``torch_geometric.data.Data`` object per entity. ``data_process`` must receive

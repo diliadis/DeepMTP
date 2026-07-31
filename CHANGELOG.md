@@ -11,6 +11,10 @@ by their effect on users and maintainers.
 - Opt-in observation-weighted gradient accumulation and global norm clipping,
   with correct uneven/final microbatch handling, validated inert defaults,
   checkpoint metadata, and W&B configuration capture.
+- Optional Hugging Face foundation-model sequence encoders for protein, SMILES,
+  and text inputs, including tokenizer helpers, explicit length policy,
+  mask-aware pooling, frozen or full fine-tuning, output projection, composite
+  components, resolved revision capture, and lazy dependencies.
 
 ## [0.0.23] - 2026-07-30
 

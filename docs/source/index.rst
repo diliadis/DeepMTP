@@ -28,6 +28,7 @@ Documentation
 	tutorial/tabular_inputs
 	tutorial/sparse_inputs
 	tutorial/sequence_inputs
+	tutorial/foundation_models
 	tutorial/graph_inputs
 	tutorial/composite_inputs
 	tutorial/hpo

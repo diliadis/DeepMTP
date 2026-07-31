@@ -466,6 +466,7 @@ def test_dependency_metadata_separates_runtime_features_from_development_tools()
     assert set(runtime_extras) == {
         "all",
         "datasets",
+        "foundation",
         "graph",
         "hpo",
         "image",
@@ -525,6 +526,7 @@ def test_minimum_constraints_cover_direct_test_dependencies():
         "tomli": "2.0.1",
         "torch": "2.0.1",
         "torch-geometric": "2.5.0",
+        "transformers": "4.48.3",
         "wandb": "0.27.2",
     }
 

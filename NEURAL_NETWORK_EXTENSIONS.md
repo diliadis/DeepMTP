@@ -127,7 +127,7 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Benchmark memory use and throughput against the dense MLP path with
   `scripts/benchmark_sparse_inputs.py`.
 
-### 4. Sequence and pretrained-embedding inputs (in progress)
+### 4. Sequence and pretrained-embedding inputs (completed)
 
 - [x] Add padded token-sequence batches with attention masks and original
   lengths, including dynamic collation of variable-length rows.
@@ -136,7 +136,7 @@ reserved index zero unless their policy is configured as `error`.
 - [x] Add an optional position-aware Transformer encoder.
 - [x] Accept precomputed embeddings from domain models as ordinary dense
   features.
-- [ ] Add optional adapters for protein, chemical, and text foundation models
+- [x] Add optional adapters for protein, chemical, and text foundation models
   without making them core dependencies.
 
 ### 5. Graph inputs (homogeneous molecular graphs completed)
@@ -263,7 +263,8 @@ Status: reproducible checkpoints and W&B integration implemented.
 4. Formalize fusion, loss, and output-head registries.
 5. Numerically stable logits/loss handling and richer output heads.
 6. Sparse inputs.
-7. Sequence encoders (GRU, 1-D convolution, and Transformer complete).
+7. Sequence encoders (GRU, 1-D convolution, Transformer, and optional
+   Hugging Face foundation-model adapters complete).
 8. Hybrid input concatenation, learned missing-modality representations, gated
    fusion, attention fusion, and modality dropout (complete).
 9. Homogeneous molecular graph encoders (complete), followed by time-series
