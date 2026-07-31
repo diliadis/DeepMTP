@@ -7,6 +7,7 @@ from torch import nn
 
 from DeepMTP import (
     DeepMTPConfig,
+    FoundationLoRASpec,
     FoundationModelSpec,
     HuggingFaceSequenceEncoder,
     ModelFactory,
@@ -79,6 +80,44 @@ class FakeBackbone(nn.Module):
         )
 
 
+class FakePeftModel(nn.Module):
+    def __init__(self, base_model, peft_config):
+        super().__init__()
+        self.base_model = base_model
+        self.config = base_model.config
+        self.peft_config = peft_config
+        self.lora_adapter = nn.Parameter(torch.tensor(0.0))
+
+    def get_input_embeddings(self):
+        return self.base_model.get_input_embeddings()
+
+    def forward(self, *, input_ids, attention_mask):
+        outputs = self.base_model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+        )
+        return SimpleNamespace(
+            last_hidden_state=outputs.last_hidden_state + self.lora_adapter,
+            pooler_output=outputs.pooler_output + self.lora_adapter,
+        )
+
+
+class FakePeft:
+    TaskType = SimpleNamespace(FEATURE_EXTRACTION="FEATURE_EXTRACTION")
+
+    def __init__(self):
+        self.configs = []
+
+    def LoraConfig(self, **values):
+        config = SimpleNamespace(**values)
+        self.configs.append(config)
+        return config
+
+    @staticmethod
+    def get_peft_model(model, config):
+        return FakePeftModel(model, config)
+
+
 def make_spec(**overrides):
     values = {
         "model_name": "example/foundation-model",
@@ -88,6 +127,17 @@ def make_spec(**overrides):
     }
     values.update(overrides)
     return FoundationModelSpec(**values)
+
+
+def make_lora_spec(**overrides):
+    values = {
+        "rank": 4,
+        "alpha": 8,
+        "dropout": 0.1,
+        "target_modules": ["embedding"],
+    }
+    values.update(overrides)
+    return FoundationLoRASpec(**values)
 
 
 def make_config(**overrides):
@@ -131,6 +181,86 @@ def test_foundation_spec_normalizes_and_round_trips():
     assert restored.train_mode == "full"
     assert restored.tokenizer_name == restored.model_name
     assert restored.tokenizer_revision == "requested-tokenizer-revision"
+
+
+def test_foundation_spec_preserves_legacy_positional_argument_order():
+    spec = FoundationModelSpec(
+        "example/model",
+        "model-revision",
+        "example/tokenizer",
+        "tokenizer-revision",
+        "CLS",
+        "FULL",
+        True,
+        True,
+        8,
+        True,
+        False,
+        (1, 2),
+        "resolved-model",
+        "resolved-tokenizer",
+    )
+
+    assert spec.train_mode == "full"
+    assert spec.trust_remote_code is True
+    assert spec.local_files_only is True
+    assert spec.max_length == 8
+    assert spec.truncation is True
+    assert spec.exclude_special_tokens_from_pooling is False
+    assert spec.pooling_excluded_token_ids == (1, 2)
+    assert spec.resolved_model_revision == "resolved-model"
+    assert spec.resolved_tokenizer_revision == "resolved-tokenizer"
+    assert spec.lora is None
+
+
+def test_lora_spec_normalizes_and_round_trips():
+    spec = make_spec(
+        train_mode="LORA",
+        lora={
+            "rank": 4,
+            "alpha": 8,
+            "dropout": 0,
+            "target_modules": [" query ", "value"],
+        },
+    )
+
+    restored = FoundationModelSpec.from_config(spec.to_dict())
+
+    assert restored.train_mode == "lora"
+    assert isinstance(restored.lora, FoundationLoRASpec)
+    assert restored.lora.dropout == 0.0
+    assert restored.lora.target_modules == ("query", "value")
+    assert restored.to_dict()["lora"] == {
+        "rank": 4,
+        "alpha": 8,
+        "dropout": 0.0,
+        "target_modules": ["query", "value"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"rank": 0}, "rank"),
+        ({"alpha": True}, "alpha"),
+        ({"dropout": 1.0}, "dropout"),
+        ({"target_modules": []}, "at least one"),
+        ({"target_modules": "query"}, "list or tuple"),
+        ({"target_modules": ["query", "query"]}, "duplicates"),
+    ],
+)
+def test_lora_spec_rejects_invalid_settings(overrides, message):
+    with pytest.raises(ValueError, match=message):
+        make_lora_spec(**overrides)
+
+
+def test_foundation_spec_requires_lora_mode_and_settings_together():
+    with pytest.raises(ValueError, match="requires explicit lora"):
+        make_spec(train_mode="lora")
+    with pytest.raises(ValueError, match="require train_mode='lora'"):
+        make_spec(lora=make_lora_spec())
+    with pytest.raises(ValueError, match="unknown settings"):
+        make_spec(train_mode="lora", lora={"target_modules": ["query"], "r": 4})
 
 
 @pytest.mark.parametrize(
@@ -205,6 +335,16 @@ def test_missing_transformers_dependency_has_install_guidance(monkeypatch):
 
     with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[foundation\]"):
         huggingface._transformers_module()
+
+
+def test_missing_peft_dependency_has_install_guidance(monkeypatch):
+    def missing_import(name):
+        raise ModuleNotFoundError(name=name)
+
+    monkeypatch.setattr(huggingface, "import_module", missing_import)
+
+    with pytest.raises(ModuleNotFoundError, match=r"DeepMTP\[foundation\]"):
+        huggingface._peft_module()
 
 
 @pytest.mark.parametrize("pooling", ["cls", "masked_mean", "pooler"])
@@ -381,6 +521,83 @@ def test_full_foundation_backbone_receives_gradients(monkeypatch):
     assert encoder.backbone.embedding.weight.grad is not None
 
 
+def test_lora_foundation_backbone_trains_only_adapters_and_projection(monkeypatch):
+    fake_peft = FakePeft()
+    monkeypatch.setattr(
+        huggingface,
+        "_load_huggingface_model",
+        lambda _spec: FakeBackbone(),
+    )
+    monkeypatch.setattr(huggingface, "_peft_module", lambda: fake_peft)
+    encoder = HuggingFaceSequenceEncoder(
+        spec=make_spec(train_mode="lora", lora=make_lora_spec()),
+        vocabulary_size=8,
+        output_dim=3,
+        padding_idx=0,
+    )
+
+    encoder.train()
+    encoder(make_sequence_input()).sum().backward()
+
+    assert encoder.backbone.training
+    assert encoder.backbone.base_model.embedding.weight.grad is None
+    assert encoder.backbone.lora_adapter.grad is not None
+    assert encoder.projection.weight.grad is not None
+    assert fake_peft.configs[0].task_type == "FEATURE_EXTRACTION"
+    assert fake_peft.configs[0].r == 4
+    assert fake_peft.configs[0].lora_alpha == 8
+    assert fake_peft.configs[0].lora_dropout == 0.1
+    assert fake_peft.configs[0].target_modules == ["embedding"]
+    assert fake_peft.configs[0].bias == "none"
+
+
+def test_lora_foundation_rejects_unknown_target_modules(monkeypatch):
+    monkeypatch.setattr(
+        huggingface,
+        "_load_huggingface_model",
+        lambda _spec: FakeBackbone(),
+    )
+
+    with pytest.raises(ValueError, match="Available leaf-module suffixes"):
+        HuggingFaceSequenceEncoder(
+            spec=make_spec(
+                train_mode="lora",
+                lora=make_lora_spec(target_modules=["does_not_exist"]),
+            ),
+            vocabulary_size=8,
+            output_dim=3,
+            padding_idx=0,
+        )
+
+
+def test_lora_foundation_state_dict_restores_adapter_and_projection(monkeypatch):
+    monkeypatch.setattr(
+        huggingface,
+        "_load_huggingface_model",
+        lambda _spec: FakeBackbone(),
+    )
+    monkeypatch.setattr(huggingface, "_peft_module", lambda: FakePeft())
+    arguments = {
+        "spec": make_spec(train_mode="lora", lora=make_lora_spec()),
+        "vocabulary_size": 8,
+        "output_dim": 3,
+        "padding_idx": 0,
+    }
+    first = HuggingFaceSequenceEncoder(**arguments)
+    with torch.no_grad():
+        first.backbone.lora_adapter.fill_(2.0)
+    expected = first(make_sequence_input())
+    state = deepcopy(first.state_dict())
+
+    second = HuggingFaceSequenceEncoder(**arguments)
+    with torch.no_grad():
+        second.projection.weight.zero_()
+    second.load_state_dict(state)
+
+    assert any("lora_adapter" in name for name in state)
+    assert torch.equal(second(make_sequence_input()), expected)
+
+
 def test_foundation_encoder_state_dict_restores_backbone_and_projection(monkeypatch):
     monkeypatch.setattr(
         huggingface,
@@ -480,11 +697,17 @@ def test_model_factory_builds_foundation_branch_and_records_revision(monkeypatch
     )
 
 
-def test_composite_branch_supports_a_foundation_component(monkeypatch):
+@pytest.mark.parametrize("train_mode", ["frozen", "lora"])
+def test_composite_branch_supports_a_foundation_component(monkeypatch, train_mode):
     monkeypatch.setattr(
         huggingface,
         "_load_huggingface_model",
         lambda _spec: FakeBackbone(),
+    )
+    monkeypatch.setattr(huggingface, "_peft_module", lambda: FakePeft())
+    foundation_spec = make_spec(
+        train_mode=train_mode,
+        lora=make_lora_spec() if train_mode == "lora" else None,
     )
     config = make_config(
         general_architecture_version="mlp",
@@ -502,7 +725,7 @@ def test_composite_branch_supports_a_foundation_component(monkeypatch):
                 "output_dim": 3,
                 "encoder": "foundation",
                 "padding_idx": 0,
-                "foundation_model": make_spec().to_dict(),
+                "foundation_model": foundation_spec.to_dict(),
             },
         },
         comb_mlp_nodes_per_layer=[3],
@@ -512,6 +735,8 @@ def test_composite_branch_supports_a_foundation_component(monkeypatch):
     component = bundle.instance_branch.component_encoders["tokens"]
 
     assert isinstance(component, HuggingFaceSequenceEncoder)
+    if train_mode == "lora":
+        assert isinstance(component.backbone, FakePeftModel)
     assert (
         config.instance_branch_composite_components["tokens"]["foundation_model"][
             "resolved_model_revision"
@@ -537,8 +762,11 @@ def test_foundation_encoder_rejects_model_vocabulary_mismatch(monkeypatch):
 
 
 @pytest.mark.integration
-def test_foundation_encoder_loads_a_local_transformers_model(tmp_path):
+@pytest.mark.parametrize("train_mode", ["frozen", "lora"])
+def test_foundation_encoder_loads_a_local_transformers_model(tmp_path, train_mode):
     transformers = pytest.importorskip("transformers")
+    if train_mode == "lora":
+        pytest.importorskip("peft")
     vocabulary = [
         "[PAD]",
         "[UNK]",
@@ -568,6 +796,16 @@ def test_foundation_encoder_loads_a_local_transformers_model(tmp_path):
         model_name=str(tmp_path),
         local_files_only=True,
         max_length=8,
+        train_mode=train_mode,
+        lora=(
+            FoundationLoRASpec(
+                rank=2,
+                alpha=4,
+                target_modules=("query", "value"),
+            )
+            if train_mode == "lora"
+            else None
+        ),
     )
     tokenized = tokenize_foundation_sequences(["hello world", "deepmtp"], spec)
     token_ids, attention_mask, lengths = collate_sequence_rows(
@@ -581,13 +819,31 @@ def test_foundation_encoder_loads_a_local_transformers_model(tmp_path):
         padding_idx=tokenized.padding_idx,
     )
 
-    output = encoder(
-        SequenceInput(
-            token_ids=token_ids,
-            attention_mask=attention_mask,
-            lengths=lengths,
-            padding_idx=tokenized.padding_idx,
-        )
+    values = SequenceInput(
+        token_ids=token_ids,
+        attention_mask=attention_mask,
+        lengths=lengths,
+        padding_idx=tokenized.padding_idx,
     )
+    output = encoder(values)
 
     assert output.shape == (2, 3)
+    if train_mode == "lora":
+        trainable_names = {
+            name
+            for name, parameter in encoder.backbone.named_parameters()
+            if parameter.requires_grad
+        }
+        assert trainable_names
+        assert all("lora_" in name for name in trainable_names)
+        state = deepcopy(encoder.state_dict())
+        restored = HuggingFaceSequenceEncoder(
+            spec=tokenized.spec,
+            vocabulary_size=tokenized.vocabulary_size,
+            output_dim=3,
+            padding_idx=tokenized.padding_idx,
+        )
+        restored.load_state_dict(state)
+        encoder.eval()
+        restored.eval()
+        assert torch.allclose(restored(values), encoder(values))

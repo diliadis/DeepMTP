@@ -153,7 +153,7 @@ introduced:
   with frozen and full fine-tuning, explicit pooling and length policies,
   trainable output projection, composite-branch support, lazy dependencies,
   and resolved model/tokenizer revision capture.
-- [ ] Add parameter-efficient fine-tuning with Hugging Face PEFT and LoRA
+- [x] Add parameter-efficient fine-tuning with Hugging Face PEFT and LoRA
   rather than implementing adapter layers from scratch. Keep it opt-in,
   validate target modules and hyperparameters before training, and preserve
   the existing ``frozen`` and ``full`` modes.

@@ -11,7 +11,8 @@ Install the optional dependency:
 
    pip install "DeepMTP[foundation]"
 
-The core ``DeepMTP`` installation does not import or require Transformers.
+The core ``DeepMTP`` installation does not import or require Transformers or
+PEFT. Both are installed by the ``foundation`` extra, and imports remain lazy.
 
 Supported model contract
 ------------------------
@@ -175,9 +176,56 @@ Training modes
    consumes substantially more accelerator memory and creates much larger
    optimizer states.
 
-Parameter-efficient fine-tuning such as LoRA is not part of the initial
-adapter. It can be layered on after frozen and full fine-tuning behavior is
-stable.
+``lora``
+   Freeze the pretrained backbone weights and train low-rank adapters injected
+   by Hugging Face PEFT, together with the DeepMTP output projection and
+   downstream parameters. This adapts the foundation model while usually using
+   far fewer trainable parameters and optimizer states than ``full`` mode.
+
+LoRA configuration
+------------------
+
+LoRA is explicit and opt-in. Supply ``FoundationLoRASpec`` with a positive
+rank and alpha, dropout in ``[0, 1)``, and at least one target-module name:
+
+.. code-block:: python
+
+   from DeepMTP import FoundationLoRASpec, FoundationModelSpec
+
+   protein_model = FoundationModelSpec(
+       model_name="facebook/esm2_t6_8M_UR50D",
+       revision="<pinned-model-commit>",
+       pooling="masked_mean",
+       train_mode="lora",
+       lora=FoundationLoRASpec(
+           rank=8,
+           alpha=16,
+           dropout=0.1,
+           target_modules=("query", "value"),
+       ),
+       max_length=1024,
+   )
+
+``rank`` controls the dimension of the low-rank update. Larger values add
+trainable capacity and parameters. ``alpha`` scales that update, while
+``dropout`` regularizes the LoRA branch during training. PEFT initializes the
+default LoRA update as a no-op, so the wrapped model initially retains the
+pretrained behavior.
+
+Target modules are architecture-specific. PEFT treats each listed value as an
+exact module name or module-name suffix. For example, BERT-family and ESM-2
+attention projections expose ``query`` and ``value`` suffixes. Do not copy
+these names to a different architecture without inspecting that model.
+DeepMTP checks every requested suffix against the loaded, unwrapped model and
+reports available leaf-module suffixes when a target does not match. PEFT then
+performs its own compatibility check for the matched module type.
+
+Only the LoRA parameters inside the foundation backbone are trainable in this
+mode. The ordinary DeepMTP projection remains trainable because it belongs to
+the task model rather than the pretrained backbone. ``model.state_dict()`` and
+normal DeepMTP checkpoints continue to contain the complete restorable model
+state. Compact adapter-only export and restoration are a separate planned
+lifecycle feature.
 
 Composite inputs
 ----------------
@@ -220,9 +268,10 @@ are included in the normalized configuration, local checkpoints, and W&B run
 configuration. Restoration prefers the resolved revision.
 
 The checkpoint state dictionary contains both the foundation backbone and the
-DeepMTP projection. Model construction still needs the Transformers package
-and either the pinned model metadata in the local Hugging Face cache, a local
-model directory, or network access to the recorded revision.
+DeepMTP projection, including PEFT adapter parameters in ``lora`` mode. Model
+construction still needs the Transformers package, PEFT when applicable, and
+either the pinned model metadata in the local Hugging Face cache, a local model
+directory, or network access to the recorded revision.
 
 Security and offline use
 ------------------------

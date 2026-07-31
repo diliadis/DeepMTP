@@ -16,6 +16,7 @@ from DeepMTP.data.batches import BranchInputKind, SequenceInput
 from DeepMTP.data.sequences import normalize_sequence_rows
 
 __all__ = [
+    "FoundationLoRASpec",
     "FoundationModelSpec",
     "HuggingFaceSequenceEncoder",
     "TokenizedFoundationSequences",
@@ -23,7 +24,7 @@ __all__ = [
 ]
 
 FoundationPooling: TypeAlias = Literal["cls", "masked_mean", "pooler"]
-FoundationTrainMode: TypeAlias = Literal["frozen", "full"]
+FoundationTrainMode: TypeAlias = Literal["frozen", "full", "lora"]
 
 
 def _optional_dependency_error() -> ModuleNotFoundError:
@@ -42,9 +43,92 @@ def _transformers_module() -> Any:
         raise _optional_dependency_error() from error
 
 
+def _peft_module() -> Any:
+    try:
+        return import_module("peft")
+    except ModuleNotFoundError as error:
+        if error.name != "peft":
+            raise
+        raise ModuleNotFoundError(
+            "LoRA foundation-model training requires the optional PEFT "
+            'dependency. Install it with: pip install "DeepMTP[foundation]"'
+        ) from error
+
+
 def _non_empty_optional_string(name: str, value: object) -> None:
     if value is not None and (not isinstance(value, str) or not value.strip()):
         raise ValueError(f"{name} must be a non-empty string or None.")
+
+
+@dataclass(frozen=True)
+class FoundationLoRASpec:
+    """Serializable LoRA settings supported by the foundation adapter."""
+
+    target_modules: tuple[str, ...]
+    rank: int = 8
+    alpha: int = 16
+    dropout: float = 0.0
+
+    def __post_init__(self) -> None:
+        for name in ("rank", "alpha"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError(f"LoRA {name} must be a positive integer.")
+        if (
+            isinstance(self.dropout, bool)
+            or not isinstance(self.dropout, (int, float))
+            or not 0 <= self.dropout < 1
+        ):
+            raise ValueError("LoRA dropout must be in the interval [0, 1).")
+        if isinstance(self.target_modules, (str, bytes)) or not isinstance(
+            self.target_modules,
+            (list, tuple),
+        ):
+            raise ValueError("LoRA target_modules must be a list or tuple of names.")
+        target_modules = tuple(
+            target.strip() if isinstance(target, str) else target
+            for target in self.target_modules
+        )
+        if not target_modules or any(
+            not isinstance(target, str) or not target for target in target_modules
+        ):
+            raise ValueError(
+                "LoRA target_modules must contain at least one non-empty name."
+            )
+        if len(target_modules) != len(set(target_modules)):
+            raise ValueError("LoRA target_modules must not contain duplicates.")
+
+        object.__setattr__(self, "dropout", float(self.dropout))
+        object.__setattr__(self, "target_modules", target_modules)
+
+    @classmethod
+    def from_config(
+        cls,
+        value: FoundationLoRASpec | Mapping[str, Any],
+    ) -> FoundationLoRASpec:
+        """Validate a public mapping as a LoRA specification."""
+
+        if isinstance(value, cls):
+            return value
+        if not isinstance(value, Mapping):
+            raise TypeError("lora must be a mapping.")
+        unknown = set(value).difference(cls.__dataclass_fields__)
+        if unknown:
+            raise ValueError(
+                "lora contains unknown settings: "
+                f"{sorted(str(name) for name in unknown)}."
+            )
+        return cls(**dict(value))
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return JSON-compatible LoRA settings."""
+
+        return {
+            "rank": self.rank,
+            "alpha": self.alpha,
+            "dropout": self.dropout,
+            "target_modules": list(self.target_modules),
+        }
 
 
 @dataclass(frozen=True)
@@ -65,6 +149,7 @@ class FoundationModelSpec:
     pooling_excluded_token_ids: tuple[int, ...] = ()
     resolved_model_revision: str | None = None
     resolved_tokenizer_revision: str | None = None
+    lora: FoundationLoRASpec | Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.model_name, str) or not self.model_name.strip():
@@ -91,10 +176,18 @@ class FoundationModelSpec:
             if isinstance(self.train_mode, str)
             else self.train_mode
         )
-        if train_mode not in {"frozen", "full"}:
+        if train_mode not in {"frozen", "full", "lora"}:
             raise ValueError(
-                f"train_mode must be 'frozen' or 'full'; received {self.train_mode!r}."
+                "train_mode must be 'frozen', 'full', or 'lora'; "
+                f"received {self.train_mode!r}."
             )
+        lora = (
+            FoundationLoRASpec.from_config(self.lora) if self.lora is not None else None
+        )
+        if train_mode == "lora" and lora is None:
+            raise ValueError("train_mode='lora' requires explicit lora settings.")
+        if train_mode != "lora" and lora is not None:
+            raise ValueError("lora settings require train_mode='lora'.")
         for name in (
             "trust_remote_code",
             "local_files_only",
@@ -124,6 +217,7 @@ class FoundationModelSpec:
 
         object.__setattr__(self, "pooling", pooling)
         object.__setattr__(self, "train_mode", train_mode)
+        object.__setattr__(self, "lora", lora)
         object.__setattr__(
             self,
             "pooling_excluded_token_ids",
@@ -175,6 +269,11 @@ class FoundationModelSpec:
             "tokenizer_revision": self.tokenizer_revision,
             "pooling": self.pooling,
             "train_mode": self.train_mode,
+            "lora": (
+                self.lora.to_dict()
+                if isinstance(self.lora, FoundationLoRASpec)
+                else None
+            ),
             "trust_remote_code": self.trust_remote_code,
             "local_files_only": self.local_files_only,
             "max_length": self.max_length,
@@ -392,6 +491,55 @@ def _model_output(outputs: object, name: str) -> object:
     return getattr(outputs, name, None)
 
 
+def _validate_lora_target_modules(
+    model: nn.Module,
+    spec: FoundationLoRASpec,
+) -> None:
+    module_names = tuple(name for name, _module in model.named_modules() if name)
+    missing = [
+        target
+        for target in spec.target_modules
+        if not any(
+            name == target or name.endswith(f".{target}") for name in module_names
+        )
+    ]
+    if not missing:
+        return
+
+    leaf_suffixes = sorted(
+        {
+            name.rsplit(".", maxsplit=1)[-1]
+            for name, module in model.named_modules()
+            if name and not any(module.children())
+        }
+    )
+    examples = ", ".join(leaf_suffixes[:20]) or "<none>"
+    raise ValueError(
+        f"LoRA target_modules did not match the loaded model: {missing}. "
+        f"Available leaf-module suffixes include: {examples}."
+    )
+
+
+def _apply_lora(model: nn.Module, spec: FoundationLoRASpec) -> nn.Module:
+    peft = _peft_module()
+    model.requires_grad_(False)
+    config = peft.LoraConfig(
+        task_type=peft.TaskType.FEATURE_EXTRACTION,
+        inference_mode=False,
+        r=spec.rank,
+        lora_alpha=spec.alpha,
+        lora_dropout=spec.dropout,
+        target_modules=list(spec.target_modules),
+        bias="none",
+    )
+    adapted = peft.get_peft_model(model, config)
+    if not isinstance(adapted, nn.Module):
+        raise TypeError("PEFT get_peft_model() must return torch.nn.Module.")
+    if not any(parameter.requires_grad for parameter in adapted.parameters()):
+        raise ValueError("PEFT did not create any trainable LoRA parameters.")
+    return adapted
+
+
 class HuggingFaceSequenceEncoder(nn.Module):
     """Pool and project one Hugging Face encoder as a DeepMTP branch."""
 
@@ -452,12 +600,17 @@ class HuggingFaceSequenceEncoder(nn.Module):
             "d_model",
             "dim",
         )
+        resolved_model_revision = _resolved_revision(
+            backbone,
+            normalized_spec.resolved_model_revision,
+        )
+        if normalized_spec.train_mode == "lora":
+            lora_spec = cast(FoundationLoRASpec, normalized_spec.lora)
+            _validate_lora_target_modules(backbone, lora_spec)
+            backbone = _apply_lora(backbone, lora_spec)
         self.spec = replace(
             normalized_spec,
-            resolved_model_revision=_resolved_revision(
-                backbone,
-                normalized_spec.resolved_model_revision,
-            ),
+            resolved_model_revision=resolved_model_revision,
         )
         self.vocabulary_size = vocabulary_size
         self.padding_idx = padding_idx

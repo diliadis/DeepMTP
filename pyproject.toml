@@ -42,7 +42,10 @@ datasets = [
 ]
 hpo = ["ConfigSpace>=1.2"]
 graph = ["torch-geometric>=2.5,<3"]
-foundation = ["transformers>=4.48,<6"]
+foundation = [
+    "peft>=0.14,<1",
+    "transformers>=4.48,<6",
+]
 image = ["torchvision>=0.15"]
 sparse = ["scipy>=1.9"]
 streamlit = ["streamlit>=1.53.0"]
@@ -53,6 +56,7 @@ tracking = [
 all = [
     "ConfigSpace>=1.2",
     "liac-arff>=2.5",
+    "peft>=0.14,<1",
     "requests>=2.28",
     "scipy>=1.9",
     "streamlit>=1.53.0",
@@ -67,6 +71,7 @@ all = [
 test = [
     "ConfigSpace>=1.2",
     "liac-arff>=2.5",
+    "peft>=0.14,<1",
     "pytest>=8,<10",
     "requests>=2.28",
     "scipy>=1.9",

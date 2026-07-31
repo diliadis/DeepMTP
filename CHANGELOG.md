@@ -8,6 +8,10 @@ by their effect on users and maintainers.
 
 ### Added
 
+- Opt-in Hugging Face PEFT/LoRA training for foundation-model branches, with
+  typed hyperparameters, explicit preflight validation of target modules,
+  frozen base weights, full checkpoint/W&B configuration capture, composite
+  component support, and lazy optional dependencies.
 - Opt-in observation-weighted gradient accumulation and global norm clipping,
   with correct uneven/final microbatch handling, validated inert defaults,
   checkpoint metadata, and W&B configuration capture.

@@ -14,7 +14,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _SOURCE_PACKAGE_ROOT = _PROJECT_ROOT / "DeepMTP"
 _OPTIONAL_IMPORTS = {
     "datasets": ("arff", "requests", "scipy", "DeepMTP.data.datasets"),
-    "foundation": ("transformers", "DeepMTP.integrations.huggingface"),
+    "foundation": ("transformers", "peft", "DeepMTP.integrations.huggingface"),
     "graph": ("torch_geometric", "DeepMTP.data.graphs"),
     "hpo": ("ConfigSpace", "DeepMTP.hpo"),
     "image": ("torchvision",),
