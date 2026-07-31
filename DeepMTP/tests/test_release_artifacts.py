@@ -23,6 +23,7 @@ _EXTRAS = (
     "sparse",
     "streamlit",
     "tracking",
+    "visualization",
 )
 _PROJECT_URLS = (
     ("Documentation", "https://deepmtp.readthedocs.io/"),
@@ -31,6 +32,9 @@ _PROJECT_URLS = (
 )
 _REQUIRED_WHEEL_FILES = {
     "DeepMTP/__init__.py",
+    "DeepMTP/__main__.py",
+    "DeepMTP/architecture.py",
+    "DeepMTP/cli.py",
     "DeepMTP/config.py",
     "DeepMTP/data/__init__.py",
     "DeepMTP/hpo/__init__.py",
@@ -52,6 +56,7 @@ _REQUIRED_SDIST_FILES = {
     "RELEASING.md",
     "SECURITY.md",
     "docs/source/tutorial/foundation_models.rst",
+    "docs/source/tutorial/architecture_visualization.rst",
     "docs/source/index.rst",
     "pyproject.toml",
     "scripts/smoke_test_installation.py",

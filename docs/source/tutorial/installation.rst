@@ -38,6 +38,7 @@ Install only the integrations required by an experiment::
   python -m pip install "DeepMTP[sparse]"
   python -m pip install "DeepMTP[streamlit]"
   python -m pip install "DeepMTP[tracking]"
+  python -m pip install "DeepMTP[visualization]"
 
 The ``all`` extra installs every runtime integration::
 

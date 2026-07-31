@@ -17,6 +17,14 @@ Subpackages
 Submodules
 ----------
 
+DeepMTP.architecture module
+---------------------------
+
+.. automodule:: DeepMTP.architecture
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 DeepMTP.main module
 -------------------
 
