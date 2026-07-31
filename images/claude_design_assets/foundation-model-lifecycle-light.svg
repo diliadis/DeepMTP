@@ -1,0 +1,254 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 950" width="1800" height="950">
+<title>Foundation model lifecycle — light</title>
+  <defs>
+    <symbol id="lk" viewBox="0 0 14 16"><path d="M3.4 7V4.6a3.6 3.6 0 0 1 7.2 0V7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path><rect x="1.4" y="6.6" width="11.2" height="8.6" rx="2.2" fill="currentColor"></rect></symbol>
+    <symbol id="sp" viewBox="0 0 14 14"><path d="M7 0 8.5 5.5 14 7 8.5 8.5 7 14 5.5 8.5 0 7 5.5 5.5Z" fill="currentColor"></path></symbol>
+    <symbol id="zp" viewBox="0 0 14 16"><rect x="0.8" y="0.8" width="12.4" height="14.4" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"></rect><path d="M7 1.6v3M7 6v2.2M7 9.8V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path><rect x="5.2" y="11.4" width="3.6" height="3.2" rx="1" fill="currentColor"></rect></symbol>
+    <symbol id="cl" viewBox="0 0 20 14"><path d="M5.2 12.6a3.6 3.6 0 0 1 .3-7.1A5.2 5.2 0 0 1 15.2 5a3.8 3.8 0 0 1 .3 7.6Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path></symbol>
+    <symbol id="xm" viewBox="0 0 12 12"><path d="M2.5 2.5 9.5 9.5M9.5 2.5 2.5 9.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path></symbol>
+  </defs>
+
+  <rect x="0" y="0" width="1800" height="950" style="fill:#F4F6F8"></rect>
+
+  <text x="48" y="58" style="fill:#0F1720;font:600 26px &#39;IBM Plex Sans&#39;,sans-serif">Foundation model → LoRA adaptation → compact adapter checkpoint → restoration</text>
+  <text x="48" y="86" style="fill:#4C5C6B;font:400 15px &#39;IBM Plex Sans&#39;,sans-serif">DeepMTP foundation-model lifecycle. Compact checkpoints reference pinned base weights instead of storing them.</text>
+
+  <g><use href="#lk" x="1400" y="48" width="13" height="15" style="color:#3C6B8E"></use><text x="1421" y="60" style="fill:#4C5C6B;font:500 13px &#39;IBM Plex Sans&#39;,sans-serif">Frozen — not saved</text></g>
+  <g><use href="#sp" x="1580" y="49" width="13" height="13" style="color:#0C8F82"></use><text x="1600" y="60" style="fill:#4C5C6B;font:500 13px &#39;IBM Plex Sans&#39;,sans-serif">Trainable — saved</text></g>
+
+  <path d="M424 380h16" style="stroke:#8C9AA7;stroke-width:2"></path><path d="M440 374l10 6-10 6z" style="fill:#8C9AA7"></path>
+  <path d="M926 380h16" style="stroke:#8C9AA7;stroke-width:2"></path><path d="M942 374l10 6-10 6z" style="fill:#8C9AA7"></path>
+  <path d="M1318 380h16" style="stroke:#8C9AA7;stroke-width:2"></path><path d="M1334 374l10 6-10 6z" style="fill:#8C9AA7"></path>
+
+  <g>
+    <rect x="48" y="120" width="372" height="520" rx="14" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <rect x="72" y="144" width="70" height="24" rx="12" style="fill:#DBF2EF"></rect>
+    <text x="107" y="161" text-anchor="middle" style="fill:#075E55;font:700 12px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.09em">STAGE 1</text>
+    <text x="72" y="197" style="fill:#0F1720;font:600 21px &#39;IBM Plex Sans&#39;,sans-serif">Base model</text>
+    <text x="72" y="221" style="fill:#4C5C6B;font:400 13.5px &#39;IBM Plex Sans&#39;,sans-serif">Pinned Hub example; local snapshots are also supported</text>
+
+    <rect x="72" y="244" width="324" height="300" rx="12" style="fill:#E5EDF4;stroke:#A9C4D8"></rect>
+    <use href="#lk" x="92" y="264" width="14" height="16" style="color:#3C6B8E"></use>
+    <text x="114" y="277" style="fill:#0F1720;font:700 16px &#39;IBM Plex Sans&#39;,sans-serif">Pinned foundation model</text>
+    <text x="114" y="297" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">read-only · loaded by revision at restore time</text>
+
+    <rect x="92" y="312" width="284" height="52" rx="8" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <use href="#lk" x="106" y="330" width="12" height="14" style="color:#3C6B8E"></use>
+    <text x="126" y="333" style="fill:#0F1720;font:600 14px &#39;IBM Plex Sans&#39;,sans-serif">Frozen pretrained weights</text>
+    <text x="126" y="352" style="fill:#93A1AD;font:400 12px &#39;IBM Plex Mono&#39;,monospace">requires_grad = False</text>
+
+    <rect x="92" y="374" width="284" height="52" rx="8" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <use href="#lk" x="106" y="392" width="12" height="14" style="color:#3C6B8E"></use>
+    <text x="126" y="395" style="fill:#0F1720;font:600 14px &#39;IBM Plex Sans&#39;,sans-serif">Exact model revision</text>
+    <text x="126" y="414" style="fill:#3C6B8E;font:500 12px &#39;IBM Plex Mono&#39;,monospace">model @ 3f9c1ab7</text>
+
+    <rect x="92" y="436" width="284" height="52" rx="8" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <use href="#lk" x="106" y="454" width="12" height="14" style="color:#3C6B8E"></use>
+    <text x="126" y="457" style="fill:#0F1720;font:600 14px &#39;IBM Plex Sans&#39;,sans-serif">Exact tokenizer revision</text>
+    <text x="126" y="476" style="fill:#3C6B8E;font:500 12px &#39;IBM Plex Mono&#39;,monospace">tokenizer @ 8b21d0e4</text>
+
+    <text x="92" y="518" style="fill:#93A1AD;font:400 12px &#39;IBM Plex Sans&#39;,sans-serif">embeddings · N transformer blocks · unmodified</text>
+
+    <text x="72" y="578" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">The compact checkpoint records this model and tokenizer</text>
+    <text x="72" y="597" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">identity instead of copying the base tensors.</text>
+  </g>
+
+  <g>
+    <rect x="452" y="120" width="470" height="520" rx="14" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <rect x="476" y="144" width="70" height="24" rx="12" style="fill:#DBF2EF"></rect>
+    <text x="511" y="161" text-anchor="middle" style="fill:#075E55;font:700 12px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.09em">STAGE 2</text>
+    <text x="476" y="197" style="fill:#0F1720;font:600 21px &#39;IBM Plex Sans&#39;,sans-serif">DeepMTP adaptation</text>
+    <text x="476" y="221" style="fill:#4C5C6B;font:400 13.5px &#39;IBM Plex Sans&#39;,sans-serif">LoRA on selected projections + trainable task head</text>
+
+    <text x="476" y="252" style="fill:#93A1AD;font:600 11.5px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">EXAMPLE TARGET MODULES</text>
+    <rect x="476" y="262" width="196" height="200" rx="10" style="fill:#E5EDF4;stroke:#A9C4D8"></rect>
+
+    <rect x="488" y="274" width="118" height="38" rx="8" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <use href="#lk" x="500" y="286" width="11" height="13" style="color:#3C6B8E"></use>
+    <text x="518" y="298" style="fill:#0F1720;font:500 13px &#39;IBM Plex Mono&#39;,monospace">q_proj</text>
+    <path d="M606 293h10" style="stroke:#7CCCC2;stroke-width:2"></path>
+    <rect x="616" y="280" width="46" height="26" rx="13" style="fill:#0C8F82"></rect>
+    <text x="639" y="297" text-anchor="middle" style="fill:#FFFFFF;font:700 11.5px &#39;IBM Plex Sans&#39;,sans-serif">LoRA</text>
+
+    <rect x="488" y="320" width="118" height="38" rx="8" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <use href="#lk" x="500" y="332" width="11" height="13" style="color:#3C6B8E"></use>
+    <text x="518" y="344" style="fill:#0F1720;font:500 13px &#39;IBM Plex Mono&#39;,monospace">k_proj</text>
+    <path d="M606 339h10" style="stroke:#7CCCC2;stroke-width:2"></path>
+    <rect x="616" y="326" width="46" height="26" rx="13" style="fill:#0C8F82"></rect>
+    <text x="639" y="343" text-anchor="middle" style="fill:#FFFFFF;font:700 11.5px &#39;IBM Plex Sans&#39;,sans-serif">LoRA</text>
+
+    <rect x="488" y="366" width="118" height="38" rx="8" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <use href="#lk" x="500" y="378" width="11" height="13" style="color:#3C6B8E"></use>
+    <text x="518" y="390" style="fill:#0F1720;font:500 13px &#39;IBM Plex Mono&#39;,monospace">v_proj</text>
+    <path d="M606 385h10" style="stroke:#7CCCC2;stroke-width:2"></path>
+    <rect x="616" y="372" width="46" height="26" rx="13" style="fill:#0C8F82"></rect>
+    <text x="639" y="389" text-anchor="middle" style="fill:#FFFFFF;font:700 11.5px &#39;IBM Plex Sans&#39;,sans-serif">LoRA</text>
+
+    <rect x="488" y="412" width="118" height="38" rx="8" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <use href="#lk" x="500" y="424" width="11" height="13" style="color:#3C6B8E"></use>
+    <text x="518" y="436" style="fill:#0F1720;font:500 13px &#39;IBM Plex Mono&#39;,monospace">o_proj</text>
+    <path d="M606 431h10" style="stroke:#C2CCD6;stroke-width:2;stroke-dasharray:3 3"></path>
+    <rect x="616" y="418" width="46" height="26" rx="13" style="fill:none;stroke:#C2CCD6;stroke-dasharray:3 3"></rect>
+    <text x="639" y="435" text-anchor="middle" style="fill:#93A1AD;font:600 11.5px &#39;IBM Plex Sans&#39;,sans-serif">off</text>
+
+    <use href="#sp" x="476" y="474" width="13" height="13" style="color:#0C8F82"></use>
+    <text x="496" y="485" style="fill:#075E55;font:700 14px &#39;IBM Plex Sans&#39;,sans-serif">Trainable LoRA adapters</text>
+    <text x="476" y="507" style="fill:#93A1AD;font:400 12px &#39;IBM Plex Mono&#39;,monospace">r = 8 · alpha = 16</text>
+    <text x="476" y="526" style="fill:#93A1AD;font:400 12px &#39;IBM Plex Mono&#39;,monospace">small trainable parameter set</text>
+
+    <path d="M672 362C688 362 690 288 700 288" style="fill:none;stroke:#8C9AA7;stroke-width:2"></path>
+    <path d="M700 282l10 6-10 6z" style="fill:#8C9AA7"></path>
+
+    <text x="700" y="252" style="fill:#93A1AD;font:600 11.5px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">TASK PATH</text>
+
+    <rect x="700" y="262" width="198" height="52" rx="10" style="fill:#EDF1F5;stroke:#D6DDE5"></rect>
+    <text x="716" y="285" style="fill:#0F1720;font:600 14.5px &#39;IBM Plex Sans&#39;,sans-serif">Pooling</text>
+    <text x="716" y="303" style="fill:#93A1AD;font:400 12px &#39;IBM Plex Sans&#39;,sans-serif">masked mean · no parameters</text>
+    <path d="M799 314v10" style="stroke:#8C9AA7;stroke-width:2"></path><path d="M793 324h12l-6 8z" style="fill:#8C9AA7"></path>
+
+    <rect x="700" y="332" width="198" height="52" rx="10" style="fill:#DBF2EF;stroke:#7CCCC2"></rect>
+    <use href="#sp" x="716" y="348" width="12" height="12" style="color:#0C8F82"></use>
+    <text x="734" y="358" style="fill:#0F1720;font:600 14.5px &#39;IBM Plex Sans&#39;,sans-serif">DeepMTP projection</text>
+    <text x="716" y="375" style="fill:#075E55;font:400 12px &#39;IBM Plex Mono&#39;,monospace">d_model → branch width</text>
+    <path d="M799 384v10" style="stroke:#8C9AA7;stroke-width:2"></path><path d="M793 394h12l-6 8z" style="fill:#8C9AA7"></path>
+
+    <rect x="700" y="402" width="198" height="52" rx="10" style="fill:#DBF2EF;stroke:#7CCCC2"></rect>
+    <use href="#sp" x="716" y="418" width="12" height="12" style="color:#0C8F82"></use>
+    <text x="734" y="428" style="fill:#0F1720;font:600 14.5px &#39;IBM Plex Sans&#39;,sans-serif">Branch / fusion</text>
+    <text x="716" y="445" style="fill:#075E55;font:400 12px &#39;IBM Plex Mono&#39;,monospace">task-specific layers</text>
+    <path d="M799 454v10" style="stroke:#8C9AA7;stroke-width:2"></path><path d="M793 464h12l-6 8z" style="fill:#8C9AA7"></path>
+
+    <rect x="700" y="472" width="198" height="52" rx="10" style="fill:#DBF2EF;stroke:#7CCCC2"></rect>
+    <use href="#sp" x="716" y="488" width="12" height="12" style="color:#0C8F82"></use>
+    <text x="734" y="498" style="fill:#0F1720;font:600 14.5px &#39;IBM Plex Sans&#39;,sans-serif">Output layers</text>
+    <text x="716" y="515" style="fill:#075E55;font:400 12px &#39;IBM Plex Mono&#39;,monospace">task prediction head</text>
+
+    <text x="476" y="576" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">Gradients reach only the LoRA matrices and the task-specific</text>
+    <text x="476" y="595" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">layers; the backbone stays bit-identical to its pinned revision.</text>
+  </g>
+
+  <g>
+    <rect x="954" y="120" width="360" height="520" rx="14" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <rect x="978" y="144" width="70" height="24" rx="12" style="fill:#DBF2EF"></rect>
+    <text x="1013" y="161" text-anchor="middle" style="fill:#075E55;font:700 12px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.09em">STAGE 3</text>
+    <text x="978" y="197" style="fill:#0F1720;font:600 21px &#39;IBM Plex Sans&#39;,sans-serif">Compact checkpoint</text>
+    <text x="978" y="221" style="fill:#4C5C6B;font:400 13.5px &#39;IBM Plex Sans&#39;,sans-serif">Adapters, task weights and provenance only</text>
+
+    <rect x="978" y="244" width="312" height="282" rx="12" style="fill:#FFFFFF;stroke:#7CCCC2;stroke-width:1.5"></rect>
+    <use href="#zp" x="996" y="264" width="14" height="16" style="color:#0C8F82"></use>
+    <text x="1018" y="277" style="fill:#0F1720;font:600 15px &#39;IBM Plex Mono&#39;,monospace">foundation_adapter.zip</text>
+    <text x="1018" y="296" style="fill:#93A1AD;font:400 12px &#39;IBM Plex Sans&#39;,sans-serif">compact · portable · versioned</text>
+    <path d="M996 312h276" style="stroke:#D6DDE5"></path>
+
+    <circle cx="1002" cy="332" r="3" style="fill:#0C8F82"></circle>
+    <text x="1014" y="337" style="fill:#0F1720;font:500 13.5px &#39;IBM Plex Mono&#39;,monospace">adapter_config.json</text>
+    <text x="1014" y="354" style="fill:#93A1AD;font:400 11.5px &#39;IBM Plex Sans&#39;,sans-serif">LoRA rank, alpha, target modules</text>
+
+    <circle cx="1002" cy="372" r="3" style="fill:#0C8F82"></circle>
+    <text x="1014" y="377" style="fill:#0F1720;font:500 13.5px &#39;IBM Plex Mono&#39;,monospace">adapter_model.safetensors</text>
+    <text x="1014" y="394" style="fill:#93A1AD;font:400 11.5px &#39;IBM Plex Sans&#39;,sans-serif">LoRA A/B matrices only</text>
+
+    <circle cx="1002" cy="412" r="3" style="fill:#0C8F82"></circle>
+    <text x="1014" y="417" style="fill:#0F1720;font:500 13.5px &#39;IBM Plex Mono&#39;,monospace">task_state.pt</text>
+    <text x="1014" y="434" style="fill:#93A1AD;font:400 11.5px &#39;IBM Plex Sans&#39;,sans-serif">projection · branch · fusion · output</text>
+
+    <circle cx="1002" cy="452" r="3" style="fill:#0C8F82"></circle>
+    <text x="1014" y="457" style="fill:#0F1720;font:500 13.5px &#39;IBM Plex Mono&#39;,monospace">manifest.json</text>
+    <text x="1014" y="474" style="fill:#93A1AD;font:400 11.5px &#39;IBM Plex Sans&#39;,sans-serif">pinned base + tokenizer revisions</text>
+
+    <circle cx="1002" cy="492" r="3" style="fill:#0C8F82"></circle>
+    <text x="1014" y="497" style="fill:#0F1720;font:500 13.5px &#39;IBM Plex Mono&#39;,monospace">SHA-256 hashes</text>
+    <text x="1014" y="514" style="fill:#93A1AD;font:400 11.5px &#39;IBM Plex Sans&#39;,sans-serif">required state files verified on load</text>
+
+    <rect x="978" y="542" width="312" height="82" rx="10" style="fill:#EFF2F4;stroke:#D6DDE5;stroke-dasharray:5 4"></rect>
+    <text x="996" y="565" style="fill:#93A1AD;font:600 11.5px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">EXCLUDED BY DESIGN</text>
+    <use href="#xm" x="996" y="577" width="11" height="11" style="color:#93A1AD"></use>
+    <text x="1014" y="587" style="fill:#93A1AD;font:400 13px &#39;IBM Plex Sans&#39;,sans-serif">No base-model tensors</text>
+    <use href="#xm" x="996" y="599" width="11" height="11" style="color:#93A1AD"></use>
+    <text x="1014" y="609" style="fill:#93A1AD;font:400 13px &#39;IBM Plex Sans&#39;,sans-serif">No optimizer or scheduler state</text>
+  </g>
+
+  <g>
+    <rect x="1346" y="120" width="406" height="520" rx="14" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <rect x="1370" y="144" width="70" height="24" rx="12" style="fill:#DBF2EF"></rect>
+    <text x="1405" y="161" text-anchor="middle" style="fill:#075E55;font:700 12px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.09em">STAGE 4</text>
+    <text x="1370" y="197" style="fill:#0F1720;font:600 21px &#39;IBM Plex Sans&#39;,sans-serif">Restoration</text>
+    <text x="1370" y="221" style="fill:#4C5C6B;font:400 13.5px &#39;IBM Plex Sans&#39;,sans-serif">Compact archive + the recorded base identity</text>
+
+    <rect x="1370" y="248" width="214" height="52" rx="10" style="fill:#DBF2EF;stroke:#7CCCC2"></rect>
+    <use href="#zp" x="1386" y="264" width="13" height="15" style="color:#0C8F82"></use>
+    <text x="1406" y="271" style="fill:#0F1720;font:500 12.5px &#39;IBM Plex Mono&#39;,monospace">foundation_adapter.zip</text>
+    <text x="1406" y="289" style="fill:#075E55;font:400 11.5px &#39;IBM Plex Sans&#39;,sans-serif">LoRA + task weights</text>
+
+    <rect x="1370" y="312" width="214" height="52" rx="10" style="fill:#E5EDF4;stroke:#A9C4D8"></rect>
+    <use href="#lk" x="1386" y="328" width="12" height="14" style="color:#3C6B8E"></use>
+    <text x="1406" y="335" style="fill:#0F1720;font:600 13.5px &#39;IBM Plex Sans&#39;,sans-serif">Pinned foundation model</text>
+    <text x="1406" y="353" style="fill:#3C6B8E;font:400 11.5px &#39;IBM Plex Mono&#39;,monospace">model @ 3f9c1ab7</text>
+
+    <rect x="1370" y="376" width="214" height="52" rx="10" style="fill:#E5EDF4;stroke:#A9C4D8"></rect>
+    <use href="#lk" x="1386" y="392" width="12" height="14" style="color:#3C6B8E"></use>
+    <text x="1406" y="399" style="fill:#0F1720;font:600 13.5px &#39;IBM Plex Sans&#39;,sans-serif">Tokenizer</text>
+    <text x="1406" y="417" style="fill:#3C6B8E;font:400 11.5px &#39;IBM Plex Mono&#39;,monospace">tokenizer @ 8b21d0e4</text>
+
+    <path d="M1584 274C1614 274 1616 330 1636 336" style="fill:none;stroke:#8C9AA7;stroke-width:2"></path>
+    <path d="M1584 338h44" style="stroke:#8C9AA7;stroke-width:2"></path>
+    <path d="M1584 402C1614 402 1616 346 1636 340" style="fill:none;stroke:#8C9AA7;stroke-width:2"></path>
+    <circle cx="1666" cy="338" r="27" style="fill:#FFFFFF;stroke:#0C8F82;stroke-width:1.5"></circle>
+    <path d="M1666 326v24M1654 338h24" style="stroke:#0C8F82;stroke-width:2;stroke-linecap:round"></path>
+    <path d="M1666 365v52" style="stroke:#8C9AA7;stroke-width:2"></path><path d="M1660 417h12l-6 9z" style="fill:#8C9AA7"></path>
+
+    <rect x="1370" y="440" width="358" height="86" rx="12" style="fill:#0C8F82"></rect>
+    <use href="#sp" x="1392" y="466" width="14" height="14" style="color:#FFFFFF"></use>
+    <text x="1414" y="479" style="fill:#FFFFFF;font:700 18px &#39;IBM Plex Sans&#39;,sans-serif">Restored DeepMTP model</text>
+    <text x="1392" y="504" style="fill:#FFFFFF;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">adapters attached · task head loaded · hashes verified</text>
+
+    <text x="1370" y="556" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">Reproducible for inference and as a warm start for further</text>
+    <text x="1370" y="575" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">training. It is not an exact resume of an interrupted run —</text>
+    <text x="1370" y="594" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">no optimizer, scheduler or data-loader state is carried.</text>
+  </g>
+
+  <g>
+    <rect x="48" y="668" width="1076" height="250" rx="14" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <text x="72" y="702" style="fill:#0F1720;font:600 17px &#39;IBM Plex Sans&#39;,sans-serif">Checkpoint formats compared</text>
+
+    <rect x="72" y="722" width="498" height="172" rx="10" style="fill:#EDF1F5"></rect>
+    <text x="92" y="752" style="fill:#0F1720;font:700 15px &#39;IBM Plex Sans&#39;,sans-serif">Full checkpoint</text>
+    <rect x="230" y="736" width="80" height="21" rx="10" style="fill:#EFF2F4"></rect>
+    <text x="270" y="751" text-anchor="middle" style="fill:#93A1AD;font:600 11px &#39;IBM Plex Sans&#39;,sans-serif">COMPLETE</text>
+    <text x="92" y="781" style="fill:#93A1AD;font:600 11px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">ARTIFACT</text>
+    <text x="230" y="782" style="fill:#0F1720;font:500 13.5px &#39;IBM Plex Mono&#39;,monospace">model.pt</text>
+    <text x="92" y="818" style="fill:#93A1AD;font:600 11px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">CONTAINS</text>
+    <text x="230" y="819" style="fill:#0F1720;font:400 13.5px &#39;IBM Plex Sans&#39;,sans-serif">full model weights + optimizer state</text>
+    <text x="92" y="855" style="fill:#93A1AD;font:600 11px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">SUPPORTS</text>
+    <text x="230" y="856" style="fill:#0F1720;font:400 13.5px &#39;IBM Plex Sans&#39;,sans-serif">fully fine-tuned backbones</text>
+
+    <rect x="602" y="722" width="498" height="172" rx="10" style="fill:#DBF2EF"></rect>
+    <text x="622" y="752" style="fill:#0F1720;font:700 15px &#39;IBM Plex Sans&#39;,sans-serif">Compact adapter checkpoint</text>
+    <rect x="860" y="736" width="80" height="21" rx="10" style="fill:#FFFFFF"></rect>
+    <text x="900" y="751" text-anchor="middle" style="fill:#075E55;font:600 11px &#39;IBM Plex Sans&#39;,sans-serif">COMPACT</text>
+    <text x="622" y="781" style="fill:#93A1AD;font:600 11px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">ARTIFACT</text>
+    <text x="760" y="782" style="fill:#0F1720;font:500 13.5px &#39;IBM Plex Mono&#39;,monospace">foundation_adapter.zip</text>
+    <text x="622" y="818" style="fill:#93A1AD;font:600 11px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">CONTAINS</text>
+    <text x="760" y="819" style="fill:#0F1720;font:400 13.5px &#39;IBM Plex Sans&#39;,sans-serif">LoRA + task weights, base by reference</text>
+    <text x="622" y="855" style="fill:#93A1AD;font:600 11px &#39;IBM Plex Sans&#39;,sans-serif;letter-spacing:.08em">SUPPORTS</text>
+    <text x="760" y="856" style="fill:#0F1720;font:400 13.5px &#39;IBM Plex Sans&#39;,sans-serif">inference or warm start</text>
+  </g>
+
+  
+  <g>
+    <rect x="1156" y="668" width="596" height="250" rx="14" style="fill:#FAF3E2;stroke:#E0C888"></rect>
+    <use href="#cl" x="1180" y="688" width="22" height="16" style="color:#A9801B"></use>
+    <text x="1210" y="702" style="fill:#0F1720;font:600 17px &#39;IBM Plex Sans&#39;,sans-serif">W&amp;B Artifact — optional, either format</text>
+    <rect x="1180" y="722" width="548" height="120" rx="20" style="fill:none;stroke:#A9801B;stroke-width:1.5;stroke-dasharray:7 5"></rect>
+    <rect x="1204" y="756" width="230" height="52" rx="10" style="fill:#FFFFFF;stroke:#D6DDE5"></rect>
+    <text x="1222" y="779" style="fill:#0F1720;font:500 13.5px &#39;IBM Plex Mono&#39;,monospace">model.pt</text>
+    <text x="1222" y="797" style="fill:#93A1AD;font:400 11.5px &#39;IBM Plex Sans&#39;,sans-serif">versioned model artifact</text>
+    <rect x="1470" y="756" width="234" height="52" rx="10" style="fill:#FFFFFF;stroke:#7CCCC2"></rect>
+    <text x="1488" y="779" style="fill:#0F1720;font:500 13px &#39;IBM Plex Mono&#39;,monospace">foundation_adapter.zip</text>
+    <text x="1488" y="797" style="fill:#93A1AD;font:400 11.5px &#39;IBM Plex Sans&#39;,sans-serif">versioned model artifact</text>
+    <text x="1180" y="874" style="fill:#4C5C6B;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">Either artefact can be logged, versioned, lineage-tracked and pulled back by version.</text>
+    <text x="1180" y="893" style="fill:#93A1AD;font:400 12.5px &#39;IBM Plex Sans&#39;,sans-serif">The compact archive resolves its base from the recorded Hub revision or user-managed local snapshot.</text>
+  </g>
+  
+</svg>

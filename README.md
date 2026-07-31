@@ -172,8 +172,11 @@ The score can be binary, multiclass, or continuous. Dot-product fusion requires
 equal branch widths. MLP and Kronecker fusion can combine unequal widths.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product_white.png#gh-dark-mode-only" alt="DeepMTP two-branch dot-product architecture" height="250">
-  <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/mlp_plus_dot_product.png#gh-light-mode-only" alt="DeepMTP two-branch dot-product architecture" height="250">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/deepmtp_overview_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/deepmtp_overview_light.svg">
+    <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/deepmtp_overview_light.svg" alt="DeepMTP independently encodes instances and targets, fuses their representations, and produces binary, multiclass, or regression predictions." width="100%">
+  </picture>
 </p>
 
 ### Generalization settings
@@ -188,6 +191,14 @@ represent an entity absent from training.
 | **B** | Novel instances × known targets | Required | Optional |
 | **C** | Known instances × novel targets | Optional | Required |
 | **D** | Novel instances × novel targets | Required | Required |
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/validation-settings-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/validation-settings-light.svg">
+    <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/validation-settings-light.svg" alt="Validation settings A through D distinguish whether evaluation contains known or novel instances, targets, or both." width="100%" loading="lazy">
+  </picture>
+</p>
 
 See the [configuration guide](https://deepmtp.readthedocs.io/en/latest/tutorial/configuration.html)
 for split semantics and validation rules.
@@ -378,6 +389,14 @@ normalized specification to a `SEQUENCE` branch with
 composite use, compact adapter checkpoints, and supported reference models are
 covered in the [foundation-model guide](https://deepmtp.readthedocs.io/en/latest/tutorial/foundation_models.html).
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/foundation-model-lifecycle-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/foundation-model-lifecycle-light.svg">
+    <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/foundation-model-lifecycle-light.svg" alt="LoRA trains compact adapters around a pinned foundation model, and adapter checkpoints restore those adapters and task weights with the recorded base identity." width="100%" loading="lazy">
+  </picture>
+</p>
+
 ### Molecular graphs
 
 `GRAPH` consumes homogeneous `torch_geometric.data.Data` objects and uses GIN
@@ -391,6 +410,14 @@ features. See the [graph guide](https://deepmtp.readthedocs.io/en/latest/tutoria
 components. Fusion can use concatenation, sample-specific gates, or modality
 self-attention. Optional components carry presence masks and learned missing
 representations; training-only modality dropout can improve robustness.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/deepmtp-composite-branch-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/deepmtp-composite-branch-light.svg">
+    <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/deepmtp-composite-branch-light.svg" alt="A composite branch independently encodes multiple modalities, substitutes learned representations for missing optional inputs, and combines components with presence-aware fusion." width="100%" loading="lazy">
+  </picture>
+</p>
 
 ```python
 config = DeepMTPConfig(
