@@ -200,6 +200,37 @@ def test_readme_quickstart_runs_offline(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize(
+    ("light_asset", "dark_asset"),
+    [
+        ("deepmtp_overview_light.svg", "deepmtp_overview_dark.svg"),
+        ("validation-settings-light.svg", "validation-settings-dark.svg"),
+        (
+            "deepmtp-composite-branch-light.svg",
+            "deepmtp-composite-branch-dark.svg",
+        ),
+        (
+            "foundation-model-lifecycle-light.svg",
+            "foundation-model-lifecycle-dark.svg",
+        ),
+    ],
+)
+def test_readme_theme_aware_figures_are_complete(light_asset, dark_asset):
+    readme = (_PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    asset_directory = _PROJECT_ROOT / "images" / "claude_design_assets"
+
+    for asset in (light_asset, dark_asset):
+        assert (asset_directory / asset).is_file()
+        assert readme.count(f"images/claude_design_assets/{asset}") >= 1
+
+    raw_asset_root = (
+        "https://raw.githubusercontent.com/diliadis/DeepMTP/main/"
+        "images/claude_design_assets"
+    )
+    assert f'srcset="{raw_asset_root}/{dark_asset}"' in readme
+    assert f'src="{raw_asset_root}/{light_asset}"' in readme
+
+
+@pytest.mark.parametrize(
     ("marker", "expected_instance_architecture", "expected_target_architecture"),
     [
         ("id-embedding-example", "EMBEDDING", "EMBEDDING"),

@@ -1,0 +1,396 @@
+<svg viewBox="0 0 1700 950" width="1700" height="950" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="context-stroke"></path></marker>
+<pattern id="hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="6" stroke="#8A97A8" stroke-width="2"></line></pattern>
+</defs>
+
+<rect x="0" y="0" width="1700" height="950" fill="#0D1014"></rect>
+
+<g>
+<rect x="36" y="30" width="10" height="10" fill="#FB9B45"></rect>
+<text x="56" y="40" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12" font-weight="600" letter-spacing="1.6" fill="#98A3B1">DEEPMTP · COMPOSITE BRANCH</text>
+<text x="36" y="78" font-size="28" font-weight="700" fill="#E8ECF2">Encoding one entity from several modalities, some of them optional</text>
+<text x="36" y="106" font-size="17" font-weight="500" fill="#98A3B1">Different modalities are encoded independently, missing optional inputs are handled explicitly, and fusion remains sample-aware.</text>
+</g>
+
+<g font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12" letter-spacing="1.3" fill="#98A3B1">
+<text x="36" y="132">MINI-BATCH</text>
+<text x="136" y="132">INPUT COMPONENTS</text>
+<text x="358" y="132">COMPONENT ENCODERS</text>
+<text x="548" y="132">REPRESENTATIONS + MASK</text>
+<text x="790" y="132">FUSION</text>
+<text x="920" y="132">COMPOSITE OUTPUT</text>
+</g>
+
+<rect x="24" y="140" width="1140" height="524" rx="14" fill="#11161C" stroke="#2A323C" stroke-width="1"></rect>
+
+<g transform="translate(0,160)">
+<rect x="32" y="2" width="1116" height="146" rx="10" fill="#161B21" stroke="#2A323C" stroke-width="1"></rect>
+<text x="48" y="62" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11" letter-spacing="1.2" fill="#98A3B1">ENTITY</text>
+<text x="48" y="92" font-size="26" font-weight="700" fill="#E8ECF2">1</text>
+<text x="48" y="112" font-size="11.5" fill="#98A3B1">3 of 3</text>
+
+<g transform="translate(0,30)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="#16233A" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<g fill="#6BA5FB"><rect x="147" y="-7" width="5" height="14" rx="1"></rect><rect x="155" y="-7" width="5" height="14" rx="1"></rect><rect x="163" y="-7" width="5" height="14" rx="1"></rect><rect x="171" y="-7" width="5" height="14" rx="1"></rect></g>
+<text x="184" y="-4" font-size="15.5" font-weight="600" fill="#E8ECF2">Descriptors</text>
+<text x="184" y="12" font-size="11.5" fill="#98A3B1">dense vector · required</text>
+<path d="M346 0 H354" stroke="#6BA5FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="#161B21" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<text x="443" y="-3" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">Descriptor encoder</text>
+<text x="443" y="12" font-size="11" text-anchor="middle" fill="#98A3B1">MLP</text>
+<path d="M532 0 H544" stroke="#6BA5FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#16233A" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<g fill="#6BA5FB"><rect x="557" y="-6" width="4" height="12" rx="1"></rect><rect x="563" y="-6" width="4" height="12" rx="1"></rect><rect x="569" y="-6" width="4" height="12" rx="1"></rect></g>
+<text x="580" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">h_desc</text>
+<text x="580" y="12" font-size="11" fill="#98A3B1">encoded · dim d</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+</g>
+
+<g transform="translate(0,75)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="#0D2A2A" stroke="#37D3BE" stroke-width="1.5"></rect>
+<g stroke="#37D3BE" stroke-width="1.4" fill="#37D3BE"><line x1="150" y1="-5" x2="160" y2="4"></line><line x1="160" y1="4" x2="171" y2="-4"></line><line x1="150" y1="-5" x2="171" y2="-4"></line><circle cx="150" cy="-5" r="3"></circle><circle cx="160" cy="4" r="3"></circle><circle cx="171" cy="-4" r="3"></circle></g>
+<text x="184" y="-4" font-size="15.5" font-weight="600" fill="#E8ECF2">Molecular graph</text>
+<text x="184" y="12" font-size="11.5" fill="#98A3B1">bond graph · optional</text>
+<path d="M346 0 H354" stroke="#37D3BE" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="#161B21" stroke="#37D3BE" stroke-width="1.5"></rect>
+<text x="443" y="-3" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">Graph encoder</text>
+<text x="443" y="12" font-size="11" text-anchor="middle" fill="#98A3B1">message-passing GNN</text>
+<path d="M532 0 H544" stroke="#37D3BE" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#0D2A2A" stroke="#37D3BE" stroke-width="1.5"></rect>
+<g fill="#37D3BE"><rect x="557" y="-6" width="4" height="12" rx="1"></rect><rect x="563" y="-6" width="4" height="12" rx="1"></rect><rect x="569" y="-6" width="4" height="12" rx="1"></rect></g>
+<text x="580" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">h_graph</text>
+<text x="580" y="12" font-size="11" fill="#98A3B1">encoded · dim d</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+</g>
+
+<g transform="translate(0,120)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="#221838" stroke="#AE93FB" stroke-width="1.5"></rect>
+<g fill="#AE93FB"><rect x="147" y="-6" width="9" height="12" rx="2"></rect><rect x="158" y="-6" width="9" height="12" rx="2"></rect><rect x="169" y="-6" width="9" height="12" rx="2"></rect></g>
+<text x="186" y="-4" font-size="15.5" font-weight="600" fill="#E8ECF2">Token sequence</text>
+<text x="186" y="12" font-size="11.5" fill="#98A3B1">tokens · optional</text>
+<path d="M346 0 H354" stroke="#AE93FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="#161B21" stroke="#AE93FB" stroke-width="1.5"></rect>
+<text x="443" y="-3" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">Sequence encoder</text>
+<text x="443" y="12" font-size="11" text-anchor="middle" fill="#98A3B1">token transformer</text>
+<path d="M532 0 H544" stroke="#AE93FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#221838" stroke="#AE93FB" stroke-width="1.5"></rect>
+<g fill="#AE93FB"><rect x="557" y="-6" width="4" height="12" rx="1"></rect><rect x="563" y="-6" width="4" height="12" rx="1"></rect><rect x="569" y="-6" width="4" height="12" rx="1"></rect></g>
+<text x="580" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">h_seq</text>
+<text x="580" y="12" font-size="11" fill="#98A3B1">encoded · dim d</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+</g>
+
+<rect x="790" y="25" width="112" height="100" rx="8" fill="#33220F" stroke="#FB9B45" stroke-width="1.5"></rect>
+<text x="846" y="63" font-size="15" font-weight="700" text-anchor="middle" fill="#FB9B45">FUSION</text>
+<text x="846" y="79" font-size="11.5" text-anchor="middle" fill="#98A3B1">block</text>
+<text x="846" y="99" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11" text-anchor="middle" fill="#98A3B1">selected strategy</text>
+<path d="M906 75 H916" stroke="#FB9B45" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="920" y="40" width="212" height="70" rx="8" fill="#161B21" stroke="#E8ECF2" stroke-width="1.8"></rect>
+<text x="934" y="63" font-size="15.5" font-weight="700" fill="#E8ECF2">Composite entity</text>
+<text x="934" y="81" font-size="15.5" font-weight="700" fill="#E8ECF2">representation</text>
+<text x="934" y="99" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12" fill="#98A3B1">z ∈ ℝ^dc · fixed width</text>
+</g>
+
+<g transform="translate(0,330)">
+<rect x="32" y="2" width="1116" height="146" rx="10" fill="#161B21" stroke="#2A323C" stroke-width="1"></rect>
+<text x="48" y="62" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11" letter-spacing="1.2" fill="#98A3B1">ENTITY</text>
+<text x="48" y="92" font-size="26" font-weight="700" fill="#E8ECF2">2</text>
+<text x="48" y="112" font-size="11.5" fill="#98A3B1">no graph</text>
+
+<g transform="translate(0,30)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="#16233A" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<g fill="#6BA5FB"><rect x="147" y="-7" width="5" height="14" rx="1"></rect><rect x="155" y="-7" width="5" height="14" rx="1"></rect><rect x="163" y="-7" width="5" height="14" rx="1"></rect><rect x="171" y="-7" width="5" height="14" rx="1"></rect></g>
+<text x="184" y="-4" font-size="15.5" font-weight="600" fill="#E8ECF2">Descriptors</text>
+<text x="184" y="12" font-size="11.5" fill="#98A3B1">dense vector · required</text>
+<path d="M346 0 H354" stroke="#6BA5FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="#161B21" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<text x="443" y="-3" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">Descriptor encoder</text>
+<text x="443" y="12" font-size="11" text-anchor="middle" fill="#98A3B1">MLP</text>
+<path d="M532 0 H544" stroke="#6BA5FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#16233A" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<g fill="#6BA5FB"><rect x="557" y="-6" width="4" height="12" rx="1"></rect><rect x="563" y="-6" width="4" height="12" rx="1"></rect><rect x="569" y="-6" width="4" height="12" rx="1"></rect></g>
+<text x="580" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">h_desc</text>
+<text x="580" y="12" font-size="11" fill="#98A3B1">encoded · dim d</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+</g>
+
+<g transform="translate(0,75)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="none" stroke="#8A97A8" stroke-width="1.5" stroke-dasharray="5 4"></rect>
+<g stroke="#8A97A8" stroke-width="1.3" fill="none" opacity="0.85"><circle cx="150" cy="-5" r="3"></circle><circle cx="160" cy="4" r="3"></circle><circle cx="171" cy="-4" r="3"></circle></g>
+<text x="184" y="-4" font-size="15.5" font-weight="600" fill="#8A97A8">Molecular graph</text>
+<text x="184" y="12" font-size="11.5" fill="#8A97A8">optional · not provided</text>
+<path d="M346 0 H354" stroke="#8A97A8" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="none" stroke="#8A97A8" stroke-width="1.2" stroke-dasharray="4 4"></rect>
+<text x="443" y="5" font-size="13" text-anchor="middle" fill="#8A97A8">encoder not run</text>
+<path d="M532 0 H544" stroke="#8A97A8" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#1B2129" stroke="#8A97A8" stroke-width="1.5"></rect>
+<circle cx="564" cy="0" r="10" fill="none" stroke="#8A97A8" stroke-width="1.3"></circle>
+<text x="564" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" text-anchor="middle" fill="#8A97A8">θ</text>
+<text x="578" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">θ_graph</text>
+<text x="578" y="12" font-size="11" fill="#98A3B1">learned missing rep</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#161B21" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">0</text>
+</g>
+
+<g transform="translate(0,120)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="#221838" stroke="#AE93FB" stroke-width="1.5"></rect>
+<g fill="#AE93FB"><rect x="147" y="-6" width="9" height="12" rx="2"></rect><rect x="158" y="-6" width="9" height="12" rx="2"></rect><rect x="169" y="-6" width="9" height="12" rx="2"></rect></g>
+<text x="186" y="-4" font-size="15.5" font-weight="600" fill="#E8ECF2">Token sequence</text>
+<text x="186" y="12" font-size="11.5" fill="#98A3B1">tokens · optional</text>
+<path d="M346 0 H354" stroke="#AE93FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="#161B21" stroke="#AE93FB" stroke-width="1.5"></rect>
+<text x="443" y="-3" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">Sequence encoder</text>
+<text x="443" y="12" font-size="11" text-anchor="middle" fill="#98A3B1">token transformer</text>
+<path d="M532 0 H544" stroke="#AE93FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#221838" stroke="#AE93FB" stroke-width="1.5"></rect>
+<g fill="#AE93FB"><rect x="557" y="-6" width="4" height="12" rx="1"></rect><rect x="563" y="-6" width="4" height="12" rx="1"></rect><rect x="569" y="-6" width="4" height="12" rx="1"></rect></g>
+<text x="580" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">h_seq</text>
+<text x="580" y="12" font-size="11" fill="#98A3B1">encoded · dim d</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+</g>
+
+<rect x="790" y="25" width="112" height="100" rx="8" fill="#33220F" stroke="#FB9B45" stroke-width="1.5"></rect>
+<text x="846" y="63" font-size="15" font-weight="700" text-anchor="middle" fill="#FB9B45">FUSION</text>
+<text x="846" y="79" font-size="11.5" text-anchor="middle" fill="#98A3B1">block</text>
+<text x="846" y="99" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11" text-anchor="middle" fill="#98A3B1">selected strategy</text>
+<path d="M906 75 H916" stroke="#FB9B45" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="920" y="40" width="212" height="70" rx="8" fill="#161B21" stroke="#E8ECF2" stroke-width="1.8"></rect>
+<text x="934" y="63" font-size="15.5" font-weight="700" fill="#E8ECF2">Composite entity</text>
+<text x="934" y="81" font-size="15.5" font-weight="700" fill="#E8ECF2">representation</text>
+<text x="934" y="99" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12" fill="#98A3B1">z ∈ ℝ^dc · same width</text>
+</g>
+
+<g transform="translate(0,500)">
+<rect x="32" y="2" width="1116" height="146" rx="10" fill="#161B21" stroke="#2A323C" stroke-width="1"></rect>
+<text x="48" y="62" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11" letter-spacing="1.2" fill="#98A3B1">ENTITY</text>
+<text x="48" y="92" font-size="26" font-weight="700" fill="#E8ECF2">3</text>
+<text x="48" y="112" font-size="11.5" fill="#98A3B1">no tokens</text>
+
+<g transform="translate(0,30)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="#16233A" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<g fill="#6BA5FB"><rect x="147" y="-7" width="5" height="14" rx="1"></rect><rect x="155" y="-7" width="5" height="14" rx="1"></rect><rect x="163" y="-7" width="5" height="14" rx="1"></rect><rect x="171" y="-7" width="5" height="14" rx="1"></rect></g>
+<text x="184" y="-4" font-size="15.5" font-weight="600" fill="#E8ECF2">Descriptors</text>
+<text x="184" y="12" font-size="11.5" fill="#98A3B1">dense vector · required</text>
+<path d="M346 0 H354" stroke="#6BA5FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="#161B21" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<text x="443" y="-3" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">Descriptor encoder</text>
+<text x="443" y="12" font-size="11" text-anchor="middle" fill="#98A3B1">MLP</text>
+<path d="M532 0 H544" stroke="#6BA5FB" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#16233A" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<g fill="#6BA5FB"><rect x="557" y="-6" width="4" height="12" rx="1"></rect><rect x="563" y="-6" width="4" height="12" rx="1"></rect><rect x="569" y="-6" width="4" height="12" rx="1"></rect></g>
+<text x="580" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">h_desc</text>
+<text x="580" y="12" font-size="11" fill="#98A3B1">encoded · dim d</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+</g>
+
+<g transform="translate(0,75)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="#0D2A2A" stroke="#37D3BE" stroke-width="1.5"></rect>
+<g stroke="#37D3BE" stroke-width="1.4" fill="#37D3BE"><line x1="150" y1="-5" x2="160" y2="4"></line><line x1="160" y1="4" x2="171" y2="-4"></line><line x1="150" y1="-5" x2="171" y2="-4"></line><circle cx="150" cy="-5" r="3"></circle><circle cx="160" cy="4" r="3"></circle><circle cx="171" cy="-4" r="3"></circle></g>
+<text x="184" y="-4" font-size="15.5" font-weight="600" fill="#E8ECF2">Molecular graph</text>
+<text x="184" y="12" font-size="11.5" fill="#98A3B1">bond graph · optional</text>
+<path d="M346 0 H354" stroke="#37D3BE" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="#161B21" stroke="#37D3BE" stroke-width="1.5"></rect>
+<text x="443" y="-3" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">Graph encoder</text>
+<text x="443" y="12" font-size="11" text-anchor="middle" fill="#98A3B1">message-passing GNN</text>
+<path d="M532 0 H544" stroke="#37D3BE" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#0D2A2A" stroke="#37D3BE" stroke-width="1.5"></rect>
+<g fill="#37D3BE"><rect x="557" y="-6" width="4" height="12" rx="1"></rect><rect x="563" y="-6" width="4" height="12" rx="1"></rect><rect x="569" y="-6" width="4" height="12" rx="1"></rect></g>
+<text x="580" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">h_graph</text>
+<text x="580" y="12" font-size="11" fill="#98A3B1">encoded · dim d</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+</g>
+
+<g transform="translate(0,120)">
+<rect x="136" y="-20" width="206" height="40" rx="6" fill="none" stroke="#8A97A8" stroke-width="1.5" stroke-dasharray="5 4"></rect>
+<g fill="none" stroke="#8A97A8" stroke-width="1.3" opacity="0.85"><rect x="147" y="-6" width="9" height="12" rx="2"></rect><rect x="158" y="-6" width="9" height="12" rx="2"></rect><rect x="169" y="-6" width="9" height="12" rx="2"></rect></g>
+<text x="186" y="-4" font-size="15.5" font-weight="600" fill="#8A97A8">Token sequence</text>
+<text x="186" y="12" font-size="11.5" fill="#8A97A8">optional · not provided</text>
+<path d="M346 0 H354" stroke="#8A97A8" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ah)"></path>
+<rect x="358" y="-20" width="170" height="40" rx="6" fill="none" stroke="#8A97A8" stroke-width="1.2" stroke-dasharray="4 4"></rect>
+<text x="443" y="5" font-size="13" text-anchor="middle" fill="#8A97A8">encoder not run</text>
+<path d="M532 0 H544" stroke="#8A97A8" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ah)"></path>
+<rect x="548" y="-20" width="152" height="40" rx="6" fill="#1B2129" stroke="#8A97A8" stroke-width="1.5"></rect>
+<circle cx="564" cy="0" r="10" fill="none" stroke="#8A97A8" stroke-width="1.3"></circle>
+<text x="564" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" text-anchor="middle" fill="#8A97A8">θ</text>
+<text x="578" y="-4" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" fill="#E8ECF2">θ_seq</text>
+<text x="578" y="12" font-size="11" fill="#98A3B1">learned missing rep</text>
+<path d="M700 0 H786" stroke="#2A323C" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="708" y="-12" width="24" height="24" rx="3" fill="#161B21" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="720" y="5" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="14" font-weight="600" text-anchor="middle" fill="#E8ECF2">0</text>
+</g>
+
+<rect x="790" y="25" width="112" height="100" rx="8" fill="#33220F" stroke="#FB9B45" stroke-width="1.5"></rect>
+<text x="846" y="63" font-size="15" font-weight="700" text-anchor="middle" fill="#FB9B45">FUSION</text>
+<text x="846" y="79" font-size="11.5" text-anchor="middle" fill="#98A3B1">block</text>
+<text x="846" y="99" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11" text-anchor="middle" fill="#98A3B1">selected strategy</text>
+<path d="M906 75 H916" stroke="#FB9B45" stroke-width="1.5" marker-end="url(#ah)"></path>
+<rect x="920" y="40" width="212" height="70" rx="8" fill="#161B21" stroke="#E8ECF2" stroke-width="1.8"></rect>
+<text x="934" y="63" font-size="15.5" font-weight="700" fill="#E8ECF2">Composite entity</text>
+<text x="934" y="81" font-size="15.5" font-weight="700" fill="#E8ECF2">representation</text>
+<text x="934" y="99" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12" fill="#98A3B1">z ∈ ℝ^dc · same width</text>
+</g>
+
+<g stroke="#E8ECF2" stroke-width="1.6" fill="none">
+<path d="M1132 235 H1160"></path>
+<path d="M1132 405 H1160"></path>
+<path d="M1132 575 H1160"></path>
+<path d="M1160 235 V575"></path>
+<path d="M1160 405 H1178"></path>
+<path d="M1178 355 V459"></path>
+<path d="M1178 355 H1194" marker-end="url(#ah)"></path>
+<path d="M1178 459 H1194" marker-end="url(#ah)"></path>
+</g>
+
+<rect x="1180" y="140" width="480" height="140" rx="12" fill="#161B21" stroke="#2A323C" stroke-width="1"></rect>
+<text x="1198" y="166" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12" letter-spacing="1.3" fill="#98A3B1">LEGEND</text>
+<g>
+<rect x="1198" y="180" width="14" height="14" rx="3" fill="#16233A" stroke="#6BA5FB" stroke-width="1.4"></rect>
+<text x="1220" y="192" font-size="13" fill="#E8ECF2">Descriptors — required</text>
+<rect x="1198" y="206" width="14" height="14" rx="3" fill="#0D2A2A" stroke="#37D3BE" stroke-width="1.4"></rect>
+<text x="1220" y="218" font-size="13" fill="#E8ECF2">Molecular graph — optional</text>
+<rect x="1198" y="232" width="14" height="14" rx="3" fill="#221838" stroke="#AE93FB" stroke-width="1.4"></rect>
+<text x="1220" y="244" font-size="13" fill="#E8ECF2">Token sequence — optional</text>
+<rect x="1198" y="258" width="14" height="14" rx="3" fill="#33220F" stroke="#FB9B45" stroke-width="1.4"></rect>
+<text x="1220" y="270" font-size="13" fill="#E8ECF2">Fusion</text>
+<rect x="1414" y="180" width="14" height="14" rx="3" fill="#1B2129" stroke="#8A97A8" stroke-width="1.4" stroke-dasharray="3 2"></rect>
+<text x="1436" y="192" font-size="13" fill="#E8ECF2">Learned missing rep θ</text>
+<text x="1436" y="208" font-size="11" fill="#98A3B1">a trained parameter, not a zero vector</text>
+<rect x="1414" y="226" width="14" height="14" rx="2" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.1"></rect>
+<rect x="1432" y="226" width="14" height="14" rx="2" fill="#161B21" stroke="#E8ECF2" stroke-width="1.1"></rect>
+<text x="1454" y="238" font-size="13" fill="#E8ECF2">Presence mask m</text>
+<text x="1436" y="254" font-size="11" fill="#98A3B1">1 = component available, 0 = absent</text>
+<text x="1436" y="270" font-size="11" fill="#98A3B1">required components are always present</text>
+</g>
+
+<text x="1200" y="324" font-size="15.5" font-weight="600" fill="#E8ECF2">The composite vector is a drop-in branch:</text>
+<rect x="1200" y="332" width="460" height="46" rx="8" fill="#11161C" stroke="#E8ECF2" stroke-width="1.4"></rect>
+<text x="1218" y="353" font-size="15.5" font-weight="600" fill="#E8ECF2">DeepMTP instance branch</text>
+<text x="1218" y="370" font-size="11.5" fill="#98A3B1">z replaces the instance feature vector</text>
+<rect x="1200" y="436" width="460" height="46" rx="8" fill="#11161C" stroke="#E8ECF2" stroke-width="1.4"></rect>
+<text x="1218" y="457" font-size="15.5" font-weight="600" fill="#E8ECF2">DeepMTP target branch</text>
+<text x="1218" y="474" font-size="11.5" fill="#98A3B1">z replaces the target feature vector</text>
+<text x="1200" y="508" font-size="12" fill="#98A3B1">Same COMPOSITE architecture on either side; parameters are learned per branch.</text>
+
+<path d="M846 686 V632" stroke="#FB9B45" stroke-width="1.4" stroke-dasharray="5 4" fill="none" marker-end="url(#ah)"></path>
+
+<rect x="36" y="680" width="724" height="246" rx="12" fill="#161B21" stroke="#2A323C" stroke-width="1"></rect>
+<rect x="52" y="698" width="126" height="22" rx="4" fill="#1B2129" stroke="#8A97A8" stroke-width="1"></rect>
+<text x="115" y="713" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11" letter-spacing="1" text-anchor="middle" fill="#8A97A8">TRAINING ONLY</text>
+<text x="192" y="715" font-size="18" font-weight="700" fill="#E8ECF2">Optional modality dropout</text>
+<text x="52" y="742" font-size="13" fill="#98A3B1">One training step on Entity 1: an available optional component is temporarily</text>
+<text x="52" y="759" font-size="13" fill="#98A3B1">hidden and stands in with its learned missing representation.</text>
+<g>
+<rect x="52" y="770" width="216" height="70" rx="8" fill="#16233A" stroke="#6BA5FB" stroke-width="1.5"></rect>
+<text x="68" y="794" font-size="14.5" font-weight="600" fill="#E8ECF2">Descriptors</text>
+<text x="68" y="812" font-size="11.5" fill="#98A3B1">required · never dropped</text>
+<text x="68" y="830" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11.5" fill="#6BA5FB">h_desc kept</text>
+<rect x="288" y="770" width="216" height="70" rx="8" fill="#1B2129" stroke="#8A97A8" stroke-width="1.5" stroke-dasharray="5 4"></rect>
+<text x="304" y="794" font-size="14.5" font-weight="600" fill="#8A97A8">Molecular graph</text>
+<text x="304" y="812" font-size="11.5" fill="#98A3B1">available, dropped this step</text>
+<text x="304" y="830" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11.5" fill="#8A97A8">θ_graph substituted</text>
+<g stroke="#8A97A8" stroke-width="1.8"><line x1="468" y1="778" x2="488" y2="798"></line><line x1="488" y1="778" x2="468" y2="798"></line></g>
+<rect x="524" y="770" width="216" height="70" rx="8" fill="#221838" stroke="#AE93FB" stroke-width="1.5"></rect>
+<text x="540" y="794" font-size="14.5" font-weight="600" fill="#E8ECF2">Token sequence</text>
+<text x="540" y="812" font-size="11.5" fill="#98A3B1">kept · one optional remains</text>
+<text x="540" y="830" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11.5" fill="#AE93FB">h_seq kept</text>
+</g>
+<text x="52" y="869" font-size="13" font-weight="600" fill="#E8ECF2">Mask seen by fusion this step</text>
+<g>
+<rect x="256" y="852" width="22" height="22" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="267" y="868" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+<rect x="282" y="852" width="22" height="22" rx="3" fill="#161B21" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="293" y="868" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" text-anchor="middle" fill="#E8ECF2">0</text>
+<rect x="308" y="852" width="22" height="22" rx="3" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.2"></rect>
+<text x="319" y="868" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13" font-weight="600" text-anchor="middle" fill="#0D1014">1</text>
+<text x="340" y="868" font-size="11.5" fill="#98A3B1">the mask is edited with the input, so fusion stays consistent</text>
+</g>
+<text x="52" y="896" font-size="12" fill="#98A3B1">Required components are never dropped, and dropout never removes every available component.</text>
+<text x="52" y="914" font-size="12" fill="#98A3B1">Disabled at evaluation and inference: every component the entity has is encoded and fused.</text>
+
+<text x="790" y="700" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12" letter-spacing="1.3" fill="#98A3B1">FUSION STRATEGY · SELECT ONE PER MODEL</text>
+
+<g>
+<rect x="790" y="712" width="276" height="214" rx="12" fill="#161B21" stroke="#FB9B45" stroke-width="1.4"></rect>
+<text x="808" y="742" font-size="17" font-weight="700" fill="#E8ECF2">Concatenation</text>
+<text x="808" y="766" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="13.5" fill="#FB9B45">z = [h_d ; h_g ; h_s]</text>
+<g transform="translate(808,782)">
+<rect x="0" y="0" width="42" height="16" rx="3" fill="#16233A" stroke="#6BA5FB" stroke-width="1.3"></rect>
+<rect x="46" y="0" width="42" height="16" rx="3" fill="#0D2A2A" stroke="#37D3BE" stroke-width="1.3"></rect>
+<rect x="92" y="0" width="42" height="16" rx="3" fill="#221838" stroke="#AE93FB" stroke-width="1.3"></rect>
+<path d="M140 8 H158" stroke="#FB9B45" stroke-width="1.4" marker-end="url(#ah)"></path>
+<rect x="162" y="0" width="76" height="16" rx="3" fill="#33220F" stroke="#FB9B45" stroke-width="1.3"></rect>
+</g>
+<text x="808" y="828" font-size="13" fill="#98A3B1">Fixed slot per modality, so the</text>
+<text x="808" y="845" font-size="13" fill="#98A3B1">width is the same whether a slot</text>
+<text x="808" y="862" font-size="13" fill="#98A3B1">holds an encoded vector or θ.</text>
+<rect x="808" y="878" width="240" height="32" rx="6" fill="#11161C" stroke="#2A323C" stroke-width="1"></rect>
+<text x="822" y="899" font-size="11.5" fill="#98A3B1">fixed component order and width</text>
+</g>
+
+<g>
+<rect x="1087" y="712" width="276" height="214" rx="12" fill="#161B21" stroke="#FB9B45" stroke-width="1.4"></rect>
+<text x="1105" y="742" font-size="17" font-weight="700" fill="#E8ECF2">Sample-specific gating</text>
+<text x="1105" y="766" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12.5" fill="#FB9B45">z = [g₁h_d ; g₂h_g ; g₃h_s]</text>
+<g transform="translate(1105,778)">
+<rect x="0" y="0" width="52" height="14" rx="3" fill="#16233A" stroke="#6BA5FB" stroke-width="1.2"></rect>
+<rect x="0" y="18" width="52" height="14" rx="3" fill="#0D2A2A" stroke="#37D3BE" stroke-width="1.2"></rect>
+<rect x="0" y="36" width="52" height="14" rx="3" fill="#221838" stroke="#AE93FB" stroke-width="1.2"></rect>
+<text x="60" y="12" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11.5" fill="#98A3B1">⊙ g₁</text>
+<text x="60" y="30" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11.5" fill="#98A3B1">⊙ g₂</text>
+<text x="60" y="48" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="11.5" fill="#98A3B1">⊙ g₃</text>
+<path d="M108 7 H122 V43 H108" stroke="#FB9B45" stroke-width="1.3" fill="none"></path>
+<path d="M122 25 H140" stroke="#FB9B45" stroke-width="1.4" marker-end="url(#ah)"></path>
+<rect x="144" y="17" width="70" height="16" rx="3" fill="#33220F" stroke="#FB9B45" stroke-width="1.3"></rect>
+</g>
+<text x="1105" y="845" font-size="13" fill="#98A3B1">Gates use the representations and</text>
+<text x="1105" y="862" font-size="13" fill="#98A3B1">presence mask, then scale each</text>
+<text x="1105" y="879" font-size="13" fill="#98A3B1">component before concatenation.</text>
+<rect x="1105" y="890" width="240" height="26" rx="6" fill="#33220F" stroke="#FB9B45" stroke-width="1"></rect>
+<rect x="1115" y="896" width="14" height="14" rx="2" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.1"></rect>
+<text x="1137" y="907" font-size="11.5" font-weight="600" fill="#FB9B45">uses the presence mask m</text>
+</g>
+
+<g>
+<rect x="1384" y="712" width="276" height="214" rx="12" fill="#161B21" stroke="#FB9B45" stroke-width="1.4"></rect>
+<text x="1402" y="742" font-size="17" font-weight="700" fill="#E8ECF2">Modality self-attention</text>
+<text x="1402" y="766" font-family="&#39;IBM Plex Mono&#39;, monospace" font-size="12.5" fill="#FB9B45">z = concat(residual contexts)</text>
+<g transform="translate(1402,778)">
+<rect x="0" y="0" width="15" height="15" rx="2" fill="#16233A" stroke="#6BA5FB" stroke-width="1.1"></rect>
+<rect x="18" y="0" width="15" height="15" rx="2" fill="url(#hatch)" stroke="#8A97A8" stroke-width="1.1"></rect>
+<rect x="36" y="0" width="15" height="15" rx="2" fill="#221838" stroke="#AE93FB" stroke-width="1.1"></rect>
+<rect x="0" y="18" width="15" height="15" rx="2" fill="url(#hatch)" stroke="#8A97A8" stroke-width="1.1"></rect>
+<rect x="18" y="18" width="15" height="15" rx="2" fill="url(#hatch)" stroke="#8A97A8" stroke-width="1.1"></rect>
+<rect x="36" y="18" width="15" height="15" rx="2" fill="url(#hatch)" stroke="#8A97A8" stroke-width="1.1"></rect>
+<rect x="0" y="36" width="15" height="15" rx="2" fill="#221838" stroke="#AE93FB" stroke-width="1.1"></rect>
+<rect x="18" y="36" width="15" height="15" rx="2" fill="url(#hatch)" stroke="#8A97A8" stroke-width="1.1"></rect>
+<rect x="36" y="36" width="15" height="15" rx="2" fill="#221838" stroke="#AE93FB" stroke-width="1.1"></rect>
+<text x="60" y="12" font-size="11" fill="#98A3B1">one token per modality;</text>
+<text x="60" y="30" font-size="11" fill="#98A3B1">hatched cells are</text>
+<text x="60" y="48" font-size="11" fill="#98A3B1">masked out</text>
+<path d="M198 25 H214" stroke="#FB9B45" stroke-width="1.4" marker-end="url(#ah)"></path>
+<rect x="218" y="17" width="36" height="16" rx="3" fill="#33220F" stroke="#FB9B45" stroke-width="1.3"></rect>
+</g>
+<text x="1402" y="845" font-size="13" fill="#98A3B1">Components share an attention width.</text>
+<text x="1402" y="862" font-size="13" fill="#98A3B1">Absent components are masked as</text>
+<text x="1402" y="879" font-size="13" fill="#98A3B1">keys, then outputs return to source widths.</text>
+<rect x="1402" y="890" width="240" height="26" rx="6" fill="#33220F" stroke="#FB9B45" stroke-width="1"></rect>
+<rect x="1412" y="896" width="14" height="14" rx="2" fill="#E8ECF2" stroke="#E8ECF2" stroke-width="1.1"></rect>
+<text x="1434" y="907" font-size="11.5" font-weight="600" fill="#FB9B45">uses the presence mask m</text>
+</g>
+</svg>
