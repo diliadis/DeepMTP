@@ -28,6 +28,8 @@ def get_default_config_dict():
         "train_batchsize": 512,
         "val_batchsize": 512,
         "num_epochs": 50,
+        "gradient_accumulation_steps": 1,
+        "gradient_clip_norm": None,
         "random_seed": 2,
         "num_workers": 4,
         "metrics": ["hamming_loss", "auroc"],

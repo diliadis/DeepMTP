@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 import warnings
 from collections.abc import Mapping
@@ -291,6 +292,8 @@ class DeepMTPConfig:
     classification_mode: ClassificationMode | None = None
     num_classes: int | None = None
     multiclass_average: MulticlassAverage | None = None
+    gradient_accumulation_steps: int = 1
+    gradient_clip_norm: float | None = None
 
     _extras: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     _present_fields: set[str] | None = field(default=None, init=False, repr=False)
@@ -591,6 +594,15 @@ class DeepMTPConfig:
         self._require_positive_integer("train_batchsize", self.train_batchsize)
         self._require_positive_integer("val_batchsize", self.val_batchsize)
         self._require_positive_integer("num_epochs", self.num_epochs)
+        self._require_positive_integer(
+            "gradient_accumulation_steps",
+            self.gradient_accumulation_steps,
+        )
+        if self.gradient_clip_norm is not None:
+            self._require_positive_finite(
+                "gradient_clip_norm",
+                self.gradient_clip_norm,
+            )
         if self.random_seed is not None:
             self._require_non_negative_integer("random_seed", self.random_seed)
         self._require_positive_integer("eval_every_n_epochs", self.eval_every_n_epochs)
@@ -1334,6 +1346,18 @@ class DeepMTPConfig:
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
             raise ConfigValidationError(
                 f"{name} must be greater than zero; received {value!r}."
+            )
+
+    @staticmethod
+    def _require_positive_finite(name: str, value: float) -> None:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value <= 0
+        ):
+            raise ConfigValidationError(
+                f"{name} must be a positive finite number; received {value!r}."
             )
 
     @staticmethod

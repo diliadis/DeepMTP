@@ -37,6 +37,16 @@ class MulticlassLinearModel(nn.Module):
         return self.linear(features)
 
 
+class CountingSGD(torch.optim.SGD):
+    def __init__(self, params, *, lr):
+        super().__init__(params, lr=lr)
+        self.step_calls = 0
+
+    def step(self, closure=None):
+        self.step_calls += 1
+        return super().step(closure)
+
+
 def make_batch(scores=(0.0, 1.0)):
     batch_size = len(scores)
     return {
@@ -54,6 +64,10 @@ def make_batch(scores=(0.0, 1.0)):
         "instance_id": torch.arange(10, 10 + batch_size),
         "target_id": torch.arange(20, 20 + batch_size),
     }
+
+
+def slice_batch(batch, start, stop):
+    return {key: value[start:stop] for key, value in batch.items()}
 
 
 def make_typed_batch(scores=(0.0, 1.0)):
@@ -122,6 +136,173 @@ def test_classification_train_epoch_updates_model_and_collects_probabilities():
     assert output.instance_ids == [10, 11]
     assert output.target_ids == [20, 21]
     assert all(0.0 <= prediction <= 1.0 for prediction in output.predicted_values)
+
+
+def test_training_engine_defaults_preserve_one_step_per_batch():
+    model = TinyTwoInputModel()
+    optimizer = CountingSGD(model.parameters(), lr=0.1)
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        optimizer=optimizer,
+    )
+
+    engine.train_epoch([make_batch(), make_batch()])
+
+    assert engine.gradient_accumulation_steps == 1
+    assert engine.gradient_clip_norm is None
+    assert optimizer.step_calls == 2
+
+
+def test_gradient_accumulation_matches_one_combined_uneven_batch():
+    combined_model = TinyTwoInputModel()
+    accumulated_model = TinyTwoInputModel()
+    with torch.no_grad():
+        combined_model.linear.weight.copy_(torch.tensor([[0.25, -0.5]]))
+        accumulated_model.load_state_dict(combined_model.state_dict())
+    combined_optimizer = torch.optim.SGD(combined_model.parameters(), lr=0.05)
+    accumulated_optimizer = torch.optim.SGD(
+        accumulated_model.parameters(),
+        lr=0.05,
+    )
+    combined_engine = TrainingEngine(
+        model=combined_model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        optimizer=combined_optimizer,
+    )
+    accumulated_engine = TrainingEngine(
+        model=accumulated_model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        optimizer=accumulated_optimizer,
+        gradient_accumulation_steps=2,
+    )
+    combined_batch = make_batch(scores=(1.0, -2.0, 4.0))
+
+    combined_output = combined_engine.train_epoch([combined_batch])
+    accumulated_output = accumulated_engine.train_epoch(
+        [
+            slice_batch(combined_batch, 0, 2),
+            slice_batch(combined_batch, 2, 3),
+        ]
+    )
+
+    torch.testing.assert_close(
+        accumulated_model.linear.weight,
+        combined_model.linear.weight,
+    )
+    assert accumulated_output.mean_loss == pytest.approx(combined_output.mean_loss)
+
+
+def test_gradient_accumulation_steps_for_final_partial_group():
+    model = TinyTwoInputModel()
+    optimizer = CountingSGD(model.parameters(), lr=0.01)
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        optimizer=optimizer,
+        gradient_accumulation_steps=2,
+    )
+
+    engine.train_epoch([make_batch()] * 5)
+
+    assert optimizer.step_calls == 3
+
+
+def test_incomplete_accumulation_group_uses_its_actual_observations():
+    default_model = TinyTwoInputModel()
+    accumulated_model = TinyTwoInputModel()
+    accumulated_model.load_state_dict(default_model.state_dict())
+    default_engine = TrainingEngine(
+        model=default_model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        optimizer=torch.optim.SGD(default_model.parameters(), lr=0.1),
+    )
+    accumulated_engine = TrainingEngine(
+        model=accumulated_model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        optimizer=torch.optim.SGD(accumulated_model.parameters(), lr=0.1),
+        gradient_accumulation_steps=4,
+    )
+    batch = make_batch(scores=(2.0, -1.0))
+
+    default_engine.train_epoch([batch])
+    accumulated_engine.train_epoch([batch])
+
+    torch.testing.assert_close(
+        accumulated_model.linear.weight,
+        default_model.linear.weight,
+    )
+
+
+def test_gradient_clipping_bounds_accumulated_global_norm():
+    model = TinyTwoInputModel()
+    with torch.no_grad():
+        model.linear.weight.zero_()
+    engine = TrainingEngine(
+        model=model,
+        criterion=nn.MSELoss(),
+        device=torch.device("cpu"),
+        problem_mode="regression",
+        optimizer=torch.optim.SGD(model.parameters(), lr=1.0),
+        gradient_accumulation_steps=2,
+        gradient_clip_norm=0.25,
+    )
+    combined_batch = make_batch(scores=(100.0, -100.0, 50.0))
+
+    engine.train_epoch(
+        [
+            slice_batch(combined_batch, 0, 2),
+            slice_batch(combined_batch, 2, 3),
+        ]
+    )
+
+    assert torch.linalg.vector_norm(model.linear.weight).item() == pytest.approx(
+        0.25,
+        rel=1e-5,
+    )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("gradient_accumulation_steps", 0),
+        ("gradient_accumulation_steps", True),
+        ("gradient_accumulation_steps", 1.5),
+        ("gradient_clip_norm", 0),
+        ("gradient_clip_norm", -1),
+        ("gradient_clip_norm", float("inf")),
+        ("gradient_clip_norm", float("nan")),
+        ("gradient_clip_norm", True),
+    ],
+)
+def test_training_engine_rejects_invalid_gradient_controls(
+    field_name,
+    invalid_value,
+):
+    model = TinyTwoInputModel()
+    arguments = {field_name: invalid_value}
+
+    with pytest.raises(ValueError, match=field_name):
+        TrainingEngine(
+            model=model,
+            criterion=nn.MSELoss(),
+            device=torch.device("cpu"),
+            problem_mode="regression",
+            optimizer=torch.optim.SGD(model.parameters(), lr=0.1),
+            **arguments,
+        )
 
 
 def test_bce_with_logits_preserves_gradient_for_extreme_wrong_predictions():

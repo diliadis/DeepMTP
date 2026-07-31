@@ -250,6 +250,8 @@ def generate_config(
     classification_mode: str | None = None,
     num_classes: int | None = None,
     multiclass_average: str | None = None,
+    gradient_accumulation_steps: int = 1,
+    gradient_clip_norm: float | None = None,
 ) -> dict[str, Any]:
     """Creates a dictionary that is used to configure the neural network. Contains some base logic that checks if some of the parameters make sense. It has to be updated each time a new feature is added.
 
@@ -274,6 +276,12 @@ def generate_config(
         train_batchsize (int, optional): The number of samples that comprise a batch from the training set. Defaults to 512.
         val_batchsize (int, optional): 	The number of samples that comprise a batch from the validation and test sets. Defaults to 512.
         num_epochs (int, optional): The max number of epochs allowed for training. Defaults to 100.
+        gradient_accumulation_steps (int, optional): Number of training
+            microbatches whose observation-weighted gradients are combined
+            before each optimizer step. Defaults to 1.
+        gradient_clip_norm (float, optional): Positive finite global gradient
+            norm limit applied immediately before each optimizer step, or None
+            to disable clipping. Defaults to None.
         random_seed (int, optional): The seed used for isolated model initialization and training-data shuffling. Use None for nondeterministic behavior. Defaults to 2.
         metrics (list, optional): The performance metrics that will be calculated. For classification tasks the available metrics are ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'] while for regression tasks the available metrics are ['RMSE', 'MSE', 'MAE', 'R2']. Defaults to ['hamming_loss', 'auroc', 'f1_score', 'aupr', 'accuracy', 'recall', 'precision'].
         metrics_average (list, optional): The averaging strategy that will be used to calculate the metric. The available options are ['macro', 'micro', 'instance']. Defaults to ['macro', 'micro'].
@@ -429,6 +437,8 @@ def generate_config(
         "train_batchsize": train_batchsize,
         "val_batchsize": val_batchsize,
         "num_epochs": num_epochs,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+        "gradient_clip_norm": gradient_clip_norm,
         "random_seed": random_seed,
         "use_early_stopping": use_early_stopping,
         "patience": patience,

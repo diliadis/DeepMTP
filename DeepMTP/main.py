@@ -219,6 +219,10 @@ class DeepMTP:
             loss_input_transform=self.loss_input_transform,
             classification_mode=self.configuration.classification_mode,
             num_classes=self.configuration.num_classes,
+            gradient_accumulation_steps=(
+                self.configuration.gradient_accumulation_steps
+            ),
+            gradient_clip_norm=self.configuration.gradient_clip_norm,
         )
         self.evaluator = Evaluator(
             self.configuration,
@@ -660,6 +664,16 @@ class DeepMTP:
             "best_epoch": best_epoch,
             "best_validation_metrics": dict(val_best_performance_results),
             "test_metrics": dict(test_results),
+            "gradient_accumulation_steps": getattr(
+                self.configuration,
+                "gradient_accumulation_steps",
+                1,
+            ),
+            "gradient_clip_norm": getattr(
+                self.configuration,
+                "gradient_clip_norm",
+                None,
+            ),
             "total_parameters": sum(
                 parameter.numel() for parameter in self.deepMTP_model.parameters()
             ),

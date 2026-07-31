@@ -373,6 +373,8 @@ def test_id_embeddings_require_a_positive_vocabulary_size():
         ("dropout_rate", 1),
         ("num_workers", -1),
         ("train_batchsize", 0),
+        ("gradient_accumulation_steps", 0),
+        ("gradient_clip_norm", 0),
         ("random_seed", -1),
         ("eval_every_n_epochs", 0),
         ("instance_branch_input_dim", 0),
@@ -386,6 +388,52 @@ def test_typed_config_rejects_invalid_core_values(field_name, invalid_value):
 
     with pytest.raises(ConfigValidationError, match=field_name):
         DeepMTPConfig.from_mapping(config)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("gradient_accumulation_steps", True),
+        ("gradient_accumulation_steps", 1.5),
+        ("gradient_clip_norm", True),
+        ("gradient_clip_norm", float("inf")),
+        ("gradient_clip_norm", float("nan")),
+    ],
+)
+def test_gradient_controls_reject_invalid_types_and_non_finite_values(
+    field_name,
+    invalid_value,
+):
+    config = make_valid_config()
+    config[field_name] = invalid_value
+
+    with pytest.raises(ConfigValidationError, match=field_name):
+        DeepMTPConfig.from_mapping(config)
+
+
+def test_gradient_controls_are_materialized_by_legacy_config_adapter():
+    config = make_valid_config(
+        gradient_accumulation_steps=4,
+        gradient_clip_norm=1.5,
+    )
+
+    typed = DeepMTPConfig.from_mapping(config)
+
+    assert config["gradient_accumulation_steps"] == 4
+    assert config["gradient_clip_norm"] == 1.5
+    assert typed.gradient_accumulation_steps == 4
+    assert typed.gradient_clip_norm == 1.5
+
+
+def test_legacy_checkpoint_config_uses_inert_gradient_control_defaults():
+    config = make_valid_config()
+    config.pop("gradient_accumulation_steps")
+    config.pop("gradient_clip_norm")
+
+    typed = DeepMTPConfig.from_mapping(config)
+
+    assert typed.gradient_accumulation_steps == 1
+    assert typed.gradient_clip_norm is None
 
 
 def test_wandb_configuration_is_normalized_and_preserved():

@@ -78,6 +78,8 @@ def test_tiny_cpu_sparse_training_prediction_and_checkpoint(tmp_path):
         train_batchsize=16,
         val_batchsize=16,
         num_epochs=1,
+        gradient_accumulation_steps=2,
+        gradient_clip_norm=1.0,
         metrics=["accuracy"],
         metrics_average=["macro"],
         evaluate_train=False,
@@ -108,17 +110,26 @@ def test_tiny_cpu_sparse_training_prediction_and_checkpoint(tmp_path):
     _, predictions = model.predict(test, return_predictions=True)
 
     assert isinstance(model.instance_branch_model, SparseMLP)
+    assert model.training_engine.gradient_accumulation_steps == 2
+    assert model.training_engine.gradient_clip_norm == 1.0
     assert "val_loss" in validation_results
     assert len(predictions) == len(test["y"]["data"])
 
     model.save_model()
     checkpoint_path = Path(model.experiment_dir) / "model.pt"
+    checkpoint = ExperimentStore.load_checkpoint(checkpoint_path)
     restored_config = dict(config)
     restored_config["experiment_name"] = "sparse_restored"
     restored_model = DeepMTP(restored_config, checkpoint_dir=checkpoint_path)
     _, restored_predictions = restored_model.predict(test, return_predictions=True)
 
     assert checkpoint_path.is_file()
+    assert checkpoint["config"]["gradient_accumulation_steps"] == 2
+    assert checkpoint["config"]["gradient_clip_norm"] == 1.0
+    assert checkpoint["metadata"]["training"]["gradient_accumulation_steps"] == 2
+    assert checkpoint["metadata"]["training"]["gradient_clip_norm"] == 1.0
+    assert restored_model.training_engine.gradient_accumulation_steps == 2
+    assert restored_model.training_engine.gradient_clip_norm == 1.0
     assert np.allclose(
         predictions["predicted_values"],
         restored_predictions["predicted_values"],

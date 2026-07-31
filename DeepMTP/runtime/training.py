@@ -82,6 +82,8 @@ class TrainingEngine:
         loss_input_transform: nn.Module | None = None,
         classification_mode: str | None = None,
         num_classes: int | None = None,
+        gradient_accumulation_steps: int = 1,
+        gradient_clip_norm: float | None = None,
     ):
         if problem_mode not in {"classification", "regression"}:
             raise ValueError(
@@ -124,7 +126,28 @@ class TrainingEngine:
                     "num_classes is only valid for multiclass classification."
                 )
             self.num_classes = None
+        if (
+            isinstance(gradient_accumulation_steps, bool)
+            or not isinstance(gradient_accumulation_steps, int)
+            or gradient_accumulation_steps <= 0
+        ):
+            raise ValueError(
+                "gradient_accumulation_steps must be a positive integer; "
+                f"received {gradient_accumulation_steps!r}."
+            )
+        if gradient_clip_norm is not None and (
+            isinstance(gradient_clip_norm, bool)
+            or not isinstance(gradient_clip_norm, (int, float))
+            or not math.isfinite(gradient_clip_norm)
+            or gradient_clip_norm <= 0
+        ):
+            raise ValueError(
+                "gradient_clip_norm must be a positive finite number or None; "
+                f"received {gradient_clip_norm!r}."
+            )
         self.optimizer = optimizer
+        self.gradient_accumulation_steps = gradient_accumulation_steps
+        self.gradient_clip_norm = gradient_clip_norm
         self.output_head = (
             output_head
             if output_head is not None
@@ -161,16 +184,30 @@ class TrainingEngine:
 
         self.model.train()
         output = EpochOutput()
+        accumulated_batches = 0
+        accumulated_observations = 0
         for batch in dataloader:
+            if accumulated_batches == 0:
+                self.optimizer.zero_grad()
             true_values, raw_predictions = self._forward_batch(batch)
             loss_predictions = self.loss_input_transform(raw_predictions)
             loss = self.criterion(loss_predictions, true_values)
+            observations = int(true_values.shape[0])
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            backward_loss = (
+                loss if self.gradient_accumulation_steps == 1 else loss * observations
+            )
+            backward_loss.backward()
+            accumulated_batches += 1
+            accumulated_observations += observations
+            if accumulated_batches == self.gradient_accumulation_steps:
+                self._complete_optimizer_step(
+                    accumulated_observations=accumulated_observations,
+                )
+                accumulated_batches = 0
+                accumulated_observations = 0
 
-            output.add_loss(loss.item(), observations=int(true_values.shape[0]))
+            output.add_loss(loss.item(), observations=observations)
             if collect_predictions:
                 predictions = self.output_head(raw_predictions)
                 self._collect_predictions(
@@ -179,7 +216,26 @@ class TrainingEngine:
                     true_values,
                     predictions,
                 )
+        if accumulated_batches:
+            self._complete_optimizer_step(
+                accumulated_observations=accumulated_observations,
+            )
         return output
+
+    def _complete_optimizer_step(self, *, accumulated_observations: int) -> None:
+        if self.optimizer is None:  # pragma: no cover - train_epoch invariant
+            raise RuntimeError("TrainingEngine requires an optimizer for training.")
+        if self.gradient_accumulation_steps > 1:
+            for parameter in self.model.parameters():
+                if parameter.grad is not None:
+                    parameter.grad.mul_(1.0 / accumulated_observations)
+        if self.gradient_clip_norm is not None:
+            nn.utils.clip_grad_norm_(
+                self.model.parameters(),
+                max_norm=self.gradient_clip_norm,
+                error_if_nonfinite=True,
+            )
+        self.optimizer.step()
 
     def evaluate_epoch(
         self,
