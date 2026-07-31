@@ -612,8 +612,9 @@ details.
 ## Foundation-model inputs
 
 Install `pip install "DeepMTP[foundation]"` to encode raw protein sequences,
-SMILES strings, or text with a compatible Hugging Face `AutoModel`. Tokenize
-without global padding, then reuse the existing `SEQUENCE` data path:
+SMILES strings, or text with a compatible Hugging Face `AutoModel`. The extra
+also includes PEFT for opt-in LoRA training. Tokenize without global padding,
+then reuse the existing `SEQUENCE` data path:
 
 ```python
 from DeepMTP import (
@@ -649,11 +650,33 @@ config = DeepMTPConfig(
 
 The default `frozen` mode keeps the backbone deterministic and trains only its
 output projection plus downstream DeepMTP parameters; `full` enables end-to-end
-fine-tuning. Available pooling strategies are padding-aware `masked_mean`,
-which also excludes tokenizer-declared boundary tokens by default, first-token
-`cls`, and the model's native `pooler`. Transformer imports are lazy, remote
-model code is disabled by default, and resolved Hub revisions are retained in
-configuration, checkpoints, and W&B metadata. See the
+fine-tuning. `lora` freezes the pretrained weights and trains PEFT low-rank
+adapters in explicitly selected model modules:
+
+```python
+from DeepMTP import FoundationLoRASpec
+
+protein_model = FoundationModelSpec(
+    model_name="facebook/esm2_t6_8M_UR50D",
+    revision="<pinned-model-commit>",
+    pooling="masked_mean",
+    train_mode="lora",
+    lora=FoundationLoRASpec(
+        rank=8,
+        alpha=16,
+        dropout=0.1,
+        target_modules=("query", "value"),
+    ),
+    max_length=1024,
+)
+```
+
+Target names use PEFT's module-suffix matching and are validated against the
+loaded model before training. Available pooling strategies are padding-aware
+`masked_mean`, which also excludes tokenizer-declared boundary tokens by
+default, first-token `cls`, and the model's native `pooler`. Transformer imports
+are lazy, remote model code is disabled by default, and resolved Hub revisions
+are retained in configuration, checkpoints, and W&B metadata. See the
 [foundation-model guide](https://deepmtp.readthedocs.io/en/latest/tutorial/foundation_models.html)
 for ESM-2, ChemBERTa, BERT/BiomedBERT compatibility, maximum-length policy,
 composite branches, offline use, and restoration details.
@@ -957,7 +980,7 @@ The table below summarizes the commonly configured public options.
 | `instance_branch_composite_attention_num_heads` | Positive attention-head count; `instance_branch_composite_attention_dim` must be divisible by this value |
 | `instance_branch_composite_modality_dropout` | Training-only probability of replacing a present optional component with its learned missing representation; defaults to `0.0` |
 | `instance_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, `transformer`, or optional Hugging Face `foundation` |
-| `instance_branch_foundation_model` | Foundation model/tokenizer name and revision, pooling, frozen/full training mode, trust, offline, length, and resolved-revision settings |
+| `instance_branch_foundation_model` | Foundation model/tokenizer name and revision, pooling, frozen/full/LoRA training mode, LoRA hyperparameters and target modules, trust, offline, length, and resolved-revision settings |
 | `instance_branch_sequence_embedding_dim` | Trainable token embedding width for an instance `SEQUENCE` branch |
 | `instance_branch_sequence_output_dim` | Instance sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
 | `instance_branch_sequence_conv_kernel_size` | Positive odd Conv1D kernel width; used only when the sequence encoder is `conv1d` |
@@ -983,7 +1006,7 @@ The table below summarizes the commonly configured public options.
 | `target_branch_composite_attention_num_heads` | Positive attention-head count; `target_branch_composite_attention_dim` must be divisible by this value |
 | `target_branch_composite_modality_dropout` | Training-only probability of replacing a present optional component with its learned missing representation; defaults to `0.0` |
 | `target_branch_sequence_encoder` | Sequence encoder name: `gru`, `conv1d`, `transformer`, or optional Hugging Face `foundation` |
-| `target_branch_foundation_model` | Foundation model/tokenizer name and revision, pooling, frozen/full training mode, trust, offline, length, and resolved-revision settings |
+| `target_branch_foundation_model` | Foundation model/tokenizer name and revision, pooling, frozen/full/LoRA training mode, LoRA hyperparameters and target modules, trust, offline, length, and resolved-revision settings |
 | `target_branch_sequence_embedding_dim` | Trainable token embedding width for a target `SEQUENCE` branch |
 | `target_branch_sequence_output_dim` | Target sequence output width for MLP and Kronecker fusion; dot-product fusion uses `embedding_size` |
 | `target_branch_sequence_conv_kernel_size` | Positive odd Conv1D kernel width; used only when the sequence encoder is `conv1d` |

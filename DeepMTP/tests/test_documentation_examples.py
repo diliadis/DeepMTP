@@ -517,6 +517,7 @@ def test_minimum_constraints_cover_direct_test_dependencies():
         "liac-arff": "2.5.0",
         "numpy": "1.23.5",
         "pandas": "1.5.3",
+        "peft": "0.14.0",
         "pillow": "9.5.0",
         "prettytable": "3.3.0",
         "pytest": "8.0.2",
