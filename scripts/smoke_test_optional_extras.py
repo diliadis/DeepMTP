@@ -21,6 +21,7 @@ _OPTIONAL_IMPORTS = {
     "sparse": ("scipy", "DeepMTP.data.sparse"),
     "streamlit": ("streamlit", "DeepMTP.integrations.streamlit"),
     "tracking": ("tensorboard", "wandb", "DeepMTP.runtime.reporting"),
+    "visualization": ("rich", "DeepMTP.architecture"),
 }
 
 

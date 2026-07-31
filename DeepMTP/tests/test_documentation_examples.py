@@ -504,6 +504,7 @@ def test_dependency_metadata_separates_runtime_features_from_development_tools()
         "sparse",
         "streamlit",
         "tracking",
+        "visualization",
     }
     assert set(dependency_groups) == {"dev", "docs", "quality", "test"}
     assert dependency_groups["dev"] == [
@@ -553,6 +554,7 @@ def test_minimum_constraints_cover_direct_test_dependencies():
         "prettytable": "3.3.0",
         "pytest": "8.0.2",
         "requests": "2.28.2",
+        "rich": "14.3.4",
         "scikit-learn": "1.2.2",
         "scipy": "1.9.3",
         "tomli": "2.0.1",

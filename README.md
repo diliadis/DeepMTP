@@ -82,6 +82,7 @@ Install only the integrations you use:
 | Sparse | `pip install "DeepMTP[sparse]"` | SciPy sparse matrices |
 | Streamlit | `pip install "DeepMTP[streamlit]"` | Streamlit progress adapters |
 | Tracking | `pip install "DeepMTP[tracking]"` | TensorBoard and Weights & Biases |
+| Visualization | `pip install "DeepMTP[visualization]"` | Rich terminal architecture diagrams and SVG export |
 | Everything | `pip install "DeepMTP[all]"` | All runtime integrations |
 
 For GPU acceleration, install the appropriate PyTorch build using the
@@ -178,6 +179,22 @@ equal branch widths. MLP and Kronecker fusion can combine unequal widths.
     <img src="https://raw.githubusercontent.com/diliadis/DeepMTP/main/images/claude_design_assets/deepmtp_overview_light.svg" alt="DeepMTP independently encodes instances and targets, fuses their representations, and produces binary, multiclass, or regression predictions." width="100%">
   </picture>
 </p>
+
+Inspect the same architecture directly from Python or a saved configuration:
+
+```python
+from DeepMTP import print_architecture
+
+print_architecture(config)
+```
+
+```bash
+deepmtp architecture results/quickstart/config.json
+```
+
+Install `DeepMTP[visualization]` for responsive Rich panels, parameter
+statistics, and SVG export. Without it, DeepMTP falls back to a portable plain
+text representation. See the [architecture visualization guide](https://deepmtp.readthedocs.io/en/latest/tutorial/architecture_visualization.html).
 
 ### Generalization settings
 

@@ -23,6 +23,7 @@ def test_optional_extra_smoke_covers_every_declared_runtime_extra():
         "sparse",
         "streamlit",
         "tracking",
+        "visualization",
     )
     assert imported_modules == [
         module_name

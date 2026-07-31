@@ -1,5 +1,16 @@
 from importlib.metadata import PackageNotFoundError, version
 
+from DeepMTP.architecture import (
+    ArchitectureBranch,
+    ArchitectureComponent,
+    ArchitectureDescription,
+    ArchitectureFusion,
+    ParameterStatistics,
+    describe_architecture,
+    export_architecture_svg,
+    format_architecture,
+    print_architecture,
+)
 from DeepMTP.config import (
     ConfigDeprecationWarning,
     ConfigNormalizationWarning,
@@ -85,6 +96,10 @@ except PackageNotFoundError:
     __version__ = "0+unknown"
 
 __all__ = [
+    "ArchitectureBranch",
+    "ArchitectureComponent",
+    "ArchitectureDescription",
+    "ArchitectureFusion",
     "ConfigDeprecationWarning",
     "ConfigNormalizationWarning",
     "ConfigValidationError",
@@ -100,6 +115,7 @@ __all__ = [
     "DenseScalingState",
     "ConsoleDataProgressObserver",
     "NullDataProgressObserver",
+    "ParameterStatistics",
     "EvaluationPolicy",
     "Evaluator",
     "EvaluationProgressEvent",
@@ -147,7 +163,11 @@ __all__ = [
     "WandBCheckpoint",
     "__version__",
     "data_process",
+    "describe_architecture",
     "download_wandb_checkpoint",
+    "export_architecture_svg",
+    "format_architecture",
+    "print_architecture",
     "tokenize_foundation_sequences",
     "transform_dense_features",
 ]

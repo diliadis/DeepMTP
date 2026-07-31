@@ -17,6 +17,10 @@ by their effect on users and maintainers.
 
 ### Added
 
+- Semantic architecture inspection with responsive Rich terminal diagrams,
+  dependency-free plain-text fallback, exact trainable and frozen parameter
+  counts for instantiated models, JSON output, SVG export, and a new
+  ``deepmtp architecture`` command.
 - Compact, opt-in `foundation_adapter` checkpoints for LoRA foundation-model
   runs, with native PEFT safe adapter files, task-owned weights, exact base and
   tokenizer identities, SHA-256 integrity checks, local and W&B restoration,

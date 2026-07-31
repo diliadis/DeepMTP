@@ -22,6 +22,7 @@ Documentation
 	tutorial/migration
 	tutorial/loading_datasets
 	tutorial/configuration
+	tutorial/architecture_visualization
 	tutorial/reproducible_checkpoints
 	tutorial/wandb_tracking
 	tutorial/multiclass_classification

@@ -28,6 +28,7 @@ _EXPECTED_EXTRAS = frozenset(
         "sparse",
         "streamlit",
         "tracking",
+        "visualization",
     }
 )
 _EXPECTED_PROJECT_URLS = frozenset(
@@ -40,6 +41,9 @@ _EXPECTED_PROJECT_URLS = frozenset(
 _REQUIRED_WHEEL_FILES = frozenset(
     {
         PurePosixPath("DeepMTP/__init__.py"),
+        PurePosixPath("DeepMTP/__main__.py"),
+        PurePosixPath("DeepMTP/architecture.py"),
+        PurePosixPath("DeepMTP/cli.py"),
         PurePosixPath("DeepMTP/config.py"),
         PurePosixPath("DeepMTP/data/__init__.py"),
         PurePosixPath("DeepMTP/hpo/__init__.py"),
@@ -63,6 +67,7 @@ _REQUIRED_SDIST_FILES = frozenset(
         PurePosixPath("RELEASING.md"),
         PurePosixPath("SECURITY.md"),
         PurePosixPath("docs/source/tutorial/foundation_models.rst"),
+        PurePosixPath("docs/source/tutorial/architecture_visualization.rst"),
         PurePosixPath("docs/source/index.rst"),
         PurePosixPath("pyproject.toml"),
         PurePosixPath("scripts/smoke_test_installation.py"),

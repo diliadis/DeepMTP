@@ -53,11 +53,13 @@ tracking = [
     "tensorboard>=2.12",
     "wandb>=0.27,<1",
 ]
+visualization = ["rich>=14.3.4,<16"]
 all = [
     "ConfigSpace>=1.2",
     "liac-arff>=2.5",
     "peft>=0.14,<1",
     "requests>=2.28",
+    "rich>=14.3.4,<16",
     "scipy>=1.9",
     "streamlit>=1.53.0",
     "tensorboard>=2.12",
@@ -67,6 +69,9 @@ all = [
     "wandb>=0.27,<1",
 ]
 
+[project.scripts]
+deepmtp = "DeepMTP.cli:main"
+
 [dependency-groups]
 test = [
     "ConfigSpace>=1.2",
@@ -74,6 +79,7 @@ test = [
     "peft>=0.14,<1",
     "pytest>=8,<10",
     "requests>=2.28",
+    "rich>=14.3.4,<16",
     "scipy>=1.9",
     "torch-geometric>=2.5,<3",
     "transformers>=4.48,<6",
@@ -142,11 +148,14 @@ docstring-code-format = true
 python_version = "3.10"
 files = [
     "DeepMTP/__init__.py",
+    "DeepMTP/__main__.py",
     "DeepMTP/_download_utils.py",
     "DeepMTP/_registry.py",
     "DeepMTP/_split_utils.py",
+    "DeepMTP/architecture.py",
     "DeepMTP/branch_models.py",
     "DeepMTP/config.py",
+    "DeepMTP/cli.py",
     "DeepMTP/data/__init__.py",
     "DeepMTP/data/batches.py",
     "DeepMTP/data/datasets.py",
