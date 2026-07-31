@@ -34,6 +34,15 @@ from DeepMTP.runtime.evaluation_progress import (
     NullEvaluationProgressObserver,
     build_evaluation_progress_observer,
 )
+from DeepMTP.runtime.foundation_checkpoints import (
+    FOUNDATION_ADAPTER_CHECKPOINT_FORMAT_VERSION,
+    FOUNDATION_ADAPTER_CHECKPOINT_NAME,
+    FoundationAdapterCheckpoint,
+    FoundationAdapterExport,
+    load_foundation_adapter_checkpoint,
+    restore_foundation_adapter_checkpoint,
+    save_foundation_adapter_checkpoint,
+)
 from DeepMTP.runtime.metadata import (
     CHECKPOINT_FORMAT_VERSION,
     build_checkpoint_metadata,
@@ -97,6 +106,10 @@ __all__ = [
     "EpochOutput",
     "ExperimentReporter",
     "ExperimentStore",
+    "FOUNDATION_ADAPTER_CHECKPOINT_FORMAT_VERSION",
+    "FOUNDATION_ADAPTER_CHECKPOINT_NAME",
+    "FoundationAdapterCheckpoint",
+    "FoundationAdapterExport",
     "LOSS_INPUT_TRANSFORM_BY_LOSS",
     "LOSS_REGISTRY",
     "LossFactory",
@@ -138,8 +151,11 @@ __all__ = [
     "log_reporter_model_artifact",
     "log_reporter_predictions",
     "log_reporter_summary",
+    "load_foundation_adapter_checkpoint",
     "mark_reporter_failed",
     "reporter_runtime_metadata",
+    "restore_foundation_adapter_checkpoint",
+    "save_foundation_adapter_checkpoint",
     "update_reporter_config",
     "validate_checkpoint_metadata",
 ]

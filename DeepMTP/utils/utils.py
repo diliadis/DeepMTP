@@ -219,6 +219,7 @@ def generate_config(
     results_path: str = "./results/",
     experiment_name: str | None = None,
     save_model: bool = True,
+    checkpoint_format: str = "full",
     data_preparation_state: Mapping[str, Any] | None = None,
     metric_to_optimize_early_stopping: str = "loss",
     metric_to_optimize_best_epoch_selection: str = "loss",
@@ -331,6 +332,9 @@ def generate_config(
         results_path (str, optional): The path the all relevant information will be saved to. Defaults to './results/'.
         experiment_name (str, optional): The name of the current experiment. This name will be used to local save and the wandb save. Defaults to None.
         save_model (bool, optional): Whether or not to save the model of the epoch with the best validation performance. Defaults to True.
+        checkpoint_format (str, optional): Save ``full`` resumable checkpoints
+            or compact ``foundation_adapter`` inference/warm-start artifacts.
+            Defaults to ``full``.
         data_preparation_state (mapping, optional): Previously captured split
             provenance and fitted dense-scaler state. Normally populated
             automatically from the outputs of ``data_process``.
@@ -480,6 +484,7 @@ def generate_config(
         "results_path": results_path,
         "experiment_name": experiment_name,
         "save_model": save_model,
+        "checkpoint_format": checkpoint_format,
         "data_preparation_state": (
             None if data_preparation_state is None else dict(data_preparation_state)
         ),

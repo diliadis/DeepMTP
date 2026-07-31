@@ -161,10 +161,12 @@ def _environment_metadata(
             for package in (
                 "numpy",
                 "pandas",
+                "peft",
                 "scikit-learn",
                 "scipy",
                 "torch",
                 "torch-geometric",
+                "transformers",
                 "wandb",
             )
         },

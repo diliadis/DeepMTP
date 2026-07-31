@@ -16,6 +16,7 @@ import DeepMTP.runtime as runtime_api
 import DeepMTP.runtime.components as components_module
 import DeepMTP.runtime.evaluation as evaluation_module
 import DeepMTP.runtime.evaluation_progress as evaluation_progress_module
+import DeepMTP.runtime.foundation_checkpoints as foundation_checkpoints_module
 import DeepMTP.runtime.metadata as metadata_module
 import DeepMTP.runtime.persistence as persistence_module
 import DeepMTP.runtime.presentation as presentation_module
@@ -64,6 +65,18 @@ def test_runtime_package_exposes_canonical_services():
         "EpochOutput": training_module.EpochOutput,
         "ExperimentReporter": reporting_module.ExperimentReporter,
         "ExperimentStore": persistence_module.ExperimentStore,
+        "FOUNDATION_ADAPTER_CHECKPOINT_FORMAT_VERSION": (
+            foundation_checkpoints_module.FOUNDATION_ADAPTER_CHECKPOINT_FORMAT_VERSION
+        ),
+        "FOUNDATION_ADAPTER_CHECKPOINT_NAME": (
+            foundation_checkpoints_module.FOUNDATION_ADAPTER_CHECKPOINT_NAME
+        ),
+        "FoundationAdapterCheckpoint": (
+            foundation_checkpoints_module.FoundationAdapterCheckpoint
+        ),
+        "FoundationAdapterExport": (
+            foundation_checkpoints_module.FoundationAdapterExport
+        ),
         "LOSS_INPUT_TRANSFORM_BY_LOSS": (
             components_module.LOSS_INPUT_TRANSFORM_BY_LOSS
         ),
@@ -119,8 +132,17 @@ def test_runtime_package_exposes_canonical_services():
         "log_reporter_model_artifact": (reporting_module.log_reporter_model_artifact),
         "log_reporter_predictions": reporting_module.log_reporter_predictions,
         "log_reporter_summary": reporting_module.log_reporter_summary,
+        "load_foundation_adapter_checkpoint": (
+            foundation_checkpoints_module.load_foundation_adapter_checkpoint
+        ),
         "mark_reporter_failed": reporting_module.mark_reporter_failed,
         "reporter_runtime_metadata": reporting_module.reporter_runtime_metadata,
+        "restore_foundation_adapter_checkpoint": (
+            foundation_checkpoints_module.restore_foundation_adapter_checkpoint
+        ),
+        "save_foundation_adapter_checkpoint": (
+            foundation_checkpoints_module.save_foundation_adapter_checkpoint
+        ),
         "update_reporter_config": reporting_module.update_reporter_config,
         "validate_checkpoint_metadata": metadata_module.validate_checkpoint_metadata,
     }

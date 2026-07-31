@@ -648,6 +648,30 @@ config = DeepMTPConfig(
 )
 ```
 
+For LoRA runs, set `checkpoint_format="foundation_adapter"` to save a compact
+`foundation_adapter.zip` containing native PEFT adapter weights, DeepMTP's
+task-specific weights, a versioned manifest, and SHA-256 hashes—without copying
+the foundation backbone or optimizer state. Restore it through the existing
+constructor API:
+
+```python
+config = DeepMTPConfig(
+    # foundation-model and training settings...
+    checkpoint_format="foundation_adapter",
+)
+
+restored = DeepMTP(
+    {"results_path": "./results", "experiment_name": "restored"},
+    checkpoint_dir="./results/training-run/foundation_adapter.zip",
+)
+```
+
+Use the default `checkpoint_format="full"` when exact optimizer restoration or
+fully fine-tuned foundation weights are required. Compact export reloads frozen
+base weights from the recorded model identity; Hub models therefore require
+resolved model and tokenizer revisions, while local model directories remain
+user-managed snapshots.
+
 The default `frozen` mode keeps the backbone deterministic and trains only its
 output projection plus downstream DeepMTP parameters; `full` enables end-to-end
 fine-tuning. `lora` freezes the pretrained weights and trains PEFT low-rank
@@ -958,6 +982,7 @@ The table below summarizes the commonly configured public options.
 | `results_path` | Parent directory for experiment artifacts |
 | `experiment_name` | Experiment subdirectory and reporting name |
 | `save_model` | Whether or not to save the model of the epoch with the best validation performance |
+| `checkpoint_format` | `full` (default) for model and optimizer restoration, or `foundation_adapter` for compact LoRA/frozen-foundation export without base or optimizer weights |
 | `data_preparation_state` | Split provenance and fitted dense-scaler state; normally captured automatically from `data_process` outputs |
 | **General architecture** ||
 | `general_architecture_version` | Fusion strategy: `mlp`, `dot_product`, or `kronecker`; defaults to `dot_product` |
@@ -1169,9 +1194,10 @@ config = generate_config(
 Remote uploads with larger privacy or storage implications are opt-in:
 `wandb_log_code`, `wandb_log_model_artifact`, and
 `wandb_log_predictions` all default to `False`. Model Artifacts contain
-`model.pt` plus the saved configuration and summary. Input Artifact references
-can be declared through `wandb_input_artifacts` to capture lineage. In online
-mode, a model version can also be linked to an existing Registry collection:
+the configured `model.pt` or `foundation_adapter.zip` plus the saved
+configuration and summary. Input Artifact references can be declared through
+`wandb_input_artifacts` to capture lineage. In online mode, a model version can
+also be linked to an existing Registry collection:
 
 ```python
 config["wandb_registry_name"] = "Models"

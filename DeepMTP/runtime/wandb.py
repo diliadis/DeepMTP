@@ -8,6 +8,9 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from DeepMTP.runtime.foundation_checkpoints import (
+    FOUNDATION_ADAPTER_CHECKPOINT_NAME,
+)
 from DeepMTP.runtime.reporting import OptionalIntegrationError
 
 __all__ = ["WandBCheckpoint", "download_wandb_checkpoint"]
@@ -23,6 +26,7 @@ class WandBCheckpoint:
     artifact_name: str | None
     artifact_version: str | None
     artifact_digest: str | None
+    checkpoint_format: str = "full"
 
 
 def download_wandb_checkpoint(
@@ -49,20 +53,33 @@ def download_wandb_checkpoint(
     root.mkdir(parents=True, exist_ok=True)
     artifact = wandb.Api().artifact(artifact_reference)
     downloaded_root = Path(artifact.download(root=str(root)))
-    checkpoint_paths = sorted(downloaded_root.rglob("model.pt"))
+    checkpoint_paths = sorted(
+        (
+            *downloaded_root.rglob("model.pt"),
+            *downloaded_root.rglob(FOUNDATION_ADAPTER_CHECKPOINT_NAME),
+        )
+    )
     if not checkpoint_paths:
         raise ValueError(
-            f"W&B artifact {artifact_reference!r} contains no model.pt checkpoint."
+            f"W&B artifact {artifact_reference!r} contains no supported DeepMTP "
+            "checkpoint (model.pt or foundation_adapter.zip)."
         )
     if len(checkpoint_paths) > 1:
         raise ValueError(
-            f"W&B artifact {artifact_reference!r} contains multiple model.pt files."
+            f"W&B artifact {artifact_reference!r} contains multiple supported "
+            "DeepMTP checkpoints."
         )
+    checkpoint_path = checkpoint_paths[0]
     return WandBCheckpoint(
         artifact_reference=artifact_reference,
-        checkpoint_path=checkpoint_paths[0],
+        checkpoint_path=checkpoint_path,
         download_root=downloaded_root,
         artifact_name=getattr(artifact, "name", None),
         artifact_version=getattr(artifact, "version", None),
         artifact_digest=getattr(artifact, "digest", None),
+        checkpoint_format=(
+            "foundation_adapter"
+            if checkpoint_path.name == FOUNDATION_ADAPTER_CHECKPOINT_NAME
+            else "full"
+        ),
     )

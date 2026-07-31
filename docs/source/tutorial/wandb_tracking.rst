@@ -63,8 +63,11 @@ configuration, and summary as one versioned unit:
    config["wandb_model_artifact_aliases"] = ["latest", "best"]
 
 The checkpoint's reproducibility manifest is also attached as Artifact
-metadata. Artifact logging happens whenever the trained model checkpoint is
-saved; it therefore also works after an explicit ``model.save_model()`` call.
+metadata. A LoRA run with ``checkpoint_format="foundation_adapter"`` uploads
+the compact adapter archive and exact foundation identities instead of the
+full base-model and optimizer weights. Artifact logging happens whenever the
+trained model checkpoint is saved; it therefore also works after an explicit
+``model.save_model()`` call.
 
 Declare input Artifact references to record dataset or feature lineage:
 
@@ -121,10 +124,11 @@ Use a W&B Artifact reference or alias without a separate download step:
        download_dir="./artifact-cache",
    )
 
-The helper uses ``wandb.Api().artifact``, requires exactly one ``model.pt`` in
-the downloaded Artifact, and then follows the normal trusted-checkpoint loading
-path. Artifact name, version, digest, download root, and original reference are
-available on ``restored.wandb_artifact``.
+The helper uses ``wandb.Api().artifact`` and requires exactly one supported
+checkpoint: either ``model.pt`` or ``foundation_adapter.zip``. It then follows
+the normal trusted-checkpoint loading path. Artifact name, version, digest,
+checkpoint format, download root, and original reference are available on
+``restored.wandb_artifact``.
 
 Privacy-conscious defaults
 ==========================

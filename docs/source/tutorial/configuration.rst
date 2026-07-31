@@ -134,6 +134,10 @@ In the code snippet above the function generate_config is shown without any spec
      - Defines the name of the current experiment. This name will be used to local save and the wandb save
    * - **save_model**
      - Whether or not to save the model of the epoch with the best validation performance
+   * - **checkpoint_format**
+     - ``full`` (default) for model and optimizer restoration, or
+       ``foundation_adapter`` for compact LoRA/frozen-foundation export without
+       base-model or optimizer weights
    * - **data_preparation_state**
      - Split provenance and fitted legacy dense-scaler parameters; normally
        captured automatically from the three ``data_process`` outputs
