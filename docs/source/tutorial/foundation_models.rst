@@ -21,30 +21,103 @@ The generic adapter uses ``AutoTokenizer`` and ``AutoModel``. A compatible
 model must:
 
 * accept ``input_ids`` and ``attention_mask``;
-* declare a padding token and vocabulary size;
+* use a tokenizer that declares an integer padding token and have enough model
+  vocabulary capacity for every tokenizer ID (unused model embedding rows are
+  allowed);
 * expose a positive ``hidden_size``, ``d_model``, or ``dim``;
 * return ``last_hidden_state`` for ``cls`` or ``masked_mean`` pooling, or
   ``pooler_output`` for ``pooler`` pooling.
 
-DeepMTP tests the generic adapter contract and a locally saved BERT model
-without requiring network access in CI. The following checkpoints are
-documented reference choices for the corresponding domains. Other compatible
-encoder checkpoints may work through the same adapter, but individual Hub
-checkpoints are not downloaded as part of the automated test suite.
+DeepMTP uses three compatibility tiers so generic adapter behavior, dependency
+integration, and individual Hub checkpoints have distinct support claims.
+
+.. list-table:: Foundation-model compatibility tiers
+   :header-rows: 1
+
+   * - Tier
+     - Validation
+     - Execution policy
+   * - 1: Adapter contract
+     - Offline tests cover tokenization metadata, pooling, revisions, caching,
+       checkpoints, and training-mode behavior with controlled test doubles.
+     - Required in every regular CI run.
+   * - 2: Local Transformers integration
+     - A locally generated tiny BERT model exercises real Transformers and PEFT
+       APIs in frozen, full, and LoRA modes.
+     - Required in every regular CI run without Hub access.
+   * - 3: Reference checkpoints
+     - Pinned ESM-2, ChemBERTa, BERT, and BiomedBERT revisions are loaded through
+       the public DeepMTP adapter and checked in frozen and LoRA modes.
+     - Opt-in GitHub Actions workflow because it requires network downloads.
+
+The following checkpoints define tier 3. Each revision is an immutable,
+full-length Hub commit hash rather than a moving branch. Other checkpoints that
+satisfy the generic tier-1 contract may work through the same adapter, but are
+not individually verified by DeepMTP.
 
 .. list-table::
    :header-rows: 1
 
    * - Domain
      - Reference checkpoint
+     - Verified revision
    * - Protein
      - ``facebook/esm2_t6_8M_UR50D``
+     - ``c731040fcd8d73dceaa04b0a8e6329b345b0f5df``
    * - Chemical/SMILES
      - ``DeepChem/ChemBERTa-77M-MLM``
+     - ``ed8a5374f2024ec8da53760af91a33fb8f6a15ff``
    * - General text
      - ``google-bert/bert-base-uncased``
+     - ``86b5e0934494bd15c9632b12f734a8a67f723594``
    * - Biomedical text
      - ``microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext``
+     - ``e1354b7a3a09615f6aba48dfad4b7a613eef7062``
+
+The version-controlled source of truth for these revisions and representative
+inputs is ``scripts/foundation_compatibility_models.json``. A tier-3 pass means
+that the pinned tokenizer and model load without remote code, produce finite
+and repeatable pooled outputs with the expected shape, preserve frozen/trainable
+parameter boundaries, and accept the documented LoRA targets. It is a software
+compatibility statement, not an assessment of a checkpoint's scientific
+quality or suitability for a particular dataset. The report records both the
+requested tokenizer revision and any resolved revision exposed by Transformers;
+some tokenizer implementations do not retain resolved-commit metadata after a
+successful pinned load. The tokenizer padding ID is authoritative because
+DeepMTP constructs and supplies an explicit attention mask; the model's
+``pad_token_id`` metadata is reported but may differ, as it does in the pinned
+ChemBERTa repository.
+
+Running reference compatibility checks
+--------------------------------------
+
+Install the foundation extra, then run one reference locally:
+
+.. code-block:: console
+
+   python -m pip install -e ".[foundation]"
+   python scripts/check_foundation_compatibility.py \
+       --model esm2 \
+       --output compatibility-reports/esm2.json
+
+The command downloads only the selected pinned checkpoint and writes a JSON
+report containing the resolved revisions, tokenization contract, output shape,
+parameter counts, execution time, and exact Python/package versions. Failed
+checks also write a report and classify the failure as a manifest, environment,
+Hub/download, adapter-contract, or runtime problem.
+
+Maintainers can run the isolated GitHub workflow for all references or one
+selected model:
+
+.. code-block:: console
+
+   gh workflow run foundation-compatibility.yml -f model=all
+   gh workflow run foundation-compatibility.yml -f model=chemberta
+
+The workflow runs on CPU, uses no Hugging Face token, disables telemetry and
+implicit token transmission, and uploads one report artifact per model. It is
+intentionally not a pull-request requirement: Hub availability and model
+downloads must not make the ordinary offline test suite flaky.
 
 Tokenizing raw values
 ---------------------

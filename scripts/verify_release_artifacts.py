@@ -58,6 +58,7 @@ _REQUIRED_WHEEL_FILES = frozenset(
 _REQUIRED_SDIST_FILES = frozenset(
     {
         PurePosixPath(".github/workflows/ci.yml"),
+        PurePosixPath(".github/workflows/foundation-compatibility.yml"),
         PurePosixPath(".github/workflows/publish.yml"),
         PurePosixPath("CHANGELOG.md"),
         PurePosixPath("CONTRIBUTING.md"),
@@ -72,6 +73,8 @@ _REQUIRED_SDIST_FILES = frozenset(
         PurePosixPath("docs/source/index.rst"),
         PurePosixPath("pyproject.toml"),
         PurePosixPath("scripts/benchmark_foundation_cache.py"),
+        PurePosixPath("scripts/check_foundation_compatibility.py"),
+        PurePosixPath("scripts/foundation_compatibility_models.json"),
         PurePosixPath("scripts/smoke_test_installation.py"),
         PurePosixPath("scripts/smoke_test_optional_extras.py"),
         PurePosixPath("scripts/verify_release_artifacts.py"),

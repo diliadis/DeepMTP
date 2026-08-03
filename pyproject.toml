@@ -231,6 +231,7 @@ files = [
     "scripts/smoke_test_installation.py",
     "scripts/smoke_test_optional_extras.py",
     "scripts/check_colab_links.py",
+    "scripts/check_foundation_compatibility.py",
     "scripts/verify_release_artifacts.py",
 ]
 check_untyped_defs = true

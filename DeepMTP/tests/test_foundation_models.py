@@ -787,14 +787,51 @@ def test_composite_branch_reuses_cached_foundation_outputs(monkeypatch):
     assert component.cache_stats["memory_hits"] == 2
 
 
-def test_foundation_encoder_rejects_model_vocabulary_mismatch(monkeypatch):
+def test_foundation_encoder_accepts_unused_model_vocabulary_capacity(monkeypatch):
     monkeypatch.setattr(
         huggingface,
         "_load_huggingface_model",
         lambda _spec: FakeBackbone(vocabulary_size=9),
     )
 
-    with pytest.raises(ValueError, match="vocabulary size"):
+    encoder = HuggingFaceSequenceEncoder(
+        spec=make_spec(),
+        vocabulary_size=8,
+        output_dim=3,
+        padding_idx=0,
+    )
+
+    assert encoder.vocabulary_size == 8
+
+
+def test_foundation_encoder_accepts_model_padding_metadata_mismatch(monkeypatch):
+    monkeypatch.setattr(
+        huggingface,
+        "_load_huggingface_model",
+        lambda _spec: FakeBackbone(padding_idx=1),
+    )
+
+    encoder = HuggingFaceSequenceEncoder(
+        spec=make_spec(),
+        vocabulary_size=8,
+        output_dim=3,
+        padding_idx=0,
+    )
+
+    assert encoder.padding_idx == 0
+    assert encoder.backbone.config.pad_token_id == 1
+
+
+def test_foundation_encoder_rejects_insufficient_model_vocabulary_capacity(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        huggingface,
+        "_load_huggingface_model",
+        lambda _spec: FakeBackbone(vocabulary_size=7),
+    )
+
+    with pytest.raises(ValueError, match="capacity is smaller"):
         HuggingFaceSequenceEncoder(
             spec=make_spec(),
             vocabulary_size=8,
@@ -804,7 +841,7 @@ def test_foundation_encoder_rejects_model_vocabulary_mismatch(monkeypatch):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("train_mode", ["frozen", "lora"])
+@pytest.mark.parametrize("train_mode", ["frozen", "full", "lora"])
 def test_foundation_encoder_loads_a_local_transformers_model(tmp_path, train_mode):
     transformers = pytest.importorskip("transformers")
     if train_mode == "lora":

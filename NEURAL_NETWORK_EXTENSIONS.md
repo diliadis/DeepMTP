@@ -130,9 +130,9 @@ reserved index zero unless their policy is configured as `error`.
 ### 4. Sequence, pretrained-embedding, and foundation-model inputs
 
 Status: core sequence encoders, the generic foundation-model adapter,
-parameter-efficient training, compact adapter lifecycle support, and frozen
-entity-output caching are implemented. Further memory optimizations remain
-planned.
+parameter-efficient training, compact adapter lifecycle support, frozen
+entity-output caching, and compatibility tiers are implemented. Further memory
+optimizations remain planned.
 
 - [x] Add padded token-sequence batches with attention masks and original
   lengths, including dynamic collation of variable-length rows.
@@ -168,7 +168,7 @@ introduced:
 - [ ] Add foundation-model gradient checkpointing after automatic mixed
   precision has a stable trainer-level contract. Cover both full and
   parameter-efficient fine-tuning without changing CPU behavior.
-- [ ] Define documented support tiers: offline contract tests for the generic
+- [x] Define documented support tiers: offline contract tests for the generic
   adapter, a local tiny-model integration test in regular CI, and opt-in
   compatibility checks for the documented ESM-2, ChemBERTa, BERT, and
   BiomedBERT reference checkpoints.

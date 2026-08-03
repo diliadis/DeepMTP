@@ -1,0 +1,74 @@
+name: Foundation-model compatibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Reference checkpoint to verify
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - esm2
+          - chemberta
+          - bert
+          - biomedbert
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-compatibility-${{ github.ref }}-${{ inputs.model }}
+  cancel-in-progress: false
+
+env:
+  HF_HOME: ${{ runner.temp }}/huggingface
+  HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"
+  HF_HUB_DISABLE_PROGRESS_BARS: "1"
+  HF_HUB_DISABLE_TELEMETRY: "1"
+
+jobs:
+  compatibility:
+    name: Verify ${{ matrix.model }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        model: ${{ fromJSON(inputs.model == 'all' && '["esm2","chemberta","bert","biomedbert"]' || format('["{0}"]', inputs.model)) }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install DeepMTP foundation integration
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[foundation]"
+          python -m pip check
+
+      - name: Verify pinned reference checkpoint
+        run: |
+          python scripts/check_foundation_compatibility.py \
+            --model "${{ matrix.model }}" \
+            --output "compatibility-reports/${{ matrix.model }}.json"
+
+      - name: Upload compatibility report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: foundation-compatibility-${{ matrix.model }}
+          path: compatibility-reports/${{ matrix.model }}.json
+          if-no-files-found: error
+          retention-days: 14
