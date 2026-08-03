@@ -130,8 +130,9 @@ reserved index zero unless their policy is configured as `error`.
 ### 4. Sequence, pretrained-embedding, and foundation-model inputs
 
 Status: core sequence encoders, the generic foundation-model adapter,
-parameter-efficient training, and compact adapter lifecycle support are
-implemented. Caching and further memory optimizations remain planned.
+parameter-efficient training, compact adapter lifecycle support, and frozen
+entity-output caching are implemented. Further memory optimizations remain
+planned.
 
 - [x] Add padded token-sequence batches with attention masks and original
   lengths, including dynamic collation of variable-length rows.
@@ -160,7 +161,7 @@ introduced:
 - [x] Support adapter-only checkpoint export and restoration. Tie every
   adapter checkpoint and W&B Artifact to the exact base-model and tokenizer
   revisions required to restore it.
-- [ ] Add an optional entity-level cache for pooled frozen-backbone outputs
+- [x] Add an optional entity-level cache for pooled frozen-backbone outputs
   before the trainable projection. Include model/tokenizer revisions,
   tokenization settings, pooling, hidden size, and dtype in cache identity and
   reject stale or incompatible entries.
@@ -301,9 +302,9 @@ Status: reproducible checkpoints and W&B integration implemented.
 6. Sparse inputs.
 7. Sequence encoders (GRU, 1-D convolution, Transformer, and the generic
    Hugging Face foundation-model adapter baseline complete). Continue
-   foundation-model work with PEFT/LoRA, adapter lifecycle support, frozen
-   embedding caches, memory optimizations, and compatibility tiers;
-   investigate quantization last.
+   foundation-model work after the completed PEFT/LoRA, adapter lifecycle, and
+   frozen embedding-cache slices with memory optimizations and compatibility
+   tiers; investigate quantization last.
 8. Hybrid input concatenation, learned missing-modality representations, gated
    fusion, attention fusion, and modality dropout (complete).
 9. Homogeneous molecular graph encoders (complete), followed by time-series

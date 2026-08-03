@@ -1,6 +1,7 @@
 """Optional integrations around the framework's core runtime."""
 
 from DeepMTP.integrations.huggingface import (
+    FoundationCacheSpec,
     FoundationLoRASpec,
     FoundationModelSpec,
     HuggingFaceSequenceEncoder,
@@ -9,6 +10,7 @@ from DeepMTP.integrations.huggingface import (
 )
 
 __all__ = [
+    "FoundationCacheSpec",
     "FoundationLoRASpec",
     "FoundationModelSpec",
     "HuggingFaceSequenceEncoder",
