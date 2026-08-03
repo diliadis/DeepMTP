@@ -17,6 +17,14 @@ by their effect on users and maintainers.
 
 ### Added
 
+- Documented foundation-model compatibility tiers, with blocking offline
+  adapter-contract and local Transformers/PEFT integration coverage plus a
+  manually triggered workflow that verifies immutable ESM-2, ChemBERTa, BERT,
+  and BiomedBERT revisions in frozen and LoRA modes and publishes structured
+  environment-aware reports. Foundation backbones may reserve unused embedding
+  rows beyond the tokenizer vocabulary, as required by the ChemBERTa reference
+  checkpoint, and tokenizer padding remains authoritative when model padding
+  metadata differs; undersized embedding tables remain rejected.
 - Opt-in memory and persistent entity-level caching for pooled frozen
   foundation-model outputs, with within-batch deduplication, bounded LRU
   storage, atomic disk entries, exact model/tokenizer and preprocessing

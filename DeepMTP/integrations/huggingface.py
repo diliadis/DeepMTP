@@ -632,25 +632,13 @@ class HuggingFaceSequenceEncoder(nn.Module):
         model_vocabulary_size = _model_vocabulary_size(backbone)
         if (
             model_vocabulary_size is not None
-            and model_vocabulary_size != vocabulary_size
+            and model_vocabulary_size < vocabulary_size
         ):
             raise ValueError(
-                "Foundation model vocabulary size does not match the configured "
-                f"SEQUENCE vocabulary: expected {model_vocabulary_size}, "
-                f"received {vocabulary_size}."
+                "Foundation model vocabulary capacity is smaller than the "
+                f"configured SEQUENCE vocabulary: model capacity "
+                f"{model_vocabulary_size}, received {vocabulary_size}."
             )
-        model_padding_idx = getattr(
-            getattr(backbone, "config", None),
-            "pad_token_id",
-            None,
-        )
-        if model_padding_idx is not None and model_padding_idx != padding_idx:
-            raise ValueError(
-                "Foundation model pad_token_id does not match the configured "
-                f"SEQUENCE padding_idx: expected {model_padding_idx}, "
-                f"received {padding_idx}."
-            )
-
         hidden_size = _positive_config_integer(
             getattr(backbone, "config", None),
             "hidden_size",

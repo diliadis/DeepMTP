@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "key": "esm2",
+      "domain": "protein",
+      "model_name": "facebook/esm2_t6_8M_UR50D",
+      "revision": "c731040fcd8d73dceaa04b0a8e6329b345b0f5df",
+      "samples": [
+        "MKTAYIAKQRQISFVKSHFSRQ",
+        "GILGFVFTLTVPSER"
+      ],
+      "max_length": 64,
+      "pooling": "masked_mean",
+      "lora_target_modules": [
+        "query",
+        "value"
+      ]
+    },
+    {
+      "key": "chemberta",
+      "domain": "chemical/SMILES",
+      "model_name": "DeepChem/ChemBERTa-77M-MLM",
+      "revision": "ed8a5374f2024ec8da53760af91a33fb8f6a15ff",
+      "samples": [
+        "CCO",
+        "CC(=O)Oc1ccccc1C(=O)O"
+      ],
+      "max_length": 64,
+      "pooling": "masked_mean",
+      "lora_target_modules": [
+        "query",
+        "value"
+      ]
+    },
+    {
+      "key": "bert",
+      "domain": "general text",
+      "model_name": "google-bert/bert-base-uncased",
+      "revision": "86b5e0934494bd15c9632b12f734a8a67f723594",
+      "samples": [
+        "DeepMTP learns from paired entities.",
+        "Foundation encoders provide sequence representations."
+      ],
+      "max_length": 64,
+      "pooling": "masked_mean",
+      "lora_target_modules": [
+        "query",
+        "value"
+      ]
+    },
+    {
+      "key": "biomedbert",
+      "domain": "biomedical text",
+      "model_name": "microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract-fulltext",
+      "revision": "e1354b7a3a09615f6aba48dfad4b7a613eef7062",
+      "samples": [
+        "The kinase inhibitor reduced cellular proliferation.",
+        "Protein expression was measured in tumor tissue."
+      ],
+      "max_length": 64,
+      "pooling": "masked_mean",
+      "lora_target_modules": [
+        "query",
+        "value"
+      ]
+    }
+  ]
+}

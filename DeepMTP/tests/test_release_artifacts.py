@@ -47,6 +47,7 @@ _REQUIRED_WHEEL_FILES = {
 }
 _REQUIRED_SDIST_FILES = {
     ".github/workflows/ci.yml",
+    ".github/workflows/foundation-compatibility.yml",
     ".github/workflows/publish.yml",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
@@ -61,6 +62,8 @@ _REQUIRED_SDIST_FILES = {
     "docs/source/index.rst",
     "pyproject.toml",
     "scripts/benchmark_foundation_cache.py",
+    "scripts/check_foundation_compatibility.py",
+    "scripts/foundation_compatibility_models.json",
     "scripts/smoke_test_installation.py",
     "scripts/smoke_test_optional_extras.py",
     "scripts/verify_release_artifacts.py",

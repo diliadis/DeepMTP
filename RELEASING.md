@@ -38,6 +38,9 @@ corresponding PyPI token.
 - Confirm user-visible breaking changes are explained in `MIGRATION.rst`.
 - Confirm installation commands, supported Python versions, optional extras,
   notebooks, and citations are current.
+- If foundation dependencies, the Hugging Face adapter, or documented reference
+  checkpoints changed, run the manual `foundation-compatibility.yml` workflow
+  for all four reference models and inspect every uploaded JSON report.
 - Confirm the release commit contains no credentials, private data, generated
   result directories, or large unintended artifacts.
 - Open a release pull request and require the complete CI workflow to pass.
