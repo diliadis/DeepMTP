@@ -17,6 +17,7 @@ model:
 
 .. automodule:: DeepMTP.integrations.huggingface
    :members:
+   :exclude-members: FoundationCacheSpec
    :undoc-members:
    :show-inheritance:
 

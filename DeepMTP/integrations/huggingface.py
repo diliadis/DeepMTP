@@ -14,8 +14,13 @@ from torch import nn
 
 from DeepMTP.data.batches import BranchInputKind, SequenceInput
 from DeepMTP.data.sequences import normalize_sequence_rows
+from DeepMTP.integrations.foundation_cache import (
+    FoundationCacheSpec,
+    FoundationOutputCache,
+)
 
 __all__ = [
+    "FoundationCacheSpec",
     "FoundationLoRASpec",
     "FoundationModelSpec",
     "HuggingFaceSequenceEncoder",
@@ -150,6 +155,7 @@ class FoundationModelSpec:
     resolved_model_revision: str | None = None
     resolved_tokenizer_revision: str | None = None
     lora: FoundationLoRASpec | Mapping[str, Any] | None = None
+    cache: FoundationCacheSpec | Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.model_name, str) or not self.model_name.strip():
@@ -184,10 +190,20 @@ class FoundationModelSpec:
         lora = (
             FoundationLoRASpec.from_config(self.lora) if self.lora is not None else None
         )
+        cache = (
+            FoundationCacheSpec.from_config(self.cache)
+            if self.cache is not None
+            else None
+        )
         if train_mode == "lora" and lora is None:
             raise ValueError("train_mode='lora' requires explicit lora settings.")
         if train_mode != "lora" and lora is not None:
             raise ValueError("lora settings require train_mode='lora'.")
+        if cache is not None and train_mode != "frozen":
+            raise ValueError(
+                "Foundation output caching requires train_mode='frozen' because "
+                "fine-tuned backbone representations change during training."
+            )
         for name in (
             "trust_remote_code",
             "local_files_only",
@@ -218,6 +234,7 @@ class FoundationModelSpec:
         object.__setattr__(self, "pooling", pooling)
         object.__setattr__(self, "train_mode", train_mode)
         object.__setattr__(self, "lora", lora)
+        object.__setattr__(self, "cache", cache)
         object.__setattr__(
             self,
             "pooling_excluded_token_ids",
@@ -272,6 +289,11 @@ class FoundationModelSpec:
             "lora": (
                 self.lora.to_dict()
                 if isinstance(self.lora, FoundationLoRASpec)
+                else None
+            ),
+            "cache": (
+                self.cache.to_dict()
+                if isinstance(self.cache, FoundationCacheSpec)
                 else None
             ),
             "trust_remote_code": self.trust_remote_code,
@@ -491,6 +513,41 @@ def _model_output(outputs: object, name: str) -> object:
     return getattr(outputs, name, None)
 
 
+def _module_dtype(module: nn.Module) -> torch.dtype:
+    for parameter in module.parameters():
+        if torch.is_floating_point(parameter):
+            return parameter.dtype
+    for buffer in module.buffers():
+        if torch.is_floating_point(buffer):
+            return buffer.dtype
+    return torch.get_default_dtype()
+
+
+def _foundation_cache_identity(
+    spec: FoundationModelSpec,
+    *,
+    vocabulary_size: int,
+    padding_idx: int,
+    hidden_size: int,
+) -> dict[str, Any]:
+    return {
+        "model_name": spec.model_name,
+        "model_revision": spec.resolved_model_revision,
+        "tokenizer_name": spec.tokenizer_name,
+        "tokenizer_revision": spec.resolved_tokenizer_revision,
+        "pooling": spec.pooling,
+        "max_length": spec.max_length,
+        "truncation": spec.truncation,
+        "exclude_special_tokens_from_pooling": (
+            spec.exclude_special_tokens_from_pooling
+        ),
+        "pooling_excluded_token_ids": list(spec.pooling_excluded_token_ids),
+        "vocabulary_size": vocabulary_size,
+        "padding_idx": padding_idx,
+        "hidden_size": hidden_size,
+    }
+
+
 def _validate_lora_target_modules(
     model: nn.Module,
     spec: FoundationLoRASpec,
@@ -618,10 +675,42 @@ class HuggingFaceSequenceEncoder(nn.Module):
         self.hidden_size = hidden_size
         self.backbone = backbone
         self.projection = nn.Linear(hidden_size, output_dim)
+        self._output_cache: FoundationOutputCache | None = None
 
         if self.spec.train_mode == "frozen":
             self.backbone.requires_grad_(False)
             self.backbone.eval()
+        if isinstance(self.spec.cache, FoundationCacheSpec):
+            if self.spec.cache.directory is not None:
+                missing_revisions = [
+                    name
+                    for name, value in {
+                        "resolved_model_revision": self.spec.resolved_model_revision,
+                        "resolved_tokenizer_revision": (
+                            self.spec.resolved_tokenizer_revision
+                        ),
+                    }.items()
+                    if value is None
+                ]
+                if missing_revisions:
+                    raise ValueError(
+                        "Persistent foundation output caching requires exact "
+                        "resolved revisions; missing "
+                        f"{', '.join(missing_revisions)}. Tokenize with "
+                        "tokenize_foundation_sequences() and use an immutable model "
+                        "revision before configuring a disk cache."
+                    )
+            self._output_cache = FoundationOutputCache(
+                self.spec.cache,
+                identity=_foundation_cache_identity(
+                    self.spec,
+                    vocabulary_size=vocabulary_size,
+                    padding_idx=padding_idx,
+                    hidden_size=hidden_size,
+                ),
+                hidden_size=hidden_size,
+                dtype=_module_dtype(self.backbone),
+            )
 
     def train(self, mode: bool = True) -> HuggingFaceSequenceEncoder:
         """Keep a frozen backbone deterministic while training its projection."""
@@ -681,6 +770,82 @@ class HuggingFaceSequenceEncoder(nn.Module):
             )
         return pooled
 
+    @property
+    def cache_stats(self) -> dict[str, Any]:
+        """JSON-compatible cache statistics for diagnostics and reporting."""
+
+        if self._output_cache is None:
+            return {"enabled": False}
+        return self._output_cache.stats()
+
+    def clear_cache(self, *, memory: bool = True, disk: bool = False) -> None:
+        """Clear this encoder's derived memory and optionally disk entries."""
+
+        if self._output_cache is not None:
+            self._output_cache.clear(memory=memory, disk=disk)
+
+    def _run_frozen_backbone(self, values: SequenceInput) -> torch.Tensor:
+        with torch.no_grad():
+            outputs = self.backbone(
+                input_ids=values.token_ids.long(),
+                attention_mask=values.attention_mask.long(),
+            )
+            return self._pool(outputs, values)
+
+    def _cached_pool(self, values: SequenceInput) -> torch.Tensor:
+        cache = self._output_cache
+        if cache is None:  # pragma: no cover - caller invariant
+            raise RuntimeError("Foundation output cache is not configured.")
+
+        lengths = values.lengths.detach().cpu().tolist()
+        token_ids_cpu = values.token_ids.detach().cpu()
+        keys: list[str] = []
+        key_to_index: dict[str, int] = {}
+        pooled_by_key: dict[str, torch.Tensor] = {}
+        for index, raw_length in enumerate(lengths):
+            length = int(raw_length)
+            key = cache.key_for_tokens(token_ids_cpu[index, :length])
+            keys.append(key)
+            if key in key_to_index or key in pooled_by_key:
+                continue
+            cached = cache.get(key)
+            if cached is None:
+                key_to_index[key] = index
+            else:
+                pooled_by_key[key] = cached
+
+        if key_to_index:
+            miss_indices = torch.tensor(
+                list(key_to_index.values()),
+                device=values.token_ids.device,
+                dtype=torch.long,
+            )
+            miss_lengths = values.lengths.index_select(0, miss_indices)
+            miss_width = int(miss_lengths.max())
+            missing_values = SequenceInput(
+                token_ids=values.token_ids.index_select(0, miss_indices)[
+                    :, :miss_width
+                ],
+                attention_mask=values.attention_mask.index_select(0, miss_indices)[
+                    :, :miss_width
+                ],
+                lengths=miss_lengths,
+                padding_idx=values.padding_idx,
+            )
+            missing_pooled = self._run_frozen_backbone(missing_values)
+            for key, pooled in zip(
+                key_to_index,
+                missing_pooled,
+                strict=True,
+            ):
+                cpu_pooled = pooled.detach().cpu()
+                cache.put(key, cpu_pooled)
+                pooled_by_key[key] = cpu_pooled
+
+        return torch.stack([pooled_by_key[key] for key in keys]).to(
+            device=values.token_ids.device,
+        )
+
     def forward(self, values: SequenceInput) -> torch.Tensor:
         if not isinstance(values, SequenceInput):
             raise TypeError("HuggingFaceSequenceEncoder expects a SequenceInput.")
@@ -698,11 +863,16 @@ class HuggingFaceSequenceEncoder(nn.Module):
                 f"vocabulary [0, {self.vocabulary_size})."
             )
 
-        context = torch.no_grad() if self.spec.train_mode == "frozen" else nullcontext()
-        with context:
-            outputs = self.backbone(
-                input_ids=token_ids,
-                attention_mask=values.attention_mask.long(),
+        if self._output_cache is not None:
+            pooled = self._cached_pool(values)
+        else:
+            context = (
+                torch.no_grad() if self.spec.train_mode == "frozen" else nullcontext()
             )
-            pooled = self._pool(outputs, values)
+            with context:
+                outputs = self.backbone(
+                    input_ids=token_ids,
+                    attention_mask=values.attention_mask.long(),
+                )
+                pooled = self._pool(outputs, values)
         return self.projection(pooled)

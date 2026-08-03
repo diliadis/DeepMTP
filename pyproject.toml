@@ -179,6 +179,7 @@ files = [
     "DeepMTP/evaluation_progress.py",
     "DeepMTP/feature_data.py",
     "DeepMTP/integrations/__init__.py",
+    "DeepMTP/integrations/foundation_cache.py",
     "DeepMTP/integrations/huggingface.py",
     "DeepMTP/integrations/streamlit/__init__.py",
     "DeepMTP/integrations/streamlit/hpo.py",

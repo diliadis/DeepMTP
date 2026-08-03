@@ -17,6 +17,11 @@ by their effect on users and maintainers.
 
 ### Added
 
+- Opt-in memory and persistent entity-level caching for pooled frozen
+  foundation-model outputs, with within-batch deduplication, bounded LRU
+  storage, atomic disk entries, exact model/tokenizer and preprocessing
+  identities, strict stale/corrupt-entry rejection, cache diagnostics and
+  clearing, composite-branch support, and unchanged trainable projections.
 - Semantic architecture inspection with responsive Rich terminal diagrams,
   dependency-free plain-text fallback, exact trainable and frozen parameter
   counts for instantiated models, JSON output, SVG export, and a new

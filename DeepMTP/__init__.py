@@ -39,6 +39,7 @@ from DeepMTP.hpo.progress import (
     NullHPOProgressObserver,
 )
 from DeepMTP.integrations.huggingface import (
+    FoundationCacheSpec,
     FoundationLoRASpec,
     FoundationModelSpec,
     HuggingFaceSequenceEncoder,
@@ -128,6 +129,7 @@ __all__ = [
     "NullHPOProgressObserver",
     "IDEmbedding",
     "GraphEncoder",
+    "FoundationCacheSpec",
     "FoundationLoRASpec",
     "FoundationModelSpec",
     "HuggingFaceSequenceEncoder",

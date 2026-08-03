@@ -110,6 +110,29 @@ def test_description_expands_composite_foundation_and_attention_settings():
     assert description.fusion.details == ("layers: 56 → 32 → 16 → 1",)
 
 
+def test_description_shows_foundation_cache_storage():
+    config = make_config(
+        instance_branch_architecture="SEQUENCE",
+        instance_branch_input_dim=33,
+        instance_branch_sequence_encoder="foundation",
+        instance_branch_sequence_output_dim=8,
+        instance_branch_foundation_model={
+            "model_name": "example/protein-model",
+            "train_mode": "frozen",
+            "cache": {
+                "directory": "./foundation-cache",
+                "memory_capacity": 128,
+            },
+        },
+    )
+
+    description = describe_architecture(config)
+
+    assert "cache: memory + disk, 128 memory entries" in (
+        description.instance_branch.details
+    )
+
+
 def test_dot_product_width_mismatch_is_visible_before_model_construction():
     config = make_config(
         instance_branch_architecture="COMPOSITE",

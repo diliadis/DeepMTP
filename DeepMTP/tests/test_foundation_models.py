@@ -7,6 +7,7 @@ from torch import nn
 
 from DeepMTP import (
     DeepMTPConfig,
+    FoundationCacheSpec,
     FoundationLoRASpec,
     FoundationModelSpec,
     HuggingFaceSequenceEncoder,
@@ -743,6 +744,47 @@ def test_composite_branch_supports_a_foundation_component(monkeypatch, train_mod
         ]
         == "model-commit"
     )
+
+
+def test_composite_branch_reuses_cached_foundation_outputs(monkeypatch):
+    backbone = FakeBackbone()
+    monkeypatch.setattr(
+        huggingface,
+        "_load_huggingface_model",
+        lambda _spec: backbone,
+    )
+    config = make_config(
+        general_architecture_version="mlp",
+        instance_branch_architecture="COMPOSITE",
+        instance_branch_composite_components={
+            "descriptors": {
+                "architecture": "MLP",
+                "input_dim": 2,
+                "output_dim": 2,
+                "nodes_per_layer": [2],
+            },
+            "tokens": {
+                "architecture": "SEQUENCE",
+                "input_dim": 8,
+                "output_dim": 3,
+                "encoder": "foundation",
+                "padding_idx": 0,
+                "foundation_model": make_spec(
+                    cache=FoundationCacheSpec(memory_capacity=8)
+                ).to_dict(),
+            },
+        },
+        comb_mlp_nodes_per_layer=[3],
+    )
+
+    bundle = ModelFactory(config).build()
+    component = bundle.instance_branch.component_encoders["tokens"]
+    component(make_sequence_input())
+    component(make_sequence_input())
+
+    assert isinstance(component, HuggingFaceSequenceEncoder)
+    assert backbone.forward_training_modes == [False]
+    assert component.cache_stats["memory_hits"] == 2
 
 
 def test_foundation_encoder_rejects_model_vocabulary_mismatch(monkeypatch):

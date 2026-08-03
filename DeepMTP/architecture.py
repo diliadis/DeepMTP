@@ -14,7 +14,11 @@ from typing import Any, Literal, TextIO
 from torch import nn
 
 from DeepMTP.config import DeepMTPConfig
-from DeepMTP.integrations.huggingface import FoundationLoRASpec, FoundationModelSpec
+from DeepMTP.integrations.huggingface import (
+    FoundationCacheSpec,
+    FoundationLoRASpec,
+    FoundationModelSpec,
+)
 
 __all__ = [
     "ArchitectureBranch",
@@ -126,6 +130,10 @@ def _foundation_details(raw_spec: Mapping[str, Any]) -> tuple[str, ...]:
         details.append(
             f"LoRA: rank {lora.rank}, alpha {lora.alpha:g}, targets [{targets}]"
         )
+    if spec.cache is not None:
+        cache = FoundationCacheSpec.from_config(spec.cache)
+        storage = "memory + disk" if cache.directory is not None else "memory"
+        details.append(f"cache: {storage}, {cache.memory_capacity:,} memory entries")
     return tuple(details)
 
 
