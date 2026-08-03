@@ -221,6 +221,7 @@ def test_compatibility_workflow_is_manual_network_isolated_and_uploads_reports()
         Path(__file__).resolve().parents[2]
         / ".github/workflows/foundation-compatibility.yml"
     ).read_text(encoding="utf-8")
+    workflow_scope, _jobs = workflow.split("\njobs:", maxsplit=1)
 
     assert "workflow_dispatch:" in workflow
     assert "pull_request:" not in workflow
@@ -228,6 +229,8 @@ def test_compatibility_workflow_is_manual_network_isolated_and_uploads_reports()
     assert "permissions:\n  contents: read" in workflow
     assert 'HF_HUB_DISABLE_TELEMETRY: "1"' in workflow
     assert 'HF_HUB_DISABLE_IMPLICIT_TOKEN: "1"' in workflow
+    assert "runner." not in workflow_scope
+    assert "HF_HOME: ${{ runner.temp }}/huggingface" in workflow
     assert "scripts/check_foundation_compatibility.py" in workflow
     assert "actions/upload-artifact@" in workflow
     assert "if: always()" in workflow
